@@ -1,0 +1,1 @@
+import { PageHeader } from "@/components/layout/PageHeader";import { KnowledgeBaseGrid } from "@/components/modules/KnowledgeBaseGrid";export default function Page(){return <main className="page-container"><PageHeader title="Staff Knowledge Base" description="Internal and customer-facing support articles."/><KnowledgeBaseGrid /></main>}

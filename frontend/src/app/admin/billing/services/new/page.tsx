@@ -1,0 +1,3 @@
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ResourceEditor } from "@/components/modules/ResourceEditor";
+export default function Page(){return <main className="page-container"><PageHeader title="New service" description="Create or edit data. This is frontend-ready for backend API persistence." /><ResourceEditor title="New service" backHref="/admin/billing/services" fields={[{ label: "Client", placeholder: "Enter client" }, { label: "Amount", placeholder: "Enter amount" }, { label: "Currency", placeholder: "Enter currency" }, { label: "Status", placeholder: "Enter status" }, { label: "Notes", placeholder: "Enter notes" }]} /></main>}

@@ -1,0 +1,18 @@
+{
+  "name": "octalve-console",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Octalve Console workspace for hosting automation, billing, domains, support, gateways and provider adapters.",
+  "scripts": {
+    "dev:frontend": "pnpm --filter octalve-console-frontend dev",
+    "build:frontend": "pnpm --filter octalve-console-frontend build",
+    "start:frontend": "pnpm --filter octalve-console-frontend start",
+    "typecheck:frontend": "pnpm --filter octalve-console-frontend typecheck"
+  },
+  "workspaces": [
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
