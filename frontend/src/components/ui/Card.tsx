@@ -1,21 +1,23 @@
-import type { ReactNode } from "react";
+﻿import type { HTMLAttributes, ReactNode } from "react";
 
-export function Card({ children, padded = false }: { children: ReactNode; padded?: boolean }) {
-  return <section className={padded ? "card pad" : "card"}>{children}</section>;
-}
+type CardProps = HTMLAttributes<HTMLDivElement> & {
+  children: ReactNode;
+  padded?: boolean;
+};
 
-export function CardHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+export function Card({
+  children,
+  padded = false,
+  className = "",
+  ...props
+}: CardProps) {
+  const classes = ["card", padded ? "pad" : "", className]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className="card-header">
-      <div>
-        <h2 className="card-title">{title}</h2>
-        {subtitle ? <div className="card-sub">{subtitle}</div> : null}
-      </div>
-      {action}
+    <div className={classes} {...props}>
+      {children}
     </div>
   );
-}
-
-export function CardBody({ children }: { children: ReactNode }) {
-  return <div className="card-body">{children}</div>;
 }

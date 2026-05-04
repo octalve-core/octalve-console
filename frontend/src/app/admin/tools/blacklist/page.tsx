@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { Button } from "@/components/ui/Button";import { Card } from "@/components/ui/Card";import { FormField } from "@/components/ui/FormField";export default function Page(){return <main className="page-container"><PageHeader title="Blacklist" description="Block suspicious IP addresses, email domains, clients or CIDR rules." actions={<Button>+ Add</Button>}/><Card padded><div className="form-grid"><FormField label="Name / Rule" placeholder="Enter value"/><FormField label="Status" as="select" options={['Active','Inactive','Pending']}/><FormField label="Notes" as="textarea" placeholder="Operational notes"/></div><div className="page-actions" style={{marginTop:18}}><Button>Save</Button></div></Card></main>}
+﻿import { AdminToolPage } from "@/components/modules/AdminToolPage";
+
+export default function Page() {
+  return <AdminToolPage tool="blacklist" />;
+}

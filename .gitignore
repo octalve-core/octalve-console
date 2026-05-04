@@ -47,3 +47,71 @@ Thumbs.db
 .vscode/
 .idea/
 "@ | Set-Content -Encoding UTF8 .gitignore
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js / build output
+.next/
+out/
+dist/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+*.bak
+*.tmp
+*.swp
+typecheck-errors*.txt
+final-polish-typecheck.txt
+project-structure.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local generated files
+backups/
+frontend-before-*/
+*typecheck*.txt
+typecheck-errors*.txt
+phase-*.txt
+pending-fixes*.txt
+auth-api-inspection.txt
+fix-card-typecheck.txt
+octalve-*.txt
+project-important-files.txt
+*.bak
+*.bak.*
+*.tmp
+*.swp
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js / build output
+.next/
+out/
+dist/
+.vercel/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
