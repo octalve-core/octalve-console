@@ -16,6 +16,10 @@ from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+from datetime import timedelta
+
+import os
+from datetime import timedelta
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -32,6 +36,7 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
+    'django.contrib.sites',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,10 +49,17 @@ INSTALLED_APPS = [
 
     # Third-party
     'rest_framework',
+    'rest_framework_simplejwt',
     'djoser',
-    "corsheaders",
+    'corsheaders',
+    'drf_spectacular',
+    'drf_spectacular_sidecar',
 
 ]
+
+# For Django 4.0+
+SITE_ID = 1
+
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -131,43 +143,110 @@ STATIC_URL = 'static/'
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # Use this for development to see the links in your console
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Email configuration - Save emails to file instead of console
+EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
 
 
-# Djoser Settings
+# Djoser Settings - Updated for frontend URLs
 DJOSER = {
     'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,
     'SERIALIZERS': {
-        'user_create': 'accounts.serializers.UserCreateSerializer',
-        'user': 'accounts.serializers.CustomUserSerializer',
-        'current_user': 'accounts.serializers.CustomUserSerializer',
-        # Added this so deletion/updates also respect your custom model fields
-        'user_delete': 'djoser.serializers.UserDeleteSerializer', 
+        # 'user_create': 'accounts.serializers.CustomUserCreateSerializer',
+        # 'user': 'accounts.serializers.CustomUserSerializer',
+        # 'current_user': 'accounts.serializers.CustomUserSerializer',
+        # 'user_delete': 'djoser.serializers.UserDeleteSerializer',
+
+        "activation": "djoser.serializers.ActivationSerializer",
+        "password_reset": "djoser.serializers.PasswordResetSerializer",
+        "password_reset_confirm": "djoser.serializers.PasswordResetConfirmSerializer",
+        "password_change": "djoser.serializers.PasswordChangeSerializer",
+        "set_password": "djoser.serializers.SetPasswordSerializer",
+        "set_username": "djoser.serializers.SetUsernameSerializer",
+        "username_reset": "djoser.serializers.UsernameResetSerializer",
+        "username_reset_confirm": "djoser.serializers.UsernameResetConfirmSerializer",
+        
+        # 'user_create': 'accounts.serializers.CustomUserCreateSerializer',
+        "user_create": "djoser.serializers.UserCreateSerializer",
+        
+        "user": "djoser.serializers.UserSerializer",
+        "current_user": "djoser.serializers.UserSerializer",
+        "token": "djoser.serializers.TokenSerializer",
+
+        "token_create": "djoser.serializers.TokenCreateSerializer",
+
+        # "token_create": "accounts.serializers.CustomTokenCreateSerializer",
+
     },
     'PERMISSIONS': {
-        # Standard Djoser permissions usually look like this:
         'user_create': ['rest_framework.permissions.AllowAny'],
         'user': ['rest_framework.permissions.IsAuthenticated'],
         'user_list': ['rest_framework.permissions.IsAdminUser'],
     },
     'SEND_ACTIVATION_EMAIL': False,
-    # Since you want password reset to work later:
-    'PASSWORD_RESET_CONFIRM_URL': 'password-reset/{uid}/{token}',
+    'SEND_CONFIRMATION_EMAIL': True,  # Send email when user changes email
+    
+    'PASSWORD_RESET_CONFIRM_URL': 'reset-password/confirm/{uid}/{token}',  # Frontend URL path
+    'USERNAME_RESET_CONFIRM_URL': 'username-reset/confirm/{uid}/{token}',
     'ACTIVATION_URL': 'activate/{uid}/{token}',
+    
+    'PASSWORD_RESET_SHOW_EMAIL_NOT_FOUND': True,  # Don't reveal if email exists (security)
+    'PASSWORD_RESET_CONFIRM_RETYPE': True,  # Require password confirmation
+    'SET_PASSWORD_RETYPE': True,
+
+    # Email settings - Configure these for production
+    # 'EMAIL': {
+        # 'password_reset': 'accounts.email.CustomPasswordResetEmail',
+        # 'password_changed_confirmation': 'accounts.email.PasswordChangedConfirmationEmail',
+        # 'username_changed_confirmation': 'accounts.email.UsernameChangedConfirmationEmail',
+        # 'username_reset': 'accounts.email.UsernameResetEmail',
+    # },
 }
 
+
+# REST Framework Settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer', 
+        'rest_framework.renderers.BrowsableAPIRenderer', 
+    ),
 }
 
 
+# Simple JWT Settings
 SIMPLE_JWT = {
-   'AUTH_HEADER_TYPES': ('JWT',),
+    'AUTH_HEADER_TYPES': ('JWT', 'Bearer'),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,  # Give new refresh token on refresh
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'JTI_CLAIM': 'jti',
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
-
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -176,4 +255,40 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Frontend URL - IMPORTANT: This should be your frontend base URL
+FRONTEND_URL = config("FRONTEND_URL") 
+
+# Optional: Domain for password reset links
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour timeout for password reset links
+
+# DRF Spectacular Settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Octalve API',
+    'DESCRIPTION': 'API documentation for Octalve - Complete authentication system with JWT, password reset, and user management',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,  # Keep JWT token after page refresh
+        'displayRequestDuration': True,
+        'filter': True,  # Enable filtering of endpoints
+    },
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'SECURITY': [
+        {'JWT': []},
+    ],
+    'SECURITY_DEFINITIONS': {
+        'JWT': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': 'JWT Token authentication. Format: JWT <your_token>',
+        },
+    },
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+    ],
+}
 

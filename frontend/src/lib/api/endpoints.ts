@@ -1,4 +1,6 @@
-﻿import { api } from "./client";
+﻿// src/lib/api/endpoints.ts
+
+import { api } from "./client";
 import type {
   ApiKeyPayload,
   AuditLog,
@@ -35,10 +37,17 @@ const byId = (base: string, id: string) => `${base}/${encodeURIComponent(id)}/`;
 
 export const apiPaths = {
   auth: {
-    login: "/auth/login/",
-    signup: "/auth/signup/",
-    logout: "/auth/logout/",
-    me: "/auth/me/"
+    // Djoser endpoints - CORRECTED
+    login: "/auth/jwt/create/", 
+    // signup: "/auth/users/",  
+    signup: "/auth/register/",  
+    logout: "/auth/logout/", 
+    me: "/auth/users/me/",      
+    refresh: "/auth/jwt/refresh/",
+    verify: "/auth/jwt/verify/", 
+    resetPassword: "/auth/users/reset_password/",         
+    resetPasswordConfirm: "/auth/users/reset_password_confirm/",
+    setPassword: "/auth/users/set_password/",     
   },
 
   public: {
@@ -86,7 +95,23 @@ export const authApi = {
   },
 
   signup(payload: SignupPayload) {
-    return api.post<AuthSession>(apiPaths.auth.signup, payload, { skipAuth: true });
+    // return api.post<AuthSession>(apiPaths.auth.signup, payload, { skipAuth: true });
+    
+    // Transform signup payload to match Django's expected format
+    const signupData = {
+      full_name: payload.full_name,
+      email: payload.email,
+      username: payload.email.split('@')[0], // Generate username from email if not provided
+      phone_number: payload.phone || "",
+      referral_code: payload.referral_code || "",
+      password: payload.password,
+      re_password: payload.password, 
+    };
+    return api.post<{ email: string; id: number; username: string }>(
+      apiPaths.auth.signup, 
+      signupData, 
+      { skipAuth: true }
+    );
   },
 
   logout() {
@@ -95,7 +120,43 @@ export const authApi = {
 
   me() {
     return api.get<User>(apiPaths.auth.me);
+  },
+
+  refreshToken(refreshToken: string) {
+    return api.post<{ access: string }>(apiPaths.auth.refresh, { refresh: refreshToken });
+  },
+
+  requestPasswordReset(email: string) {
+    return api.post(apiPaths.auth.resetPassword, { email }, { skipAuth: true });
+  },
+
+  confirmPasswordReset(uid: string, token: string, newPassword: string) {
+    const payload = {
+      uid: String(uid).trim(),
+      token: String(token).trim(),
+      new_password: String(newPassword),
+      re_new_password: String(newPassword)
+    };
+    
+    console.log("API sending payload:", payload);
+
+    return api.post(apiPaths.auth.resetPasswordConfirm, {
+      // uid,
+      // token,
+      // new_password: newPassword,
+      // re_new_password: newPassword
+      payload,
+    }, { skipAuth: true });
+  },
+
+  changePassword(currentPassword: string, newPassword: string) {
+    return api.post(apiPaths.auth.setPassword, {
+      current_password: currentPassword,
+      new_password: newPassword,
+      re_new_password: newPassword
+    });
   }
+
 };
 
 export const publicApi = {

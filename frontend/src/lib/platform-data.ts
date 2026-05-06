@@ -1,3 +1,4 @@
+// src/lib/platform-data.ts
 export type StatusTone = "green" | "orange" | "red" | "dark";
 
 export const adapters = [

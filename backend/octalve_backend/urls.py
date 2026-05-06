@@ -16,9 +16,41 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, re_path, include
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenVerifyView,
+)
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularSwaggerView,
+    SpectacularRedocView,
+)
+from accounts.views import CustomTokenObtainPairView
+from django.views.generic import RedirectView
 
 urlpatterns = [
+    # Admin
     path('admin/', admin.site.urls),
-
+    
+    # API Schema & Documentation
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    
+    # Djoser Authentication Endpoints
     re_path(r'^api/auth/', include('djoser.urls')),
+    re_path(r'^api/auth/', include('djoser.urls.jwt')),  # JWT endpoints through djoser
+    
+    # JWT Custom Endpoints (if using custom views)
+    # path('api/auth/jwt/create/', CustomTokenObtainPairView.as_view(), name='jwt-create'),
+    # path('api/auth/jwt/refresh/', TokenRefreshView.as_view(), name='jwt-refresh'),
+    # path('api/auth/jwt/verify/', TokenVerifyView.as_view(), name='jwt-verify'),
+    
+    # Custom JWT endpoints (override djoser's jwt endpoints)
+    path('api/auth/', include('accounts.urls')),
+
+    # Optional: Redirect root to API docs
+    path('', RedirectView.as_view(url='/api/docs/', permanent=False)),
 ]
+

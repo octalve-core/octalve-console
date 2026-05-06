@@ -1,3 +1,4 @@
+// src/components/modules/client/ClientPromoCarousel.tsx
 "use client";
 
 import Link from "next/link";

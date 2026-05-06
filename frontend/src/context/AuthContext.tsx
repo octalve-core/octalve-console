@@ -1,4 +1,5 @@
-﻿"use client";
+﻿// src/context/AuthnContext.tsx
+"use client";
 
 import {
   createContext,
@@ -93,6 +94,8 @@ function storeSession(session: AuthSession) {
 }
 
 function createDemoLoginSession(payload: LoginPayload): AuthSession | null {
+  // const email = payload.email.trim().toLowerCase();
+
   const email = payload.email.trim().toLowerCase();
 
   const record = demoUsers.find(
@@ -181,17 +184,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // const signup = useCallback(async (payload: SignupPayload) => {
+  //   try {
+  //     const session = await authApi.signup(payload);
+  //     storeSession(session);
+  //     setUser(session.user);
+  //     return session;
+  //   } catch {
+  //     const demoSession = createDemoSignupSession(payload);
+  //     storeSession(demoSession);
+  //     setUser(demoSession.user);
+  //     return demoSession;
+  //   }
+  // }, []);
+
+
+  
   const signup = useCallback(async (payload: SignupPayload) => {
     try {
-      const session = await authApi.signup(payload);
-      storeSession(session);
-      setUser(session.user);
-      return session;
-    } catch {
-      const demoSession = createDemoSignupSession(payload);
-      storeSession(demoSession);
-      setUser(demoSession.user);
-      return demoSession;
+      // Register the user
+      await authApi.signup(payload);
+      
+      // After successful registration, log them in
+      const loginSession = await authApi.login({
+        e: payload.email,
+        password: payload.password
+      });
+      
+      const transformedUser = loginSession.user?.full_name 
+        ? transformUserFromDjango(loginSession.user)
+        : loginSession.user;
+      
+      const authSession: AuthSession = {
+        ...loginSession,
+        user: transformedUser
+      };
+      
+      storeSession(authSession);
+      setUser(transformedUser);
+      return authSession;
+    } catch (error) {
+      console.error("Signup error:", error);
+      throw error;
     }
   }, []);
 

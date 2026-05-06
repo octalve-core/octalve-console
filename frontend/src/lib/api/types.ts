@@ -1,4 +1,6 @@
-﻿export type ID = string;
+﻿// src/lib/api/types.ts
+
+export type ID = string;
 
 export type UserRole = "admin" | "staff" | "client";
 
@@ -39,8 +41,24 @@ export type AuthSession = {
   user: User;
 };
 
-export type LoginPayload = {
+export interface User {
+  id: string | number;
+  name?: string;
+  full_name?: string;
   email: string;
+  username?: string;
+  role: UserRole;
+  phone_number?: string;
+  referral_code?: string;
+  is_staff?: boolean;
+  is_active?: boolean;
+  date_joined?: string;
+  last_login?: string;
+}
+
+export type LoginPayload = {
+  // email: string;
+  email: string;  
   password: string;
 };
 

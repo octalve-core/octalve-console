@@ -11,7 +11,7 @@ export function LoginForm() {
   const router = useRouter();
   const { login } = useAuth();
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(""); // Changed to support both email and username
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -22,11 +22,18 @@ export function LoginForm() {
     setIsSubmitting(true);
 
     try {
-      const session = await login({ email, password });
+      const session = await login({ 
+        email, 
+        password 
+      });
       router.push(getRoleDashboard(session.user.role));
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message);
+        // Extract specific error message from Django response if available
+        const errorMessage = typeof err.payload === 'object' && err.payload !== null
+          ? (err.payload as any).detail || (err.payload as any).non_field_errors?.[0] || err.message
+          : err.message;
+        setError(errorMessage);
       } else {
         setError("Unable to log in. Please confirm your backend is running and your details are correct.");
       }
@@ -38,11 +45,11 @@ export function LoginForm() {
   return (
     <form className="grid" onSubmit={handleSubmit}>
       <label className="form-field">
-        <span className="form-label">Email address</span>
+        <span className="form-label">Email Address</span> {/* Updated label */}
         <input
           className="input"
-          type="email"
-          placeholder="you@example.com"
+          type="text" // Changed from "email" to "text" to accept username
+          placeholder="example@example.com"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           required
@@ -62,7 +69,9 @@ export function LoginForm() {
       </label>
 
       {error ? (
-        <div className="alert error-alert">{error}</div>
+        <div className="alert error-alert" style={{ color: 'red', padding: '10px', backgroundColor: '#fee2e2', borderRadius: '8px', marginBottom: '16px' }}>
+          {error}
+        </div>
       ) : null}
 
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", color: "#64748b", fontSize: 14 }}>
@@ -72,7 +81,9 @@ export function LoginForm() {
         <Link className="text-link" href="/forgot-password">Forgot password?</Link>
       </div>
 
-      <Button type="submit">{isSubmitting ? "Logging in..." : "Log in"}</Button>
+      <Button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? "Logging in..." : "Log in"}
+      </Button>
 
       <p style={{ textAlign: "center", margin: 0, color: "#64748b" }}>
         No account? <Link className="text-link" href="/signup">Create account</Link>
