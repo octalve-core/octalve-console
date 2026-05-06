@@ -55,6 +55,8 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'drf_spectacular_sidecar',
 
+    'drf_excel_export',
+
 ]
 
 # For Django 4.0+
