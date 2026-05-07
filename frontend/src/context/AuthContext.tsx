@@ -1,5 +1,4 @@
-﻿// src/context/AuthnContext.tsx
-"use client";
+﻿"use client";
 
 import {
   createContext,
@@ -8,11 +7,18 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ReactNode
+  type ReactNode,
 } from "react";
 import { authApi } from "@/lib/api/endpoints";
 import { tokenStorage } from "@/lib/api/client";
-import type { AuthSession, LoginPayload, SignupPayload, User, UserRole } from "@/lib/api/types";
+import type {
+  AuthSession,
+  AuthTokenResponse,
+  LoginPayload,
+  SignupPayload,
+  User,
+  UserRole,
+} from "@/lib/api/types";
 
 type AuthContextValue = {
   user: User | null;
@@ -22,6 +28,21 @@ type AuthContextValue = {
   signup: (payload: SignupPayload) => Promise<AuthSession>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<User | null>;
+};
+
+type BackendUser = Partial<Omit<User, "id" | "role">> & {
+  id?: string | number;
+  role?: UserRole | string | null;
+  full_name?: string | null;
+  is_staff?: boolean;
+  is_superuser?: boolean;
+};
+
+type UserFallback = {
+  id?: string;
+  name?: string;
+  email?: string;
+  role?: UserRole;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -36,8 +57,8 @@ const demoUsers: Array<{ email: string; password: string; user: User }> = [
       id: "demo-admin",
       name: "Octalve Admin",
       email: "admin@octalve.cloud",
-      role: "admin"
-    }
+      role: "admin",
+    },
   },
   {
     email: "staff@octalve.cloud",
@@ -46,8 +67,8 @@ const demoUsers: Array<{ email: string; password: string; user: User }> = [
       id: "demo-staff",
       name: "Octalve Staff",
       email: "staff@octalve.cloud",
-      role: "staff"
-    }
+      role: "staff",
+    },
   },
   {
     email: "client@octalve.cloud",
@@ -56,9 +77,9 @@ const demoUsers: Array<{ email: string; password: string; user: User }> = [
       id: "demo-client",
       name: "Octalve Client",
       email: "client@octalve.cloud",
-      role: "client"
-    }
-  }
+      role: "client",
+    },
+  },
 ];
 
 export function getRoleDashboard(role?: UserRole | string | null) {
@@ -89,17 +110,83 @@ function clearLocalUser() {
 }
 
 function storeSession(session: AuthSession) {
-  tokenStorage.setTokens(session.access, session.refresh);
+  tokenStorage.setTokens(session.access, session.refresh ?? "");
   saveLocalUser(session.user);
 }
 
-function createDemoLoginSession(payload: LoginPayload): AuthSession | null {
-  // const email = payload.email.trim().toLowerCase();
+function normalizeUserRole(
+  role?: UserRole | string | null,
+  isStaff?: boolean,
+  isSuperuser?: boolean,
+): UserRole {
+  const normalizedRole = String(role ?? "").toLowerCase();
 
+  if (normalizedRole === "admin") return "admin";
+  if (normalizedRole === "staff") return "staff";
+  if (normalizedRole === "client") return "client";
+
+  if (isSuperuser) return "admin";
+  if (isStaff) return "staff";
+
+  return "client";
+}
+
+function normalizeUser(
+  user: BackendUser | User | null | undefined,
+  fallback: UserFallback = {},
+): User {
+  const backendUser = user as BackendUser | undefined;
+  const email = backendUser?.email ?? fallback.email ?? "";
+
+  return {
+    id: String(backendUser?.id ?? fallback.id ?? email ?? "octalve-user"),
+    name:
+      backendUser?.name ??
+      backendUser?.full_name ??
+      fallback.name ??
+      email ??
+      "Octalve User",
+    email,
+    role: normalizeUserRole(
+      backendUser?.role,
+      backendUser?.is_staff,
+      backendUser?.is_superuser,
+    ),
+    avatar_url: backendUser?.avatar_url ?? null,
+    full_name: backendUser?.full_name ?? backendUser?.name ?? fallback.name,
+    username: backendUser?.username,
+    phone_number: backendUser?.phone_number,
+    referral_code: backendUser?.referral_code,
+    is_staff: backendUser?.is_staff,
+    is_superuser: backendUser?.is_superuser,
+    is_active: backendUser?.is_active,
+    date_joined: backendUser?.date_joined,
+    last_login: backendUser?.last_login,
+  };
+}
+
+async function resolveLoginSession(
+  loginResponse: AuthTokenResponse,
+  fallback: UserFallback = {},
+): Promise<AuthSession> {
+  tokenStorage.setTokens(loginResponse.access, loginResponse.refresh ?? "");
+
+  const resolvedUser = loginResponse.user
+    ? normalizeUser(loginResponse.user, fallback)
+    : normalizeUser(await authApi.me(), fallback);
+
+  return {
+    access: loginResponse.access,
+    refresh: loginResponse.refresh,
+    user: resolvedUser,
+  };
+}
+
+function createDemoLoginSession(payload: LoginPayload): AuthSession | null {
   const email = payload.email.trim().toLowerCase();
 
   const record = demoUsers.find(
-    (item) => item.email === email && item.password === payload.password
+    (item) => item.email === email && item.password === payload.password,
   );
 
   if (!record) return null;
@@ -107,22 +194,7 @@ function createDemoLoginSession(payload: LoginPayload): AuthSession | null {
   return {
     access: `demo-access-${record.user.role}`,
     refresh: `demo-refresh-${record.user.role}`,
-    user: record.user
-  };
-}
-
-function createDemoSignupSession(payload: SignupPayload): AuthSession {
-  const user: User = {
-    id: "demo-client-new",
-    name: payload.full_name,
-    email: payload.email,
-    role: "client"
-  };
-
-  return {
-    access: "demo-access-client",
-    refresh: "demo-refresh-client",
-    user
+    user: record.user,
   };
 }
 
@@ -147,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const currentUser = await authApi.me();
+      const currentUser = normalizeUser(await authApi.me());
       setUser(currentUser);
       saveLocalUser(currentUser);
       return currentUser;
@@ -167,7 +239,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (payload: LoginPayload) => {
     try {
-      const session = await authApi.login(payload);
+      const loginResponse = await authApi.login(payload);
+      const session = await resolveLoginSession(loginResponse, {
+        email: payload.email,
+      });
+
       storeSession(session);
       setUser(session.user);
       return session;
@@ -184,47 +260,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // const signup = useCallback(async (payload: SignupPayload) => {
-  //   try {
-  //     const session = await authApi.signup(payload);
-  //     storeSession(session);
-  //     setUser(session.user);
-  //     return session;
-  //   } catch {
-  //     const demoSession = createDemoSignupSession(payload);
-  //     storeSession(demoSession);
-  //     setUser(demoSession.user);
-  //     return demoSession;
-  //   }
-  // }, []);
-
-
-  
   const signup = useCallback(async (payload: SignupPayload) => {
     try {
-      // Register the user
       await authApi.signup(payload);
-      
-      // After successful registration, log them in
-      const loginSession = await authApi.login({
-        e: payload.email,
-        password: payload.password
+
+      const loginResponse = await authApi.login({
+        email: payload.email,
+        password: payload.password,
       });
-      
-      const transformedUser = loginSession.user?.full_name 
-        ? transformUserFromDjango(loginSession.user)
-        : loginSession.user;
-      
-      const authSession: AuthSession = {
-        ...loginSession,
-        user: transformedUser
-      };
-      
-      storeSession(authSession);
-      setUser(transformedUser);
-      return authSession;
+
+      const session = await resolveLoginSession(loginResponse, {
+        name: payload.full_name,
+        email: payload.email,
+        role: "client",
+      });
+
+      storeSession(session);
+      setUser(session.user);
+      return session;
     } catch (error) {
-      console.error("Signup error:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Signup error:", error);
+      }
+
       throw error;
     }
   }, []);
@@ -253,9 +311,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       signup,
       logout,
-      refreshUser
+      refreshUser,
     }),
-    [user, isLoading, login, signup, logout, refreshUser]
+    [user, isLoading, login, signup, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

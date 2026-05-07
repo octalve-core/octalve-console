@@ -32,7 +32,26 @@ export type User = {
   name: string;
   email: string;
   role: UserRole;
+
+  // UI compatibility
   avatar_url?: string | null;
+
+  // Django/backend compatibility
+  full_name?: string | null;
+  username?: string;
+  phone_number?: string;
+  referral_code?: string;
+  is_staff?: boolean;
+  is_superuser?: boolean;
+  is_active?: boolean;
+  date_joined?: string;
+  last_login?: string;
+};
+
+export type AuthTokenResponse = {
+  access: string;
+  refresh?: string;
+  user?: User;
 };
 
 export type AuthSession = {
@@ -41,24 +60,8 @@ export type AuthSession = {
   user: User;
 };
 
-export interface User {
-  id: string | number;
-  name?: string;
-  full_name?: string;
-  email: string;
-  username?: string;
-  role: UserRole;
-  phone_number?: string;
-  referral_code?: string;
-  is_staff?: boolean;
-  is_active?: boolean;
-  date_joined?: string;
-  last_login?: string;
-}
-
 export type LoginPayload = {
-  // email: string;
-  email: string;  
+  email: string;
   password: string;
 };
 
@@ -68,6 +71,14 @@ export type SignupPayload = {
   phone?: string;
   password: string;
   referral_code?: string;
+};
+
+export type SignupResponse = {
+  id: number | string;
+  email: string;
+  username?: string;
+  full_name?: string;
+  phone_number?: string;
 };
 
 export type Customer = {

@@ -4,7 +4,7 @@ import { api } from "./client";
 import type {
   ApiKeyPayload,
   AuditLog,
-  AuthSession,
+  AuthTokenResponse,
   Customer,
   Domain,
   Gateway,
@@ -20,10 +20,11 @@ import type {
   ProviderConfigPayload,
   Service,
   SignupPayload,
+  SignupResponse,
   SupportTicket,
   Transaction,
   User,
-  WalletBalance
+  WalletBalance,
 } from "./types";
 
 type ListParams = {
@@ -37,23 +38,21 @@ const byId = (base: string, id: string) => `${base}/${encodeURIComponent(id)}/`;
 
 export const apiPaths = {
   auth: {
-    // Djoser endpoints - CORRECTED
-    login: "/auth/jwt/create/", 
-    // signup: "/auth/users/",  
-    signup: "/auth/register/",  
-    logout: "/auth/logout/", 
-    me: "/auth/users/me/",      
+    login: "/auth/jwt/create/",
+    signup: "/auth/register/",
+    logout: "/auth/logout/",
+    me: "/auth/users/me/",
     refresh: "/auth/jwt/refresh/",
-    verify: "/auth/jwt/verify/", 
-    resetPassword: "/auth/users/reset_password/",         
+    verify: "/auth/jwt/verify/",
+    resetPassword: "/auth/users/reset_password/",
     resetPasswordConfirm: "/auth/users/reset_password_confirm/",
-    setPassword: "/auth/users/set_password/",     
+    setPassword: "/auth/users/set_password/",
   },
 
   public: {
     plans: "/catalog/plans/",
     products: "/catalog/products/",
-    knowledgeBase: "/knowledge-base/"
+    knowledgeBase: "/knowledge-base/",
   },
 
   client: {
@@ -64,7 +63,7 @@ export const apiPaths = {
     orders: "/client/orders/",
     wallet: "/client/wallet/",
     tickets: "/client/support/tickets/",
-    knowledgeBase: "/client/knowledge-base/"
+    knowledgeBase: "/client/knowledge-base/",
   },
 
   admin: {
@@ -85,37 +84,37 @@ export const apiPaths = {
     knowledgeBase: "/admin/knowledge-base/",
     auditLogs: "/admin/audit-logs/",
     reports: "/admin/reports/",
-    provisioningQueue: "/admin/provisioning/queue/"
-  }
+    provisioningQueue: "/admin/provisioning/queue/",
+  },
 };
 
 export const authApi = {
   login(payload: LoginPayload) {
-    return api.post<AuthSession>(apiPaths.auth.login, payload, { skipAuth: true });
+    return api.post<AuthTokenResponse>(apiPaths.auth.login, payload, {
+      skipAuth: true,
+    });
   },
 
   signup(payload: SignupPayload) {
-    // return api.post<AuthSession>(apiPaths.auth.signup, payload, { skipAuth: true });
-    
-    // Transform signup payload to match Django's expected format
     const signupData = {
       full_name: payload.full_name,
       email: payload.email,
-      username: payload.email.split('@')[0], // Generate username from email if not provided
+      username: payload.email.split("@")[0],
       phone_number: payload.phone || "",
       referral_code: payload.referral_code || "",
       password: payload.password,
-      re_password: payload.password, 
+      re_password: payload.password,
     };
-    return api.post<{ email: string; id: number; username: string }>(
-      apiPaths.auth.signup, 
-      signupData, 
-      { skipAuth: true }
-    );
+
+    return api.post<SignupResponse>(apiPaths.auth.signup, signupData, {
+      skipAuth: true,
+    });
   },
 
   logout() {
-    return api.post<{ message: string }>(apiPaths.auth.logout);
+    return api.post<{ message?: string; detail?: string }>(
+      apiPaths.auth.logout,
+    );
   },
 
   me() {
@@ -123,11 +122,17 @@ export const authApi = {
   },
 
   refreshToken(refreshToken: string) {
-    return api.post<{ access: string }>(apiPaths.auth.refresh, { refresh: refreshToken });
+    return api.post<{ access: string }>(apiPaths.auth.refresh, {
+      refresh: refreshToken,
+    });
   },
 
   requestPasswordReset(email: string) {
-    return api.post(apiPaths.auth.resetPassword, { email }, { skipAuth: true });
+    return api.post<{ detail?: string }>(
+      apiPaths.auth.resetPassword,
+      { email },
+      { skipAuth: true },
+    );
   },
 
   confirmPasswordReset(uid: string, token: string, newPassword: string) {
@@ -135,45 +140,50 @@ export const authApi = {
       uid: String(uid).trim(),
       token: String(token).trim(),
       new_password: String(newPassword),
-      re_new_password: String(newPassword)
+      re_new_password: String(newPassword),
     };
-    
-    console.log("API sending payload:", payload);
 
-    return api.post(apiPaths.auth.resetPasswordConfirm, {
-      // uid,
-      // token,
-      // new_password: newPassword,
-      // re_new_password: newPassword
+    if (process.env.NODE_ENV === "development") {
+      console.log("Reset password confirm payload:", payload);
+    }
+
+    return api.post<{ detail?: string }>(
+      apiPaths.auth.resetPasswordConfirm,
       payload,
-    }, { skipAuth: true });
+      { skipAuth: true },
+    );
   },
 
   changePassword(currentPassword: string, newPassword: string) {
     return api.post(apiPaths.auth.setPassword, {
       current_password: currentPassword,
       new_password: newPassword,
-      re_new_password: newPassword
+      re_new_password: newPassword,
     });
-  }
-
+  },
 };
 
 export const publicApi = {
   products(params?: ListParams) {
-    return api.get<PaginatedResponse<Product> | Product[]>(apiPaths.public.products, { params });
+    return api.get<PaginatedResponse<Product> | Product[]>(
+      apiPaths.public.products,
+      {
+        params,
+      },
+    );
   },
 
   plans(params?: ListParams) {
-    return api.get<PaginatedResponse<Plan> | Plan[]>(apiPaths.public.plans, { params });
+    return api.get<PaginatedResponse<Plan> | Plan[]>(apiPaths.public.plans, {
+      params,
+    });
   },
 
   knowledgeBase(params?: ListParams) {
-    return api.get<PaginatedResponse<KnowledgeBaseArticle> | KnowledgeBaseArticle[]>(
-      apiPaths.public.knowledgeBase,
-      { params }
-    );
-  }
+    return api.get<
+      PaginatedResponse<KnowledgeBaseArticle> | KnowledgeBaseArticle[]
+    >(apiPaths.public.knowledgeBase, { params });
+  },
 };
 
 export const clientApi = {
@@ -182,19 +192,41 @@ export const clientApi = {
   },
 
   services(params?: ListParams) {
-    return api.get<PaginatedResponse<Service> | Service[]>(apiPaths.client.services, { params });
+    return api.get<PaginatedResponse<Service> | Service[]>(
+      apiPaths.client.services,
+      {
+        params,
+      },
+    );
   },
 
   service(id: string) {
     return api.get<Service>(byId(apiPaths.client.services, id));
   },
 
-  serviceAction(id: string, action: "reboot" | "start" | "stop" | "request_migration" | "change_password", payload?: unknown) {
-    return api.post(byId(apiPaths.client.services, id) + `${action}/`, payload || {});
+  serviceAction(
+    id: string,
+    action:
+      | "reboot"
+      | "start"
+      | "stop"
+      | "request_migration"
+      | "change_password",
+    payload?: unknown,
+  ) {
+    return api.post(
+      byId(apiPaths.client.services, id) + `${action}/`,
+      payload || {},
+    );
   },
 
   domains(params?: ListParams) {
-    return api.get<PaginatedResponse<Domain> | Domain[]>(apiPaths.client.domains, { params });
+    return api.get<PaginatedResponse<Domain> | Domain[]>(
+      apiPaths.client.domains,
+      {
+        params,
+      },
+    );
   },
 
   domain(id: string) {
@@ -206,27 +238,48 @@ export const clientApi = {
   },
 
   createDomainDnsRecord(id: string, payload: unknown) {
-    return api.post(byId(apiPaths.client.domains, id) + "dns-records/", payload);
+    return api.post(
+      byId(apiPaths.client.domains, id) + "dns-records/",
+      payload,
+    );
   },
 
   updateDomainDnsRecord(id: string, recordId: string, payload: unknown) {
-    return api.patch(byId(apiPaths.client.domains, id) + `dns-records/${encodeURIComponent(recordId)}/`, payload);
+    return api.patch(
+      byId(apiPaths.client.domains, id) +
+        `dns-records/${encodeURIComponent(recordId)}/`,
+      payload,
+    );
   },
 
   deleteDomainDnsRecord(id: string, recordId: string) {
-    return api.del(byId(apiPaths.client.domains, id) + `dns-records/${encodeURIComponent(recordId)}/`);
+    return api.del(
+      byId(apiPaths.client.domains, id) +
+        `dns-records/${encodeURIComponent(recordId)}/`,
+    );
   },
 
   updateDomainNameservers(id: string, payload: unknown) {
-    return api.post(byId(apiPaths.client.domains, id) + "nameservers/", payload);
+    return api.post(
+      byId(apiPaths.client.domains, id) + "nameservers/",
+      payload,
+    );
   },
 
   renewDomain(id: string, payload?: unknown) {
-    return api.post(byId(apiPaths.client.domains, id) + "renew/", payload || {});
+    return api.post(
+      byId(apiPaths.client.domains, id) + "renew/",
+      payload || {},
+    );
   },
 
   invoices(params?: ListParams) {
-    return api.get<PaginatedResponse<Invoice> | Invoice[]>(apiPaths.client.invoices, { params });
+    return api.get<PaginatedResponse<Invoice> | Invoice[]>(
+      apiPaths.client.invoices,
+      {
+        params,
+      },
+    );
   },
 
   invoice(id: string) {
@@ -234,7 +287,9 @@ export const clientApi = {
   },
 
   orders(params?: ListParams) {
-    return api.get<PaginatedResponse<Order> | Order[]>(apiPaths.client.orders, { params });
+    return api.get<PaginatedResponse<Order> | Order[]>(apiPaths.client.orders, {
+      params,
+    });
   },
 
   createOrder(payload: unknown) {
@@ -250,7 +305,10 @@ export const clientApi = {
   },
 
   tickets(params?: ListParams) {
-    return api.get<PaginatedResponse<SupportTicket> | SupportTicket[]>(apiPaths.client.tickets, { params });
+    return api.get<PaginatedResponse<SupportTicket> | SupportTicket[]>(
+      apiPaths.client.tickets,
+      { params },
+    );
   },
 
   createTicket(payload: unknown) {
@@ -259,12 +317,17 @@ export const clientApi = {
 
   replyTicket(id: string, payload: unknown) {
     return api.post(byId(apiPaths.client.tickets, id) + "reply/", payload);
-  }
+  },
 };
 
 export const adminApi = {
   customers(params?: ListParams) {
-    return api.get<PaginatedResponse<Customer> | Customer[]>(apiPaths.admin.customers, { params });
+    return api.get<PaginatedResponse<Customer> | Customer[]>(
+      apiPaths.admin.customers,
+      {
+        params,
+      },
+    );
   },
 
   createCustomer(payload: Partial<Customer>) {
@@ -276,7 +339,12 @@ export const adminApi = {
   },
 
   products(params?: ListParams) {
-    return api.get<PaginatedResponse<Product> | Product[]>(apiPaths.admin.products, { params });
+    return api.get<PaginatedResponse<Product> | Product[]>(
+      apiPaths.admin.products,
+      {
+        params,
+      },
+    );
   },
 
   createProduct(payload: Partial<Product>) {
@@ -288,7 +356,9 @@ export const adminApi = {
   },
 
   plans(params?: ListParams) {
-    return api.get<PaginatedResponse<Plan> | Plan[]>(apiPaths.admin.plans, { params });
+    return api.get<PaginatedResponse<Plan> | Plan[]>(apiPaths.admin.plans, {
+      params,
+    });
   },
 
   createPlan(payload: Partial<Plan>) {
@@ -300,7 +370,9 @@ export const adminApi = {
   },
 
   orders(params?: ListParams) {
-    return api.get<PaginatedResponse<Order> | Order[]>(apiPaths.admin.orders, { params });
+    return api.get<PaginatedResponse<Order> | Order[]>(apiPaths.admin.orders, {
+      params,
+    });
   },
 
   updateOrder(id: string, payload: Partial<Order>) {
@@ -308,27 +380,57 @@ export const adminApi = {
   },
 
   services(params?: ListParams) {
-    return api.get<PaginatedResponse<Service> | Service[]>(apiPaths.admin.services, { params });
+    return api.get<PaginatedResponse<Service> | Service[]>(
+      apiPaths.admin.services,
+      {
+        params,
+      },
+    );
   },
 
-  runServiceAction(id: string, action: "provision" | "suspend" | "unsuspend" | "terminate" | "renew", payload?: unknown) {
-    return api.post(byId(apiPaths.admin.services, id) + `${action}/`, payload || {});
+  runServiceAction(
+    id: string,
+    action: "provision" | "suspend" | "unsuspend" | "terminate" | "renew",
+    payload?: unknown,
+  ) {
+    return api.post(
+      byId(apiPaths.admin.services, id) + `${action}/`,
+      payload || {},
+    );
   },
 
   invoices(params?: ListParams) {
-    return api.get<PaginatedResponse<Invoice> | Invoice[]>(apiPaths.admin.invoices, { params });
+    return api.get<PaginatedResponse<Invoice> | Invoice[]>(
+      apiPaths.admin.invoices,
+      {
+        params,
+      },
+    );
   },
 
   transactions(params?: ListParams) {
-    return api.get<PaginatedResponse<Transaction> | Transaction[]>(apiPaths.admin.transactions, { params });
+    return api.get<PaginatedResponse<Transaction> | Transaction[]>(
+      apiPaths.admin.transactions,
+      { params },
+    );
   },
 
   domains(params?: ListParams) {
-    return api.get<PaginatedResponse<Domain> | Domain[]>(apiPaths.admin.domains, { params });
+    return api.get<PaginatedResponse<Domain> | Domain[]>(
+      apiPaths.admin.domains,
+      {
+        params,
+      },
+    );
   },
 
   gateways(params?: ListParams) {
-    return api.get<PaginatedResponse<Gateway> | Gateway[]>(apiPaths.admin.gateways, { params });
+    return api.get<PaginatedResponse<Gateway> | Gateway[]>(
+      apiPaths.admin.gateways,
+      {
+        params,
+      },
+    );
   },
 
   updateGateway(id: string, payload: GatewayConfigPayload) {
@@ -336,7 +438,12 @@ export const adminApi = {
   },
 
   providers(params?: ListParams) {
-    return api.get<PaginatedResponse<Provider> | Provider[]>(apiPaths.admin.providers, { params });
+    return api.get<PaginatedResponse<Provider> | Provider[]>(
+      apiPaths.admin.providers,
+      {
+        params,
+      },
+    );
   },
 
   createProvider(payload: ProviderConfigPayload) {
@@ -348,7 +455,10 @@ export const adminApi = {
   },
 
   testProvider(id: string) {
-    return api.post(byId(apiPaths.admin.providers, id) + "test-connection/", {});
+    return api.post(
+      byId(apiPaths.admin.providers, id) + "test-connection/",
+      {},
+    );
   },
 
   settings() {
@@ -368,18 +478,25 @@ export const adminApi = {
   },
 
   tickets(params?: ListParams) {
-    return api.get<PaginatedResponse<SupportTicket> | SupportTicket[]>(apiPaths.admin.tickets, { params });
-  },
-
-  knowledgeBase(params?: ListParams) {
-    return api.get<PaginatedResponse<KnowledgeBaseArticle> | KnowledgeBaseArticle[]>(
-      apiPaths.admin.knowledgeBase,
-      { params }
+    return api.get<PaginatedResponse<SupportTicket> | SupportTicket[]>(
+      apiPaths.admin.tickets,
+      { params },
     );
   },
 
+  knowledgeBase(params?: ListParams) {
+    return api.get<
+      PaginatedResponse<KnowledgeBaseArticle> | KnowledgeBaseArticle[]
+    >(apiPaths.admin.knowledgeBase, { params });
+  },
+
   auditLogs(params?: ListParams) {
-    return api.get<PaginatedResponse<AuditLog> | AuditLog[]>(apiPaths.admin.auditLogs, { params });
+    return api.get<PaginatedResponse<AuditLog> | AuditLog[]>(
+      apiPaths.admin.auditLogs,
+      {
+        params,
+      },
+    );
   },
 
   reports(params?: ListParams) {
@@ -392,6 +509,5 @@ export const adminApi = {
 
   runProvisioningTask(id: string) {
     return api.post(byId(apiPaths.admin.provisioningQueue, id) + "run/", {});
-  }
+  },
 };
-
