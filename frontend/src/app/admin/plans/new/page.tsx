@@ -1,3 +1,9 @@
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ResourceEditor } from "@/components/modules/ResourceEditor";
-export default function Page() { return <main className="page-container"><PageHeader title="Add Plan" description="Create a product package with cycles, features and adapter mapping." /><ResourceEditor title="Add Plan" backHref="/admin/plans" fields={[{ label: "Plan Name", placeholder: "Enter plan name" }, { label: "Product", placeholder: "Enter product" }, { label: "Currency", placeholder: "Enter currency" }, { label: "Monthly Price", placeholder: "Enter monthly price" }, { label: "Storage GB", placeholder: "Enter storage gb" }, { label: "Bandwidth GB", placeholder: "Enter bandwidth gb" }, { label: "Websites", placeholder: "Enter websites" }, { label: "Email Accounts", placeholder: "Enter email accounts" }, { label: "Databases", placeholder: "Enter databases" }, { label: "Control Panel", placeholder: "Enter control panel" }, { label: "Status", placeholder: "Enter status" }]} /></main>; }
+﻿import { PlanDetailEditor } from "@/components/modules/admin/CatalogDetailEditor";
+
+export default function Page() {
+  return (
+    <main className="page-container">
+      <PlanDetailEditor mode="new" />
+    </main>
+  );
+}

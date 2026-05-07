@@ -1,11 +1,19 @@
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ResourceEditor } from "@/components/modules/ResourceEditor";
+﻿import { OrderDetailEditor } from "@/components/modules/admin/CustomerOrderDetailEditor";
+import { orders } from "@/lib/platform-data";
 
-export default function Page() {
+type PageProps = {
+  params: {
+    id: string;
+  };
+};
+
+export default function Page({ params }: PageProps) {
+  const decodedId = decodeURIComponent(params.id);
+  const order = orders.find((item) => item.id === decodedId) ?? orders[0];
+
   return (
     <main className="page-container">
-      <PageHeader title="Manage Orders" description="Edit, sync and manage this record. Actions are prepared for API integration." />
-      <ResourceEditor title="Edit Orders" subtitle="Use this page for admin create/edit/performance operations." backHref="/admin/orders" fields={[{ label: "Customer", placeholder: "Enter customer" }, { label: "Product", placeholder: "Enter product" }, { label: "Plan", placeholder: "Enter plan" }, { label: "Billing Cycle", placeholder: "Enter billing cycle" }, { label: "Domain", placeholder: "Enter domain" }, { label: "Order Status", placeholder: "Enter order status" }]} />
+      <OrderDetailEditor mode="edit" order={order} />
     </main>
   );
 }

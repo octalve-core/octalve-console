@@ -1,3 +1,19 @@
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ResourceEditor } from "@/components/modules/ResourceEditor";
-export default function Page() { return <main className="page-container"><PageHeader title="Edit Plan" description="Edit pricing, billing cycles, package mapping and customer-facing features." /><ResourceEditor title="Edit Plan" backHref="/admin/plans" fields={[{ label: "Plan Name", placeholder: "Enter plan name" }, { label: "Product", placeholder: "Enter product" }, { label: "Currency", placeholder: "Enter currency" }, { label: "Monthly Price", placeholder: "Enter monthly price" }, { label: "Storage GB", placeholder: "Enter storage gb" }, { label: "Bandwidth GB", placeholder: "Enter bandwidth gb" }, { label: "Websites", placeholder: "Enter websites" }, { label: "Email Accounts", placeholder: "Enter email accounts" }, { label: "Databases", placeholder: "Enter databases" }, { label: "Control Panel", placeholder: "Enter control panel" }, { label: "Status", placeholder: "Enter status" }]} /></main>; }
+﻿import { PlanDetailEditor } from "@/components/modules/admin/CatalogDetailEditor";
+import { plans } from "@/lib/platform-data";
+
+type PageProps = {
+  params: {
+    id: string;
+  };
+};
+
+export default function Page({ params }: PageProps) {
+  const decodedId = decodeURIComponent(params.id);
+  const plan = plans.find((item) => item.id === decodedId) ?? plans[0];
+
+  return (
+    <main className="page-container">
+      <PlanDetailEditor mode="edit" plan={plan} />
+    </main>
+  );
+}

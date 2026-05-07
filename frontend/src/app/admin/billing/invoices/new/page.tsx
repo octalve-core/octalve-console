@@ -1,3 +1,9 @@
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ResourceEditor } from "@/components/modules/ResourceEditor";
-export default function Page(){return <main className="page-container"><PageHeader title="New invoice" description="Create or edit data. This is frontend-ready for backend API persistence." /><ResourceEditor title="New invoice" backHref="/admin/billing/invoices" fields={[{ label: "Client", placeholder: "Enter client" }, { label: "Amount", placeholder: "Enter amount" }, { label: "Currency", placeholder: "Enter currency" }, { label: "Status", placeholder: "Enter status" }, { label: "Notes", placeholder: "Enter notes" }]} /></main>}
+﻿import { InvoiceDetailEditor } from "@/components/modules/admin/InvoiceTransactionDetailEditor";
+
+export default function Page() {
+  return (
+    <main className="page-container">
+      <InvoiceDetailEditor mode="new" />
+    </main>
+  );
+}
