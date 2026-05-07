@@ -1,3 +1,19 @@
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ResourceEditor } from "@/components/modules/ResourceEditor";
-export default function Page(){return <main className="page-container"><PageHeader title="Edit transaction" description="Create or edit data. This is frontend-ready for backend API persistence." /><ResourceEditor title="Edit transaction" backHref="/admin/billing/transactions" fields={[{ label: "Client", placeholder: "Enter client" }, { label: "Amount", placeholder: "Enter amount" }, { label: "Currency", placeholder: "Enter currency" }, { label: "Status", placeholder: "Enter status" }, { label: "Reference", placeholder: "Enter reference" }, { label: "Notes", placeholder: "Enter notes" }]} /></main>}
+﻿import { TransactionDetailEditor } from "@/components/modules/admin/InvoiceTransactionDetailEditor";
+import { transactions } from "@/lib/platform-data";
+
+type PageProps = {
+  params: {
+    id: string;
+  };
+};
+
+export default function Page({ params }: PageProps) {
+  const decodedId = decodeURIComponent(params.id);
+  const transaction = transactions.find((item) => item.id === decodedId) ?? transactions[0];
+
+  return (
+    <main className="page-container">
+      <TransactionDetailEditor mode="edit" transaction={transaction} />
+    </main>
+  );
+}
