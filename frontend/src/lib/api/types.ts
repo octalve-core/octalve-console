@@ -33,10 +33,9 @@ export type User = {
   email: string;
   role: UserRole;
 
-  // UI compatibility
   avatar_url?: string | null;
 
-  // Django/backend compatibility
+  // Django/backend compatibility fields
   full_name?: string | null;
   username?: string;
   phone_number?: string;

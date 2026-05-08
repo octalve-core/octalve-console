@@ -136,22 +136,26 @@ export const authApi = {
   },
 
   confirmPasswordReset(uid: string, token: string, newPassword: string) {
+    const cleanUid = String(uid).trim();
+    const cleanToken = String(token).trim();
+
     const payload = {
-      uid: String(uid).trim(),
-      token: String(token).trim(),
       new_password: String(newPassword),
       re_new_password: String(newPassword),
     };
 
+    const resetConfirmPath = `${apiPaths.auth.resetPasswordConfirm}${encodeURIComponent(
+      cleanUid,
+    )}/${encodeURIComponent(cleanToken)}/`;
+
     if (process.env.NODE_ENV === "development") {
+      console.log("Reset password confirm path:", resetConfirmPath);
       console.log("Reset password confirm payload:", payload);
     }
 
-    return api.post<{ detail?: string }>(
-      apiPaths.auth.resetPasswordConfirm,
-      payload,
-      { skipAuth: true },
-    );
+    return api.post<{ detail?: string }>(resetConfirmPath, payload, {
+      skipAuth: true,
+    });
   },
 
   changePassword(currentPassword: string, newPassword: string) {
