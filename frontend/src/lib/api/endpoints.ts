@@ -135,25 +135,46 @@ export const authApi = {
     );
   },
 
-  confirmPasswordReset(uid: string, token: string, newPassword: string) {
-    const cleanUid = String(uid).trim();
-    const cleanToken = String(token).trim();
+  // confirmPasswordReset(uid: string, token: string, newPassword: string) {
+  //   const cleanUid = String(uid).trim();
+  //   const cleanToken = String(token).trim();
 
+  //   const payload = {
+  //     new_password: String(newPassword),
+  //     re_new_password: String(newPassword),
+  //   };
+
+  //   const resetConfirmPath = `${apiPaths.auth.resetPasswordConfirm}${encodeURIComponent(
+  //     cleanUid,
+  //   )}/${encodeURIComponent(cleanToken)}/`;
+
+  //   if (process.env.NODE_ENV === "development") {
+  //     console.log("Reset password confirm path:", resetConfirmPath);
+  //     console.log("Reset password confirm payload:", payload);
+  //   }
+
+  //   return api.post<{ detail?: string }>(resetConfirmPath, payload, {
+  //     skipAuth: true,
+  //   });
+  // },
+
+  // src/lib/api/endpoints.ts
+
+  confirmPasswordReset(uid: string, token: string, newPassword: string) {
+    // Djoser expects uid and token in the BODY, not in the URL path
     const payload = {
+      uid: String(uid).trim(),
+      token: String(token).trim(),
       new_password: String(newPassword),
       re_new_password: String(newPassword),
     };
 
-    const resetConfirmPath = `${apiPaths.auth.resetPasswordConfirm}${encodeURIComponent(
-      cleanUid,
-    )}/${encodeURIComponent(cleanToken)}/`;
-
     if (process.env.NODE_ENV === "development") {
-      console.log("Reset password confirm path:", resetConfirmPath);
-      console.log("Reset password confirm payload:", payload);
+      console.log("Reset password payload:", payload);
     }
 
-    return api.post<{ detail?: string }>(resetConfirmPath, payload, {
+    // Use the exact endpoint without adding uid/token to URL
+    return api.post(apiPaths.auth.resetPasswordConfirm, payload, {
       skipAuth: true,
     });
   },

@@ -156,32 +156,58 @@ EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
 DJOSER = {
     'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,
+    # 'SERIALIZERS': {
+    #     # 'user_create': 'accounts.serializers.CustomUserCreateSerializer',
+    #     # 'user': 'accounts.serializers.CustomUserSerializer',
+    #     # 'current_user': 'accounts.serializers.CustomUserSerializer',
+    #     # 'user_delete': 'djoser.serializers.UserDeleteSerializer',
+
+    #     "activation": "djoser.serializers.ActivationSerializer",
+    #     "password_reset": "djoser.serializers.PasswordResetSerializer",
+    #     "password_reset_confirm": "djoser.serializers.PasswordResetConfirmSerializer",
+    #     "password_change": "djoser.serializers.PasswordChangeSerializer",
+    #     "set_password": "djoser.serializers.SetPasswordSerializer",
+    #     "set_username": "djoser.serializers.SetUsernameSerializer",
+    #     "username_reset": "djoser.serializers.UsernameResetSerializer",
+    #     "username_reset_confirm": "djoser.serializers.UsernameResetConfirmSerializer",
+        
+    #     # 'user_create': 'accounts.serializers.CustomUserCreateSerializer',
+    #     "user_create": "djoser.serializers.UserCreateSerializer",
+        
+    #     "user": "djoser.serializers.UserSerializer",
+    #     "current_user": "djoser.serializers.UserSerializer",
+    #     "token": "djoser.serializers.TokenSerializer",
+
+    #     "token_create": "djoser.serializers.TokenCreateSerializer",
+
+    #     # "token_create": "accounts.serializers.CustomTokenCreateSerializer",
+
+    # },
+    
+
+
+
+
     'SERIALIZERS': {
-        # 'user_create': 'accounts.serializers.CustomUserCreateSerializer',
-        # 'user': 'accounts.serializers.CustomUserSerializer',
-        # 'current_user': 'accounts.serializers.CustomUserSerializer',
-        # 'user_delete': 'djoser.serializers.UserDeleteSerializer',
-
-        "activation": "djoser.serializers.ActivationSerializer",
-        "password_reset": "djoser.serializers.PasswordResetSerializer",
-        "password_reset_confirm": "djoser.serializers.PasswordResetConfirmSerializer",
-        "password_change": "djoser.serializers.PasswordChangeSerializer",
-        "set_password": "djoser.serializers.SetPasswordSerializer",
-        "set_username": "djoser.serializers.SetUsernameSerializer",
-        "username_reset": "djoser.serializers.UsernameResetSerializer",
-        "username_reset_confirm": "djoser.serializers.UsernameResetConfirmSerializer",
-        
-        # 'user_create': 'accounts.serializers.CustomUserCreateSerializer',
-        "user_create": "djoser.serializers.UserCreateSerializer",
-        
-        "user": "djoser.serializers.UserSerializer",
-        "current_user": "djoser.serializers.UserSerializer",
-        "token": "djoser.serializers.TokenSerializer",
-
-        "token_create": "djoser.serializers.TokenCreateSerializer",
-
-        # "token_create": "accounts.serializers.CustomTokenCreateSerializer",
-
+        'activation': 'djoser.serializers.ActivationSerializer',
+        'password_reset': 'djoser.serializers.SendEmailResetSerializer',
+        'password_reset_confirm': 'djoser.serializers.PasswordResetConfirmSerializer',
+        'password_reset_confirm_retype': 'djoser.serializers.PasswordResetConfirmRetypeSerializer',
+        'set_password': 'djoser.serializers.SetPasswordSerializer',
+        'set_password_retype': 'djoser.serializers.SetPasswordRetypeSerializer',
+        'set_username': 'djoser.serializers.SetUsernameSerializer',
+        'set_username_retype': 'djoser.serializers.SetUsernameRetypeSerializer',
+        'username_reset': 'djoser.serializers.SendEmailResetSerializer',
+        'username_reset_confirm': 'djoser.serializers.UsernameResetConfirmSerializer',
+        'username_reset_confirm_retype': 'djoser.serializers.UsernameResetConfirmRetypeSerializer',
+        'user_create': 'djoser.serializers.UserCreateSerializer',
+        'user_create_password_retype': 'djoser.serializers.UserCreatePasswordRetypeSerializer',
+        'user_delete': 'djoser.serializers.UserDeleteSerializer',
+        'user': 'djoser.serializers.UserSerializer',
+        'current_user': 'djoser.serializers.UserSerializer',
+        'token': 'djoser.serializers.TokenSerializer',
+        'token_create': 'djoser.serializers.TokenCreateSerializer',
+        'provider_auth': 'djoser.social.serializers.ProviderAuthSerializer',
     },
     'PERMISSIONS': {
         'user_create': ['rest_framework.permissions.AllowAny'],
@@ -200,12 +226,18 @@ DJOSER = {
     'SET_PASSWORD_RETYPE': True,
 
     # Email settings - Configure these for production
-    # 'EMAIL': {
-        # 'password_reset': 'accounts.email.CustomPasswordResetEmail',
-        # 'password_changed_confirmation': 'accounts.email.PasswordChangedConfirmationEmail',
-        # 'username_changed_confirmation': 'accounts.email.UsernameChangedConfirmationEmail',
-        # 'username_reset': 'accounts.email.UsernameResetEmail',
-    # },
+    'EMAIL': {
+        'activation': 'djoser.email.ActivationEmail',
+        'confirmation': 'djoser.email.ConfirmationEmail',
+        'password_reset': 'djoser.email.PasswordResetEmail',
+        'password_changed_confirmation': 'djoser.email.PasswordChangedConfirmationEmail',
+        'username_changed_confirmation': 'djoser.email.UsernameChangedConfirmationEmail',
+        'username_reset': 'djoser.email.UsernameResetEmail',
+    },
+
+    'CONSTANTS': {
+        'messages': 'djoser.constants.Messages',
+    }
 }
 
 
@@ -213,6 +245,8 @@ DJOSER = {
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',  
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': (
