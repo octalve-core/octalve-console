@@ -1,4 +1,8 @@
-﻿:root {
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
   --ink: #071120;
   --ink-2: #13243b;
   --muted: #64748b;
@@ -3214,7 +3218,7 @@ button { cursor: pointer; }
 }
 
 /* ======================================================
-   PHASE 1 â€” Octalve Console Global UI Foundation Uplift
+   PHASE 1 Ã¢â‚¬â€ Octalve Console Global UI Foundation Uplift
    Shared shell, sidebar, topbar, cards, tables and forms.
    ====================================================== */
 
@@ -3987,7 +3991,7 @@ body {
   }
 }
 /* ======================================================
-   Phase 2 â€” Client Core Pages Uplift
+   Phase 2 Ã¢â‚¬â€ Client Core Pages Uplift
    Wallet, Domains, Services and Tickets
    ====================================================== */
 
@@ -5260,7 +5264,7 @@ body {
 }
 
 /* ======================================================
-   Phase 2 — Client Services Premium Hub
+   Phase 2 â€” Client Services Premium Hub
    ====================================================== */
 
 .client-service-stats {
