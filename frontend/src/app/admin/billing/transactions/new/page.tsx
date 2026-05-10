@@ -1,3 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ResourceEditor } from "@/components/modules/ResourceEditor";
-export default function Page(){return <main className="page-container"><PageHeader title="New transaction" description="Create or edit data. This is frontend-ready for backend API persistence." /><ResourceEditor title="New transaction" backHref="/admin/billing/transactions" fields={[{ label: "Client", placeholder: "Enter client" }, { label: "Amount", placeholder: "Enter amount" }, { label: "Currency", placeholder: "Enter currency" }, { label: "Status", placeholder: "Enter status" }, { label: "Notes", placeholder: "Enter notes" }]} /></main>}
+import { AdminWorkspaceEditorView } from "@/features/admin/workspace/views/AdminWorkspaceEditorView";
+
+export default function AdminNewBillingTransactionPage() {
+  return <AdminWorkspaceEditorView workspace="transactions" />;
+}

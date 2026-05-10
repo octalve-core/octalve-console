@@ -1,5 +1,5 @@
-﻿import { AdminToolPage } from "@/components/modules/AdminToolPage";
+import { AdminWorkspaceView } from "@/features/admin/workspace/views/AdminWorkspaceView";
 
-export default function Page() {
-  return <AdminToolPage tool="blacklist" />;
+export default function AdminBlacklistPage() {
+  return <AdminWorkspaceView workspace="blacklist" />;
 }

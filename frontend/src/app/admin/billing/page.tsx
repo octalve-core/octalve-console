@@ -1,7 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Button } from "@/components/ui/Button";
-import { StatCard } from "@/components/ui/StatCard";
-import { DataTable } from "@/components/ui/DataTable";
-import { invoices, transactions } from "@/lib/platform-data";
-import { Banknote, FileText, RefreshCw, Wallet } from "lucide-react";
-export default function Page(){return <main className="page-container"><PageHeader title="Billing Center" description="Invoices, transactions, services, domains, quotes, renewals, print queue and batch processing." actions={<><Button href="/admin/billing/invoices/new">Create Invoice</Button><Button href="/admin/billing/transactions/new" variant="secondary">Record Payment</Button></>} /><div className="grid cols-4" style={{marginBottom:18}}><StatCard label="Collected" value="₦27,500" icon={<Banknote size={22}/>}/><StatCard label="Unpaid" value="₦15,000" icon={<FileText size={22}/>}/><StatCard label="Wallet credits" value="₦3,500" icon={<Wallet size={22}/>}/><StatCard label="Renewals queued" value="4" icon={<RefreshCw size={22}/>}/></div><div className="grid cols-2"><DataTable title="Invoices" columns={[{header:"Invoice",accessor:"id"},{header:"Client",accessor:"client"},{header:"Total",accessor:"total"},{header:"Status",accessor:"status"}]} rows={invoices.map((r)=>({...r,href:`/admin/billing/invoices/${r.id}`,editHref:`/admin/billing/invoices/${r.id}`}))}/><DataTable title="Transactions" columns={[{header:"Transaction",accessor:"id"},{header:"Client",accessor:"client"},{header:"Type",accessor:"type"},{header:"Amount",accessor:"amount"},{header:"Status",accessor:"status"}]} rows={transactions.map((r)=>({...r,href:`/admin/billing/transactions/${r.id}`,editHref:`/admin/billing/transactions/${r.id}`}))}/></div></main>}
+import { AdminWorkspaceView } from "@/features/admin/workspace/views/AdminWorkspaceView";
+
+export default function AdminBillingPage() {
+  return <AdminWorkspaceView workspace="billing" />;
+}

@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { Card } from "@/components/ui/Card";export default function Page(){return <main className="page-container"><PageHeader title="Print Queue" description="Invoices queued for printing when all conditions are met."/><Card padded><div className="empty-state">There are no invoices queued to be printed.</div></Card></main>}
+import { AdminWorkspaceView } from "@/features/admin/workspace/views/AdminWorkspaceView";
+
+export default function AdminBillingPrintQueuePage() {
+  return <AdminWorkspaceView workspace="print-queue" />;
+}

@@ -1,5 +1,5 @@
-﻿import { AdminToolPage } from "@/components/modules/AdminToolPage";
+import { AdminWorkspaceView } from "@/features/admin/workspace/views/AdminWorkspaceView";
 
-export default function Page() {
-  return <AdminToolPage tool="download-manager" />;
+export default function AdminDownloadManagerPage() {
+  return <AdminWorkspaceView workspace="download-manager" />;
 }

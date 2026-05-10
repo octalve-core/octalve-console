@@ -1,3 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ResourceEditor } from "@/components/modules/ResourceEditor";
-export default function Page(){return <main className="page-container"><PageHeader title="Edit quote" description="Create or edit data. This is frontend-ready for backend API persistence." /><ResourceEditor title="Edit quote" backHref="/admin/billing/quotes" fields={[{ label: "Client", placeholder: "Enter client" }, { label: "Amount", placeholder: "Enter amount" }, { label: "Currency", placeholder: "Enter currency" }, { label: "Status", placeholder: "Enter status" }, { label: "Reference", placeholder: "Enter reference" }, { label: "Notes", placeholder: "Enter notes" }]} /></main>}
+import { AdminWorkspaceDetailView } from "@/features/admin/workspace/views/AdminWorkspaceDetailView";
+
+export default function AdminBillingQuoteDetailPage() {
+  return <AdminWorkspaceDetailView workspace="quotes" />;
+}

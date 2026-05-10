@@ -1,5 +1,5 @@
-﻿import { AdminToolPage } from "@/components/modules/AdminToolPage";
+import { AdminWorkspaceView } from "@/features/admin/workspace/views/AdminWorkspaceView";
 
-export default function Page() {
-  return <AdminToolPage tool="mass-mailer" />;
+export default function AdminMassMailerPage() {
+  return <AdminWorkspaceView workspace="mass-mailer" />;
 }

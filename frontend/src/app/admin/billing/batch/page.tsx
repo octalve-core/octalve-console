@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { Card } from "@/components/ui/Card";export default function Page(){return <main className="page-container"><PageHeader title="Batch Processing" description="Manual batch processing and future automated job visibility."/><Card padded><div className="notice">Manual batch processing is not enabled yet. Backend cron and queue workers will control this.</div></Card></main>}
+import { AdminWorkspaceView } from "@/features/admin/workspace/views/AdminWorkspaceView";
+
+export default function AdminBillingBatchPage() {
+  return <AdminWorkspaceView workspace="billing-batch" />;
+}
