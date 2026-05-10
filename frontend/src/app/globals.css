@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+
 :root {
   --ink: #071120;
   --ink-2: #13243b;

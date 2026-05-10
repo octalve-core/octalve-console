@@ -22,10 +22,10 @@ class APILoggingMiddleware:
         # Calculate response time
         response_time_ms = int((time.time() - start_time) * 1000)
         
-        # Log API access
+        # Log API access - REMOVED request.body to fix the error
         if request.user and request.user.is_authenticated:
             APIAccessLog.objects.create(
-                user=request.user if request.user.is_authenticated else None,
+                user=request.user,
                 method=request.method,
                 path=request.path,
                 query_string=request.META.get('QUERY_STRING', ''),
@@ -33,7 +33,7 @@ class APILoggingMiddleware:
                 response_time_ms=response_time_ms,
                 ip_address=request.META.get('REMOTE_ADDR'),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
-                request_body_size=len(request.body),
+                request_body_size=0,  # Changed from len(request.body)
                 response_body_size=len(response.content) if hasattr(response, 'content') else 0
             )
         

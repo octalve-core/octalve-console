@@ -61,8 +61,8 @@ export const apiPaths = {
     domains: "/client/domains/",
     invoices: "/client/invoices/",
     orders: "/client/orders/",
-    wallet: "/client/wallet/",
-    tickets: "/client/support/tickets/",
+    wallet: "//wallet/",
+    tickets: "/support/tickets/",
     knowledgeBase: "/client/knowledge-base/",
   },
 

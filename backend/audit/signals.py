@@ -11,6 +11,10 @@ def log_model_save(sender, instance, created, **kwargs):
     if sender.__name__ in ['AuditLog', 'APIAccessLog', 'LoginAttempt']:
         return
     
+    # Skip if instance doesn't have an 'id' attribute
+    if not hasattr(instance, 'id'):
+        return
+    
     action = 'created' if created else 'updated'
     
     AuditLog.objects.create(
