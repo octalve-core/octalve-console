@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { Card } from "@/components/ui/Card";export default function Page(){return <main className="page-container"><PageHeader title="Security Queue" description="Review fraud flags, blacklist rules, failed webhooks and suspicious activity."/><Card padded><div className="empty-state">No active security issues.</div></Card></main>}
+import { StaffSecurityView } from "@/features/staff/views/StaffSecurityView";
+
+export default function StaffSecurityPage() {
+  return <StaffSecurityView />;
+}

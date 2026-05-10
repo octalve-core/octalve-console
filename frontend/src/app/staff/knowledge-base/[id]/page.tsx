@@ -1,5 +1,5 @@
-﻿import { KnowledgeArticleReader } from "@/components/modules/KnowledgeArticleReader";
+import { StaffKnowledgeArticleView } from "@/features/staff/views/StaffKnowledgeArticleView";
 
-export default function Page({ params }: { params: { id: string } }) {
-  return <KnowledgeArticleReader id={params.id} area="staff" />;
+export default function StaffKnowledgeArticlePage() {
+  return <StaffKnowledgeArticleView />;
 }

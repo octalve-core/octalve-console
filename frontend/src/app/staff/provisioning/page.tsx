@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { DataTable } from "@/components/ui/DataTable";import { tickets, orders, customers, services } from "@/lib/platform-data";const map:any={tickets,orders,customers,provisioning:services};export default function Page(){const data=map['provisioning'];return <main className="page-container"><PageHeader title="Staff provisioning" description="Operational staff workspace for provisioning."/><DataTable title="provisioning" columns={[{header:'ID',accessor:'id'},{header:'Name / Customer',accessor:'name'},{header:'Customer',accessor:'customer'},{header:'Status',accessor:'status'}]} rows={data.map((r:any)=>({...r,href:'#'}))}/></main>}
+import { StaffResourceListView } from "@/features/staff/views/StaffResourceListView";
+
+export default function StaffProvisioningPage() {
+  return <StaffResourceListView resource="provisioning" />;
+}
