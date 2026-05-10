@@ -61,6 +61,7 @@ urlpatterns = [
     path('api/audit/', include('audit.urls')),
     path('api/settings/', include('settings_registry.urls')),
     path('api/reports/', include('reports.urls')),
+    path('api/wallet/', include('wallet.urls')),
 
     # Optional: Redirect root to API docs
     path('', RedirectView.as_view(url='/api/docs/', permanent=False)),
