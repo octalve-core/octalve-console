@@ -1,7 +1,7 @@
 export {
-  AuthShell,
+  AuthLayout as AuthShell,
   AuthInput,
   AuthPasswordInput,
-  AuthSubmitButton,
-  authIcons,
-} from "@/features/auth/components/AuthShell";
+  AuthButton as AuthSubmitButton,
+  authFieldIcons as authIcons,
+} from "@/features/auth/components/AuthLayout";

@@ -1,5 +1,5 @@
-import { LoginView } from "@/features/auth/views/LoginView";
+import { LoginPageClient } from "@/features/auth/views/LoginPageClient";
 
 export default function LoginPage() {
-  return <LoginView />;
+  return <LoginPageClient />;
 }
