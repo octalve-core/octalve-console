@@ -49,6 +49,18 @@ urlpatterns = [
     
     # Custom JWT endpoints (override djoser's jwt endpoints)
     path('api/auth/', include('accounts.urls')),
+    path('api/catalog/', include('catalog.urls')),
+    path('api/orders/', include('orders.urls')),
+    path('api/billing/', include('billing.urls')),
+    path('api/providers/', include('providers.urls')),
+    path('api/payments/', include('payments.urls')),
+    path('api/services/', include('services.urls')),
+    path('api/provisioning/', include('provisioning.urls')),
+    path('api/domains/', include('domains.urls')),
+    path('api/support/', include('support.urls')),
+    path('api/audit/', include('audit.urls')),
+    path('api/settings/', include('settings_registry.urls')),
+    path('api/reports/', include('reports.urls')),
 
     # Optional: Redirect root to API docs
     path('', RedirectView.as_view(url='/api/docs/', permanent=False)),

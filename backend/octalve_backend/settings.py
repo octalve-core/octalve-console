@@ -45,6 +45,23 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'accounts.apps.AccountsConfig',
+    'rbac.apps.RbacConfig',
+    'catalog.apps.CatalogConfig',
+    'orders.apps.OrdersConfig',
+    'billing.apps.BillingConfig',
+    'payments.apps.PaymentsConfig',
+    'wallet.apps.WalletConfig',
+    'services.apps.ServicesConfig',
+    'domains.apps.DomainsConfig',
+    'providers.apps.ProvidersConfig',
+    'provisioning.apps.ProvisioningConfig',
+    'support.apps.SupportConfig',
+    'knowledge_base.apps.KnowledgeBaseConfig',
+    'audit.apps.AuditConfig',
+    'settings_registry.apps.SettingsRegistryConfig',
+    'notifications.apps.NotificationsConfig',
+    'reports.apps.ReportsConfig',
+    'tools.apps.ToolsConfig',
 
 
     # Third-party
@@ -56,6 +73,8 @@ INSTALLED_APPS = [
     'drf_spectacular_sidecar',
 
     'drf_excel_export',
+
+    'django_filters',
 
 ]
 
@@ -73,6 +92,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    'rbac.middleware.RBACMiddleware',
+    'audit.middleware.APILoggingMiddleware',  # Add this
+    'audit.middleware.AuditMiddleware',  # Add this
 ]
 
 ROOT_URLCONF = 'octalve_backend.urls'
@@ -327,4 +350,7 @@ SPECTACULAR_SETTINGS = {
         'drf_spectacular.hooks.postprocess_schema_enums',
     ],
 }
+
+
+ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', '')
 
