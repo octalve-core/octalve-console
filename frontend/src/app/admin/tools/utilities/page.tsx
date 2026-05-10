@@ -1,5 +1,5 @@
-﻿import { AdminToolPage } from "@/components/modules/AdminToolPage";
+import { RouteAuditView } from "@/features/navigation/views/RouteAuditView";
 
-export default function Page() {
-  return <AdminToolPage tool="utilities" />;
+export default function AdminUtilitiesPage() {
+  return <RouteAuditView />;
 }

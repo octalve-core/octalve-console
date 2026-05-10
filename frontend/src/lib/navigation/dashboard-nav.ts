@@ -147,9 +147,21 @@ export const adminNavGroups: DashboardNavGroup[] = [
       },
       {
         label: "Reports",
-        href: "/admin/reports",
+        href: routes.admin.reports,
         icon: "barChart3",
         description: "Revenue and operations",
+      },
+      {
+        label: "Audit Logs",
+        href: routes.admin.auditLogs,
+        icon: "shield",
+        description: "Activity and security logs",
+      },
+      {
+        label: "Route Audit",
+        href: routes.admin.utilities,
+        icon: "shield",
+        description: "Navigation and role-access audit",
       },
       {
         label: "Settings",
@@ -267,6 +279,12 @@ export const staffNavGroups: DashboardNavGroup[] = [
         href: routes.staff.knowledgeBase,
         icon: "bookOpen",
         description: "Internal resources",
+      },
+      {
+        label: "Security",
+        href: routes.staff.security,
+        icon: "shield",
+        description: "Access and safety controls",
       },
     ],
   },

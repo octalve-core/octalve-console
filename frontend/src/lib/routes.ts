@@ -23,7 +23,10 @@ export const routes = {
     provisioning: "/admin/provisioning",
     support: "/admin/support",
     knowledgeBase: "/admin/knowledge-base",
+    auditLogs: "/admin/audit-logs",
+    reports: "/admin/reports",
     settings: "/admin/settings",
+    utilities: "/admin/tools/utilities",
   },
 
   client: {
@@ -47,5 +50,6 @@ export const routes = {
     provisioning: "/staff/provisioning",
     tickets: "/staff/tickets",
     knowledgeBase: "/staff/knowledge-base",
+    security: "/staff/security",
   },
 } as const;

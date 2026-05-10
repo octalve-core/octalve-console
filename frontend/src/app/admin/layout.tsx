@@ -1,6 +1,6 @@
-import { PortalShell } from "@/components/layout/PortalShell";
 import type { ReactNode } from "react";
+import { RoleGuard } from "@/components/layout/RoleGuard";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  return <PortalShell area="admin">{children}</PortalShell>;
+  return <RoleGuard allowed={["admin"]}>{children}</RoleGuard>;
 }

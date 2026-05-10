@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { getRoleDashboard, useAuth } from "@/context/AuthContext";
 import type { UserRole } from "@/lib/api/types";
@@ -13,20 +13,24 @@ type RoleGuardProps = {
 
 export function RoleGuard({ allowed, children }: RoleGuardProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated, isLoading } = useAuth();
+
+  const allowedKey = useMemo(() => allowed.join(","), [allowed]);
 
   useEffect(() => {
     if (isLoading) return;
 
     if (!isAuthenticated || !user) {
-      router.replace("/login");
+      const next = encodeURIComponent(pathname);
+      router.replace(`/login?next=${next}`);
       return;
     }
 
     if (!allowed.includes(user.role)) {
       router.replace(getRoleDashboard(user.role));
     }
-  }, [allowed, isAuthenticated, isLoading, router, user]);
+  }, [allowed, allowedKey, isAuthenticated, isLoading, pathname, router, user]);
 
   if (isLoading) {
     return (
