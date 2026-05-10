@@ -8474,3 +8474,283 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Octalve Auth Layout — hard layout guard */
+.oct-auth-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(0, 100, 224, 0.10), transparent 34rem),
+    linear-gradient(180deg, #f5f8fc 0%, #eef4fb 100%);
+  padding: 24px;
+  color: #061330;
+}
+
+.oct-auth-center {
+  min-height: calc(100vh - 72px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.oct-auth-card {
+  width: min(100%, 1120px);
+  min-height: 640px;
+  display: grid;
+  grid-template-columns: 448px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid #d7e3f2;
+  border-radius: 32px;
+  background: #ffffff;
+  box-shadow: 0 24px 90px rgba(15, 23, 42, 0.10);
+}
+
+.oct-auth-side {
+  position: relative;
+  overflow: hidden;
+  background: #061330;
+  color: #ffffff;
+  padding: 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.oct-auth-side::before {
+  content: "";
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  left: -120px;
+  top: -120px;
+  border-radius: 999px;
+  background: rgba(0, 100, 224, 0.32);
+  filter: blur(60px);
+}
+
+.oct-auth-side::after {
+  content: "";
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  right: -150px;
+  bottom: -150px;
+  border-radius: 999px;
+  background: rgba(30, 144, 255, 0.20);
+  filter: blur(70px);
+}
+
+.oct-auth-side-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.oct-auth-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.oct-auth-logo img {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
+.oct-auth-logo-text {
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.05em;
+}
+
+.oct-auth-side-eyebrow {
+  margin-top: 64px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(191, 219, 254, 0.90);
+}
+
+.oct-auth-side-title {
+  margin-top: 18px;
+  max-width: 360px;
+  font-size: 44px;
+  line-height: 1.04;
+  font-weight: 520;
+  letter-spacing: -0.075em;
+}
+
+.oct-auth-side-description {
+  margin-top: 20px;
+  max-width: 360px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #cbd5e1;
+}
+
+.oct-auth-points {
+  margin-top: 40px;
+  display: grid;
+  gap: 12px;
+}
+
+.oct-auth-point {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  padding: 13px 15px;
+  font-size: 14px;
+  color: #e2e8f0;
+}
+
+.oct-auth-security {
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  padding: 18px;
+  color: #cbd5e1;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.oct-auth-form-side {
+  min-height: 640px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 42px;
+}
+
+.oct-auth-form-wrap {
+  width: 100%;
+  max-width: 432px;
+}
+
+.oct-auth-mobile-logo {
+  display: none;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+.oct-auth-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto;
+  border-radius: 22px;
+  background: rgba(0, 100, 224, 0.10);
+  color: #0064e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.oct-auth-heading {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 36px;
+  line-height: 1.1;
+  font-weight: 520;
+  letter-spacing: -0.065em;
+}
+
+.oct-auth-subtitle {
+  margin: 12px auto 0;
+  max-width: 360px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.75;
+  color: #64748b;
+}
+
+.oct-auth-body {
+  margin-top: 32px;
+}
+
+.oct-auth-footer {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+@media (max-width: 1023px) {
+  .oct-auth-card {
+    max-width: 560px;
+    min-height: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .oct-auth-side {
+    display: none;
+  }
+
+  .oct-auth-form-side {
+    min-height: auto;
+    padding: 34px 24px;
+  }
+
+  .oct-auth-mobile-logo {
+    display: flex;
+  }
+}
+
+@media (max-width: 520px) {
+  .oct-auth-page {
+    padding: 14px;
+  }
+
+  .oct-auth-card {
+    border-radius: 26px;
+  }
+
+  .oct-auth-form-side {
+    padding: 28px 18px;
+  }
+
+  .oct-auth-heading {
+    font-size: 30px;
+  }
+}
+
+/* Octalve Auth Production Polish */
+.oct-auth-side {
+  background: #061330 !important;
+}
+
+.oct-auth-side::before,
+.oct-auth-side::after {
+  display: none !important;
+}
+
+.oct-auth-logo-text {
+  display: none !important;
+}
+
+.oct-auth-logo img {
+  max-width: 160px;
+  height: auto;
+}
+
+.oct-auth-point {
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+
+.oct-auth-security {
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+
+.oct-auth-footer a {
+  text-decoration: none;
+}
+
+.oct-auth-footer a:hover {
+  text-decoration: underline;
+}

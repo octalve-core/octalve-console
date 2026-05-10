@@ -1,13 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { Loader2, MailCheck } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, MailCheck } from "lucide-react";
 import { authApi } from "@/lib/api/endpoints";
 import { parseApiValidationError } from "@/lib/api/validation";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
 import { ApiFormError } from "@/components/feedback/ApiFormError";
+import {
+  AuthInput,
+  AuthShell,
+  AuthSubmitButton,
+} from "../components/AuthShell";
 
 export function ForgotPasswordView() {
   const [email, setEmail] = useState("");
@@ -36,60 +39,59 @@ export function ForgotPasswordView() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F6F8FB] px-4 py-10">
-      <Card className="w-full max-w-md">
-        <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
-            <MailCheck className="h-7 w-7" />
+    <AuthShell
+      icon={MailCheck}
+      title="Reset password"
+      description="Enter your email address. If your account exists, you will receive a reset link."
+      sideTitle="Recover your account securely."
+      sideDescription="Request a secure password reset link for your Octalve Console account without exposing account information."
+      sideFooter="For your privacy, password recovery is handled securely and account details are never exposed on this page."
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <AuthInput
+          label="Email address"
+          name="email"
+          type="email"
+          icon={Mail}
+          placeholder="you@example.com"
+          value={email}
+          autoComplete="email"
+          required
+          onChange={(event) => setEmail(event.target.value)}
+        />
+
+        {notice ? (
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
+            {notice}
           </div>
+        ) : null}
 
-          <h1 className="mt-6 text-3xl font-medium tracking-[-0.05em] text-slate-950">
-            Reset password
-          </h1>
+        <ApiFormError message={error} />
 
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            Enter your email address. If your account exists, you will receive a reset link.
-          </p>
+        <AuthSubmitButton disabled={isSubmitting}>
+          {isSubmitting ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Sending...
+            </span>
+          ) : (
+            "Send reset link"
+          )}
+        </AuthSubmitButton>
+
+        <div className="relative py-2 text-center">
+          <div className="absolute inset-x-0 top-1/2 h-px bg-slate-200" />
+          <span className="relative bg-white px-4 text-sm text-slate-400">or</span>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-          <Input
-            label="Email address"
-            name="email"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            autoComplete="email"
-            required
-            onChange={(event) => setEmail(event.target.value)}
-          />
-
-          {notice ? (
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
-              {notice}
-            </div>
-          ) : null}
-
-          <ApiFormError message={error} />
-
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              "Send reset link"
-            )}
-          </Button>
-
-          <p className="text-center text-sm">
-            <a href="/login" className="font-medium text-[#0064E0]">
-              Back to login
-            </a>
-          </p>
-        </form>
-      </Card>
-    </main>
+        <Link
+          href="/login"
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-[#D7E3F2] bg-white text-sm font-semibold text-[#0064E0] transition hover:border-[#0064E0]/40 hover:bg-[#F8FBFF]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to login
+        </Link>
+      </form>
+    </AuthShell>
   );
 }

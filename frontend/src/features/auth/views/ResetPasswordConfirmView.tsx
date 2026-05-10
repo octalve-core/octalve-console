@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle , LockKeyhole} from "lucide-react";
 import { useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +23,7 @@ export function ResetPasswordConfirmView() {
 
   return (
     <AuthShell
+      icon={LockKeyhole}
       title="Reset password"
       description="Create a new secure password for your Octalve Console account."
     >

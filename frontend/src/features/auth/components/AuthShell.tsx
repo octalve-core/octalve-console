@@ -1,81 +1,235 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
-import type { ReactNode } from "react";
-import { routes } from "@/lib/routes";
+import { useState, type ReactNode } from "react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+  Phone,
+  ShieldCheck,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type AuthShellProps = {
-  children: ReactNode;
   title: string;
   description: string;
-  eyebrow?: string;
+  icon: LucideIcon;
+  children: ReactNode;
+  sideTitle?: string;
+  sideDescription?: string;
+  sideFooter?: string;
 };
 
-const trustPoints = [
-  "Secure client, admin, and staff access",
-  "Built for hosting automation workflows",
-  "Connected to the Django API contract",
-];
+type AuthInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  label: string;
+  icon?: LucideIcon;
+  error?: string;
+};
 
-export function AuthShell({ children, title, description, eyebrow = "Octalve Console" }: AuthShellProps) {
+type AuthPasswordInputProps = Omit<AuthInputProps, "type" | "icon">;
+
+function OctalveLogo({ light = false }: { light?: boolean }) {
+  const [failed, setFailed] = useState(false);
+
   return (
-    <main className="min-h-screen bg-[#F6F8FB] px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="hidden lg:block">
-          <Link href={routes.home} className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-[#0064E0]">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-[#0064E0] shadow-sm">
-              O
-            </span>
-            Octalve Console
-          </Link>
+    <Link href="/login" className="oct-auth-logo" aria-label="Octalve Console">
+      {!failed ? (
+        <img
+          src="/assets/logo/octalve.png"
+          alt="Octalve"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div
+          className={cn(
+            "grid h-10 w-10 grid-cols-2 gap-1 rounded-2xl p-2",
+            light ? "bg-white" : "bg-[#061330]",
+          )}
+        >
+          <span className="rounded-full bg-[#0064E0]" />
+          <span className="rounded-full bg-[#E61525]" />
+          <span className="rounded-full bg-[#FC7E24]" />
+          <span className="rounded-full bg-[#29BE3E]" />
+        </div>
+      )}
+    </Link>
+  );
+}
 
-          <div className="mt-14 max-w-xl">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
-              <ShieldCheck className="h-7 w-7" />
+export function AuthShell({
+  title,
+  description,
+  icon: Icon,
+  children,
+  sideTitle = "Manage your cloud services securely.",
+  sideDescription = "Access your Octalve Cloud workspace for hosting, domains, billing, orders, support, and service management.",
+  sideFooter = "Only authorized users should access this console. All activity is protected by secure authentication and role-based permissions.",
+}: AuthShellProps) {
+  return (
+    <main className="oct-auth-page">
+      <div className="oct-auth-center">
+        <section className="oct-auth-card">
+          <aside className="oct-auth-side">
+            <div className="oct-auth-side-inner">
+              <OctalveLogo light />
+
+              <p className="oct-auth-side-eyebrow">Octalve Console</p>
+              <h1 className="oct-auth-side-title">{sideTitle}</h1>
+              <p className="oct-auth-side-description">{sideDescription}</p>
+
+              <div className="oct-auth-points">
+                {[
+                  "Role-based access for clients, staff, and administrators.",
+                  "Manage hosting, domains, invoices, orders, and support.",
+                  "Connected to Octalve Cloud backend services.",
+                ].map((item) => (
+                  <div key={item} className="oct-auth-point">
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-[#7DB7FF]" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <p className="mt-8 text-xs font-semibold uppercase tracking-[0.2em] text-[#0064E0]">
-              {eyebrow}
-            </p>
-
-            <h1 className="mt-4 text-5xl font-medium tracking-[-0.06em] text-slate-950">
-              Hosting automation, structured for growth.
-            </h1>
-
-            <p className="mt-5 text-base leading-8 text-slate-500">
-              A premium control center for managing customers, hosting services, domains, invoices,
-              providers, provisioning, and support operations.
-            </p>
-
-            <div className="mt-8 grid gap-3">
-              {trustPoints.map((point) => (
-                <div key={point} className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-600">
-                  {point}
+            <div className="oct-auth-security">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-[#7DB7FF]">
+                  <ShieldCheck className="h-5 w-5" />
                 </div>
-              ))}
+                <p>{sideFooter}</p>
+              </div>
             </div>
-          </div>
-        </section>
+          </aside>
 
-        <section className="mx-auto w-full max-w-md">
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-            <div className="mb-8">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
-                <ShieldCheck className="h-6 w-6" />
+          <section className="oct-auth-form-side">
+            <div className="oct-auth-form-wrap">
+              <div className="oct-auth-mobile-logo">
+                <OctalveLogo />
               </div>
 
-              <h2 className="mt-6 text-3xl font-medium tracking-[-0.04em] text-slate-950">
-                {title}
-              </h2>
+              <div className="text-center">
+                <div className="oct-auth-icon">
+                  <Icon className="h-8 w-8" />
+                </div>
 
-              <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+                <h2 className="oct-auth-heading">{title}</h2>
+                <p className="oct-auth-subtitle">{description}</p>
+              </div>
+
+              <div className="oct-auth-body">{children}</div>
             </div>
-
-            {children}
-          </div>
+          </section>
         </section>
       </div>
+
+      <footer className="oct-auth-footer">
+        <span>© 2026 Octalve. All rights reserved.</span>
+        <span>•</span>
+        <Link href="https://octalve.cloud/privacy-policy" className="font-medium text-[#0064E0]">
+          Privacy Policy
+        </Link>
+        <span>•</span>
+        <Link href="https://octalve.cloud/terms-of-service" className="font-medium text-[#0064E0]">
+          Terms of Service
+        </Link>
+      </footer>
     </main>
   );
 }
+
+export function AuthInput({ label, icon: Icon, error, className, ...props }: AuthInputProps) {
+  return (
+    <div>
+      <label htmlFor={props.id ?? props.name} className="mb-2 block text-sm font-semibold text-[#061330]">
+        {label}
+      </label>
+
+      <div
+        className={cn(
+          "flex h-14 items-center gap-3 rounded-2xl border bg-white px-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition focus-within:border-[#0064E0] focus-within:ring-4 focus-within:ring-[#0064E0]/10",
+          error ? "border-red-300" : "border-[#D7E3F2]",
+        )}
+      >
+        {Icon ? <Icon className="h-5 w-5 shrink-0 text-slate-400" /> : null}
+
+        <input
+          {...props}
+          id={props.id ?? props.name}
+          className={cn(
+            "h-full min-w-0 flex-1 border-0 bg-transparent text-sm font-medium text-[#061330] outline-none placeholder:text-slate-400",
+            className,
+          )}
+        />
+      </div>
+
+      {error ? <p className="mt-2 text-xs font-medium leading-5 text-red-600">{error}</p> : null}
+    </div>
+  );
+}
+
+export function AuthPasswordInput({ label, error, className, ...props }: AuthPasswordInputProps) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div>
+      <label htmlFor={props.id ?? props.name} className="mb-2 block text-sm font-semibold text-[#061330]">
+        {label}
+      </label>
+
+      <div
+        className={cn(
+          "flex h-14 items-center gap-3 rounded-2xl border bg-white px-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition focus-within:border-[#0064E0] focus-within:ring-4 focus-within:ring-[#0064E0]/10",
+          error ? "border-red-300" : "border-[#D7E3F2]",
+        )}
+      >
+        <LockKeyhole className="h-5 w-5 shrink-0 text-slate-400" />
+
+        <input
+          {...props}
+          id={props.id ?? props.name}
+          type={visible ? "text" : "password"}
+          className={cn(
+            "h-full min-w-0 flex-1 border-0 bg-transparent text-sm font-medium text-[#061330] outline-none placeholder:text-slate-400",
+            className,
+          )}
+        />
+
+        <button
+          type="button"
+          onClick={() => setVisible((current) => !current)}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-50 hover:text-[#0064E0]"
+          aria-label={visible ? "Hide password" : "Show password"}
+        >
+          {visible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+        </button>
+      </div>
+
+      {error ? <p className="mt-2 text-xs font-medium leading-5 text-red-600">{error}</p> : null}
+    </div>
+  );
+}
+
+export function AuthSubmitButton({ children, disabled }: { children: ReactNode; disabled?: boolean }) {
+  return (
+    <button
+      type="submit"
+      disabled={disabled}
+      className="group flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#0064E0] px-5 text-sm font-semibold text-white shadow-[0_16px_35px_rgba(0,100,224,0.25)] transition hover:bg-[#0057C2] disabled:cursor-not-allowed disabled:opacity-65"
+    >
+      <span>{children}</span>
+      <ArrowRight className="h-5 w-5 transition group-hover:translate-x-0.5" />
+    </button>
+  );
+}
+
+export const authIcons = {
+  mail: Mail,
+  user: UserRound,
+  phone: Phone,
+};
