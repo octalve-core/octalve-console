@@ -1,9 +1,5 @@
-﻿import { InvoiceDetailEditor } from "@/components/modules/admin/InvoiceTransactionDetailEditor";
+import { AdminResourceEditorView } from "@/features/admin/views/AdminResourceEditorView";
 
-export default function Page() {
-  return (
-    <main className="page-container">
-      <InvoiceDetailEditor mode="new" />
-    </main>
-  );
+export default function AdminNewInvoicePage() {
+  return <AdminResourceEditorView resource="invoices" mode="create" />;
 }

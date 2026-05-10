@@ -1,3 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ResourceEditor } from "@/components/modules/ResourceEditor";
-export default function Page() { return <main className="page-container"><PageHeader title="Edit Provider Adapter" description="Test connection, manage credentials and map products to provider packages." /><ResourceEditor title="Provider Configuration" backHref="/admin/servers" fields={[{ label: "Provider Name", placeholder: "Enter provider name" }, { label: "Adapter Type", placeholder: "Enter adapter type" }, { label: "Base URL", placeholder: "Enter base url" }, { label: "API Username", placeholder: "Enter api username" }, { label: "API Secret", placeholder: "Enter api secret" }, { label: "Server Group", placeholder: "Enter server group" }, { label: "Test Mode", placeholder: "Enter test mode" }, { label: "Status", placeholder: "Enter status" }]} /></main>; }
+import { AdminResourceDetailView } from "@/features/admin/views/AdminResourceDetailView";
+
+export default function AdminProviderDetailPage() {
+  return <AdminResourceDetailView resource="providers" />;
+}

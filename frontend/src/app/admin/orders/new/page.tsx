@@ -1,9 +1,5 @@
-﻿import { OrderDetailEditor } from "@/components/modules/admin/CustomerOrderDetailEditor";
+import { AdminResourceEditorView } from "@/features/admin/views/AdminResourceEditorView";
 
-export default function Page() {
-  return (
-    <main className="page-container">
-      <OrderDetailEditor mode="new" />
-    </main>
-  );
+export default function AdminNewOrderPage() {
+  return <AdminResourceEditorView resource="orders" mode="create" />;
 }

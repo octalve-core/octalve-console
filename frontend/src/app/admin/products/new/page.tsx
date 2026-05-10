@@ -1,9 +1,5 @@
-﻿import { ProductDetailEditor } from "@/components/modules/admin/CatalogDetailEditor";
+import { AdminResourceEditorView } from "@/features/admin/views/AdminResourceEditorView";
 
-export default function Page() {
-  return (
-    <main className="page-container">
-      <ProductDetailEditor mode="new" />
-    </main>
-  );
+export default function AdminNewProductPage() {
+  return <AdminResourceEditorView resource="products" mode="create" />;
 }

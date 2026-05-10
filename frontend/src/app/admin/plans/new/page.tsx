@@ -1,9 +1,5 @@
-﻿import { PlanDetailEditor } from "@/components/modules/admin/CatalogDetailEditor";
+import { AdminResourceEditorView } from "@/features/admin/views/AdminResourceEditorView";
 
-export default function Page() {
-  return (
-    <main className="page-container">
-      <PlanDetailEditor mode="new" />
-    </main>
-  );
+export default function AdminNewPlanPage() {
+  return <AdminResourceEditorView resource="plans" mode="create" />;
 }

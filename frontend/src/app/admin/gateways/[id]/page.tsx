@@ -1,3 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ResourceEditor } from "@/components/modules/ResourceEditor";
-export default function Page(){return <main className="page-container"><PageHeader title="Configure Gateway" description="Create or edit data. This is frontend-ready for backend API persistence." /><ResourceEditor title="Configure Gateway" backHref="/admin/gateways" fields={[{ label: "Display Name", placeholder: "Enter display name" }, { label: "Public Key", placeholder: "Enter public key" }, { label: "Secret Key", placeholder: "Enter secret key" }, { label: "Webhook Secret", placeholder: "Enter webhook secret" }, { label: "Test Mode", placeholder: "Enter test mode" }, { label: "Bank Instructions", placeholder: "Enter bank instructions" }, { label: "Status", placeholder: "Enter status" }]} /></main>}
+import { AdminResourceDetailView } from "@/features/admin/views/AdminResourceDetailView";
+
+export default function AdminGatewayDetailPage() {
+  return <AdminResourceDetailView resource="gateways" />;
+}
