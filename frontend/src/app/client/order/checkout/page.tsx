@@ -1,17 +1,5 @@
-﻿import { CheckoutFlow } from "@/components/modules/CheckoutFlow";
+import { ClientCheckoutView } from "@/features/client/views/ClientCheckoutView";
 
-type CheckoutPageProps = {
-  searchParams?: {
-    plan?: string;
-    cycle?: string;
-  };
-};
-
-export default function Page({ searchParams }: CheckoutPageProps) {
-  return (
-    <CheckoutFlow
-      initialPlanId={searchParams?.plan}
-      initialCycle={searchParams?.cycle}
-    />
-  );
+export default function ClientCheckoutPage() {
+  return <ClientCheckoutView />;
 }

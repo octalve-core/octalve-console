@@ -1,14 +1,5 @@
-﻿import { PageHeader } from "@/components/layout/PageHeader";
-import { KnowledgeBaseGrid } from "@/components/modules/KnowledgeBaseGrid";
+import { ClientKnowledgeBaseView } from "@/features/client/views/ClientKnowledgeBaseView";
 
-export default function Page() {
-  return (
-    <main className="page-container">
-      <PageHeader
-        title="Knowledge Base"
-        description="Find answers to common hosting, domain, billing, migration and support questions."
-      />
-      <KnowledgeBaseGrid baseHref="/client/knowledge-base" />
-    </main>
-  );
+export default function ClientKnowledgeBasePage() {
+  return <ClientKnowledgeBaseView />;
 }

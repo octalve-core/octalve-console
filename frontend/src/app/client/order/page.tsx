@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { PlanCards } from "@/components/modules/PlanCards";export default function Page(){return <main className="page-container"><PageHeader title="Order Services" description="Packages configured by admin appear here for direct customer ordering."/><PlanCards /></main>}
+import { ClientOrderView } from "@/features/client/views/ClientOrderView";
+
+export default function ClientOrderPage() {
+  return <ClientOrderView />;
+}

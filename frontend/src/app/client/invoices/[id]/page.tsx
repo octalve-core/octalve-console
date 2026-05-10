@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { Card } from "@/components/ui/Card";export default function Page(){return <main className="page-container"><PageHeader title="invoice Details" description="Detailed view prepared for backend integration."/><Card padded><div className="empty-state">Details, history, payments and actions will load here from Django API.</div></Card></main>}
+import { ClientResourceDetailView } from "@/features/client/views/ClientResourceDetailView";
+
+export default function ClientInvoiceDetailPage() {
+  return <ClientResourceDetailView resource="invoices" />;
+}
