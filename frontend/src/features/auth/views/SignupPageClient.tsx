@@ -96,7 +96,7 @@ export function SignupPageClient() {
       sideTitle="Create your Octalve Cloud workspace."
       sideDescription="Create an account to access hosting services, domains, invoices, orders, support tickets, and secure account management."
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="auth-form-stack">
         <AuthInput
           label="Full name"
           name="full_name"
@@ -157,7 +157,7 @@ export function SignupPageClient() {
           />
         </div>
 
-        <label className="flex cursor-pointer items-start gap-3 pt-2 text-sm font-medium leading-6 text-slate-600">
+        <label className="auth-terms-row">
           <input
             type="checkbox"
             checked={values.acceptedTerms}
@@ -178,7 +178,7 @@ export function SignupPageClient() {
 
         <ApiFormError message={error} fieldErrors={fieldErrors} />
 
-        <div className="pt-2">
+        <div className="auth-submit-zone">
           <AuthButton disabled={isSubmitting}>
           {isSubmitting ? (
             <span className="inline-flex items-center gap-2">
@@ -191,13 +191,13 @@ export function SignupPageClient() {
         </AuthButton>
         </div>
 
-        <p className="pt-4 text-center text-sm font-medium text-slate-400">
+        <p className="auth-helper-text">
           Already have an account?
         </p>
 
         <Link
           href="/login"
-          className="mt-1 flex h-14 w-full items-center justify-center rounded-2xl border border-[#D7E3F2] bg-white text-sm font-medium text-[#0064E0] transition hover:border-[#0064E0]/40 hover:bg-[#F8FBFF]"
+          className="auth-secondary-link auth-form-footer-gap"
         >
           Login
         </Link>

@@ -111,7 +111,7 @@ export function ResetPasswordConfirmPageClient() {
           Password reset successful. Redirecting to login...
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="auth-form-stack">
           <AuthPasswordInput
             label="New password"
             name="password"
@@ -136,7 +136,7 @@ export function ResetPasswordConfirmPageClient() {
 
           <ApiFormError message={error} fieldErrors={fieldErrors} />
 
-          <div className="pt-2">
+          <div className="auth-submit-zone">
           <AuthButton disabled={isSubmitting}>
             {isSubmitting ? (
               <span className="inline-flex items-center gap-2">
@@ -151,7 +151,7 @@ export function ResetPasswordConfirmPageClient() {
 
           <Link
             href="/login"
-            className="mt-1 flex h-14 w-full items-center justify-center rounded-2xl border border-[#D7E3F2] bg-white text-sm font-medium text-[#0064E0] transition hover:border-[#0064E0]/40 hover:bg-[#F8FBFF]"
+            className="auth-secondary-link auth-form-footer-gap"
           >
             Back to login
           </Link>

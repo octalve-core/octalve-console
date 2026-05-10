@@ -343,3 +343,80 @@
     flex-wrap: wrap;
   }
 }
+
+/* Auth form spacing polish */
+.root :global(.auth-form-stack) {
+  display: grid;
+  gap: 18px;
+}
+
+.root :global(.auth-inline-row) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 2px;
+}
+
+.root :global(.auth-terms-row) {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-top: 4px;
+  font-size: 14px;
+  line-height: 1.65;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+}
+
+.root :global(.auth-submit-zone) {
+  padding-top: 8px;
+}
+
+.root :global(.auth-helper-text) {
+  margin: 16px 0 8px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.root :global(.auth-secondary-link) {
+  width: 100%;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #d7e3f2;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0064e0;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.root :global(.auth-secondary-link:hover) {
+  border-color: rgba(0, 100, 224, 0.4);
+  background: #f8fbff;
+}
+
+.root :global(.auth-form-footer-gap) {
+  margin-top: 4px;
+}
+
+@media (max-width: 560px) {
+  .root :global(.auth-form-stack) {
+    gap: 16px;
+  }
+
+  .root :global(.auth-inline-row) {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+}
