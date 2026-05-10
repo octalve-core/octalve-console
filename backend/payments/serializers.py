@@ -62,14 +62,16 @@ class TransactionSerializer(serializers.ModelSerializer):
             'amount', 'fee', 'net_amount', 'status', 'status_display',
             'payment_method', 'card_last4', 'card_type', 'paid_at', 'created_at'
         ]
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class PaymentIntentSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentIntent
         fields = ['id', 'reference', 'authorization_url', 'status', 'amount', 'currency', 'expires_at', 'created_at']
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class InitializePaymentSerializer(serializers.Serializer):

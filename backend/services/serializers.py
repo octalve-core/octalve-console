@@ -42,7 +42,8 @@ class ServiceUsageSerializer(serializers.ModelSerializer):
             'cpu_usage_percent', 'memory_used_mb', 'memory_limit_mb',
             'memory_percent', 'recorded_at'
         ]
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class ServiceActionLogSerializer(serializers.ModelSerializer):
@@ -57,7 +58,8 @@ class ServiceActionLogSerializer(serializers.ModelSerializer):
             'id', 'action', 'action_display', 'performed_by', 'performed_by_name',
             'is_automatic', 'success', 'error_message', 'details', 'created_at'
         ]
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class ServiceSerializer(serializers.ModelSerializer):
@@ -82,6 +84,7 @@ class ServiceSerializer(serializers.ModelSerializer):
             'config', 'created_at'
         ]
         read_only_fields = ['id', 'created_at', 'activated_at', 'suspended_at']
+        
     
     def get_current_usage(self, obj):
         latest_usage = obj.usage_history.first()

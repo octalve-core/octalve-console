@@ -41,7 +41,8 @@ class ReportInstanceSerializer(serializers.ModelSerializer):
             'status_display', 'error_message', 'file_format', 'file_url',
             'file_size', 'row_count', 'generated_at', 'completed_at'
         ]
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class GenerateReportSerializer(serializers.Serializer):
@@ -103,7 +104,8 @@ class MetricHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = MetricHistory
         fields = ['id', 'value', 'recorded_at']
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class DashboardDataSerializer(serializers.Serializer):

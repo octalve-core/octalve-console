@@ -33,7 +33,8 @@ class WalletLedgerSerializer(serializers.ModelSerializer):
             'balance_before', 'balance_after', 'description', 'reference',
             'invoice_id', 'created_by_name', 'created_at'
         ]
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class WithdrawalRequestSerializer(serializers.ModelSerializer):

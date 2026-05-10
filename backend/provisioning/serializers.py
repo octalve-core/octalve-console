@@ -16,7 +16,8 @@ class ProvisioningLogSerializer(serializers.ModelSerializer):
             'id', 'step', 'log_level', 'message', 'duration_ms',
             'request_data', 'response_data', 'created_at'
         ]
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class ProvisioningTaskSerializer(serializers.ModelSerializer):
@@ -40,7 +41,8 @@ class ProvisioningTaskSerializer(serializers.ModelSerializer):
             'scheduled_at', 'started_at', 'completed_at', 'result_data',
             'executed_by', 'logs', 'created_at'
         ]
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class CreateProvisioningTaskSerializer(serializers.Serializer):
@@ -102,7 +104,8 @@ class WebhookDeliverySerializer(serializers.ModelSerializer):
             'id', 'webhook', 'task', 'event', 'attempt', 'response_status',
             'success', 'error_message', 'delivered_at'
         ]
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class QueueStatsSerializer(serializers.Serializer):

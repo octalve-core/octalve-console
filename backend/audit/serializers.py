@@ -21,7 +21,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
             'old_value', 'new_value', 'details', 'error_message',
             'request_method', 'request_path', 'created_at'
         ]
-        read_only_fields = '__all__'
+        
+        read_only_fields = ['id', 'created_at']
 
 
 class LoginAttemptSerializer(serializers.ModelSerializer):
@@ -30,7 +31,7 @@ class LoginAttemptSerializer(serializers.ModelSerializer):
     class Meta:
         model = LoginAttempt
         fields = ['id', 'email', 'ip_address', 'was_successful', 'failure_reason', 'created_at']
-        read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class APIAccessLogSerializer(serializers.ModelSerializer):
@@ -46,7 +47,7 @@ class APIAccessLogSerializer(serializers.ModelSerializer):
             'path', 'query_string', 'status_code', 'response_time_ms',
             'ip_address', 'created_at'
         ]
-        read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class SecurityEventSerializer(serializers.ModelSerializer):
@@ -82,7 +83,7 @@ class DataExportLogSerializer(serializers.ModelSerializer):
             'file_url', 'file_size', 'status', 'status_display', 'error_message',
             'expires_at', 'created_at', 'completed_at'
         ]
-        read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'completed_at']
 
 
 class SystemHealthLogSerializer(serializers.ModelSerializer):
@@ -93,7 +94,8 @@ class SystemHealthLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemHealthLog
         fields = '__all__'
-        read_only_fields = '__all__'
+        # read_only_fields = '__all__'
+        read_only_fields = ['id', 'created_at']
 
 
 class AuditStatsSerializer(serializers.Serializer):
