@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+﻿import { cn } from "@/lib/utils";
 import type { HTMLAttributes, ReactNode } from "react";
 
 type BadgeVariant =
@@ -43,13 +43,7 @@ function normalizeVariant(value?: BadgeVariant | string): BadgeVariant {
   return "default";
 }
 
-export function Badge({
-  children,
-  variant,
-  tone,
-  className,
-  ...props
-}: BadgeProps) {
+export function Badge({ children, variant, tone, className, ...props }: BadgeProps) {
   const resolvedVariant = normalizeVariant(variant ?? tone);
 
   return (
