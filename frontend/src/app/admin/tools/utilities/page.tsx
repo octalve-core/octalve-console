@@ -1,5 +1,5 @@
-import { RouteAuditView } from "@/features/navigation/views/RouteAuditView";
+import { ProductionReadinessView } from "@/features/system/views/ProductionReadinessView";
 
 export default function AdminUtilitiesPage() {
-  return <RouteAuditView />;
+  return <ProductionReadinessView />;
 }
