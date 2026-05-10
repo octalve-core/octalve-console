@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { clientApi } from "@/lib/api/endpoints";
+import { toClientOrderPayload } from "@/lib/api/payload-mappers";
 import { formatCurrency } from "@/lib/formatters";
 import { clientOrderPlans } from "../data/client-order-data";
 
@@ -38,17 +39,19 @@ export function ClientCheckoutView() {
     setIsSubmitting(true);
 
     try {
-      await clientApi.createOrder({
-        plan_id: selectedPlan?.id,
-        product: selectedPlan?.product,
-        domain,
-        payment_method: paymentMethod,
-        total: selectedPlan?.price,
-      });
+      await clientApi.createOrder(
+        toClientOrderPayload({
+          plan_id: selectedPlan?.id ?? "",
+          product: selectedPlan?.product ?? "",
+          domain,
+          payment_method: paymentMethod,
+          total: String(selectedPlan?.price ?? 0),
+        }),
+      );
 
       setNotice("Order created successfully. Payment initialization can now be connected to the selected gateway.");
     } catch {
-      setError("The order API is not available yet or rejected the current payload. The checkout UI is ready for integration.");
+      setError("The order API is not available yet or rejected the payload. Check the order serializer field names.");
     } finally {
       setIsSubmitting(false);
     }
@@ -165,9 +168,9 @@ export function ClientCheckoutView() {
                 <ShieldCheck className="h-6 w-6" />
               </div>
 
-              <h3 className="mt-5 text-lg font-medium tracking-[-0.03em] text-slate-950">Secure checkout</h3>
+              <h3 className="mt-5 text-lg font-medium tracking-[-0.03em] text-slate-950">Serializer-ready checkout</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Checkout is prepared for invoice-first ordering, gateway initialization, wallet payment, and manual approval.
+                Checkout payloads are mapped before submission so the UI can stay clean while Django receives backend-ready fields.
               </p>
 
               <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">

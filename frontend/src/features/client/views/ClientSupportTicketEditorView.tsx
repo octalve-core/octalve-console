@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { clientApi } from "@/lib/api/endpoints";
+import { toClientSupportPayload } from "@/lib/api/payload-mappers";
 
 export function ClientSupportTicketEditorView() {
   const [values, setValues] = useState({
@@ -27,13 +28,7 @@ export function ClientSupportTicketEditorView() {
     setIsSubmitting(true);
 
     try {
-      await clientApi.createTicket({
-        subject: values.subject.trim(),
-        department: values.department.trim(),
-        priority: values.priority.trim(),
-        message: values.message.trim(),
-      });
-
+      await clientApi.createTicket(toClientSupportPayload(values));
       setNotice("Ticket submitted successfully. Support will respond as soon as possible.");
       setValues({
         subject: "",
@@ -42,7 +37,7 @@ export function ClientSupportTicketEditorView() {
         message: "",
       });
     } catch {
-      setError("The support API is not available yet or rejected the payload. The UI is ready for integration.");
+      setError("The support API is not available yet or rejected the payload. Check the support serializer field names.");
     } finally {
       setIsSubmitting(false);
     }
@@ -159,7 +154,7 @@ export function ClientSupportTicketEditorView() {
             </h3>
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Tickets are designed to route to billing, technical support, domains, provisioning, and account teams.
+              Tickets are mapped before submission so the frontend can stay simple while Django receives serializer-ready fields.
             </p>
           </Card>
         </div>

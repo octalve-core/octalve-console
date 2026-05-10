@@ -4,13 +4,13 @@ import { useState } from "react";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { api } from "@/lib/api/client";
 import { apiPaths } from "@/lib/api/endpoints";
+import { toAdminOperationPayload } from "@/lib/api/payload-mappers";
 import { supportApi } from "@/lib/api/modules/support.api";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import type { AdminOperationKey } from "../data/admin-operations-data";
 
 type AdminOperationEditorViewProps = {
   operation: "support" | "knowledge-base" | "notifications";
@@ -73,15 +73,17 @@ export function AdminOperationEditorView({ operation }: AdminOperationEditorView
   const [error, setError] = useState("");
 
   async function saveRecord(payload: Record<string, string>) {
+    const apiPayload = toAdminOperationPayload(operation, payload);
+
     if (operation === "support") {
-      return supportApi.createTicket(payload);
+      return supportApi.createTicket(apiPayload);
     }
 
     if (operation === "knowledge-base") {
-      return api.post(apiPaths.admin.knowledgeBase, payload);
+      return api.post(apiPaths.admin.knowledgeBase, apiPayload);
     }
 
-    return api.post(apiPaths.admin.notificationTemplates, payload);
+    return api.post(apiPaths.admin.notificationTemplates, apiPayload);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -91,16 +93,10 @@ export function AdminOperationEditorView({ operation }: AdminOperationEditorView
     setIsSubmitting(true);
 
     try {
-      const payload = Object.fromEntries(
-        Object.entries(values)
-          .map(([key, value]) => [key, value.trim()])
-          .filter(([, value]) => value !== ""),
-      ) as Record<string, string>;
-
-      await saveRecord(payload);
-      setNotice("Saved successfully. The backend accepted the submitted payload.");
+      await saveRecord(values);
+      setNotice("Saved successfully. The backend accepted the serializer-aligned payload.");
     } catch {
-      setError("The backend endpoint is not available yet or rejected the current payload. The UI is ready for integration.");
+      setError("The backend endpoint is not available yet or rejected the current payload. Check the serializer field names for this operation.");
     } finally {
       setIsSubmitting(false);
     }
@@ -187,9 +183,9 @@ export function AdminOperationEditorView({ operation }: AdminOperationEditorView
           </Card>
 
           <Card>
-            <h3 className="text-lg font-medium tracking-[-0.03em] text-slate-950">API-ready editor</h3>
+            <h3 className="text-lg font-medium tracking-[-0.03em] text-slate-950">Serializer-aligned editor</h3>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              This editor is connected through the current API layer and can be refined when the backend payload is finalized.
+              This editor now passes through a mapper before reaching the Django API, so UI names and serializer names stay separated.
             </p>
           </Card>
         </div>

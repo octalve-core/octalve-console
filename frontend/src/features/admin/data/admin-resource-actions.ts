@@ -1,5 +1,6 @@
 import { adminApi } from "@/lib/api/endpoints";
 import { schemaApi } from "@/lib/api/schema-api";
+import { toAdminResourcePayload } from "@/lib/api/payload-mappers";
 import type { AdminResourceKey } from "./admin-resource-config";
 
 export type AdminSaveMode = "create" | "edit";
@@ -14,51 +15,53 @@ export async function saveAdminResourceRecord(
     throw new Error("Missing record ID for update.");
   }
 
+  const apiPayload = toAdminResourcePayload(resource, payload) as any;
+
   switch (resource) {
     case "customers":
       return mode === "create"
-        ? adminApi.createCustomer(payload)
-        : adminApi.updateCustomer(id as string, payload);
+        ? adminApi.createCustomer(apiPayload)
+        : adminApi.updateCustomer(id as string, apiPayload);
 
     case "products":
       return mode === "create"
-        ? adminApi.createProduct(payload)
-        : adminApi.updateProduct(id as string, payload);
+        ? adminApi.createProduct(apiPayload)
+        : adminApi.updateProduct(id as string, apiPayload);
 
     case "plans":
       return mode === "create"
-        ? adminApi.createPlan(payload)
-        : adminApi.updatePlan(id as string, payload);
+        ? adminApi.createPlan(apiPayload)
+        : adminApi.updatePlan(id as string, apiPayload);
 
     case "orders":
       return mode === "create"
-        ? schemaApi.orders.createOrder(payload)
-        : schemaApi.orders.updateOrder(id as string, payload);
+        ? schemaApi.orders.createOrder(apiPayload)
+        : schemaApi.orders.updateOrder(id as string, apiPayload);
 
     case "invoices":
       return mode === "create"
-        ? schemaApi.billing.createInvoice(payload)
-        : schemaApi.billing.updateInvoice(id as string, payload);
+        ? schemaApi.billing.createInvoice(apiPayload)
+        : schemaApi.billing.updateInvoice(id as string, apiPayload);
 
     case "domains":
       return mode === "create"
-        ? schemaApi.domains.createDomain(payload)
-        : schemaApi.domains.updateDomain(id as string, payload);
+        ? schemaApi.domains.createDomain(apiPayload)
+        : schemaApi.domains.updateDomain(id as string, apiPayload);
 
     case "gateways":
       return mode === "create"
-        ? schemaApi.payments.createGateway(payload)
-        : schemaApi.payments.updateGateway(id as string, payload);
+        ? schemaApi.payments.createGateway(apiPayload)
+        : schemaApi.payments.updateGateway(id as string, apiPayload);
 
     case "providers":
       return mode === "create"
-        ? schemaApi.providers.createProvider(payload)
-        : schemaApi.providers.updateProvider(id as string, payload);
+        ? schemaApi.providers.createProvider(apiPayload)
+        : schemaApi.providers.updateProvider(id as string, apiPayload);
 
     case "provisioning":
       return mode === "create"
-        ? schemaApi.provisioning.createTask(payload)
-        : schemaApi.provisioning.updateTask(id as string, payload);
+        ? schemaApi.provisioning.createTask(apiPayload)
+        : schemaApi.provisioning.updateTask(id as string, apiPayload);
 
     default:
       throw new Error("Unsupported admin resource.");
