@@ -9,11 +9,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { authApi } from "@/lib/api/endpoints";
+import { authApiV2, type AuthTokenResponse } from "@/lib/api/modules/auth.api";
 import { tokenStorage } from "@/lib/api/client";
 import type {
   AuthSession,
-  AuthTokenResponse,
   LoginPayload,
   SignupPayload,
   User,
@@ -173,7 +172,7 @@ async function resolveLoginSession(
 
   const resolvedUser = loginResponse.user
     ? normalizeUser(loginResponse.user, fallback)
-    : normalizeUser(await authApi.me(), fallback);
+    : normalizeUser(await authApiV2.me(), fallback);
 
   return {
     access: loginResponse.access,
@@ -219,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const currentUser = normalizeUser(await authApi.me());
+      const currentUser = normalizeUser(await authApiV2.me());
       setUser(currentUser);
       saveLocalUser(currentUser);
       return currentUser;
@@ -239,7 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (payload: LoginPayload) => {
     try {
-      const loginResponse = await authApi.login(payload);
+      const loginResponse = await authApiV2.login(payload);
       const session = await resolveLoginSession(loginResponse, {
         email: payload.email,
       });
@@ -261,30 +260,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signup = useCallback(async (payload: SignupPayload) => {
-    try {
-      await authApi.signup(payload);
+    await authApiV2.register(payload);
 
-      const loginResponse = await authApi.login({
-        email: payload.email,
-        password: payload.password,
-      });
+    const loginResponse = await authApiV2.login({
+      email: payload.email,
+      password: payload.password,
+    });
 
-      const session = await resolveLoginSession(loginResponse, {
-        name: payload.full_name,
-        email: payload.email,
-        role: "client",
-      });
+    const session = await resolveLoginSession(loginResponse, {
+      name: payload.full_name,
+      email: payload.email,
+      role: "client",
+    });
 
-      storeSession(session);
-      setUser(session.user);
-      return session;
-    } catch (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("Signup error:", error);
-      }
-
-      throw error;
-    }
+    storeSession(session);
+    setUser(session.user);
+    return session;
   }, []);
 
   const logout = useCallback(async () => {
@@ -292,7 +283,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = tokenStorage.getAccessToken();
 
       if (token && !token.startsWith("demo-access-")) {
-        await authApi.logout();
+        await authApiV2.logout();
       }
     } catch {
       // Clear frontend session even if backend logout fails.
