@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu, Search, UserCircle } from "lucide-react";
+import { Bell, Command, Menu, Search, UserCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -25,7 +25,7 @@ export function DashboardTopbar({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 border-b border-slate-200 bg-white/85 px-4 py-4 backdrop-blur-xl sm:px-6 lg:px-8",
+        "sticky top-0 z-30 border-b border-slate-200/80 bg-[#F6F8FB]/90 px-4 py-4 backdrop-blur-xl sm:px-6 lg:px-8",
         className,
       )}
     >
@@ -33,13 +33,21 @@ export function DashboardTopbar({
         <button
           type="button"
           onClick={onMenuClick}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 lg:hidden"
+          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 lg:hidden"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="min-w-0 flex-1">
+        <div className="hidden h-12 w-full max-w-xl items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-400 shadow-sm xl:flex">
+          <Search className="h-4 w-4" />
+          <span className="min-w-0 flex-1 truncate">Search customers, invoices, domains...</span>
+          <span className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-2 py-1 text-xs text-slate-400">
+            <Command className="h-3 w-3" /> K
+          </span>
+        </div>
+
+        <div className="min-w-0 flex-1 xl:hidden">
           <h1 className="truncate text-xl font-medium tracking-[-0.03em] text-slate-950 sm:text-2xl">
             {title}
           </h1>
@@ -49,31 +57,29 @@ export function DashboardTopbar({
           ) : null}
         </div>
 
-        <div className="hidden h-11 w-full max-w-xs items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-400 xl:flex">
-          <Search className="h-4 w-4" />
-          <span>Search console...</span>
-        </div>
-
         {actions ? <div className="hidden items-center gap-3 md:flex">{actions}</div> : null}
 
         <button
           type="button"
-          className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 sm:flex"
+          className="relative hidden h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 sm:flex"
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
+          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[0.65rem] font-semibold text-white">
+            3
+          </span>
         </button>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-          <UserCircle className="h-5 w-5 text-slate-400" />
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
+            <UserCircle className="h-5 w-5" />
+          </div>
 
           <div className="hidden min-w-0 sm:block">
-            <p className="max-w-[8rem] truncate text-xs font-medium text-slate-950">
+            <p className="max-w-[9rem] truncate text-sm font-medium text-slate-950">
               {user?.name ?? "Octalve User"}
             </p>
-            <p className="text-[0.68rem] uppercase tracking-[0.12em] text-slate-400">
-              {user?.role ?? "client"}
-            </p>
+            <p className="text-xs capitalize text-slate-500">{user?.role ?? "client"}</p>
           </div>
         </div>
       </div>

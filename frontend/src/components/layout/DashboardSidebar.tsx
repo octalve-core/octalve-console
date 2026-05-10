@@ -77,7 +77,7 @@ export function DashboardSidebar({ role, isOpen = false, onClose }: DashboardSid
     <>
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-sm transition lg:hidden",
+          "fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm transition lg:hidden",
           isOpen ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         onClick={onClose}
@@ -85,36 +85,40 @@ export function DashboardSidebar({ role, isOpen = false, onClose }: DashboardSid
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[19rem] flex-col border-r border-slate-200 bg-white transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-[19rem] flex-col overflow-hidden border-r border-white/10 bg-[#00172F] text-white shadow-2xl shadow-slate-950/20 transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5">
+        <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-[#0064E0]/25 to-transparent" />
+        <div className="relative flex h-20 items-center justify-between px-5">
           <Link href={getDashboardHome(role)} className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0064E0] text-sm font-semibold text-white shadow-sm shadow-blue-600/20">
-              O
+            <span className="grid h-11 w-11 grid-cols-2 gap-1 rounded-2xl bg-white p-2 shadow-sm">
+              <span className="rounded-full bg-[#0064E0]" />
+              <span className="rounded-full bg-[#E61525]" />
+              <span className="rounded-full bg-[#29BE3E]" />
+              <span className="rounded-full bg-[#FC7E24]" />
             </span>
 
             <span>
-              <span className="block text-sm font-semibold text-slate-950">Octalve</span>
-              <span className="block text-xs text-slate-500">Console</span>
+              <span className="block text-sm font-semibold text-white">Octalve Console</span>
+              <span className="block text-xs text-slate-400">Cloud business OS</span>
             </span>
           </Link>
 
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/10 hover:text-white lg:hidden"
             aria-label="Close menu"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-5">
+        <nav className="relative flex-1 space-y-6 overflow-y-auto px-4 py-5">
           {groups.map((group) => (
             <div key={group.title}>
-              <p className="px-3 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              <p className="px-3 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-500">
                 {group.title}
               </p>
 
@@ -129,16 +133,16 @@ export function DashboardSidebar({ role, isOpen = false, onClose }: DashboardSid
                       href={item.href}
                       onClick={onClose}
                       className={cn(
-                        "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition",
+                        "group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition",
                         active
-                          ? "bg-[#0064E0] text-white shadow-sm shadow-blue-600/20"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+                          ? "bg-[#0064E0] text-white shadow-lg shadow-blue-950/25"
+                          : "text-slate-300 hover:bg-white/10 hover:text-white",
                       )}
                     >
                       <Icon
                         className={cn(
                           "h-4 w-4 shrink-0",
-                          active ? "text-white" : "text-slate-400 group-hover:text-slate-700",
+                          active ? "text-white" : "text-slate-500 group-hover:text-white",
                         )}
                       />
 
@@ -148,7 +152,7 @@ export function DashboardSidebar({ role, isOpen = false, onClose }: DashboardSid
                         <span
                           className={cn(
                             "rounded-full px-2 py-0.5 text-[0.65rem]",
-                            active ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600",
+                            active ? "bg-white/20 text-white" : "bg-white/10 text-slate-300",
                           )}
                         >
                           {item.badge}
@@ -162,11 +166,11 @@ export function DashboardSidebar({ role, isOpen = false, onClose }: DashboardSid
           ))}
         </nav>
 
-        <div className="border-t border-slate-200 p-4">
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <p className="text-sm font-medium text-slate-950">API-ready console</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Built for hosting automation, billing, domains, providers and support.
+        <div className="relative p-4">
+          <div className="rounded-[1.4rem] border border-white/10 bg-white/10 p-4 backdrop-blur">
+            <p className="text-sm font-medium text-white">Need help?</p>
+            <p className="mt-1 text-xs leading-5 text-slate-400">
+              24/7 cloud support for billing, services, domains and provisioning.
             </p>
           </div>
         </div>
