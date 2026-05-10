@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { ResourceEditor } from "@/components/modules/ResourceEditor";export default function Page(){return <main className="page-container"><PageHeader title="Ticket Overview" description="Frontend-ready page prepared for backend API persistence."/><ResourceEditor title="Ticket Overview" backHref="/admin/support" fields={[{ label: "Summary", placeholder: "Enter summary" }, { label: "Department", placeholder: "Enter department" }, { label: "Assigned To", placeholder: "Enter assigned to" }, { label: "Priority", placeholder: "Enter priority" }, { label: "Status", placeholder: "Enter status" }, { label: "Reply Message", placeholder: "Enter reply message" }]}/></main>}
+import { AdminOperationDetailView } from "@/features/admin/operations/views/AdminOperationDetailView";
+
+export default function AdminSupportTicketDetailPage() {
+  return <AdminOperationDetailView operation="support" />;
+}

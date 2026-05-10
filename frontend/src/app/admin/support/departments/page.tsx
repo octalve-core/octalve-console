@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { ResourceEditor } from "@/components/modules/ResourceEditor";export default function Page(){return <main className="page-container"><PageHeader title="Departments" description="Frontend-ready page prepared for backend API persistence."/><ResourceEditor title="Departments" backHref="/admin/support" fields={[{ label: "Name", placeholder: "Enter name" }, { label: "Description", placeholder: "Enter description" }, { label: "Email", placeholder: "Enter email" }, { label: "Default Priority", placeholder: "Enter default priority" }, { label: "Email Handling", placeholder: "Enter email handling" }, { label: "Auto Close Tickets", placeholder: "Enter auto close tickets" }, { label: "Status", placeholder: "Enter status" }]}/></main>}
+import { AdminOperationListView } from "@/features/admin/operations/views/AdminOperationListView";
+
+export default function AdminSupportDepartmentsPage() {
+  return <AdminOperationListView operation="departments" />;
+}

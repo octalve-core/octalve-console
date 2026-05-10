@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { StatCard } from "@/components/ui/StatCard";import { Card } from "@/components/ui/Card";import { BarChart3, Receipt, Server, Users } from "lucide-react";export default function Page(){return <main className="page-container"><PageHeader title="Reports" description="Modern business metrics for revenue, subscriptions, customers, churn, gateway performance and provisioning outcomes."/><div className="grid cols-4" style={{marginBottom:18}}><StatCard label="Total Revenue" value="₦42,500" icon={<Receipt size={22}/>}/><StatCard label="Paid Invoices" value="2" icon={<BarChart3 size={22}/>}/><StatCard label="Active Subscriptions" value="3" icon={<Server size={22}/>}/><StatCard label="Total Customers" value="2" icon={<Users size={22}/>}/></div><Card padded><h2 className="card-title">Monthly Revenue</h2><div className="empty-state" style={{marginTop:18}}>Chart area prepared. Connect backend analytics endpoint to render monthly revenue and gateway conversion.</div></Card></main>}
+import { AdminOperationListView } from "@/features/admin/operations/views/AdminOperationListView";
+
+export default function AdminReportsPage() {
+  return <AdminOperationListView operation="reports" />;
+}

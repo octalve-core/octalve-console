@@ -1,5 +1,5 @@
-﻿import { SettingsSectionPage } from "@/components/modules/SettingsSectionPage";
+import { AdminSettingsHubView } from "@/features/admin/settings/views/AdminSettingsHubView";
 
-export default function Page() {
-  return <SettingsSectionPage section="general" />;
+export default function AdminSettingsPage() {
+  return <AdminSettingsHubView />;
 }

@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { ResourceEditor } from "@/components/modules/ResourceEditor";export default function Page(){return <main className="page-container"><PageHeader title="Open Ticket" description="Frontend-ready page prepared for backend API persistence."/><ResourceEditor title="Open Ticket" backHref="/admin/support" fields={[{ label: "Client", placeholder: "Enter client" }, { label: "Recipient Email", placeholder: "Enter recipient email" }, { label: "Summary", placeholder: "Enter summary" }, { label: "Department", placeholder: "Enter department" }, { label: "Service", placeholder: "Enter service" }, { label: "Assigned To", placeholder: "Enter assigned to" }, { label: "Priority", placeholder: "Enter priority" }, { label: "Status", placeholder: "Enter status" }, { label: "Details", placeholder: "Enter details" }]}/></main>}
+import { AdminOperationEditorView } from "@/features/admin/operations/views/AdminOperationEditorView";
+
+export default function AdminNewSupportTicketPage() {
+  return <AdminOperationEditorView operation="support" />;
+}

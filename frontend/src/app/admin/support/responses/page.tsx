@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { ResourceEditor } from "@/components/modules/ResourceEditor";export default function Page(){return <main className="page-container"><PageHeader title="Predefined Responses" description="Frontend-ready page prepared for backend API persistence."/><ResourceEditor title="Predefined Responses" backHref="/admin/support" fields={[{ label: "Category", placeholder: "Enter category" }, { label: "Title", placeholder: "Enter title" }, { label: "Response Body", placeholder: "Enter response body" }, { label: "Status", placeholder: "Enter status" }]}/></main>}
+import { AdminOperationListView } from "@/features/admin/operations/views/AdminOperationListView";
+
+export default function AdminSupportResponsesPage() {
+  return <AdminOperationListView operation="responses" />;
+}

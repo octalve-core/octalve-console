@@ -1,5 +1,5 @@
-﻿import { KnowledgeArticleEditor } from "@/components/modules/KnowledgeArticleEditor";
+import { AdminOperationDetailView } from "@/features/admin/operations/views/AdminOperationDetailView";
 
-export default function Page({ params }: { params: { id: string } }) {
-  return <KnowledgeArticleEditor id={params.id} />;
+export default function AdminKnowledgeBaseDetailPage() {
+  return <AdminOperationDetailView operation="knowledge-base" />;
 }

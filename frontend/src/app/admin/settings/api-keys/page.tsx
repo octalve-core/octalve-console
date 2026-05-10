@@ -1,1 +1,5 @@
-import { PageHeader } from "@/components/layout/PageHeader";import { Card } from "@/components/ui/Card";import { FormField } from "@/components/ui/FormField";import { apiPermissions } from "@/lib/platform-data";import { Button } from "@/components/ui/Button";export default function Page(){return <main className="page-container"><PageHeader title="API Keys" description="Create scoped API keys with allowed IPs and granular permissions."/><Card padded><div className="form-grid"><FormField label="API Name"/><FormField label="Allowed IP Addresses" placeholder="1.1.1.1/32"/></div><h2 className="card-title" style={{marginTop:22}}>Permissions</h2><div className="grid cols-4" style={{marginTop:12}}>{apiPermissions.map((p)=><label className="actions" key={p}><input type="checkbox"/> {p}</label>)}</div><div className="page-actions" style={{marginTop:22}}><Button>Create API Key</Button></div></Card></main>}
+import { AdminSettingsSectionView } from "@/features/admin/settings/views/AdminSettingsSectionView";
+
+export default function AdminSettingsSectionPage() {
+  return <AdminSettingsSectionView section="api-keys" />;
+}
