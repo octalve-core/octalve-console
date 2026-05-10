@@ -1,4 +1,4 @@
-﻿// src/lib/api/endpoints.ts
+// src/lib/api/endpoints.ts
 
 import { api } from "./client";
 import type {
@@ -149,9 +149,7 @@ export const authApi = {
   //   )}/${encodeURIComponent(cleanToken)}/`;
 
   //   if (process.env.NODE_ENV === "development") {
-  //     console.log("Reset password confirm path:", resetConfirmPath);
-  //     console.log("Reset password confirm payload:", payload);
-  //   }
+  //     //     //   }
 
   //   return api.post<{ detail?: string }>(resetConfirmPath, payload, {
   //     skipAuth: true,
@@ -170,8 +168,7 @@ export const authApi = {
     };
 
     if (process.env.NODE_ENV === "development") {
-      console.log("Reset password payload:", payload);
-    }
+      }
 
     // Use the exact endpoint without adding uid/token to URL
     return api.post(apiPaths.auth.resetPasswordConfirm, payload, {

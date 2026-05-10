@@ -45,35 +45,35 @@ export const plans = [
 ];
 
 export const customers = [
-  { id: "CUST-1500", name: "Brand De", email: "hellobrandde@gmail.com", phone: "0813 575 0956", status: "Active", balance: "₦0", services: 2, invoices: 3 },
-  { id: "CUST-1501", name: "Octalve Demo Client", email: "client@octalve.cloud", phone: "0800 000 0000", status: "Active", balance: "₦3,500", services: 1, invoices: 1 }
+  { id: "CUST-1500", name: "Brand De", email: "hellobrandde@gmail.com", phone: "0813 575 0956", status: "Active", balance: "â‚¦0", services: 2, invoices: 3 },
+  { id: "CUST-1501", name: "Octalve Demo Client", email: "client@example.com", phone: "0800 000 0000", status: "Active", balance: "â‚¦3,500", services: 1, invoices: 1 }
 ];
 
 export const services = [
-  { id: "SVC-HOST-001", customer: "Brand De", package: "Business", product: "Web Hosting", label: "brandde.com", term: "1 Month @ ₦3,500", renews: "May 30, 2026", status: "Active", adapter: "DirectAdminAdapter", usage: { disk: 38, bandwidth: 24, email: 42, database: 17 } },
-  { id: "SVC-VPS-001", customer: "Brand De", package: "VPS-1", product: "VPS Hosting", label: "api.brandde.com", term: "1 Month @ ₦12,000", renews: "May 30, 2026", status: "Pending", adapter: "ProxmoxAdapter", usage: { disk: 12, bandwidth: 9, cpu: 18, memory: 44 } },
-  { id: "SVC-DOM-001", customer: "Octalve Demo Client", package: ".com Domain", product: "Domain Registration", label: "octalvedemo.com", term: "1 Year @ ₦24,000", renews: "Apr 30, 2027", status: "Active", adapter: "DomainRegistrarAdapter", usage: { dns: 8, renew: 100 } }
+  { id: "SERVICE-ID", customer: "Brand De", package: "Business", product: "Web Hosting", label: "example.com", term: "1 Month @ â‚¦3,500", renews: "May 30, 2026", status: "Active", adapter: "DirectAdminAdapter", usage: { disk: 38, bandwidth: 24, email: 42, database: 17 } },
+  { id: "SVC-VPS-001", customer: "Brand De", package: "VPS-1", product: "VPS Hosting", label: "api.example.com", term: "1 Month @ â‚¦12,000", renews: "May 30, 2026", status: "Pending", adapter: "ProxmoxAdapter", usage: { disk: 12, bandwidth: 9, cpu: 18, memory: 44 } },
+  { id: "SVC-DOM-001", customer: "Octalve Demo Client", package: ".com Domain", product: "Domain Registration", label: "octalvedemo.com", term: "1 Year @ â‚¦24,000", renews: "Apr 30, 2027", status: "Active", adapter: "DomainRegistrarAdapter", usage: { dns: 8, renew: 100 } }
 ];
 
 export const domains = [
-  { id: "DOM-001", domain: "brandde.com", client: "Brand De", registrar: "DomainRegistrarAdapter", price: "₦24,000", renewal: "Apr 30, 2027", expiry: "Apr 30, 2027", autoRenew: "On", status: "Active" },
+  { id: "DOM-001", domain: "example.com", client: "Brand De", registrar: "DomainRegistrarAdapter", price: "â‚¦24,000", renewal: "Apr 30, 2027", expiry: "Apr 30, 2027", autoRenew: "On", status: "Active" },
   { id: "DOM-002", domain: "octalve.cloud", client: "Octalve", registrar: "CloudflareAdapter", price: "Internal", renewal: "Managed", expiry: "Managed", autoRenew: "On", status: "Active" }
 ];
 
 export const invoices = [
-  { id: "INV-2026-0001", client: "Brand De", total: "₦3,500", paid: "₦3,500", due: "₦0", date: "Apr 30, 2026", dueDate: "May 7, 2026", status: "Paid" },
-  { id: "INV-2026-0002", client: "Brand De", total: "₦24,000", paid: "₦24,000", due: "₦0", date: "Apr 30, 2026", dueDate: "May 7, 2026", status: "Paid" },
-  { id: "INV-2026-0003", client: "Octalve Demo Client", total: "₦15,000", paid: "₦0", due: "₦15,000", date: "May 1, 2026", dueDate: "May 8, 2026", status: "Unpaid" }
+  { id: "INV-2026-0001", client: "Brand De", total: "â‚¦3,500", paid: "â‚¦3,500", due: "â‚¦0", date: "Apr 30, 2026", dueDate: "May 7, 2026", status: "Paid" },
+  { id: "INV-2026-0002", client: "Brand De", total: "â‚¦24,000", paid: "â‚¦24,000", due: "â‚¦0", date: "Apr 30, 2026", dueDate: "May 7, 2026", status: "Paid" },
+  { id: "INV-2026-0003", client: "Octalve Demo Client", total: "â‚¦15,000", paid: "â‚¦0", due: "â‚¦15,000", date: "May 1, 2026", dueDate: "May 8, 2026", status: "Unpaid" }
 ];
 
 export const transactions = [
-  { id: "TXN-001", client: "Brand De", type: "Paystack", amount: "₦3,500", credited: "₦0", applied: "₦3,500", reference: "PSK-MOLMITRS", date: "Apr 30, 2026", status: "Approved" },
-  { id: "TXN-002", client: "Brand De", type: "Bank Transfer", amount: "₦24,000", credited: "₦0", applied: "₦24,000", reference: "BANK-MOLMITHV", date: "Apr 30, 2026", status: "Approved" }
+  { id: "TXN-001", client: "Brand De", type: "Paystack", amount: "â‚¦3,500", credited: "â‚¦0", applied: "â‚¦3,500", reference: "PSK-MOLMITRS", date: "Apr 30, 2026", status: "Approved" },
+  { id: "TXN-002", client: "Brand De", type: "Bank Transfer", amount: "â‚¦24,000", credited: "â‚¦0", applied: "â‚¦24,000", reference: "BANK-MOLMITHV", date: "Apr 30, 2026", status: "Approved" }
 ];
 
 export const orders = [
-  { id: "OCT-MOLNWONA", customer: "Brand De", product: "Business Web Hosting", total: "₦3,500", status: "Provisioned", date: "Apr 30, 2026" },
-  { id: "OCT-MOLMITHV", customer: "Brand De", product: "VPS-1", total: "₦24,000", status: "Pending Provisioning", date: "Apr 30, 2026" }
+  { id: "OCT-MOLNWONA", customer: "Brand De", product: "Business Web Hosting", total: "â‚¦3,500", status: "Provisioned", date: "Apr 30, 2026" },
+  { id: "OCT-MOLMITHV", customer: "Brand De", product: "VPS-1", total: "â‚¦24,000", status: "Pending Provisioning", date: "Apr 30, 2026" }
 ];
 
 export const tickets = [
@@ -92,7 +92,7 @@ export const kbArticles = [
 
 export const auditLogs = [
   { time: "Apr 30, 15:54:10", actor: "hellobrandde@gmail.com", role: "Customer", action: "create_ticket", entity: "SupportTicket", details: "Ticket TKT-MOLNZ6T5 created", ip: "-" },
-  { time: "Apr 30, 15:52:14", actor: "hellobrandde@gmail.com", role: "Customer", action: "place_order", entity: "Order", details: "Order OCT-MOLNWONA placed — ₦3,500", ip: "-" },
+  { time: "Apr 30, 15:52:14", actor: "hellobrandde@gmail.com", role: "Customer", action: "place_order", entity: "Order", details: "Order OCT-MOLNWONA placed â€” â‚¦3,500", ip: "-" },
   { time: "Apr 30, 15:37:04", actor: "hellobrandde@gmail.com", role: "Customer", action: "payment_submitted", entity: "Invoice", details: "Invoice INV-2026-0001 paid via Paystack", ip: "-" },
   { time: "Apr 30, 15:13:28", actor: "system", role: "System", action: "provisioning_queued", entity: "Service", details: "DirectAdmin provisioning task created", ip: "127.0.0.1" }
 ];

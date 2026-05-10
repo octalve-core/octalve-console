@@ -1,4 +1,4 @@
-﻿import {
+import {
   Activity,
   Ban,
   Database,
@@ -69,7 +69,7 @@ const toolConfigs: Record<ToolKey, ToolConfig> = {
     rows: [
       {
         task: "Provision hosting account",
-        service: "SVC-HOST-001",
+        service: "SERVICE-ID",
         adapter: "DirectAdminAdapter",
         status: "Queued",
         nextRun: "Now"
@@ -91,7 +91,7 @@ const toolConfigs: Record<ToolKey, ToolConfig> = {
     ],
     fields: [
       { label: "Queue Type", as: "select", options: ["Provision", "Renewal", "Suspension", "Unsuspension", "Termination", "Service Change"], value: "Provision" },
-      { label: "Service ID", placeholder: "SVC-HOST-001" },
+      { label: "Service ID", placeholder: "SERVICE-ID" },
       { label: "Adapter", as: "select", options: ["DirectAdminAdapter", "ProxmoxAdapter", "DomainRegistrarAdapter", "CloudflareAdapter"], value: "DirectAdminAdapter" },
       { label: "Priority", as: "select", options: ["Low", "Normal", "High", "Urgent"], value: "Normal" },
       { label: "Operational Notes", as: "textarea", placeholder: "Describe the queue operation or retry reason" }
