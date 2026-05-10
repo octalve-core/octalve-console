@@ -1,0 +1,13 @@
+type FieldErrorProps = {
+  message?: string;
+};
+
+export function FieldError({ message }: FieldErrorProps) {
+  if (!message) return null;
+
+  return (
+    <p className="mt-2 text-xs font-medium leading-5 text-red-600">
+      {message}
+    </p>
+  );
+}

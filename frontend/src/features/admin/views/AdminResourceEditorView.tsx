@@ -10,7 +10,14 @@ import { Input } from "@/components/ui/Input";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { LoadingState } from "@/components/feedback/LoadingState";
+import { ApiFormError } from "@/components/feedback/ApiFormError";
+import { FieldError } from "@/components/forms/FieldError";
 import { cn } from "@/lib/utils";
+import {
+  getApiFieldError,
+  parseApiValidationError,
+  type ApiFieldErrors,
+} from "@/lib/api/validation";
 import { adminResourceConfig, type AdminResourceKey } from "../data/admin-resource-config";
 import { adminEditorConfig, type AdminEditorField } from "../data/admin-editor-config";
 import type { AdminRecord } from "../data/admin-demo-data";
@@ -116,6 +123,7 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>({});
 
   const pageTitle = effectiveMode === "edit" ? editorConfig.editTitle : editorConfig.createTitle;
 
@@ -192,6 +200,7 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
     event.preventDefault();
     setError("");
     setNotice("");
+    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
@@ -205,18 +214,33 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
         router.push(editorConfig.listHref);
       }, 900);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "The API could not save this record yet. Check the backend endpoint or schema mapping.",
+      const parsedError = parseApiValidationError(
+        err,
+        "The API could not save this record yet. Check the backend endpoint or schema mapping.",
       );
+
+      setError(parsedError.message);
+      setFieldErrors(parsedError.fieldErrors);
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  function updateField(name: string, value: string) {
+    setValues((current) => ({ ...current, [name]: value }));
+
+    if (fieldErrors[name]) {
+      setFieldErrors((current) => {
+        const next = { ...current };
+        delete next[name];
+        return next;
+      });
+    }
+  }
+
   function renderField(field: AdminEditorField) {
     const value = values[field.name] ?? "";
+    const fieldError = getApiFieldError(fieldErrors, field.name);
 
     if (field.type === "textarea") {
       return (
@@ -230,9 +254,16 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
             value={value}
             required={field.required}
             placeholder={field.placeholder}
-            onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))}
-            className="min-h-32 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#0064E0] focus:ring-4 focus:ring-[#0064E0]/10"
+            aria-invalid={Boolean(fieldError)}
+            onChange={(event) => updateField(field.name, event.target.value)}
+            className={cn(
+              "min-h-32 w-full rounded-2xl border bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:ring-4",
+              fieldError
+                ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+                : "border-slate-200 focus:border-[#0064E0] focus:ring-[#0064E0]/10",
+            )}
           />
+          <FieldError message={fieldError} />
         </div>
       );
     }
@@ -248,8 +279,14 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
             name={field.name}
             value={value}
             required={field.required}
-            onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))}
-            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-[#0064E0] focus:ring-4 focus:ring-[#0064E0]/10"
+            aria-invalid={Boolean(fieldError)}
+            onChange={(event) => updateField(field.name, event.target.value)}
+            className={cn(
+              "h-12 w-full rounded-2xl border bg-white px-4 text-sm text-slate-950 outline-none transition focus:ring-4",
+              fieldError
+                ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+                : "border-slate-200 focus:border-[#0064E0] focus:ring-[#0064E0]/10",
+            )}
           >
             {(field.options ?? []).map((option) => (
               <option key={option.value} value={option.value}>
@@ -257,22 +294,26 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
               </option>
             ))}
           </select>
+          <FieldError message={fieldError} />
         </div>
       );
     }
 
     return (
-      <Input
-        key={field.name}
-        label={field.label}
-        id={field.name}
-        name={field.name}
-        type={field.type}
-        placeholder={field.placeholder}
-        required={field.required}
-        value={value}
-        onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))}
-      />
+      <div key={field.name}>
+        <Input
+          label={field.label}
+          id={field.name}
+          name={field.name}
+          type={field.type}
+          placeholder={field.placeholder}
+          required={field.required}
+          value={value}
+          aria-invalid={Boolean(fieldError)}
+          onChange={(event) => updateField(field.name, event.target.value)}
+        />
+        <FieldError message={fieldError} />
+      </div>
     );
   }
 
@@ -309,11 +350,7 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
                   </div>
                 ) : null}
 
-                {error ? (
-                  <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
-                    {error}
-                  </div>
-                ) : null}
+                <ApiFormError message={error} fieldErrors={fieldErrors} />
 
                 <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
                   <Button href={editorConfig.listHref} variant="outline">
@@ -344,12 +381,11 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
                 </div>
 
                 <h3 className="mt-5 text-lg font-medium tracking-[-0.03em] text-slate-950">
-                  API implementation ready
+                  Field validation ready
                 </h3>
 
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  This form submits through the modular API layer. If a backend endpoint needs a different payload,
-                  only the resource action mapping needs to be adjusted.
+                  Django serializer errors now appear under each matching field, while general API errors remain visible above the form actions.
                 </p>
 
                 <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-xs leading-6 text-slate-500">
