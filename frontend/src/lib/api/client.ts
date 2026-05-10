@@ -1,15 +1,92 @@
-﻿// src/lib/api/client.ts
 export type Primitive = string | number | boolean | null | undefined;
 
-export type QueryParams = Record<string, Primitive>;
+export type QueryParams = Record<string, Primitive | Primitive[]>;
 
-export type ApiRequestOptions = Omit<RequestInit, "body"> & {
-  body?: unknown;
-  rawBody?: BodyInit | null;
+export type ApiRequestOptions = {
   params?: QueryParams;
-  token?: string | null;
   skipAuth?: boolean;
-  timeoutMs?: number;
+  headers?: HeadersInit;
+};
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+
+const ACCESS_TOKEN_KEY = "octalve_console_access_token";
+const REFRESH_TOKEN_KEY = "octalve_console_refresh_token";
+
+const SENSITIVE_QUERY_KEYS = new Set([
+  "password",
+  "new_password",
+  "re_new_password",
+  "re_password",
+  "token",
+  "access",
+  "refresh",
+  "secret",
+  "secret_key",
+  "api_key",
+]);
+
+function isBrowser() {
+  return typeof window !== "undefined";
+}
+
+function getStorage() {
+  if (!isBrowser()) return null;
+  return window.sessionStorage;
+}
+
+function removeLegacyLocalStorageTokens() {
+  if (!isBrowser()) return;
+
+  try {
+    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+    window.localStorage.removeItem("octalve_console_demo_user");
+  } catch {
+    // Ignore browser storage errors.
+  }
+}
+
+export const tokenStorage = {
+  getAccessToken() {
+    removeLegacyLocalStorageTokens();
+    return getStorage()?.getItem(ACCESS_TOKEN_KEY) ?? null;
+  },
+
+  getRefreshToken() {
+    removeLegacyLocalStorageTokens();
+    return getStorage()?.getItem(REFRESH_TOKEN_KEY) ?? null;
+  },
+
+  setTokens(access?: string | null, refresh?: string | null) {
+    const storage = getStorage();
+    if (!storage) return;
+
+    removeLegacyLocalStorageTokens();
+
+    if (access) {
+      storage.setItem(ACCESS_TOKEN_KEY, access);
+    } else {
+      storage.removeItem(ACCESS_TOKEN_KEY);
+    }
+
+    if (refresh) {
+      storage.setItem(REFRESH_TOKEN_KEY, refresh);
+    } else {
+      storage.removeItem(REFRESH_TOKEN_KEY);
+    }
+  },
+
+  clearTokens() {
+    const storage = getStorage();
+
+    if (storage) {
+      storage.removeItem(ACCESS_TOKEN_KEY);
+      storage.removeItem(REFRESH_TOKEN_KEY);
+    }
+
+    removeLegacyLocalStorageTokens();
+  },
 };
 
 export class ApiError extends Error {
@@ -24,168 +101,144 @@ export class ApiError extends Error {
   }
 }
 
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000/api";
+function assertSafeQueryParams(params?: QueryParams) {
+  if (!params) return;
 
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL
-).replace(/\/+$/, "");
-
-const ACCESS_TOKEN_KEY = "octalve_console_access_token";
-const REFRESH_TOKEN_KEY = "octalve_console_refresh_token";
-
-function getStoredAccessToken() {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(ACCESS_TOKEN_KEY);
+  for (const key of Object.keys(params)) {
+    if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) {
+      throw new Error(`Blocked sensitive value in query parameter: ${key}`);
+    }
+  }
 }
 
-function buildUrl(path: string, params?: QueryParams) {
-  const url = path.startsWith("http")
-    ? new URL(path)
-    : new URL(`${API_BASE_URL}/${path.replace(/^\/+/, "")}`);
+function createUrl(path: string, params?: QueryParams) {
+  assertSafeQueryParams(params);
+
+  const isAbsolute = /^https?:\/\//i.test(path);
+  const base = API_BASE_URL.replace(/\/$/, "");
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const url = new URL(isAbsolute ? path : `${base}${cleanPath}`, isBrowser() ? window.location.origin : "http://localhost");
 
   if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
+    for (const [key, value] of Object.entries(params)) {
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item !== undefined && item !== null) {
+            url.searchParams.append(key, String(item));
+          }
+        }
+      } else if (value !== undefined && value !== null) {
         url.searchParams.set(key, String(value));
       }
-    });
+    }
   }
 
-  return url.toString();
+  return isAbsolute || base ? url.toString() : `${cleanPath}${url.search}`;
 }
 
-function isFormData(value: unknown): value is FormData {
-  return typeof FormData !== "undefined" && value instanceof FormData;
+async function parseResponse(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (response.status === 204) return null;
+
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  const text = await response.text();
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
-function createHeaders(options: ApiRequestOptions) {
+function getErrorMessage(payload: unknown, fallback: string) {
+  if (!payload) return fallback;
+
+  if (typeof payload === "string") return payload;
+
+  if (typeof payload === "object" && !Array.isArray(payload)) {
+    const record = payload as Record<string, unknown>;
+
+    for (const key of ["detail", "message", "error", "non_field_errors"]) {
+      const value = record[key];
+
+      if (Array.isArray(value)) return value.join(" ");
+      if (typeof value === "string") return value;
+    }
+  }
+
+  return fallback;
+}
+
+async function request<T>(
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
+  path: string,
+  body?: unknown,
+  options: ApiRequestOptions = {},
+): Promise<T> {
   const headers = new Headers(options.headers);
 
-  if (!headers.has("Accept")) {
-    headers.set("Accept", "application/json");
-  }
-
-  if (options.body !== undefined && !isFormData(options.body) && !headers.has("Content-Type")) {
+  if (!(body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
-  const token = options.token ?? getStoredAccessToken();
+  headers.set("Accept", "application/json");
 
-  if (!options.skipAuth && token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
+  if (!options.skipAuth) {
+    const accessToken = tokenStorage.getAccessToken();
+
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
   }
 
-  return headers;
-}
+  const response = await fetch(createUrl(path, options.params), {
+    method,
+    headers,
+    body:
+      method === "GET" || method === "DELETE"
+        ? undefined
+        : body instanceof FormData
+          ? body
+          : JSON.stringify(body ?? {}),
+    credentials: "include",
+    cache: "no-store",
+  });
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const contentType = response.headers.get("content-type") || "";
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  const payload = contentType.includes("application/json")
-    ? await response.json()
-    : await response.text();
+  const payload = await parseResponse(response);
 
   if (!response.ok) {
-    const fallbackMessage = `Request failed with status ${response.status}`;
-    const message =
-      typeof payload === "object" &&
-      payload !== null &&
-      "message" in payload &&
-      typeof (payload as { message?: unknown }).message === "string"
-        ? (payload as { message: string }).message
-        : fallbackMessage;
-
-    throw new ApiError(message, response.status, payload);
+    throw new ApiError(
+      getErrorMessage(payload, `Request failed with status ${response.status}`),
+      response.status,
+      payload,
+    );
   }
 
   return payload as T;
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: ApiRequestOptions = {}
-): Promise<T> {
-  const {
-    body,
-    rawBody,
-    params,
-    timeoutMs = 30000,
-    ...requestOptions
-  } = options;
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  const headers = createHeaders(options);
-
-  const requestBody =
-    rawBody !== undefined
-      ? rawBody
-      : body === undefined
-        ? undefined
-        : isFormData(body)
-          ? body
-          : JSON.stringify(body);
-
-  try {
-    const response = await fetch(buildUrl(path, params), {
-      ...requestOptions,
-      headers,
-      body: requestBody,
-      signal: controller.signal,
-      credentials: requestOptions.credentials || "include",
-      cache: requestOptions.cache || "no-store"
-    });
-
-    return await parseResponse<T>(response);
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 export const api = {
   get<T>(path: string, options?: ApiRequestOptions) {
-    return apiRequest<T>(path, { ...options, method: "GET" });
+    return request<T>("GET", path, undefined, options);
   },
 
   post<T>(path: string, body?: unknown, options?: ApiRequestOptions) {
-    return apiRequest<T>(path, { ...options, method: "POST", body });
-  },
-
-  put<T>(path: string, body?: unknown, options?: ApiRequestOptions) {
-    return apiRequest<T>(path, { ...options, method: "PUT", body });
+    return request<T>("POST", path, body, options);
   },
 
   patch<T>(path: string, body?: unknown, options?: ApiRequestOptions) {
-    return apiRequest<T>(path, { ...options, method: "PATCH", body });
+    return request<T>("PATCH", path, body, options);
+  },
+
+  put<T>(path: string, body?: unknown, options?: ApiRequestOptions) {
+    return request<T>("PUT", path, body, options);
   },
 
   del<T>(path: string, options?: ApiRequestOptions) {
-    return apiRequest<T>(path, { ...options, method: "DELETE" });
-  }
-};
-
-export const tokenStorage = {
-  getAccessToken() {
-    return getStoredAccessToken();
+    return request<T>("DELETE", path, undefined, options);
   },
-
-  setTokens(accessToken: string, refreshToken?: string) {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-
-    if (refreshToken) {
-      window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-    }
-  },
-
-  clearTokens() {
-    if (typeof window === "undefined") return;
-    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-  }
 };
