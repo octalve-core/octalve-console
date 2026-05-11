@@ -37,6 +37,14 @@ export function ResetPasswordConfirmPageClient() {
   const uid = safeDecode(getParamValue(params.uid));
   const token = safeDecode(getParamValue(params.token));
 
+  // Decode the URL-encoded parameters
+  // const uid = decodeURIComponent(params.uid as string);
+  // const token = decodeURIComponent(params.token as string);
+
+  // Now use these decoded values in your API call
+  console.log("Decoded UID:", uid);
+  console.log("Decoded Token:", token);
+
   const [values, setValues] = useState({
     password: "",
     confirmPassword: "",

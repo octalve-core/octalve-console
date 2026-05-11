@@ -238,7 +238,7 @@ DJOSER = {
         'user_list': ['rest_framework.permissions.IsAdminUser'],
     },
     'SEND_ACTIVATION_EMAIL': False,
-    'SEND_CONFIRMATION_EMAIL': True,  # Send email when user changes email
+    'SEND_CONFIRMATION_EMAIL': True,
     
     'PASSWORD_RESET_CONFIRM_URL': 'reset-password/confirm/{uid}/{token}',  # Frontend URL path
     'USERNAME_RESET_CONFIRM_URL': 'username-reset/confirm/{uid}/{token}',
@@ -252,7 +252,11 @@ DJOSER = {
     'EMAIL': {
         'activation': 'djoser.email.ActivationEmail',
         'confirmation': 'djoser.email.ConfirmationEmail',
+        
         'password_reset': 'djoser.email.PasswordResetEmail',
+
+        # 'password_reset': 'accounts.email.CustomPasswordResetEmail',
+
         'password_changed_confirmation': 'djoser.email.PasswordChangedConfirmationEmail',
         'username_changed_confirmation': 'djoser.email.UsernameChangedConfirmationEmail',
         'username_reset': 'djoser.email.UsernameResetEmail',
@@ -354,3 +358,4 @@ SPECTACULAR_SETTINGS = {
 
 ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', '')
 
+EMAIL_QUOTED_PRINTABLE = False 

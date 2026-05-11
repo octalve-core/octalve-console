@@ -54,7 +54,7 @@ urlpatterns = [
     path('api/billing/', include('billing.urls')),
     path('api/providers/', include('providers.urls')),
     path('api/payments/', include('payments.urls')),
-    path('api/services/', include('services.urls')),
+    path('api/client/services/', include('services.urls')),
     path('api/provisioning/', include('provisioning.urls')),
     path('api/domains/', include('domains.urls')),
     path('api/support/', include('support.urls')),
