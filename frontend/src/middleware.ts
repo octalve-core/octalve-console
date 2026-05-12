@@ -35,6 +35,17 @@ const SENSITIVE_QUERY_KEYS = new Set([
   "api_key",
 ]);
 
+const REDIRECT_QUERY_KEYS = new Set([
+  "next",
+  "redirect",
+  "redirect_to",
+  "return",
+  "return_to",
+  "callback",
+  "callback_url",
+  "callbackUrl",
+]);
+
 type ConsoleRole = "admin" | "staff" | "client";
 
 type BackendGroup =
@@ -163,22 +174,75 @@ function applySessionCookies(response: NextResponse, session: SessionCheck) {
   }
 }
 
-function hasSensitiveQuery(request: NextRequest) {
-  for (const key of request.nextUrl.searchParams.keys()) {
-    if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) return true;
-  }
+function sanitizeRedirectValue(value: string) {
+  const rawValue = value.trim();
 
-  return false;
+  if (!rawValue) return "";
+  if (!rawValue.startsWith("/")) return "";
+  if (rawValue.startsWith("//")) return "";
+
+  try {
+    const url = new URL(rawValue, "https://console.octalve.cloud");
+
+    for (const key of Array.from(url.searchParams.keys())) {
+      if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    }
+
+    const safePath = `${url.pathname}${url.search}${url.hash}`;
+
+    if (safePath === "/login" || safePath.startsWith("/login?")) return "";
+    if (safePath === "/signup" || safePath.startsWith("/signup?")) return "";
+    if (safePath === "/forgot-password" || safePath.startsWith("/forgot-password?")) return "";
+
+    return safePath;
+  } catch {
+    return "";
+  }
 }
 
-function stripSensitiveQuery(request: NextRequest) {
+function sanitizeRequestUrl(request: NextRequest) {
   const url = request.nextUrl.clone();
+  let changed = false;
 
   for (const key of Array.from(url.searchParams.keys())) {
-    if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) {
+    const normalizedKey = key.toLowerCase();
+
+    if (SENSITIVE_QUERY_KEYS.has(normalizedKey)) {
       url.searchParams.delete(key);
+      changed = true;
+      continue;
+    }
+
+    if (REDIRECT_QUERY_KEYS.has(key) || REDIRECT_QUERY_KEYS.has(normalizedKey)) {
+      const values = url.searchParams.getAll(key);
+      url.searchParams.delete(key);
+
+      for (const value of values) {
+        const safeValue = sanitizeRedirectValue(value);
+
+        if (safeValue) {
+          url.searchParams.append(key, safeValue);
+        }
+
+        if (safeValue !== value) {
+          changed = true;
+        }
+      }
     }
   }
+
+  return {
+    changed,
+    url,
+  };
+}
+
+function buildSafeQueryRedirect(request: NextRequest) {
+  const { changed, url } = sanitizeRequestUrl(request);
+
+  if (!changed) return null;
 
   const response = NextResponse.redirect(url);
 
@@ -203,7 +267,7 @@ function buildLoginRedirect(request: NextRequest) {
   url.search = "";
 
   if (nextPath !== "/login") {
-    url.searchParams.set("next", nextPath);
+    url.searchParams.set("next", sanitizeRedirectValue(nextPath) || request.nextUrl.pathname);
   }
 
   const response = NextResponse.redirect(url);
@@ -293,11 +357,13 @@ async function resolveSession(request: NextRequest): Promise<SessionCheck> {
 }
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const safeQueryRedirect = buildSafeQueryRedirect(request);
 
-  if (hasSensitiveQuery(request)) {
-    return stripSensitiveQuery(request);
+  if (safeQueryRedirect) {
+    return safeQueryRedirect;
   }
+
+  const { pathname } = request.nextUrl;
 
   if (pathname === "/") {
     const session = await resolveSession(request);
