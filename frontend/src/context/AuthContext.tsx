@@ -13,6 +13,7 @@ import { authApi } from "@/lib/api/endpoints";
 import { tokenStorage } from "@/lib/api/client";
 import type {
   AuthSession,
+  AuthTokenResponse,
   LoginPayload,
   SignupPayload,
   User,
@@ -38,6 +39,7 @@ type BackendGroup =
 
 type BackendUser = Partial<Omit<User, "id" | "role">> & {
   id?: string | number;
+  username?: string | null;
   role?: UserRole | string | null;
   user_type?: string | null;
   account_type?: string | null;
@@ -136,6 +138,7 @@ function normalizeUser(
       backendUser?.name ??
       backendUser?.full_name ??
       fullName ??
+      backendUser?.username ??
       fallback.name ??
       backendUser?.email ??
       fallback.email ??
@@ -150,14 +153,13 @@ function normalizeUser(
   };
 }
 
-function isAuthSession(value: unknown): value is AuthSession {
-  const session = value as Partial<AuthSession> | undefined;
+function hasAccessToken(value: unknown): value is AuthTokenResponse {
+  const session = value as Partial<AuthTokenResponse> | undefined;
 
   return Boolean(
     session &&
-      typeof session === "object" &&
-      typeof session.access === "string" &&
-      session.user,
+    typeof session === "object" &&
+    typeof session.access === "string",
   );
 }
 
@@ -212,8 +214,56 @@ async function clearClientSession() {
   tokenStorage.clearTokens();
 }
 
-function storeSession(session: AuthSession) {
+function storeTokens(session: Pick<AuthTokenResponse, "access" | "refresh">) {
   tokenStorage.setTokens(session.access, session.refresh);
+}
+
+function getSessionUserFallback(
+  session: Partial<AuthTokenResponse> | null | undefined,
+  fallback: UserFallback = {},
+): UserFallback {
+  if (!session?.user) return fallback;
+
+  const normalizedSessionUser = normalizeUser(
+    session.user as BackendUser,
+    fallback,
+  );
+
+  return {
+    id: normalizedSessionUser.id,
+    name: normalizedSessionUser.name,
+    email: normalizedSessionUser.email,
+    role: normalizedSessionUser.role,
+  };
+}
+
+async function buildAuthoritativeSession(
+  tokenResponse: AuthTokenResponse,
+  fallback: UserFallback = {},
+): Promise<AuthSession> {
+  storeTokens(tokenResponse);
+
+  try {
+    const currentUser = normalizeUser(
+      await authApi.me(),
+      getSessionUserFallback(tokenResponse, fallback),
+    );
+
+    const authoritativeSession: AuthSession = {
+      ...tokenResponse,
+      user: currentUser,
+    };
+
+    await syncMiddlewareSession(
+      authoritativeSession.access,
+      authoritativeSession.refresh,
+    );
+
+    return authoritativeSession;
+  } catch (error) {
+    await clearClientSession();
+    throw error;
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -251,74 +301,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const login = useCallback(async (payload: LoginPayload) => {
-    const session = await authApi.login({
+    const tokenResponse = await authApi.login({
       email: payload.email.trim().toLowerCase(),
       password: payload.password,
     });
 
-    const normalizedSession: AuthSession = {
-      ...session,
-      user: normalizeUser(session.user),
-    };
-
-    storeSession(normalizedSession);
-
-    await syncMiddlewareSession(
-      normalizedSession.access,
-      normalizedSession.refresh,
+    const authoritativeSession = await buildAuthoritativeSession(
+      tokenResponse,
+      {
+        email: payload.email.trim().toLowerCase(),
+      },
     );
 
-    setUser(normalizedSession.user);
+    setUser(authoritativeSession.user);
 
-    return normalizedSession;
+    return authoritativeSession;
   }, []);
 
   const signup = useCallback(async (payload: SignupPayload) => {
     const signupResponse = await authApi.signup(payload);
 
-    if (isAuthSession(signupResponse)) {
-      const normalizedSession: AuthSession = {
-        ...signupResponse,
-        user: normalizeUser(signupResponse.user, {
+    if (hasAccessToken(signupResponse)) {
+      const authoritativeSession = await buildAuthoritativeSession(
+        signupResponse,
+        {
           name: payload.full_name,
           email: payload.email,
           role: "client",
-        }),
-      };
-
-      storeSession(normalizedSession);
-
-      await syncMiddlewareSession(
-        normalizedSession.access,
-        normalizedSession.refresh,
+        },
       );
 
-      setUser(normalizedSession.user);
+      setUser(authoritativeSession.user);
 
-      return normalizedSession;
+      return authoritativeSession;
     }
 
-    const loginSession = await authApi.login({
+    const tokenResponse = await authApi.login({
       email: payload.email.trim().toLowerCase(),
       password: payload.password,
     });
 
-    const authSession: AuthSession = {
-      ...loginSession,
-      user: normalizeUser(loginSession.user, {
+    const authoritativeSession = await buildAuthoritativeSession(
+      tokenResponse,
+      {
         name: payload.full_name,
         email: payload.email,
         role: "client",
-      }),
-    };
+      },
+    );
 
-    storeSession(authSession);
+    setUser(authoritativeSession.user);
 
-    await syncMiddlewareSession(authSession.access, authSession.refresh);
-
-    setUser(authSession.user);
-
-    return authSession;
+    return authoritativeSession;
   }, []);
 
   const logout = useCallback(async () => {
