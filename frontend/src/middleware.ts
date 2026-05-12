@@ -19,19 +19,41 @@ const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
 
 const PROTECTED_PREFIXES = ["/admin", "/client", "/staff"];
 
-const AUTH_ENTRY_ROUTES = new Set([
-  "/login",
-  "/signup",
+const AUTH_ENTRY_ROUTES = new Set(["/login", "/signup"]);
+
+const SENSITIVE_QUERY_KEYS = new Set([
+  "password",
+  "new_password",
+  "re_new_password",
+  "re_password",
+  "current_password",
+  "token",
+  "access",
+  "refresh",
+  "secret",
+  "secret_key",
+  "api_key",
 ]);
 
 type ConsoleRole = "admin" | "staff" | "client";
 
+type BackendGroup =
+  | string
+  | {
+      name?: string | null;
+      role?: string | null;
+    };
+
 type BackendUser = {
-  role?: string;
-  user_type?: string;
-  account_type?: string;
+  role?: string | null;
+  user_type?: string | null;
+  account_type?: string | null;
+  type?: string | null;
   is_staff?: boolean;
   is_superuser?: boolean;
+  is_admin?: boolean;
+  is_client?: boolean;
+  groups?: BackendGroup[] | null;
 };
 
 type SessionCheck = {
@@ -47,6 +69,52 @@ const cookieBase = {
   path: "/",
 };
 
+function readGroupValues(groups?: BackendGroup[] | null) {
+  if (!Array.isArray(groups)) return "";
+
+  return groups
+    .map((group) => {
+      if (typeof group === "string") return group;
+      return `${group.name ?? ""} ${group.role ?? ""}`;
+    })
+    .join(" ")
+    .toLowerCase();
+}
+
+function normalizeRole(user: BackendUser | null): ConsoleRole {
+  const combined = [
+    user?.role,
+    user?.user_type,
+    user?.account_type,
+    user?.type,
+    readGroupValues(user?.groups),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    user?.is_superuser ||
+    user?.is_admin ||
+    combined.includes("superuser") ||
+    combined.includes("administrator") ||
+    combined.includes("admin")
+  ) {
+    return "admin";
+  }
+
+  if (
+    user?.is_staff ||
+    combined.includes("staff") ||
+    combined.includes("support") ||
+    combined.includes("agent")
+  ) {
+    return "staff";
+  }
+
+  return "client";
+}
+
 function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
@@ -61,45 +129,10 @@ function getRequiredRole(pathname: string): ConsoleRole | null {
   return null;
 }
 
-function normalizeRole(user: BackendUser | null): ConsoleRole {
-  const rawRole = String(
-    user?.role ?? user?.user_type ?? user?.account_type ?? "",
-  ).toLowerCase();
-
-  if (user?.is_superuser || rawRole.includes("admin")) return "admin";
-  if (user?.is_staff || rawRole.includes("staff")) return "staff";
-
-  return "client";
-}
-
 function getHomeForRole(role: ConsoleRole) {
   if (role === "admin") return "/admin";
   if (role === "staff") return "/staff";
   return "/client";
-}
-
-function buildRedirect(request: NextRequest, pathname: string) {
-  const url = request.nextUrl.clone();
-  url.pathname = pathname;
-  url.search = "";
-  return NextResponse.redirect(url);
-}
-
-function buildLoginRedirect(request: NextRequest) {
-  const url = request.nextUrl.clone();
-  const nextPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-
-  url.pathname = "/login";
-  url.search = "";
-
-  if (nextPath !== "/login") {
-    url.searchParams.set("next", nextPath);
-  }
-
-  const response = NextResponse.redirect(url);
-  clearSessionCookies(response);
-
-  return response;
 }
 
 function clearSessionCookies(response: NextResponse) {
@@ -128,6 +161,55 @@ function applySessionCookies(response: NextResponse, session: SessionCheck) {
       maxAge: REFRESH_MAX_AGE,
     });
   }
+}
+
+function hasSensitiveQuery(request: NextRequest) {
+  for (const key of request.nextUrl.searchParams.keys()) {
+    if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) return true;
+  }
+
+  return false;
+}
+
+function stripSensitiveQuery(request: NextRequest) {
+  const url = request.nextUrl.clone();
+
+  for (const key of Array.from(url.searchParams.keys())) {
+    if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) {
+      url.searchParams.delete(key);
+    }
+  }
+
+  const response = NextResponse.redirect(url);
+
+  response.headers.set("Cache-Control", "no-store");
+  response.headers.set("Referrer-Policy", "no-referrer");
+
+  return response;
+}
+
+function buildRedirect(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  return NextResponse.redirect(url);
+}
+
+function buildLoginRedirect(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  const nextPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+
+  url.pathname = "/login";
+  url.search = "";
+
+  if (nextPath !== "/login") {
+    url.searchParams.set("next", nextPath);
+  }
+
+  const response = NextResponse.redirect(url);
+  clearSessionCookies(response);
+
+  return response;
 }
 
 async function fetchCurrentUser(accessToken: string): Promise<BackendUser | null> {
@@ -213,12 +295,15 @@ async function resolveSession(request: NextRequest): Promise<SessionCheck> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (hasSensitiveQuery(request)) {
+    return stripSensitiveQuery(request);
+  }
+
   if (pathname === "/") {
     const session = await resolveSession(request);
-    const role = normalizeRole(session.user);
 
     const response = session.user
-      ? buildRedirect(request, getHomeForRole(role))
+      ? buildRedirect(request, getHomeForRole(normalizeRole(session.user)))
       : buildRedirect(request, "/login");
 
     applySessionCookies(response, session);
@@ -235,7 +320,11 @@ export async function middleware(request: NextRequest) {
       return response;
     }
 
-    const response = buildRedirect(request, getHomeForRole(normalizeRole(session.user)));
+    const response = buildRedirect(
+      request,
+      getHomeForRole(normalizeRole(session.user)),
+    );
+
     applySessionCookies(response, session);
 
     return response;

@@ -37,7 +37,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const response = NextResponse.json({ ok: true });
+  const response = NextResponse.json(
+    { ok: true },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 
   response.cookies.set(ACCESS_COOKIE, access, {
     ...cookieBase,
@@ -55,7 +62,14 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE() {
-  const response = NextResponse.json({ ok: true });
+  const response = NextResponse.json(
+    { ok: true },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 
   response.cookies.set(ACCESS_COOKIE, "", {
     ...cookieBase,

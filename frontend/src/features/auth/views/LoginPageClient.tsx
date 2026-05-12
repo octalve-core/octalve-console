@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -22,12 +22,58 @@ function getSafeNextPath() {
   if (typeof window === "undefined") return "";
 
   const searchParams = new URLSearchParams(window.location.search);
-  const next = searchParams.get("next") ?? "";
+  const next = sanitizeNextPath(searchParams.get("next") ?? "");
 
   if (!next.startsWith("/") || next.startsWith("//")) return "";
   if (next.includes("://")) return "";
 
   return next;
+}
+
+const SENSITIVE_NEXT_QUERY_KEYS = new Set([
+  "password",
+  "new_password",
+  "re_new_password",
+  "re_password",
+  "current_password",
+  "token",
+  "access",
+  "refresh",
+  "secret",
+  "secret_key",
+  "api_key",
+]);
+
+function sanitizeNextPath(value: string) {
+  if (typeof window === "undefined") return "";
+
+  const rawValue = value.trim();
+
+  if (!rawValue) return "";
+  if (!rawValue.startsWith("/")) return "";
+  if (rawValue.startsWith("//")) return "";
+
+  try {
+    const url = new URL(rawValue, window.location.origin);
+
+    if (url.origin !== window.location.origin) return "";
+
+    for (const key of Array.from(url.searchParams.keys())) {
+      if (SENSITIVE_NEXT_QUERY_KEYS.has(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    }
+
+    const safePath = `${url.pathname}${url.search}${url.hash}`;
+
+    if (safePath === "/login" || safePath.startsWith("/login?")) return "";
+    if (safePath === "/signup" || safePath.startsWith("/signup?")) return "";
+    if (safePath === "/forgot-password" || safePath.startsWith("/forgot-password?")) return "";
+
+    return safePath;
+  } catch {
+    return "";
+  }
 }
 
 export function LoginPageClient() {
@@ -94,7 +140,7 @@ export function LoginPageClient() {
       sideTitle="Manage your cloud services securely."
       sideDescription="Access your Octalve Cloud workspace for hosting, domains, billing, orders, support, and service management."
     >
-      <form onSubmit={handleSubmit} className="auth-form-stack">
+      <form method="post" onSubmit={handleSubmit} className="auth-form-stack">
         <AuthInput
           label="Email address"
           name="email"
@@ -164,3 +210,4 @@ export function LoginPageClient() {
     </AuthLayout>
   );
 }
+

@@ -29,14 +29,27 @@ type AuthContextValue = {
   refreshUser: () => Promise<User | null>;
 };
 
+type BackendGroup =
+  | string
+  | {
+      name?: string | null;
+      role?: string | null;
+    };
+
 type BackendUser = Partial<Omit<User, "id" | "role">> & {
   id?: string | number;
   role?: UserRole | string | null;
   user_type?: string | null;
   account_type?: string | null;
+  type?: string | null;
   full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
   is_staff?: boolean;
   is_superuser?: boolean;
+  is_admin?: boolean;
+  is_client?: boolean;
+  groups?: BackendGroup[] | null;
 };
 
 type UserFallback = {
@@ -48,29 +61,61 @@ type UserFallback = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function readGroupValues(groups?: BackendGroup[] | null) {
+  if (!Array.isArray(groups)) return "";
+
+  return groups
+    .map((group) => {
+      if (typeof group === "string") return group;
+      return `${group.name ?? ""} ${group.role ?? ""}`;
+    })
+    .join(" ")
+    .toLowerCase();
+}
+
+export function normalizeUserRole(
+  role?: UserRole | string | null,
+  isStaff?: boolean,
+  isSuperuser?: boolean,
+  extraUser?: BackendUser | null,
+): UserRole {
+  const roleText = String(role ?? "").toLowerCase();
+  const userTypeText = String(extraUser?.user_type ?? "").toLowerCase();
+  const accountTypeText = String(extraUser?.account_type ?? "").toLowerCase();
+  const typeText = String(extraUser?.type ?? "").toLowerCase();
+  const groupText = readGroupValues(extraUser?.groups);
+  const combined = `${roleText} ${userTypeText} ${accountTypeText} ${typeText} ${groupText}`;
+
+  if (
+    isSuperuser ||
+    extraUser?.is_superuser ||
+    extraUser?.is_admin ||
+    combined.includes("superuser") ||
+    combined.includes("administrator") ||
+    combined.includes("admin")
+  ) {
+    return "admin";
+  }
+
+  if (
+    isStaff ||
+    extraUser?.is_staff ||
+    combined.includes("staff") ||
+    combined.includes("support") ||
+    combined.includes("agent")
+  ) {
+    return "staff";
+  }
+
+  return "client";
+}
+
 export function getRoleDashboard(role?: UserRole | string | null) {
-  const normalizedRole = String(role ?? "").toLowerCase();
+  const normalizedRole = normalizeUserRole(role);
 
   if (normalizedRole === "admin") return "/admin";
   if (normalizedRole === "staff") return "/staff";
   return "/client";
-}
-
-function normalizeUserRole(
-  role?: UserRole | string | null,
-  isStaff?: boolean,
-  isSuperuser?: boolean,
-): UserRole {
-  const normalizedRole = String(role ?? "").toLowerCase();
-
-  if (normalizedRole === "admin") return "admin";
-  if (normalizedRole === "staff") return "staff";
-  if (normalizedRole === "client") return "client";
-
-  if (isSuperuser) return "admin";
-  if (isStaff) return "staff";
-
-  return "client";
 }
 
 function normalizeUser(
@@ -78,6 +123,10 @@ function normalizeUser(
   fallback: UserFallback = {},
 ): User {
   const backendUser = user as BackendUser | undefined;
+  const fullName = [backendUser?.first_name, backendUser?.last_name]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
 
   return {
     id: String(
@@ -86,15 +135,17 @@ function normalizeUser(
     name:
       backendUser?.name ??
       backendUser?.full_name ??
+      fullName ??
       fallback.name ??
       backendUser?.email ??
       fallback.email ??
       "Octalve User",
     email: backendUser?.email ?? fallback.email ?? "",
     role: normalizeUserRole(
-      backendUser?.role,
+      backendUser?.role ?? fallback.role,
       backendUser?.is_staff,
       backendUser?.is_superuser,
+      backendUser,
     ),
   };
 }
@@ -104,9 +155,9 @@ function isAuthSession(value: unknown): value is AuthSession {
 
   return Boolean(
     session &&
-    typeof session === "object" &&
-    typeof session.access === "string" &&
-    session.user,
+      typeof session === "object" &&
+      typeof session.access === "string" &&
+      session.user,
   );
 }
 
@@ -116,7 +167,7 @@ async function syncMiddlewareSession(
 ) {
   if (typeof window === "undefined" || !access) return;
 
-  await fetch("/api/auth/session", {
+  const response = await fetch("/api/auth/session", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -128,6 +179,10 @@ async function syncMiddlewareSession(
     credentials: "same-origin",
     cache: "no-store",
   });
+
+  if (!response.ok) {
+    throw new Error("Unable to secure frontend session.");
+  }
 }
 
 async function syncMiddlewareSessionFromStorage() {

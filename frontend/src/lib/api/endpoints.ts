@@ -1,4 +1,4 @@
-// src/lib/api/endpoints.ts
+﻿// src/lib/api/endpoints.ts
 
 import { api } from "./client";
 import type {
@@ -135,29 +135,6 @@ export const authApi = {
     );
   },
 
-  // confirmPasswordReset(uid: string, token: string, newPassword: string) {
-  //   const cleanUid = String(uid).trim();
-  //   const cleanToken = String(token).trim();
-
-  //   const payload = {
-  //     new_password: String(newPassword),
-  //     re_new_password: String(newPassword),
-  //   };
-
-  //   const resetConfirmPath = `${apiPaths.auth.resetPasswordConfirm}${encodeURIComponent(
-  //     cleanUid,
-  //   )}/${encodeURIComponent(cleanToken)}/`;
-
-  //   if (process.env.NODE_ENV === "development") {
-  //     //     //   }
-
-  //   return api.post<{ detail?: string }>(resetConfirmPath, payload, {
-  //     skipAuth: true,
-  //   });
-  // },
-
-  // src/lib/api/endpoints.ts
-
   confirmPasswordReset(uid: string, token: string, newPassword: string) {
     // Djoser expects uid and token in the BODY, not in the URL path
     const payload = {
@@ -167,8 +144,7 @@ export const authApi = {
       re_new_password: String(newPassword),
     };
 
-    if (process.env.NODE_ENV === "development") {
-      }
+    
 
     // Use the exact endpoint without adding uid/token to URL
     return api.post(apiPaths.auth.resetPasswordConfirm, payload, {
@@ -533,3 +509,4 @@ export const adminApi = {
     return api.post(byId(apiPaths.admin.provisioningQueue, id) + "run/", {});
   },
 };
+

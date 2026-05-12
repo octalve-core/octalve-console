@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -46,7 +46,7 @@ export function ForgotPasswordPageClient() {
       sideTitle="Recover your account securely."
       sideDescription="Request a secure password reset link for your Octalve Console account without exposing account information."
     >
-      <form onSubmit={handleSubmit} className="auth-form-stack">
+      <form method="post" onSubmit={handleSubmit} className="auth-form-stack">
         <AuthInput
           label="Email address"
           name="email"

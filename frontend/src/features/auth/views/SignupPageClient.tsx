@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -96,7 +96,7 @@ export function SignupPageClient() {
       sideTitle="Create your Octalve Cloud workspace."
       sideDescription="Create an account to access hosting services, domains, invoices, orders, support tickets, and secure account management."
     >
-      <form onSubmit={handleSubmit} className="auth-form-stack">
+      <form method="post" onSubmit={handleSubmit} className="auth-form-stack">
         <AuthInput
           label="Full name"
           name="full_name"

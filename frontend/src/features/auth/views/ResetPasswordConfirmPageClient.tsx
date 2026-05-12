@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -119,7 +119,7 @@ export function ResetPasswordConfirmPageClient() {
           Password reset successful. Redirecting to login...
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="auth-form-stack">
+        <form method="post" onSubmit={handleSubmit} className="auth-form-stack">
           <AuthPasswordInput
             label="New password"
             name="password"
