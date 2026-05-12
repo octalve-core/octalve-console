@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   createContext,
@@ -32,6 +32,8 @@ type AuthContextValue = {
 type BackendUser = Partial<Omit<User, "id" | "role">> & {
   id?: string | number;
   role?: UserRole | string | null;
+  user_type?: string | null;
+  account_type?: string | null;
   full_name?: string | null;
   is_staff?: boolean;
   is_superuser?: boolean;
@@ -47,8 +49,10 @@ type UserFallback = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function getRoleDashboard(role?: UserRole | string | null) {
-  if (role === "admin") return "/admin";
-  if (role === "staff") return "/staff";
+  const normalizedRole = String(role ?? "").toLowerCase();
+
+  if (normalizedRole === "admin") return "/admin";
+  if (normalizedRole === "staff") return "/staff";
   return "/client";
 }
 
@@ -106,6 +110,53 @@ function isAuthSession(value: unknown): value is AuthSession {
   );
 }
 
+async function syncMiddlewareSession(
+  access?: string | null,
+  refresh?: string | null,
+) {
+  if (typeof window === "undefined" || !access) return;
+
+  await fetch("/api/auth/session", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      access,
+      refresh,
+    }),
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+}
+
+async function syncMiddlewareSessionFromStorage() {
+  const accessToken = tokenStorage.getAccessToken();
+
+  if (!accessToken) return;
+
+  await syncMiddlewareSession(accessToken, tokenStorage.getRefreshToken());
+}
+
+async function clearMiddlewareSession() {
+  if (typeof window === "undefined") return;
+
+  try {
+    await fetch("/api/auth/session", {
+      method: "DELETE",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+  } catch {
+    // Always continue with local token cleanup.
+  }
+}
+
+async function clearClientSession() {
+  await clearMiddlewareSession();
+  tokenStorage.clearTokens();
+}
+
 function storeSession(session: AuthSession) {
   tokenStorage.setTokens(session.access, session.refresh);
 }
@@ -118,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = tokenStorage.getAccessToken();
 
     if (!token) {
+      await clearMiddlewareSession();
       setUser(null);
       setIsLoading(false);
       return null;
@@ -125,10 +177,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const currentUser = normalizeUser(await authApi.me());
+
+      await syncMiddlewareSessionFromStorage();
+
       setUser(currentUser);
       return currentUser;
     } catch {
-      tokenStorage.clearTokens();
+      await clearClientSession();
       setUser(null);
       return null;
     } finally {
@@ -152,6 +207,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     storeSession(normalizedSession);
+
+    await syncMiddlewareSession(
+      normalizedSession.access,
+      normalizedSession.refresh,
+    );
+
     setUser(normalizedSession.user);
 
     return normalizedSession;
@@ -171,6 +232,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       storeSession(normalizedSession);
+
+      await syncMiddlewareSession(
+        normalizedSession.access,
+        normalizedSession.refresh,
+      );
+
       setUser(normalizedSession.user);
 
       return normalizedSession;
@@ -191,6 +258,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     storeSession(authSession);
+
+    await syncMiddlewareSession(authSession.access, authSession.refresh);
+
     setUser(authSession.user);
 
     return authSession;
@@ -206,7 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Always clear client session even if backend logout is unavailable.
     } finally {
-      tokenStorage.clearTokens();
+      await clearClientSession();
       setUser(null);
     }
   }, []);
