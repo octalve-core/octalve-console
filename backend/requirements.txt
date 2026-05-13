@@ -22,3 +22,6 @@ cryptography
 openpyxl 
 django-celery-results 
 redis
+whitenoise
+py-mysql
+mysqlclient
