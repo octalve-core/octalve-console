@@ -1,1 +1,0 @@
-export { ResetPasswordConfirmPageClient as ResetPasswordConfirmView } from "./ResetPasswordConfirmPageClient";

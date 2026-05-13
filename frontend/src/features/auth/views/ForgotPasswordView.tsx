@@ -1,1 +1,0 @@
-export { ForgotPasswordPageClient as ForgotPasswordView } from "./ForgotPasswordPageClient";

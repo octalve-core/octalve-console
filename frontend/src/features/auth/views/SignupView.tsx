@@ -1,1 +1,0 @@
-export { SignupPageClient as SignupView } from "./SignupPageClient";
