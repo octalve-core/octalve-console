@@ -9,25 +9,55 @@ from django.utils import timezone
 # ============================================
 
 class CustomUserManager(UserManager):
+
     def _create_user(self, email, password, **extra_fields):
+        """
+        Create and save a user with the given email and password.
+        """
         if not email:
             raise ValueError("The Email field must be set")
 
         email = self.normalize_email(email)
+
+        # auto username from email if not supplied
+        if not extra_fields.get("username"):
+            extra_fields["username"] = email.split("@")[0]
+
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
+
         return user
 
     def create_user(self, email, password=None, **extra_fields):
+        """
+        Regular user creation
+        """
         extra_fields.setdefault("is_staff", False)
         extra_fields.setdefault("is_superuser", False)
+        extra_fields.setdefault("role", CustomUser.Role.CLIENT)
+
         return self._create_user(email, password, **extra_fields)
 
     def create_superuser(self, email, password=None, **extra_fields):
+        """
+        Superuser creation
+        """
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)
+
+        # SET ROLE TO ADMIN
+        extra_fields.setdefault("role", CustomUser.Role.ADMIN)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
         return self._create_user(email, password, **extra_fields)
+
 
 
 # ============================================
@@ -35,11 +65,12 @@ class CustomUserManager(UserManager):
 # ============================================
 
 class CustomUser(AbstractUser):
+
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Admin'
         STAFF = 'staff', 'Staff'
         CLIENT = 'client', 'Client'
-    
+
     # Required fields
     full_name = models.CharField(_("full name"), max_length=255, blank=True)
     email = models.EmailField(_("email address"), unique=True)
