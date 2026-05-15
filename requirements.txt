@@ -24,3 +24,4 @@ django-celery-results
 redis
 whitenoise
 gunicorn
+django-environ
