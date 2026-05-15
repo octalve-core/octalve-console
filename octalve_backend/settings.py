@@ -131,6 +131,8 @@ WSGI_APPLICATION = 'octalve_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+import pymysql
+pymysql.install_as_MySQLdb()
 
 # ====================== DATABASE ======================
 if DEBUG:

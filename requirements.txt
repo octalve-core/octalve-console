@@ -25,3 +25,4 @@ redis
 whitenoise
 gunicorn
 django-environ
+pymysql
