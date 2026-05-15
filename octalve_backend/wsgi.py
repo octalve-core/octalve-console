@@ -8,6 +8,15 @@ https://docs.djangoproject.com/en/6.0/howto/deployment/wsgi/
 """
 
 import os
+import environ
+import sys
+
+# ====================== LOAD .env EARLY ======================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+env = environ.Env()
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
 
 from django.core.wsgi import get_wsgi_application
 
