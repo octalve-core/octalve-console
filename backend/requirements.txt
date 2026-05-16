@@ -23,5 +23,6 @@ openpyxl
 django-celery-results 
 redis
 whitenoise
-py-mysql
-mysqlclient
+gunicorn
+django-environ
+pymysql
