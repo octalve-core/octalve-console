@@ -73,27 +73,14 @@ class CustomUserSerializer(BaseUserSerializer):
         model = User
         fields = [
             'id',
-            'username',
             'email',
+            'username',
             'full_name',
-            'role',
             'phone_number',
             'referral_code',
-            'is_staff',
-            'is_superuser',
+            'role',
         ]
         read_only_fields = ['referral_code', 'email', 'role']
-    
-    def get_full_name(self):
-        return self.full_name
-
-    def get_role(self):
-        if obj.is_superuser:
-            return "admin"
-        elif obj.is_staff:
-            return "staff"
-        else:
-            return "client"
 
 class CustomLoginSerializer(serializers.Serializer):
     """

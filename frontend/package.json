@@ -1,18 +1,26 @@
 {
-  "name": "octalve-console",
+  "name": "octalve-console-frontend",
   "version": "1.0.0",
   "private": true,
-  "description": "Octalve Console workspace for hosting automation, billing, domains, support, gateways and provider adapters.",
   "scripts": {
-    "dev:frontend": "pnpm --filter octalve-console-frontend dev",
-    "build:frontend": "pnpm --filter octalve-console-frontend build",
-    "start:frontend": "pnpm --filter octalve-console-frontend start",
-    "typecheck:frontend": "pnpm --filter octalve-console-frontend typecheck"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
   },
-  "workspaces": [
-    "frontend"
-  ],
-  "engines": {
-    "node": ">=20.0.0"
+  "dependencies": {
+    "@types/node": "20.17.10",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "lucide-react": "0.468.0",
+    "next": "^14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "typescript": "5.7.2"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.14",
+    "tailwindcss": "^3.4.17"
   }
 }
