@@ -7,8 +7,15 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
+from rest_framework import generics, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
+from django.db.models import Count, F, Q, Sum
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework import serializers
@@ -24,7 +31,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
-from .serializers import CustomUserCreateSerializer
+from .serializers import CustomUserCreateSerializer, CustomerListSerializer, CustomerDetailSerializer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -442,4 +449,59 @@ class SimpleCustomTokenObtainPairView(TokenObtainPairView):
             {'detail': 'No active account found with the given credentials'},
             status=status.HTTP_401_UNAUTHORIZED
         )
+
+
+class AdminCustomerListView(generics.ListCreateAPIView):
+    """GET /api/admin/customers/ - List customers with filters
+       POST /api/admin/customers/ - Create customer manually"""
+    
+    permission_classes = [IsAdminUser] 
+    serializer_class = CustomerListSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['role'] #,'status', 'email_verified'
+    search_fields = ['email', 'full_name', 'company_name', 'phone_number']
+    ordering_fields = ['date_joined', 'full_name', 'email']
+    ordering = ['-date_joined']
+    
+    def get_queryset(self):
+        return User.objects.filter(role='client').annotate(
+            services_count=Count('services'),
+            total_invoices=Sum('invoices__total'),
+            unpaid_invoices=Sum('invoices__total', filter=Q(invoices__status='unpaid'))
+        )
+    
+    def perform_create(self, serializer):
+        # When admin creates customer manually
+        user = serializer.save(role='client')
+        # Send welcome email?
+        # Create audit log
+        return user
+
+
+class AdminCustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PATCH/DELETE /api/admin/customers/{id}/"""
+    
+    permission_classes = [IsAdminUser]
+    serializer_class = CustomerDetailSerializer
+    
+    def get_queryset(self):
+        return User.objects.filter(role='client').prefetch_related(
+            'invoices', 'orders', 'services'
+        )
+    
+    def perform_update(self, serializer):
+        user = serializer.save()
+        # Log who made the change
+        audit_logger.info(
+            f"Admin {self.request.user.email} updated customer {user.email}"
+        )
+        return user
+    
+    def perform_destroy(self, instance):
+        # Soft delete instead of hard delete
+        instance.is_active = False
+        instance.status = 'suspended'  # If you have status field
+        instance.save()
+        # Or hard delete: instance.delete()
+        
 

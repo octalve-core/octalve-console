@@ -8,6 +8,9 @@ from .views import (
     CustomLogoutView,
     CustomUserInfoView,
     CustomUserCreateView,
+
+    AdminCustomerListView,
+    AdminCustomerDetailView,
 )
 
 urlpatterns = [
@@ -19,5 +22,9 @@ urlpatterns = [
     path('me/', CustomUserInfoView.as_view(), name='user-info'),
 
     path('register/', CustomUserCreateView.as_view(), name='custom-register'),
+
+    # Admin customer management
+    path('admin/customers/', AdminCustomerListView.as_view(), name='admin-customers'),
+    path('admin/customers/<int:id>/', AdminCustomerDetailView.as_view(), name='admin-customer-detail'),
 
 ]
