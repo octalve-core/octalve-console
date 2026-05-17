@@ -29,6 +29,8 @@ from drf_spectacular.views import (
 from accounts.views import CustomTokenObtainPairView
 from django.views.generic import RedirectView
 
+from accounts.views import AdminCustomerListView, AdminCustomerDetailView
+
 urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
@@ -65,5 +67,9 @@ urlpatterns = [
 
     # Optional: Redirect root to API docs
     path('', RedirectView.as_view(url='/api/docs/', permanent=False)),
+
+    path('api/admin/customers/', AdminCustomerListView.as_view(), name='admin-customers'),
+    path('api/admin/customers/<int:id>/', AdminCustomerDetailView.as_view(), name='admin-customer-detail'),
+
 ]
 

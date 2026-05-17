@@ -67,7 +67,8 @@ export const apiPaths = {
   },
 
   admin: {
-    customers: "/auth/admin/customers/",
+    customers: "/auth/customers/",
+    // customers: "/admin/customers/",
     products: "/admin/products/",
     plans: "/admin/plans/",
     orders: "/admin/orders/",

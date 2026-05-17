@@ -452,8 +452,8 @@ class SimpleCustomTokenObtainPairView(TokenObtainPairView):
 
 
 class AdminCustomerListView(generics.ListCreateAPIView):
-    """GET /api/admin/customers/ - List customers with filters
-       POST /api/admin/customers/ - Create customer manually"""
+    """GET /api/auth/customers/ - List customers with filters
+       POST /api/auth/customers/ - Create customer manually"""
     
     permission_classes = [IsAdminUser] 
     serializer_class = CustomerListSerializer
@@ -479,7 +479,7 @@ class AdminCustomerListView(generics.ListCreateAPIView):
 
 
 class AdminCustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """GET/PATCH/DELETE /api/admin/customers/{id}/"""
+    """GET/PATCH/DELETE /api/auth/customers/{id}/"""
     
     permission_classes = [IsAdminUser]
     serializer_class = CustomerDetailSerializer
