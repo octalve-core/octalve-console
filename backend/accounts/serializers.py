@@ -64,6 +64,22 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
             
         return user
 
+    def get_full_name(self):
+        full_name = self.full_name or self.username
+        return full_name
+    
+    def get_role(self):
+        print(f"get_role: {get_role}")
+        print(f"get_role: {get_role}")
+        print(f"get_role: {get_role}")
+        print(f"get_role: {get_role}")
+        
+        if self.is_staff and self.is_superuser:
+            return "admin"
+        elif self.is_staff and not self.is_superuser:
+            return "staff"
+        else:
+            return "client"
 
 class CustomUserSerializer(BaseUserSerializer):
     """
