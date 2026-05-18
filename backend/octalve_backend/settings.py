@@ -12,8 +12,11 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 # backend/octalve_backend/settings.py
 
+
 import os
-import logging
+import environ
+
+from datetime import timedelta
 
 from pathlib import Path
 from decouple import config
@@ -21,21 +24,23 @@ from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-from datetime import timedelta
 
-import os
-from datetime import timedelta
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config("DJANGO_SECRET_KEY")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG')
+# ====================== CONFIG ======================
+env = environ.Env()
+environ.Env.read_env(BASE_DIR / '.env')
 
-ALLOWED_HOSTS = ['*']
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = env.bool('DEBUG', True)
+
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
 
 # Application definition
