@@ -213,11 +213,16 @@ STATICFILES_DIRS = [
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
+# Add this line for better performance
 STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
+
 
 # Use this for development to see the links in your console
 # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
