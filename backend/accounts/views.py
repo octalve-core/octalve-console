@@ -483,6 +483,9 @@ class AdminCustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     permission_classes = [IsAdminUser]
     serializer_class = CustomerDetailSerializer
+
+    lookup_field = 'id'  # ← Add this line (it was missing)
+    lookup_url_kwarg = 'id'  # ← Add this line
     
     def get_queryset(self):
         return User.objects.filter(role='client').prefetch_related(
