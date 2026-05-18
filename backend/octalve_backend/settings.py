@@ -10,6 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+# backend/octalve_backend/settings.py
+
+import os
+import logging
+
 from pathlib import Path
 from decouple import config
 
@@ -94,8 +99,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     'rbac.middleware.RBACMiddleware',
-    'audit.middleware.APILoggingMiddleware',  # Add this
-    'audit.middleware.AuditMiddleware',  # Add this
+    'audit.middleware.APILoggingMiddleware', 
+    'audit.middleware.AuditMiddleware',  
+
+    'octalve_backend.middleware.SimpleRequestLoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'octalve_backend.urls'
@@ -366,3 +373,65 @@ SPECTACULAR_SETTINGS = {
 ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', '')
 
 EMAIL_QUOTED_PRINTABLE = False 
+
+
+
+# Create logs directory
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOG_DIR, 'debug.log'),
+            'maxBytes': 5242880,  # 5MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'error_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOG_DIR, 'errors.log'),
+            'maxBytes': 5242880,
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+        },
+        'django.request': {
+            'handlers': ['console', 'error_file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'accounts': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+        },
+        'billing': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+        },
+        'providers': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+        },
+    },
+}
+
