@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -42,9 +42,6 @@ export function ResetPasswordConfirmPageClient() {
   // const token = decodeURIComponent(params.token as string);
 
   // Now use these decoded values in your API call
-  console.log("Decoded UID:", uid);
-  console.log("Decoded Token:", token);
-
   const [values, setValues] = useState({
     password: "",
     confirmPassword: "",
