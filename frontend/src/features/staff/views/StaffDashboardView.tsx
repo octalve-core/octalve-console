@@ -7,6 +7,7 @@ import { MetricCard } from "@/components/data/MetricCard";
 import { ResponsiveGrid } from "@/components/data/ResponsiveGrid";
 import { useAuth } from "@/context/AuthContext";
 import { formatNumber } from "@/lib/formatters";
+import { getFallbackData } from "@/lib/config/data-source";
 import { StaffHero } from "../components/StaffHero";
 import { StaffSectionCard } from "../components/StaffSectionCard";
 import { staffDemo } from "../data/staff-demo-data";
@@ -18,6 +19,12 @@ export function StaffDashboardView() {
     const source = user?.name || user?.full_name || "Staff";
     return source.split(" ")[0] || "Staff";
   }, [user]);
+
+  const customers = getFallbackData(staffDemo.customers);
+  const orders = getFallbackData(staffDemo.orders);
+  const provisioning = getFallbackData(staffDemo.provisioning);
+  const tickets = getFallbackData(staffDemo.tickets);
+  const knowledgeBase = getFallbackData(staffDemo.knowledgeBase);
 
   return (
     <DashboardShell
@@ -31,31 +38,31 @@ export function StaffDashboardView() {
         <ResponsiveGrid columns="4">
           <MetricCard
             label="Assigned customers"
-            value={formatNumber(staffDemo.customers.length)}
+            value={formatNumber(customers.length)}
             description="Accounts needing support"
             icon={<Users className="h-5 w-5" />}
           />
           <MetricCard
             label="Orders"
-            value={formatNumber(staffDemo.orders.length)}
+            value={formatNumber(orders.length)}
             description="Orders needing action"
             icon={<ShoppingCart className="h-5 w-5" />}
           />
           <MetricCard
             label="Provisioning tasks"
-            value={formatNumber(staffDemo.provisioning.length)}
+            value={formatNumber(provisioning.length)}
             description="Automation queue"
             icon={<Zap className="h-5 w-5" />}
           />
           <MetricCard
             label="Tickets"
-            value={formatNumber(staffDemo.tickets.length)}
+            value={formatNumber(tickets.length)}
             description="Support workload"
             icon={<LifeBuoy className="h-5 w-5" />}
           />
           <MetricCard
             label="Knowledge articles"
-            value={formatNumber(staffDemo.knowledgeBase.length)}
+            value={formatNumber(knowledgeBase.length)}
             description="Internal support guides"
             icon={<BookOpen className="h-5 w-5" />}
           />
@@ -66,14 +73,14 @@ export function StaffDashboardView() {
             title="Support workload"
             description="Customer conversations requiring staff attention."
             href="/staff/tickets"
-            records={staffDemo.tickets}
+            records={tickets}
           />
 
           <StaffSectionCard
             title="Provisioning queue"
             description="Automation tasks and manual review items."
             href="/staff/provisioning"
-            records={staffDemo.provisioning}
+            records={provisioning}
           />
         </div>
       </div>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { getApiOnlyNotice, getFallbackData } from "@/lib/config/data-source";
 import { staffDemo } from "../data/staff-demo-data";
 
 function getParamValue(value: string | string[] | undefined) {
@@ -18,9 +19,40 @@ export function StaffKnowledgeArticleView() {
   const params = useParams();
   const id = decodeURIComponent(getParamValue(params.id));
 
-  const article =
-    staffDemo.knowledgeBase.find((item) => item.id === id || item.title === id) ??
-    staffDemo.knowledgeBase[0];
+  const articles = getFallbackData(staffDemo.knowledgeBase);
+  const article = articles.find((item) => item.id === id || item.title === id);
+
+  if (!article) {
+    return (
+      <DashboardShell
+        role="staff"
+        title="Knowledge article"
+        description={getApiOnlyNotice()}
+        actions={
+          <Button href="/staff/knowledge-base" variant="outline">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+        }
+      >
+        <DashboardPage
+          eyebrow="Knowledge Base"
+          title="Article unavailable"
+          description={getApiOnlyNotice()}
+        >
+          <Card>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <h2 className="mt-6 text-2xl font-medium tracking-[-0.04em] text-slate-950">No fallback article is being shown</h2>
+            <p className="mt-4 text-sm leading-8 text-slate-600">
+              The live knowledge base API should provide this article before content is displayed in production.
+            </p>
+          </Card>
+        </DashboardPage>
+      </DashboardShell>
+    );
+  }
 
   return (
     <DashboardShell

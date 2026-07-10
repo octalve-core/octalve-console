@@ -31,7 +31,7 @@ export function ClientProfileView() {
                 <h2 className="text-2xl font-medium tracking-[-0.04em] text-slate-950">
                   {user?.name ?? user?.full_name ?? "Octalve Client"}
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">{user?.email ?? "client@example.com"}</p>
+                <p className="mt-1 text-sm text-slate-500">{user?.email ?? "—"}</p>
               </div>
             </div>
 

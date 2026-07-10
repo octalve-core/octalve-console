@@ -94,12 +94,12 @@ export function AdminOperationListView({ operation }: AdminOperationListViewProp
         setIsUsingFallback(false);
       } else {
         setRecords(config.fallback);
-        setIsUsingFallback(true);
+        setIsUsingFallback(config.fallback.length > 0);
       }
     } catch {
       setRecords(config.fallback);
-      setIsUsingFallback(true);
-      setError("Live API data is not available yet. Showing safe demo records for layout continuity.");
+      setIsUsingFallback(config.fallback.length > 0);
+      setError(config.fallback.length > 0 ? "Live API data is not available yet. Showing safe fallback records for layout continuity." : "Live API data is not available yet. API-only mode is active, so no fallback records are shown.");
     } finally {
       setIsLoading(false);
     }

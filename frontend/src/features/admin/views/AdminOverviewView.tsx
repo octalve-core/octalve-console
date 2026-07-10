@@ -9,7 +9,8 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { useAuth } from "@/context/AuthContext";
 import { adminApi } from "@/lib/api/endpoints";
 import { schemaApi } from "@/lib/api/schema-api";
-import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { formatNumber } from "@/lib/formatters";
+import { getFallbackData } from "@/lib/config/data-source";
 import { AdminHero } from "../components/AdminHero";
 import { AdminSectionCard } from "../components/AdminSectionCard";
 import { adminDemo } from "../data/admin-demo-data";
@@ -62,12 +63,12 @@ export function AdminOverviewView() {
         if (!active) return;
 
         setCounts({
-          customers: customers.status === "fulfilled" ? getListCount(customers.value) : adminDemo.customers.length,
-          services: services.status === "fulfilled" ? getListCount(services.value) : 6,
-          invoices: invoices.status === "fulfilled" ? getListCount(invoices.value) : adminDemo.invoices.length,
-          domains: domains.status === "fulfilled" ? getListCount(domains.value) : adminDemo.domains.length,
-          providers: providers.status === "fulfilled" ? getListCount(providers.value) : adminDemo.providers.length,
-          transactions: transactions.status === "fulfilled" ? getListCount(transactions.value) : 12,
+          customers: customers.status === "fulfilled" ? getListCount(customers.value) : getFallbackData(adminDemo.customers).length,
+          services: services.status === "fulfilled" ? getListCount(services.value) : 0,
+          invoices: invoices.status === "fulfilled" ? getListCount(invoices.value) : getFallbackData(adminDemo.invoices).length,
+          domains: domains.status === "fulfilled" ? getListCount(domains.value) : getFallbackData(adminDemo.domains).length,
+          providers: providers.status === "fulfilled" ? getListCount(providers.value) : getFallbackData(adminDemo.providers).length,
+          transactions: transactions.status === "fulfilled" ? getListCount(transactions.value) : 0,
         });
       } finally {
         if (active) setIsLoading(false);
@@ -118,7 +119,6 @@ export function AdminOverviewView() {
               value={formatNumber(counts.invoices)}
               description="Billing records"
               icon={<ReceiptText className="h-5 w-5" />}
-              trend={{ label: "Revenue sample", value: formatCurrency(24500), tone: "success" }}
             />
             <MetricCard
               label="Domains"
@@ -147,14 +147,14 @@ export function AdminOverviewView() {
             title="Recent invoices"
             description="Track unpaid, paid and pending billing activity."
             href="/admin/billing/invoices"
-            records={adminDemo.invoices}
+            records={getFallbackData(adminDemo.invoices)}
           />
 
           <AdminSectionCard
             title="Provisioning queue"
             description="Monitor automation tasks before they affect customers."
             href="/admin/provisioning"
-            records={adminDemo.provisioning}
+            records={getFallbackData(adminDemo.provisioning)}
           />
         </div>
       </div>

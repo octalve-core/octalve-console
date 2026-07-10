@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { FormField } from "@/components/ui/FormField";
 import { DataTable } from "@/components/ui/DataTable";
+import { getApiOnlyNotice, getFallbackData } from "@/lib/config/data-source";
 
 type ToolKey =
   | "service-queue"
@@ -123,7 +124,7 @@ const toolConfigs: Record<ToolKey, ToolConfig> = {
     rows: [
       { rule: "192.168.10.0/24", type: "CIDR", reason: "Abuse attempts", status: "Active" },
       { rule: "fraudmail.test", type: "Email Domain", reason: "Fraud signup pattern", status: "Active" },
-      { rule: "suspicious-client@example.com", type: "Email", reason: "Chargeback history", status: "Review" }
+      { rule: "blocked-email-address", type: "Email", reason: "Chargeback history", status: "Review" }
     ],
     fields: [
       { label: "Rule Type", as: "select", options: ["IP", "CIDR", "Email", "Email Domain", "Client ID", "Hostname"], value: "IP" },
@@ -317,6 +318,8 @@ const toolConfigs: Record<ToolKey, ToolConfig> = {
 export function AdminToolPage({ tool }: { tool: ToolKey }) {
   const config = toolConfigs[tool];
   const Icon = config.icon;
+  const stats = getFallbackData(config.stats);
+  const rows = getFallbackData(config.rows);
 
   return (
     <main className="page-container">
@@ -332,7 +335,7 @@ export function AdminToolPage({ tool }: { tool: ToolKey }) {
       />
 
       <div className="grid cols-3">
-        {config.stats.map((stat) => (
+        {stats.map((stat) => (
           <Card padded key={stat.label}>
             <div className="tool-stat">
               <div>
@@ -392,7 +395,13 @@ export function AdminToolPage({ tool }: { tool: ToolKey }) {
       </div>
 
       <div style={{ marginTop: 18 }}>
-        <DataTable title={`${config.title} Records`} columns={config.columns} rows={config.rows} />
+        {rows.length === 0 ? (
+          <Card padded>
+            <div className="notice">{getApiOnlyNotice()}</div>
+          </Card>
+        ) : (
+          <DataTable title={`${config.title} Records`} columns={config.columns} rows={rows} />
+        )}
       </div>
     </main>
   );

@@ -46,13 +46,11 @@ export const plans = [
 
 export const customers = [
   { id: "CUST-1500", name: "Brand De", email: "hellobrandde@gmail.com", phone: "0813 575 0956", status: "Active", balance: "â‚¦0", services: 2, invoices: 3 },
-  { id: "CUST-1501", name: "Octalve Demo Client", email: "client@example.com", phone: "0800 000 0000", status: "Active", balance: "â‚¦3,500", services: 1, invoices: 1 }
 ];
 
 export const services = [
   { id: "SERVICE-ID", customer: "Brand De", package: "Business", product: "Web Hosting", label: "example.com", term: "1 Month @ â‚¦3,500", renews: "May 30, 2026", status: "Active", adapter: "DirectAdminAdapter", usage: { disk: 38, bandwidth: 24, email: 42, database: 17 } },
   { id: "SVC-VPS-001", customer: "Brand De", package: "VPS-1", product: "VPS Hosting", label: "api.example.com", term: "1 Month @ â‚¦12,000", renews: "May 30, 2026", status: "Pending", adapter: "ProxmoxAdapter", usage: { disk: 12, bandwidth: 9, cpu: 18, memory: 44 } },
-  { id: "SVC-DOM-001", customer: "Octalve Demo Client", package: ".com Domain", product: "Domain Registration", label: "octalvedemo.com", term: "1 Year @ â‚¦24,000", renews: "Apr 30, 2027", status: "Active", adapter: "DomainRegistrarAdapter", usage: { dns: 8, renew: 100 } }
 ];
 
 export const domains = [
@@ -63,7 +61,6 @@ export const domains = [
 export const invoices = [
   { id: "INV-2026-0001", client: "Brand De", total: "â‚¦3,500", paid: "â‚¦3,500", due: "â‚¦0", date: "Apr 30, 2026", dueDate: "May 7, 2026", status: "Paid" },
   { id: "INV-2026-0002", client: "Brand De", total: "â‚¦24,000", paid: "â‚¦24,000", due: "â‚¦0", date: "Apr 30, 2026", dueDate: "May 7, 2026", status: "Paid" },
-  { id: "INV-2026-0003", client: "Octalve Demo Client", total: "â‚¦15,000", paid: "â‚¦0", due: "â‚¦15,000", date: "May 1, 2026", dueDate: "May 8, 2026", status: "Unpaid" }
 ];
 
 export const transactions = [
@@ -77,8 +74,7 @@ export const orders = [
 ];
 
 export const tickets = [
-  { id: "TKT-MOLNZ6T5", customer: "Brand De", subject: "I want you to connect my DNS", department: "Support", priority: "High", status: "Waiting Customer", lastReply: "Apr 30, 15:54" },
-  { id: "TKT-MIGRATE", customer: "Octalve Demo Client", subject: "Please migrate my WordPress website", department: "Migration", priority: "Medium", status: "Open", lastReply: "May 1, 08:20" }
+  { id: "TKT-MOLNZ6T5", customer: "Brand De", subject: "I want you to connect my DNS", department: "Support", priority: "High", status: "Waiting Customer", lastReply: "Apr 30, 15:54" }
 ];
 
 export const kbArticles = [

@@ -9,6 +9,7 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { useAuth } from "@/context/AuthContext";
 import { clientApi } from "@/lib/api/endpoints";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { getFallbackData } from "@/lib/config/data-source";
 import { ClientHero } from "../components/ClientHero";
 import { ClientSectionCard } from "../components/ClientSectionCard";
 import { clientDemo } from "../data/client-demo-data";
@@ -65,10 +66,10 @@ export function ClientDashboardView() {
             : 0;
 
         setCounts({
-          services: services.status === "fulfilled" ? getListCount(services.value) : clientDemo.services.length,
-          invoices: invoices.status === "fulfilled" ? getListCount(invoices.value) : clientDemo.invoices.length,
-          domains: domains.status === "fulfilled" ? getListCount(domains.value) : clientDemo.domains.length,
-          tickets: tickets.status === "fulfilled" ? getListCount(tickets.value) : clientDemo.support.length,
+          services: services.status === "fulfilled" ? getListCount(services.value) : getFallbackData(clientDemo.services).length,
+          invoices: invoices.status === "fulfilled" ? getListCount(invoices.value) : getFallbackData(clientDemo.invoices).length,
+          domains: domains.status === "fulfilled" ? getListCount(domains.value) : getFallbackData(clientDemo.domains).length,
+          tickets: tickets.status === "fulfilled" ? getListCount(tickets.value) : getFallbackData(clientDemo.support).length,
           wallet: Number.isFinite(walletValue) ? walletValue : 0,
         });
       } finally {
@@ -139,14 +140,14 @@ export function ClientDashboardView() {
             title="Your services"
             description="Manage your most recent active products from one place."
             href="/client/services"
-            records={clientDemo.services}
+            records={getFallbackData(clientDemo.services)}
           />
 
           <ClientSectionCard
             title="Recent invoices"
             description="Track payments, renewals, and pending invoices."
             href="/client/invoices"
-            records={clientDemo.invoices}
+            records={getFallbackData(clientDemo.invoices)}
           />
         </div>
       </div>

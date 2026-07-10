@@ -1,4 +1,5 @@
 import { clientApi } from "@/lib/api/endpoints";
+import { getFallbackData } from "@/lib/config/data-source";
 import { clientDemo, type ClientRecord, type ClientResourceKey } from "./client-demo-data";
 
 export type ClientResourceConfig = {
@@ -26,7 +27,7 @@ export const clientResourceConfig: Record<ClientResourceKey, ClientResourceConfi
     searchPlaceholder: "Search services by domain, package, or status...",
     emptyTitle: "No services found",
     emptyDescription: "Your active hosting services will appear here after purchase.",
-    fallback: clientDemo.services,
+    fallback: getFallbackData(clientDemo.services),
     loader: () => clientApi.services(),
   },
   domains: {
@@ -39,7 +40,7 @@ export const clientResourceConfig: Record<ClientResourceKey, ClientResourceConfi
     searchPlaceholder: "Search domains...",
     emptyTitle: "No domains found",
     emptyDescription: "Your registered domains will appear here.",
-    fallback: clientDemo.domains,
+    fallback: getFallbackData(clientDemo.domains),
     loader: () => clientApi.domains(),
   },
   invoices: {
@@ -50,7 +51,7 @@ export const clientResourceConfig: Record<ClientResourceKey, ClientResourceConfi
     searchPlaceholder: "Search invoices...",
     emptyTitle: "No invoices found",
     emptyDescription: "Your invoices will appear here after an order or renewal.",
-    fallback: clientDemo.invoices,
+    fallback: getFallbackData(clientDemo.invoices),
     loader: () => clientApi.invoices(),
   },
   orders: {
@@ -63,7 +64,7 @@ export const clientResourceConfig: Record<ClientResourceKey, ClientResourceConfi
     searchPlaceholder: "Search orders...",
     emptyTitle: "No orders found",
     emptyDescription: "Your orders will appear here after checkout.",
-    fallback: clientDemo.orders,
+    fallback: getFallbackData(clientDemo.orders),
     loader: () => clientApi.orders(),
   },
   support: {
@@ -76,7 +77,7 @@ export const clientResourceConfig: Record<ClientResourceKey, ClientResourceConfi
     searchPlaceholder: "Search tickets...",
     emptyTitle: "No tickets found",
     emptyDescription: "Your support tickets will appear here.",
-    fallback: clientDemo.support,
+    fallback: getFallbackData(clientDemo.support),
     loader: () => clientApi.tickets(),
   },
 };
