@@ -69,6 +69,8 @@ class CustomUserSerializer(BaseUserSerializer):
     """
     Serializer for the 'me' endpoint and viewing user profiles.
     """
+    role = serializers.SerializerMethodField()
+
     class Meta(BaseUserSerializer.Meta):
         model = User
         fields = [
@@ -79,22 +81,30 @@ class CustomUserSerializer(BaseUserSerializer):
             'phone_number',
             'referral_code',
             'role',
+            'is_staff',
+            'is_superuser',
+            'is_active',
+            'date_joined',
+            'last_login',
         ]
-        read_only_fields = ['referral_code', 'email', 'role']
+        read_only_fields = [
+            'referral_code',
+            'email',
+            'role',
+            'is_staff',
+            'is_superuser',
+            'is_active',
+            'date_joined',
+            'last_login',
+        ]
 
-    def get_full_name(self):
-        full_name = self.full_name or self.username
-        return full_name
-    
-    def get_role(self):
-        if self.is_staff and self.is_superuser:
+    def get_role(self, obj):
+        if obj.is_superuser:
             return "admin"
-        elif self.is_staff and not self.is_superuser:
+        if obj.is_staff:
             return "staff"
-        else:
-            return "client"
+        return getattr(obj, "role", None) or "client"
 
-        
 class CustomLoginSerializer(serializers.Serializer):
     """
     Custom serializer to allow login with email
