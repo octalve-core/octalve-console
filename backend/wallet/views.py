@@ -145,11 +145,27 @@ class WithdrawalRequestViewSet(viewsets.ModelViewSet):
     search_fields = ['user__email', 'user__full_name', 'reference']
     ordering = ['-created_at']
     
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     if user.role == 'admin' or user.is_superuser:
+    #         return WithdrawalRequest.objects.all()
+    #     return WithdrawalRequest.objects.filter(user=user)
+    
     def get_queryset(self):
-        user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
-            return WithdrawalRequest.objects.all()
-        return WithdrawalRequest.objects.filter(user=user)
+            # Prevent errors during OpenAPI schema generation
+            if getattr(self, "swagger_fake_view", False):
+                return WithdrawalRequest.objects.none()
+    
+            user = self.request.user
+    
+            # Defensive check (even though IsAuthenticated is used)
+            if not user.is_authenticated:
+                return WithdrawalRequest.objects.none()
+    
+            if user.is_superuser or getattr(user, "role", None) == "admin":
+                return WithdrawalRequest.objects.all()
+    
+            return WithdrawalRequest.objects.filter(user=user)
     
     def create(self, request, *args, **kwargs):
         """Create a withdrawal request"""
