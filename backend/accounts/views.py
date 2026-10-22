@@ -13,6 +13,9 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
+from django.contrib.auth import login, logout as django_logout
+from django.db import transaction
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
 from django.db.models import Count, F, Q, Sum
@@ -313,6 +316,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             raise InvalidToken(e.args[0])
         
         # Return response with tokens and user data
+        login(request, serializer.context['user']) 
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
@@ -350,37 +354,25 @@ class CustomTokenRefreshView(APIView):
 class CustomLogoutView(APIView):
     """
     Custom logout view that blacklists the refresh token
+    and destroys the Django session.
     Requires 'rest_framework_simplejwt.token_blacklist' app
     """
-    
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
-        try:
-            refresh_token = request.data.get('refresh')
-            
-            if not refresh_token:
-                return Response(
-                    {'error': 'Refresh token is required'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            
-            return Response(
-                {'message': 'Successfully logged out'},
-                status=status.HTTP_200_OK
-            )
-        except AttributeError:
-            # If token_blacklist app is not installed
-            return Response(
-                {'message': 'Logout successful (token not blacklisted)'},
-                status=status.HTTP_200_OK
-            )
-        except TokenError:
-            return Response(
-                {'error': 'Invalid token'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        refresh_token = request.data.get('refresh')
+
+        if refresh_token:
+            try:
+                RefreshToken(refresh_token).blacklist()
+            except TokenError:
+                pass  # invalid/expired refresh — proceed to end the session anyway
+
+        django_logout(request)
+        return Response(
+            {'message': 'Successfully logged out'},
+            status=status.HTTP_200_OK
+        )
 
 
 class CustomUserInfoView(APIView):
@@ -455,13 +447,17 @@ class AdminCustomerListView(generics.ListCreateAPIView):
     """GET /api/auth/customers/ - List customers with filters
        POST /api/auth/customers/ - Create customer manually"""
     
-    permission_classes = [IsAdminUser] 
-    serializer_class = CustomerListSerializer
+    permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['role'] #,'status', 'email_verified'
+    filterset_fields = ['role']
     search_fields = ['email', 'full_name', 'company_name', 'phone_number']
     ordering_fields = ['date_joined', 'full_name', 'email']
     ordering = ['-date_joined']
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return CustomerCreateSerializer
+        return CustomerListSerializer
     
     def get_queryset(self):
         return User.objects.filter(role='client').annotate(
@@ -469,12 +465,9 @@ class AdminCustomerListView(generics.ListCreateAPIView):
             total_invoices=Sum('invoices__total'),
             unpaid_invoices=Sum('invoices__total', filter=Q(invoices__status='unpaid'))
         )
-    
+
     def perform_create(self, serializer):
-        # When admin creates customer manually
-        user = serializer.save(role='client')
-        # Send welcome email?
-        # Create audit log
+        user = serializer.save()
         return user
 
 
@@ -482,29 +475,25 @@ class AdminCustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET/PATCH/DELETE /api/auth/customers/{id}/"""
     
     permission_classes = [IsAdminUser]
-    serializer_class = CustomerDetailSerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
 
-    lookup_field = 'id'  
-    lookup_url_kwarg = 'id' 
-    
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return CustomerUpdateSerializer
+        return CustomerDetailSerializer
+
     def get_queryset(self):
         return User.objects.filter(role='client').prefetch_related(
             'invoices', 'orders', 'services'
         )
-    
+
     def perform_update(self, serializer):
         user = serializer.save()
-        # Log who made the change
-        audit_logger.info(
-            f"Admin {self.request.user.email} updated customer {user.email}"
-        )
+        logger.info(f"Admin {self.request.user.email} updated customer {user.email}")
         return user
-    
+
     def perform_destroy(self, instance):
-        # Soft delete instead of hard delete
         instance.is_active = False
-        instance.status = 'suspended'  # If you have status field
-        instance.save()
-        # Or hard delete: instance.delete()
-        
+        instance.save(update_fields=['is_active'])
 

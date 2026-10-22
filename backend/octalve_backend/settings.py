@@ -320,7 +320,26 @@ DJOSER = {
 
 
 
-# REST Framework Settings
+
+# ---------- Sessions / CSRF (cross-origin aware) ----------
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_NAME = 'octalve_sessionid'
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14       # 14 days
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_COOKIE_SAMESITE = 'Lax'               # 'None' + Secure for truly cross-site
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = False                 # True in prod
+
+CSRF_COOKIE_NAME = 'octalve_csrftoken'
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_HTTPONLY = False                  # MUST be False for JS to read
+CSRF_COOKIE_SECURE = False                    # True in prod
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# ---------- DRF ----------
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -338,15 +357,15 @@ REST_FRAMEWORK = {
 }
 
 
-# Simple JWT Settings
+# ---------- SimpleJWT ----------
 SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('JWT', 'Bearer'),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,  # Give new refresh token on refresh
+    'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': True,
+    'UPDATE_LAST_LOGIN': True,     # ← let the signal manage last_login
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
@@ -363,12 +382,15 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + ['X-CSRFToken']
 
 # Frontend URL - IMPORTANT: This should be your frontend base URL
 FRONTEND_URL = config("FRONTEND_URL") 

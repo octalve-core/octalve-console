@@ -56,14 +56,23 @@ export const apiPaths = {
   },
 
   client: {
-    dashboard: "/client/dashboard/",
-    services: "/client/services/",
-    domains: "/client/domains/",
-    invoices: "/client/invoices/",
-    orders: "/client/orders/",
-    wallet: "/client/wallet/",
+    // dashboard: "/client/dashboard/",
+    // services: "/client/services/",
+    // domains: "/client/domains/",
+    // invoices: "/client/invoices/",
+    // orders: "/client/orders/",
+    // wallet: "/client/wallet/",
+    // tickets: "/support/tickets/",
+    // knowledgeBase: "/client/knowledge-base/",
+    
+    dashboard: "/dashboard/",
+    services: "/services/",
+    domains: "/domains/",
+    invoices: "/billing/invoices/",
+    orders: "/orders/",
+    wallet: "/wallet/",
     tickets: "/support/tickets/",
-    knowledgeBase: "/client/knowledge-base/",
+    knowledgeBase: "/knowledge-base/",
   },
 
   admin: {

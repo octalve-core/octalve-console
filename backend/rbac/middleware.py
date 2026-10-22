@@ -75,7 +75,7 @@ class RBACMiddleware:
             ('POST', '/api/invoices/pay/'): 'manage_invoices',
             
             # Services
-            ('GET', '/api/services/'): 'view_services',
+            ('GET', '/api/services/services/'): 'view_services',
             ('POST', '/api/services/provision/'): 'provision_services',
             ('POST', '/api/services/suspend/'): 'suspend_services',
             ('POST', '/api/services/terminate/'): 'terminate_services',

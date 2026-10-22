@@ -151,6 +151,7 @@ class StaffProfile(models.Model):
     can_handle_tickets = models.BooleanField(default=True)
     can_handle_provisioning = models.BooleanField(default=False)
     signature = models.TextField(blank=True, null=True, help_text="Email signature")
+    notes = models.TextField(blank=True, null=True, help_text="Internal notes")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
