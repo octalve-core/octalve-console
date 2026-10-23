@@ -100,14 +100,33 @@ jobs:
           print('AUTH_REVIEW_PLAN_END')
           print('AUTH_REVIEW_PLAN_SHA256=' + hashlib.sha256(plan.stdout.encode('utf-8')).hexdigest())
           PY
-      - name: Verify reviewed migration-plan fingerprint (no migrations applied)
+      - name: Verify auth schema candidate and enforce old-runner rejection
         working-directory: backend
         run: |
           python - <<'PY'
-          import os
+          import os, hashlib
           from pathlib import Path
           from scripts.review_neon_migration_cli import capture_django_plan, verify_reviewed_plan
           backend = Path.cwd()
-          result = capture_django_plan(backend, os.environ.copy())
-          verify_reviewed_plan(result.stdout, backend.parent)
+          repo = backend.parent
+          transcript = capture_django_plan(backend, os.environ.copy()).stdout
+          approved = (repo / 'docs' / 'CLOUD_FOUNDATION_AUTH_BLACKLIST_INITIAL_MIGRATION_CANDIDATE_2026-10-23.md').read_text(encoding='utf-8')
+          marker = '```text\n'
+          begin = approved.find(marker)
+          end = approved.find('\n```', begin + len(marker))
+          assert begin >= 0 and end > begin, 'Candidate transcript missing'
+          reference = approved[begin + len(marker):end] + '\n'
+          assert transcript == reference, 'Revised plan differs from recorded candidate'
+          digest = hashlib.sha256(transcript.encode('utf-8')).hexdigest()
+          assert digest == '516cd378502964020838c5d23b89caf172bd1cf135677172ee85e4795892a8cd'
+          migrations = [s for s in transcript.splitlines() if s and not s.startswith(' ') and s != 'Planned operations:']
+          operations = [s for s in transcript.splitlines() if s.startswith('    ')]
+          assert (len(migrations), len(operations)) == (48, 217)
+          try:
+              verify_reviewed_plan(transcript, repo)
+          except SystemExit as exc:
+              assert 'Migration REFUSED: plan differs from locked reviewed migrations' in str(exc)
+          else:
+              raise AssertionError('Old 36-migration runner must reject candidate auth schema')
+          print('PASS: 48/217 candidate fingerprint matches; 36-migration runner rejects it.')
           PY
