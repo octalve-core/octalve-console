@@ -27,7 +27,9 @@ try {
     $venvDir = Join-Path $env:TEMP "octalve-cloud-neon-review-venv"
     if (-not (Test-Path $venvDir)) { & python -m venv $venvDir; if ($LASTEXITCODE -ne 0) { throw "Cannot create venv." } }
     $py = Join-Path $venvDir "Scripts/python.exe"
-    & $py -m pip install --disable-pip-version-check --quiet -r "backend/requirements.txt"
+    # Skip potentially corrupted Windows pip cache. This only installs local
+    # migration-runner dependencies; it does not access or modify Neon.
+    & $py -m pip install --no-cache-dir --disable-pip-version-check --quiet -r "backend/requirements.txt"
     if ($LASTEXITCODE -ne 0) { throw "Python dependency installation failed." }
 
     Push-Location (Join-Path $repoRoot "backend")
