@@ -7,7 +7,7 @@ if [[ "$mode" != "plan" && "$mode" != "apply" ]]; then
   echo "Usage: bash backend/scripts/run_review_migrations.sh plan|apply" >&2
   exit 2
 fi
-if [[ "$(git branch --show-current)" != "review/cloud-portability-security-foundation" ]]; then
+if [[ "$(git branch --show-current)" != "review/cloud-foundation-qualification" ]]; then
   echo "Refusing: checkout the Octalve Cloud review branch first." >&2
   exit 2
 fi
@@ -24,7 +24,7 @@ export DEBUG=false
 export VERCEL_ENV=preview
 export OCTALVE_CLOUD_ENV=review
 export CLOUD_REVIEW_MIGRATION_CONFIRM=explicit-codespace-review
-export FRONTEND_URL="https://octalve-console.vercel.app"
+export FRONTEND_URL="https://octalve-console-git-review-cloud-foundatio-15b74e-octalve-vault.vercel.app"
 # Signing key is throwaway, for one-off management command only.
 export DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
 echo "Installing Django review dependencies (no customer database changes yet)."
