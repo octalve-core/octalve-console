@@ -27,7 +27,16 @@ Test-NetConnection api.neon.tech -Port 443
 Network checks help differentiate local DNS/proxy restrictions from Neon CLI errors, but do not prove the CLI works.
 
 ### Fallback if Neon CLI cannot fetch the URL
-In the Neon Console browser, choose `octalve-cloud-review-db` → branch `preview/review/cloud-foundation-qualification` → database `neondb` → role `neondb_owner` → **Connect** → direct/unpooled connection (disable pooling). Use only the approved direct host, never Neon main or the other preview branch. Paste a connection string only into a hidden local prompt provided by the guarded script, never chat, PowerShell command history, tracked `.env`, or PR. Currently the guarded script relies on `DATABASE_URL_UNPOOLED` in process environment; a reviewed hidden-prompt fallback is required if the Vercel CLI cannot provide it.
+In the Neon Console browser, choose `octalve-cloud-review-db` → branch `preview/review/cloud-foundation-qualification` → database `neondb` → role `neondb_owner` → **Connect** → direct/unpooled connection (disable pooling). Use only the approved direct host, never Neon main or the other preview branch. Paste a connection string only into a hidden local prompt provided by the guarded script, never chat, PowerShell command history, tracked `.env`, or PR. The guarded PowerShell script now supports `-UseNeonConsole`, which prompts for the URL with hidden input and sets it **only in the temporary migration process environment**. It never writes the connection string into Git or `.env` and restores previous environment values on exit.
+
+```powershell
+git pull --ff-only
+powershell -ExecutionPolicy Bypass -File .\scripts\apply-neon-foundation-review.ps1 -UseNeonConsole -PlanOnly
+# After the plan says PASS, and only with approval:
+powershell -ExecutionPolicy Bypass -File .\scripts\apply-neon-foundation-review.ps1 -UseNeonConsole
+```
+
+Neon browser path: `octalve-cloud-review-db` → `preview/review/cloud-foundation-qualification` → Connect → `neondb` → `neondb_owner` → disable pooling and copy the **direct** connection URL. The URL will not be displayed when pasted into the script's prompt. **Never paste credentials into chat.**
 
 ## Scope limits
 The portable `.mcp.json` is an editor/agent connection **declaration**, not proof that a Neon MCP process was installed or OAuth configured on the user's Windows computer. We cannot inspect user-wide machine configuration from this chat. ChatGPT's Neon connector is separately verified working.

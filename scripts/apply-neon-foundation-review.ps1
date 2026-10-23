@@ -1,6 +1,6 @@
 # Run once in Windows PowerShell inside the octalve-console Git checkout.
 # Pulls scoped Vercel Preview secrets in memory; no manual Neon secret copying.
-param([switch]$PlanOnly)
+param([switch]$PlanOnly, [switch]$UseNeonConsole)
 $ErrorActionPreference = "Stop"
 $expectedBranch = "review/cloud-foundation-qualification"
 $project = "octalve-cloud-api"
@@ -34,6 +34,69 @@ try {
 
     Push-Location (Join-Path $repoRoot "backend")
     try {
+        if ($UseNeonConsole) {
+            # Explicit fallback when the Neon CLI API and Vercel sensitive
+            # Preview env pull are unavailable. The owner obtains the DIRECT
+            # connection in the Neon browser, but never enters it on a command
+            # line, in terminal history, chat, or a source-controlled .env.
+            $managedNames = @(
+                "DATABASE_URL_UNPOOLED", "OCTALVE_CLOUD_ENV", "VERCEL_ENV",
+                "DEBUG", "DJANGO_SECRET_KEY", "FRONTEND_URL",
+                "OCTALVE_APPROVE_FOUNDATION_SCHEMA"
+            )
+            $originalEnv = @{}
+            foreach ($name in $managedNames) {
+                $originalEnv[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+            }
+            try {
+                $prompt = "Paste ONLY the Neon Preview DIRECT connection string (hidden input)"
+                $secure = Read-Host -AsSecureString $prompt
+                $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+                try {
+                    $connection = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+                    if ([string]::IsNullOrWhiteSpace($connection)) {
+                        throw "No connection string entered. Nothing applied."
+                    }
+                    $env:DATABASE_URL_UNPOOLED = $connection.Trim()
+                } finally {
+                    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+                    $secure.Dispose()
+                    Remove-Variable connection -ErrorAction SilentlyContinue
+                }
+                $env:OCTALVE_CLOUD_ENV = "review"
+                $env:VERCEL_ENV = "preview"
+                $env:DEBUG = "false"
+                $env:DJANGO_SECRET_KEY = [guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
+                $env:FRONTEND_URL = "https://octalve-console-git-review-cloud-foundatio-15b74e-octalve-vault.vercel.app"
+                $script = "scripts/review_neon_migration_cli.py"
+                Write-Host "Verifying exact Neon branch, direct host, TLS and previously approved schema plan..."
+                & $py $script plan
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Neon Preview preflight/plan refused. No migration attempted."
+                }
+                if ($PlanOnly) {
+                    Write-Host "PLAN VERIFIED. Database remains unchanged."
+                    return
+                }
+                $approval = Read-Host "Type exactly APPLY 36 MIGRATIONS TO FOUNDATION PREVIEW"
+                if ($approval -cne "APPLY 36 MIGRATIONS TO FOUNDATION PREVIEW") {
+                    Write-Host "Not approved. No migration attempted."
+                    return
+                }
+                $env:OCTALVE_APPROVE_FOUNDATION_SCHEMA = $approval
+                & $py $script apply
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Migration or verification failed: inspect actual database state before retrying."
+                }
+                Write-Host "SUCCESS: approved 36 Django migrations applied and verified on Foundation Preview."
+                return
+            } finally {
+                foreach ($name in $managedNames) {
+                    [Environment]::SetEnvironmentVariable($name, $originalEnv[$name], "Process")
+                }
+            }
+        }
+
         # Vercel will request normal account authorization if not signed in.
         # Link only to octalve-cloud-api; never octalve-console or production.
         & npx --yes vercel@latest link --yes --project $project --scope $scope
