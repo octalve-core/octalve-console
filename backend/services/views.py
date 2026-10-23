@@ -3,7 +3,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
@@ -23,6 +23,13 @@ from billing.models import Invoice, InvoiceItem
 from rbac.decorators import permission_required
 
 
+class CloudServiceWritePermission(BasePermission):
+    """Creating and editing commercial service state is admin-only."""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and
+                    (request.user.is_superuser or request.user.role == 'admin'))
+
+
 class ServiceViewSet(viewsets.ModelViewSet):
     """ViewSet for services"""
     
@@ -34,6 +41,11 @@ class ServiceViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'next_due_date', 'amount']
     ordering = ['-created_at']
     
+    def get_permissions(self):
+        if self.action in {'create', 'update', 'partial_update', 'destroy'}:
+            return [CloudServiceWritePermission()]
+        return super().get_permissions()
+
     def get_queryset(self):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
@@ -61,6 +73,8 @@ class ServiceViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def update_credentials(self, request, pk=None):
         """Update service credentials (admin only)"""
+        if not (request.user.is_superuser or request.user.role == 'admin'):
+            return Response({'error': 'Administrator authority required'}, status=status.HTTP_403_FORBIDDEN)
         service = self.get_object()
         
         if request.user.role not in ['admin', 'staff']:
@@ -91,58 +105,17 @@ class ServiceViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def action(self, request, pk=None):
-        """Perform action on service (suspend, unsuspend, terminate, etc.)"""
-        service = self.get_object()
-        action_serializer = ServiceActionSerializer(data=request.data)
-        action_serializer.is_valid(raise_exception=True)
-        
-        action = action_serializer.validated_data['action']
-        reason = action_serializer.validated_data.get('reason', '')
-        
-        # Check permissions
-        if action in ['suspend', 'terminate'] and request.user.role not in ['admin', 'staff']:
-            return Response({'error': 'Only staff can suspend/terminate services'}, status=status.HTTP_403_FORBIDDEN)
-        
-        # Log the action
-        ServiceActionLog.objects.create(
-            service=service,
-            action=action,
-            performed_by=request.user if request.user.is_authenticated else None,
-            details={'reason': reason}
+        """No customer or administrator can fake a provider operation.
+
+        Disabled until a verified, durable worker performs the host action and
+        confirms its result. Read access to the owning service remains scoped.
+        """
+        self.get_object()  # Enforce object ownership before revealing state.
+        return Response(
+            {'error': 'Hosting operations are unavailable until provider-confirmed execution is enabled.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-        
-        # Perform the action
-        if action == 'suspend':
-            service.suspend(reason=reason)
-            return Response({'message': 'Service suspended'})
-        
-        elif action == 'unsuspend':
-            service.unsuspend()
-            return Response({'message': 'Service unsuspended'})
-        
-        elif action == 'terminate':
-            service.terminate()
-            return Response({'message': 'Service terminated'})
-        
-        elif action == 'reboot':
-            # This would call provider API
-            return Response({'message': 'Reboot requested'})
-        
-        elif action == 'start':
-            return Response({'message': 'Start requested'})
-        
-        elif action == 'stop':
-            return Response({'message': 'Stop requested'})
-        
-        elif action == 'change_password':
-            new_password = action_serializer.validated_data.get('new_password')
-            if new_password:
-                # This would call provider API to change password
-                return Response({'message': 'Password change requested'})
-            return Response({'error': 'New password required'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     # @action(detail=True, methods=['post'])
     @transaction.atomic
     def change_package(self, request, pk=None):

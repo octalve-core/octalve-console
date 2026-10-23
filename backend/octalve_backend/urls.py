@@ -6,6 +6,7 @@ from django.urls import path, re_path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
+from .health import health
 
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -14,6 +15,7 @@ from drf_spectacular.views import (
 )
 
 urlpatterns = [
+    path('api/health/', health, name='api-health'),
     # Admin
     path('admin/', admin.site.urls),
 

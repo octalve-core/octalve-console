@@ -166,11 +166,11 @@ export function SignupPageClient() {
           />
           <span>
             I agree to the{" "}
-            <a href="https://octalve.cloud/terms-of-service" className="text-[#0064E0] hover:underline">
+            <a href="https://cloud.octalve.com/terms-of-service" className="text-[#0064E0] hover:underline">
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="https://octalve.cloud/privacy-policy" className="text-[#0064E0] hover:underline">
+            <a href="https://cloud.octalve.com/privacy-policy" className="text-[#0064E0] hover:underline">
               Privacy Policy
             </a>
           </span>
