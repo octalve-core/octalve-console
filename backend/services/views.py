@@ -3,7 +3,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
@@ -23,6 +23,13 @@ from billing.models import Invoice, InvoiceItem
 from rbac.decorators import permission_required
 
 
+class CloudServiceWritePermission(BasePermission):
+    """Creating and editing commercial service state is admin-only."""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and
+                    (request.user.is_superuser or request.user.role == 'admin'))
+
+
 class ServiceViewSet(viewsets.ModelViewSet):
     """ViewSet for services"""
     
@@ -34,6 +41,11 @@ class ServiceViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'next_due_date', 'amount']
     ordering = ['-created_at']
     
+    def get_permissions(self):
+        if self.action in {'create', 'update', 'partial_update', 'destroy'}:
+            return [CloudServiceWritePermission()]
+        return super().get_permissions()
+
     def get_queryset(self):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:

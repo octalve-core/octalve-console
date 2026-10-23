@@ -43,6 +43,14 @@ class PaymentGatewayViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         return super().update(request, *args, **kwargs)
 
+    @permission_required('manage_settings')
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @permission_required('manage_settings')
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
 
 class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for transactions (read-only)"""
@@ -232,33 +240,13 @@ class PaymentVerifyView(APIView):
             return Response({'error': 'Unsupported gateway'}, status=status.HTTP_400_BAD_REQUEST)
         
         if result.get('success'):
-            # Create transaction
-            transaction = Transaction.objects.create(
-                client=intent.client,
-                invoice=intent.invoice,
-                gateway=intent.gateway,
-                reference=reference,
-                provider_reference=result.get('provider_reference'),
-                transaction_type='payment',
-                currency=intent.currency,
-                amount=intent.amount,
-                fee=result.get('fee', 0),
-                net_amount=intent.amount - result.get('fee', 0),
-                status='successful',
-                payment_method=result.get('payment_method'),
-                customer_email=intent.client.email,
-                customer_name=intent.client.full_name,
-                paid_at=timezone.now()
-            )
-            
-            intent.status = 'completed'
-            intent.save()
-            
+            # Do not treat provider status as settlement without independently
+            # verifying amount, currency, reference and invoice identity.
             return Response({
-                'success': True,
-                'message': 'Payment verified successfully',
-                'invoice_status': intent.invoice.status
-            })
+                'success': False,
+                'status': 'pending_reconciliation',
+                'message': 'Payment requires verified reconciliation'
+            }, status=status.HTTP_202_ACCEPTED)
         else:
             return Response({
                 'success': False,
@@ -331,18 +319,21 @@ class WebhookView(APIView):
         payload = request.data
         if not isinstance(payload, dict):
             return Response({'error': 'Invalid payload'}, status=status.HTTP_400_BAD_REQUEST)
-        event = WebhookEvent.objects.create(
-            gateway=gateway,
-            event_id=str(payload.get('id') or payload.get('event_id') or timezone.now().timestamp()),
-            event_type=payload.get('event', payload.get('event_type', 'unknown')),
-            payload=payload,
-            headers={'content-type': request.headers.get('Content-Type', '')},
-            is_verified=True,
+        # Scope deduplication by gateway; fingerprint when provider omits ID.
+        source_id = payload.get('id') or payload.get('event_id') or hashlib.sha256(request.body).hexdigest()
+        WebhookEvent.objects.get_or_create(
+            event_id=f'{gateway_code}:{source_id}',
+            defaults={
+                'gateway': gateway,
+                'event_type': payload.get('event', payload.get('event_type', 'unknown')),
+                'payload': payload,
+                'headers': {'content-type': request.headers.get('Content-Type', '')},
+                'is_verified': True,
+                'is_processed': False,
+                'error_message': 'Pending provider reconciliation',
+            },
         )
-        # Signed webhooks alone do NOT prove paid amount/currency/reference.
-        # The legacy processors below do not reconcile with the provider or
-        # settle invoices atomically. Quarantine until that service is tested.
-        event.mark_processed(success=False, error='Pending provider reconciliation')
+        # No successful financial state transition before provider requery.
         return Response({'status': 'pending_reconciliation'}, status=status.HTTP_202_ACCEPTED)
     
     def verify_signature(self, gateway_code, request, gateway=None):
