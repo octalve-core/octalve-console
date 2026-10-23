@@ -188,11 +188,22 @@ async function syncMiddlewareSession(
 }
 
 async function syncMiddlewareSessionFromStorage() {
+  // The proxy may have rotated the HTTP-only cookie refresh before React
+  // hydrates. Read that same-origin cookie state first, rather than writing
+  // stale sessionStorage tokens back over a successfully rotated cookie.
+  const response = await fetch("/api/auth/session", {
+    method: "GET", credentials: "same-origin", cache: "no-store",
+  });
+  if (!response.ok) throw new Error("Unable to reconcile browser session.");
+  const state = (await response.json()) as { access?: string | null; refresh?: string | null };
+  if (state.access && state.refresh) {
+    tokenStorage.setTokens(state.access, state.refresh);
+    return;
+  }
   const accessToken = tokenStorage.getAccessToken();
-
-  if (!accessToken) return;
-
-  await syncMiddlewareSession(accessToken, tokenStorage.getRefreshToken());
+  if (accessToken) {
+    await syncMiddlewareSession(accessToken, tokenStorage.getRefreshToken());
+  }
 }
 
 async function clearMiddlewareSession() {
@@ -271,19 +282,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
-    const token = tokenStorage.getAccessToken();
-
-    if (!token) {
-      await clearMiddlewareSession();
-      setUser(null);
-      setIsLoading(false);
-      return null;
-    }
-
     try {
-      const currentUser = normalizeUser(await authApi.me());
-
       await syncMiddlewareSessionFromStorage();
+      const token = tokenStorage.getAccessToken();
+      if (!token) {
+        await clearMiddlewareSession();
+        setUser(null);
+        return null;
+      }
+      const currentUser = normalizeUser(await authApi.me());
 
       setUser(currentUser);
       return currentUser;
