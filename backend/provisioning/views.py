@@ -280,12 +280,24 @@ class ProvisioningQueueViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(metrics)
 
 
+class ProvisioningWebhookAccess(IsAuthenticated):
+    """No customer may configure an outbound webhook or inspect its secret."""
+    def has_permission(self, request, view):
+        from rbac.utils import has_permission
+        user = request.user
+        return bool(super().has_permission(request, view) and (
+            user.is_superuser or (
+                user.role in ('admin', 'staff') and has_permission(user, 'manage_provisioning')
+            )
+        ))
+
+
 class ProvisioningWebhookViewSet(viewsets.ModelViewSet):
     """ViewSet for provisioning webhooks"""
     
     queryset = ProvisioningWebhook.objects.all()
     serializer_class = ProvisioningWebhookSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ProvisioningWebhookAccess]
     
     def get_queryset(self):
         user = self.request.user
@@ -295,25 +307,10 @@ class ProvisioningWebhookViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def test(self, request, pk=None):
-        """Test webhook delivery"""
-        webhook = self.get_object()
-        
-        # Send test webhook
-        import requests
-        payload = {'test': True, 'message': 'Test webhook from Octalve'}
-        
-        try:
-            response = requests.post(webhook.url, json=payload, timeout=10)
-            WebhookDelivery.objects.create(
-                webhook=webhook,
-                event='test',
-                payload=payload,
-                attempt=1,
-                response_status=response.status_code,
-                response_body=response.text[:1000],
-                success=response.status_code < 400
-            )
-            return Response({'status': response.status_code, 'success': response.status_code < 400})
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+        # Deliberately disable arbitrary network requests from stored URLs.
+        # Restore only behind an audited endpoint allowlist, DNS/IP rebinding
+        # protection, redirect restrictions and a separate egress broker.
+        return Response(
+            {'error': 'Webhook test disabled until SSRF-safe egress is configured'},
+            status=status.HTTP_501_NOT_IMPLEMENTED,
+        )
