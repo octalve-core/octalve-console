@@ -260,3 +260,32 @@ wallet.0001_initial
 - Confirm Neon snapshot/PITR or equivalent recovery mechanism and migration reversal limits.
 - Apply **once** using the approved guarded runner or a separately audited engineering tool, not a browser action or serverless startup.
 - Verify `django_migrations`, account creation and cross-user permissions after applying.
+
+## Verified Windows display-only variant (2026-10-23)
+
+The original full migration transcript remains frozen and has SHA-256
+`80b1813003a779ffb314085caec5402cafb7cc96dd87cb1c7cbde1f154e57a20`.
+A second full transcript was reconstructed by replacing only the
+`auth.0011_update_proxy_permissions` RunPython *description line*:
+
+- Recorded: `Raw Python operation ->     Update the content_type of prox…`
+- Windows observation: `Raw Python operation -> Update the content_type of proxy mo…`
+
+The independently calculated full-text SHA-256 of that one-line variant,
+`c2aea600e8252ea7e8f479268a0eb36f64297b2f3d57495b071f5d74571a5656`,
+**exactly matches** the user's real Windows plan output. This demonstrates
+that the remaining transcript bytes match the recorded plan exactly.
+
+Django's `migrate --plan` describes `RunPython` using its function
+docstring and truncates the description to 40 characters; this text is
+presentation rather than a migration-operation code fingerprint.
+The guarded runner now accepts **only** the original verbatim transcript or
+this one precisely locked single-line variant (both full hashes verified).
+Any other line, operation order, migration count, operation count or plan
+fingerprint change remains a hard failure.
+
+This evidence is **not** approval to run `migrate`. The database must
+still satisfy the exact branch/host/role, direct TLS and empty-schema checks,
+and an owner-authorized schema approval and auth security review remain
+separate release gates. No migration, hosting change, DNS change or Production
+promotion is included in this fix.

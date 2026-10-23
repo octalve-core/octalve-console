@@ -111,5 +111,40 @@ class NeonMigrationPreflightTests(unittest.TestCase):
         self.assertIn("First differing Django plan line:", output.getvalue())
 
 
+    def test_exact_known_auth_description_variant_is_accepted(self):
+        root = path.parents[2]
+        source = (root / "docs" / "CLOUD_FOUNDATION_NEON_INITIAL_MIGRATION_PLAN_2026-10-23.md").read_text(encoding="utf-8")
+        marker = "```text\n"
+        first = source.index(marker) + len(marker)
+        last = source.index("\n```", first)
+        original = source[first:last] + "\n"
+        self.assertEqual(original.count(cli.APPROVED_DESCRIPTION_LINE + "\n"), 1)
+        alternate = original.replace(
+            cli.APPROVED_DESCRIPTION_LINE + "\n", cli.ALTERNATE_DESCRIPTION_LINE + "\n", 1
+        )
+        import hashlib
+        self.assertEqual(
+            hashlib.sha256(alternate.encode("utf-8")).hexdigest(),
+            cli.EXPECTED_ALTERNATE_PLAN_SHA256,
+        )
+        with contextlib.redirect_stdout(io.StringIO()) as result:
+            cli.verify_reviewed_plan(alternate, root)
+        self.assertIn("every other plan byte matches", result.getvalue())
+
+    def test_any_other_operation_difference_is_rejected(self):
+        root = path.parents[2]
+        source = (root / "docs" / "CLOUD_FOUNDATION_NEON_INITIAL_MIGRATION_PLAN_2026-10-23.md").read_text(encoding="utf-8")
+        marker = "```text\n"
+        first = source.index(marker) + len(marker)
+        last = source.index("\n```", first)
+        original = source[first:last] + "\n"
+        alternate = original.replace(
+            cli.APPROVED_DESCRIPTION_LINE + "\n", cli.ALTERNATE_DESCRIPTION_LINE + "\n", 1
+        )
+        tampered = alternate.replace("Create model ContentType", "Create model AlteredType", 1)
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(SystemExit, "locked reviewed migrations"):
+                cli.verify_reviewed_plan(tampered, root)
+
 if __name__ == "__main__":
     unittest.main()
