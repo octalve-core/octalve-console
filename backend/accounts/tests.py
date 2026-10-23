@@ -60,6 +60,48 @@ class CloudAccountApiTests(APITestCase):
         )
         self.assertEqual(provision.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_customer_cannot_access_global_provisioning_queues(self):
+        response = self.register()
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + response.data["access"])
+        for endpoint in ("/api/provisioning/queues/", "/api/provisioning/tasks/"):
+            denied = self.client.get(endpoint)
+            self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN, denied.data)
+
+    def test_checkout_cannot_initialize_or_verify_unsettleable_payment(self):
+        response = self.register()
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + response.data["access"])
+        blocked = self.client.post("/api/payments/initialize/", {}, format="json")
+        self.assertEqual(blocked.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        blocked_verify = self.client.get("/api/payments/verify/?reference=test")
+        self.assertEqual(blocked_verify.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    def test_customer_cannot_change_hosting_state_without_provider_confirmation(self):
+        from decimal import Decimal
+        from django.utils import timezone
+        from services.models import Service, ServiceActionLog
+        response = self.register()
+        user = get_user_model().objects.get(email=self.email)
+        service = Service.objects.create(
+            client=user,
+            label="Security Test Hosting",
+            product_id=1,
+            plan_id=1,
+            billing_cycle="1mo",
+            amount=Decimal("100.00"),
+            next_due_date=timezone.now(),
+            status="suspended",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + response.data["access"])
+        attempt = self.client.post(
+            f"/api/services/services/{service.pk}/action/",
+            {"action": "unsuspend"},
+            format="json",
+        )
+        self.assertEqual(attempt.status_code, status.HTTP_503_SERVICE_UNAVAILABLE, attempt.data)
+        service.refresh_from_db()
+        self.assertEqual(service.status, "suspended")
+        self.assertEqual(ServiceActionLog.objects.filter(service=service).count(), 0)
+
     def test_liveness_is_readable_without_auth_and_no_secrets(self):
         result = self.client.get("/api/health/")
         self.assertEqual(result.status_code, status.HTTP_200_OK)
@@ -75,7 +117,7 @@ class CloudAccountApiTests(APITestCase):
             {"event": "charge.success", "id": "test-unsigned"},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
         self.assertEqual(WebhookEvent.objects.filter(gateway=gateway).count(), 0)
 
     def test_log_configuration_has_no_file_handlers(self):
