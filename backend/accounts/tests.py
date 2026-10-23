@@ -60,6 +60,12 @@ class CloudAccountApiTests(APITestCase):
         )
         self.assertEqual(provision.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_liveness_is_readable_without_auth_and_no_secrets(self):
+        result = self.client.get("/api/health/")
+        self.assertEqual(result.status_code, status.HTTP_200_OK)
+        self.assertEqual(result.data if hasattr(result, "data") else result.json(),
+                         {"service": "octalve-cloud-api", "status": "ok"})
+
     def test_unsigned_webhook_fails_closed_without_persistence(self):
         gateway = PaymentGateway.objects.create(
             code="paystack", name="Sandbox Paystack", status="test", test_mode=True
