@@ -1,3 +1,7 @@
+# STAGED FOR FUTURE REVIEW: not manually dispatchable until this workflow also
+# exists on GitHub's default branch. Do not merge to main without owner approval.
+# Current runnable method: backend/scripts/run_review_migrations.sh in a
+# restricted Codespace with the review-only Neon direct URL as a Codespaces secret.
 name: Octalve Cloud — manually approved Neon review migrations
 
 on:
