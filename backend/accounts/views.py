@@ -1,6 +1,6 @@
 # accounts/views.py
 
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
@@ -308,35 +308,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
-class CustomTokenRefreshView(APIView):
-    """
-    Custom token refresh view with better error handling
-    """
-    permission_classes = [AllowAny]
-    
-    def post(self, request):
-        refresh_token = request.data.get('refresh')
-        
-        if not refresh_token:
-            return Response(
-                {'error': 'Refresh token is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            refresh = RefreshToken(refresh_token)
-            access_token = str(refresh.access_token)
-            
-            return Response({
-                'access': access_token,
-                'refresh': str(refresh),
-            }, status=status.HTTP_200_OK)
-            
-        except TokenError as e:
-            return Response(
-                {'error': 'Invalid or expired refresh token', 'detail': str(e)},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+class CustomTokenRefreshView(TokenRefreshView):
+    """Use pinned SimpleJWT rotation, blacklist and active-user checks."""
 
 
 class CustomLogoutView(APIView):
