@@ -73,6 +73,10 @@ class PaymentInitializeView(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
+        # Payment initialization is disabled until provider re-verification,
+        # amount/currency reconciliation and atomic settlement are complete.
+        return Response({'error': 'Checkout is not enabled.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
         serializer = InitializePaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -221,6 +225,8 @@ class PaymentVerifyView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
+        return Response({'error': 'Payment verification is not enabled.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
         reference = request.query_params.get('reference')
         
         if not reference:
@@ -312,6 +318,9 @@ class WebhookView(APIView):
     permission_classes = [AllowAny]
     
     def post(self, request, gateway_code):
+        # Do not ingest provider events before the settlement processor is ready.
+        return Response({'error': 'Payment webhook processing is not enabled.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
         gateway = get_object_or_404(PaymentGateway, code=gateway_code)
         # No unverified event or untrusted headers reach durable storage.
         if not self.verify_signature(gateway_code, request, gateway=gateway):

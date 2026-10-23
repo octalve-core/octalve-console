@@ -3,7 +3,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
@@ -24,11 +24,22 @@ from services.models import Service
 from rbac.decorators import permission_required
 
 
+class CloudProvisioningManagementAccess(BasePermission):
+    """Provisioning metadata is internal to authorized operators."""
+    def has_permission(self, request, view):
+        from rbac.utils import has_permission
+        user = request.user
+        return bool(user and user.is_authenticated and (
+            user.is_superuser or (user.role in ('admin', 'staff')
+                                  and has_permission(user, 'manage_provisioning'))
+        ))
+
+
 class ProvisioningTaskViewSet(viewsets.ModelViewSet):
     """ViewSet for provisioning tasks"""
     
     serializer_class = ProvisioningTaskSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CloudProvisioningManagementAccess]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['status', 'action', 'priority']
     search_fields = ['service__label', 'service__client__email', 'last_error']
@@ -45,32 +56,13 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
     
     @permission_required('manage_provisioning')
     def create(self, request, *args, **kwargs):
-        """Create a new provisioning task"""
-        serializer = CreateProvisioningTaskSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        service = get_object_or_404(Service, id=serializer.validated_data['service_id'])
-        
-        # Check permissions
-        if request.user.role not in ['admin', 'staff'] and not request.user.is_superuser:
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-        
-        # Get provider
-        provider = service.provider_id and get_object_or_404(Provider, id=service.provider_id)
-        
-        # Create task
-        task = ProvisioningTask.objects.create(
-            service=service,
-            action=serializer.validated_data['action'],
-            adapter_type=provider.adapter_type if provider else '',
-            provider=provider,
-            priority=serializer.validated_data.get('priority', 3),
-            payload=serializer.validated_data.get('payload', {}),
-            scheduled_at=serializer.validated_data.get('scheduled_at', timezone.now())
+        # Background executor and atomic leasing have not been accepted.
+        # Reject rather than queue dangerous work with an incomplete worker.
+        return Response(
+            {'error': 'Provisioning queue is disabled pending audited worker acceptance.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-        
-        return Response(ProvisioningTaskSerializer(task).data, status=status.HTTP_201_CREATED)
-    
+
     @action(detail=True, methods=['post'])
     @permission_required('manage_provisioning')
     def retry(self, request, pk=None):
@@ -159,85 +151,12 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     @permission_required('manage_provisioning')
     def process_next(self, request):
-        """Process next task from queue (for workers)"""
-        # Get next task
-        task = ProvisioningTask.objects.filter(
-            status__in=['queued', 'retrying'],
-            scheduled_at__lte=timezone.now()
-        ).order_by('priority', 'scheduled_at').first()
-        
-        if not task:
-            return Response({'message': 'No pending tasks'})
-        
-        # Process task
-        result = self._process_task(task, request.data.get('worker_id', 'manual'))
-        
-        return Response(result)
-    
-    def _process_task(self, task, worker_id):
-        """Process a provisioning task"""
-        try:
-            task.mark_running(executed_by=worker_id)
-            
-            # Get adapter
-            adapter = ProviderRegistry.get_adapter(task.provider.id)
-            
-            # Prepare service data
-            service_data = {
-                'username': task.service.metadata.get('username', task.service.label[:8]),
-                'password': task.payload.get('password'),
-                'domain': task.service.domain_name,
-                'package': task.service.provider_package_id,
-                'email': task.service.client.email,
-                'name': task.service.client.full_name,
-            }
-            
-            # Execute based on action
-            if task.action == 'provision':
-                result = adapter.provision(service_data)
-                if result.success:
-                    # Store provider identifier
-                    task.service.provider_identifier = result.data.get('username')
-                    task.service.save()
-                    task.mark_completed(result.data)
-                else:
-                    task.mark_failed(result.error)
-                    
-            elif task.action == 'suspend':
-                result = adapter.suspend(task.service.provider_identifier)
-                if result.success:
-                    task.mark_completed()
-                else:
-                    task.mark_failed(result.error)
-                    
-            elif task.action == 'unsuspend':
-                result = adapter.unsuspend(task.service.provider_identifier)
-                if result.success:
-                    task.mark_completed()
-                else:
-                    task.mark_failed(result.error)
-                    
-            elif task.action == 'terminate':
-                result = adapter.terminate(task.service.provider_identifier)
-                if result.success:
-                    task.mark_completed()
-                else:
-                    task.mark_failed(result.error)
-                    
-            elif task.action == 'sync_usage':
-                result = adapter.fetch_usage(task.service.provider_identifier)
-                if result.success:
-                    task.mark_completed(result.data)
-                else:
-                    task.mark_failed(result.error)
-            
-            return {'success': task.status == 'completed',
-                    'task_id': task.id, 'status': task.status,
-                    'message': 'Task completed' if task.status == 'completed' else 'Task not completed'}
-            
-        except Exception as e:
-            task.mark_failed(str(e))
-            return {'success': False, 'task_id': task.id, 'error': str(e)}
+        # Never run DirectAdmin/host adapters in a public HTTP request.
+        # Requires a locked, idempotent, dedicated worker and audit trail.
+        return Response(
+            {'error': 'HTTP provisioning execution disabled pending dedicated worker.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
 
 class ProvisioningQueueViewSet(viewsets.ReadOnlyModelViewSet):
@@ -245,7 +164,7 @@ class ProvisioningQueueViewSet(viewsets.ReadOnlyModelViewSet):
     
     queryset = ProvisioningQueue.objects.all()
     serializer_class = ProvisioningQueueSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CloudProvisioningManagementAccess]
     
     def get_queryset(self):
         user = self.request.user
