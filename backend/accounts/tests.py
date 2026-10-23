@@ -138,6 +138,7 @@ class CloudAccountApiTests(APITestCase):
         factory = RequestFactory()
         with override_settings(
             DEBUG=False, SECURE_SSL_REDIRECT=True,
+            ALLOWED_HOSTS=['api.example.test'],
             SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTO', 'https'),
         ):
             middleware = SecurityMiddleware(lambda request: None)
