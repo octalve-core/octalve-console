@@ -1,0 +1,50 @@
+# REVIEW-ONLY OPTION: standard Next.js + Django web processes on Render.
+# Auto deployment is OFF. No domain is assigned and no PostgreSQL is created.
+# Connect only in a permitted Render workspace with dedicated development data.
+services:
+  - type: web
+    name: octalve-cloud-api-review
+    runtime: python
+    plan: free
+    rootDir: backend
+    branch: review/cloud-portability-security-foundation
+    autoDeployTrigger: off
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: gunicorn octalve_backend.wsgi:application --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/health/
+    envVars:
+      - key: DEBUG
+        value: "false"
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+
+  - type: web
+    name: octalve-cloud-console-review
+    runtime: node
+    plan: free
+    rootDir: .
+    branch: review/cloud-portability-security-foundation
+    autoDeployTrigger: off
+    buildCommand: corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --frozen-lockfile && pnpm build:frontend
+    startCommand: node frontend/node_modules/next/dist/bin/next start -p $PORT -H 0.0.0.0
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: NEXT_PUBLIC_ALLOW_FALLBACK_DATA
+        value: "false"

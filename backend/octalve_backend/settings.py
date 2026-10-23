@@ -96,6 +96,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
 
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -219,7 +220,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # Email configuration - Save emails to file instead of console
-EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+# Development can use file-based email locally. Hosted reviews must configure
+# an authorized test/transactional provider, not ephemeral disk delivery.
+EMAIL_BACKEND = env.str('EMAIL_BACKEND', default='django.core.mail.backends.filebased.EmailBackend')
 EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
 
 
