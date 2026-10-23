@@ -48,6 +48,68 @@ class CloudAccountApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertEqual(response.data["email"], self.email)
 
+    def test_refresh_rotates_and_rejects_reused_refresh_token(self):
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+        signup = self.register()
+        original = signup.data['refresh']
+        first = self.client.post(
+            '/api/auth/jwt/refresh/', {'refresh': original}, format='json'
+        )
+        self.assertEqual(first.status_code, status.HTTP_200_OK, first.data)
+        self.assertIn('access', first.data)
+        rotated = first.data['refresh']
+        self.assertNotEqual(rotated, original)
+        self.assertEqual(BlacklistedToken.objects.count(), 1)
+        reuse = self.client.post(
+            '/api/auth/jwt/refresh/', {'refresh': original}, format='json'
+        )
+        self.assertEqual(reuse.status_code, status.HTTP_401_UNAUTHORIZED, reuse.data)
+        second = self.client.post(
+            '/api/auth/jwt/refresh/', {'refresh': rotated}, format='json'
+        )
+        self.assertEqual(second.status_code, status.HTTP_200_OK, second.data)
+
+    def test_logout_revokes_current_refresh_token(self):
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+        signup = self.register()
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + signup.data['access'])
+        out = self.client.post(
+            '/api/auth/logout/', {'refresh': signup.data['refresh']}, format='json'
+        )
+        self.assertEqual(out.status_code, status.HTTP_200_OK, out.data)
+        self.assertEqual(BlacklistedToken.objects.count(), 1)
+        self.client.credentials()
+        invalid = self.client.post(
+            '/api/auth/jwt/refresh/', {'refresh': signup.data['refresh']}, format='json'
+        )
+        self.assertEqual(invalid.status_code, status.HTTP_401_UNAUTHORIZED, invalid.data)
+
+    def test_missing_refresh_does_not_claim_successful_revocation(self):
+        signup = self.register()
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + signup.data['access'])
+        out = self.client.post('/api/auth/logout/', {}, format='json')
+        self.assertEqual(out.status_code, status.HTTP_400_BAD_REQUEST, out.data)
+
+    def test_cross_account_logout_cannot_revoke_another_users_refresh(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        signup = self.register()
+        other = get_user_model().objects.create_user(
+            email='other-development@example.invalid',
+            username='other_development',
+            password='AnotherTestPassword-2026!',
+        )
+        other_refresh = str(RefreshToken.for_user(other))
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + signup.data['access'])
+        out = self.client.post(
+            '/api/auth/logout/', {'refresh': other_refresh}, format='json'
+        )
+        self.assertEqual(out.status_code, status.HTTP_403_FORBIDDEN, out.data)
+        self.client.credentials()
+        valid = self.client.post(
+            '/api/auth/jwt/refresh/', {'refresh': other_refresh}, format='json'
+        )
+        self.assertEqual(valid.status_code, status.HTTP_200_OK, valid.data)
+
     def test_client_cannot_create_service_or_provisioning_task(self):
         response = self.register()
         self.client.credentials(HTTP_AUTHORIZATION="Bearer " + response.data["access"])
