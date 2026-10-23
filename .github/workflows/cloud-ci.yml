@@ -79,7 +79,7 @@ jobs:
           DATABASE_URL: "sqlite:///:memory:"
           # Only CI: avoid a false weak-key warning from the earlier short fixture.
           DJANGO_SECRET_KEY: "CI-ONLY-NEVER-DEPLOY-12345-abcdefghijklmnopqrstuvwxyz-ABCDE-67890"
-        run: python manage.py check --deploy --tag security --fail-level WARNING
+        run: python scripts/security_release_check.py
       - name: Real Django API and isolated database regression
         working-directory: backend
         run: python manage.py test accounts.tests --verbosity=2
