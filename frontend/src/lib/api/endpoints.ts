@@ -121,9 +121,10 @@ export const authApi = {
     });
   },
 
-  logout() {
+  logout(refreshToken: string) {
     return api.post<{ message?: string; detail?: string }>(
       apiPaths.auth.logout,
+      { refresh: refreshToken },
     );
   },
 
@@ -132,7 +133,7 @@ export const authApi = {
   },
 
   refreshToken(refreshToken: string) {
-    return api.post<{ access: string }>(apiPaths.auth.refresh, {
+    return api.post<{ access: string; refresh: string }>(apiPaths.auth.refresh, {
       refresh: refreshToken,
     });
   },
