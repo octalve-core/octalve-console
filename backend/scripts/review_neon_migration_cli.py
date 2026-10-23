@@ -23,6 +23,26 @@ EXPECTED_OPERATIONS = 200
 def fail(message):
     raise SystemExit("Migration REFUSED: " + message)
 
+def check_connection_identity(conn):
+    # Neon terminates TLS at its connection proxy. The PostgreSQL backend's
+    # pg_stat_ssl view may report false even for an encrypted client connection.
+    # Ask libpq (through psycopg3), which reports the client's actual TLS state.
+    if conn.pgconn.ssl_in_use is not True:
+        fail("TLS is not active on the client-to-Neon connection")
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT current_database(), current_user,
+                (SELECT count(*) FROM information_schema.tables
+                 WHERE table_schema='public' AND table_type='BASE TABLE'),
+                to_regclass('public.django_migrations')::text"""
+        )
+        name, role, table_count, ledger = cur.fetchone()
+    if name != EXPECTED_DATABASE or role != EXPECTED_ROLE:
+        fail("PostgreSQL database or role does not match approved Foundation Preview")
+    if table_count != 0 or ledger is not None:
+        fail("nonempty schema; this initial-migration command must not be rerun")
+    print("PASS: exact Neon Foundation Preview host and neondb; client TLS enabled; 0 tables.")
+
 def main():
     if len(sys.argv) != 2 or sys.argv[1] not in ("plan", "apply"):
         fail("usage: review_neon_migration_cli.py plan|apply")
@@ -43,20 +63,7 @@ def main():
         fail("VERCEL_ENV must be 'preview'")
 
     with psycopg.connect(direct_url, sslmode="require", connect_timeout=12) as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """SELECT current_database(), current_user,
-                    (SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()),
-                    (SELECT count(*) FROM information_schema.tables
-                     WHERE table_schema='public' AND table_type='BASE TABLE'),
-                    to_regclass('public.django_migrations')::text"""
-            )
-            name, role, tls, table_count, ledger = cur.fetchone()
-    if name != EXPECTED_DATABASE or role != EXPECTED_ROLE or tls is not True:
-        fail("PostgreSQL identity or TLS check failed")
-    if table_count != 0 or ledger is not None:
-        fail("nonempty schema; this initial-migration command must not be rerun")
-    print("PASS: exact Neon Foundation Preview host and neondb; TLS enabled; 0 tables.")
+        check_connection_identity(conn)
 
     repo_root = Path(__file__).resolve().parents[2]
     backend = repo_root / "backend"

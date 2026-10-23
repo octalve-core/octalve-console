@@ -21,3 +21,19 @@ An external cloud sandbox cannot access Neon/Vercel sensitive DB credentials aut
 The script inherits existing protected Preview credentials through Vercel CLI. It does not print the connection URL. The password does pass into the local process environment for the duration of the command; run only on a trusted personal workstation, never a shared computer. The CLI may require normal Vercel authorization/login. Vercel CLI link writes a local ignored `.vercel` project association, not source code.
 
 This run does not merge, change DNS, bypass Vercel protection or enable live commercial features. After application, return to Neon read-only ledger verification before any real browser registration.
+
+## Neon TLS preflight correction (2026-10-23)
+
+Neon terminates inbound TLS at its connection proxy. The PostgreSQL server's
+`pg_stat_ssl` describes the backend leg and may report `ssl=false` despite
+a TLS-protected client connection. The initial Windows runner incorrectly used
+that server-side observation and could reject a valid Neon connection after
+its exact approved host had already matched.
+
+The reviewed Python runner now uses Psycopg 3's
+`conn.pgconn.ssl_in_use`, backed by libpq `PQsslInUse`, to validate the
+*client-to-Neon* TLS session. The existing `sslmode=require` connection,
+exact approved host, `neondb` database, `neondb_owner` role, empty schema,
+36 migrations, 200 operations, plan SHA-256 and typed approval remain unchanged.
+This corrects the observation point; it does **not** bypass TLS or authorize
+schema modification. Use `-PlanOnly` first; never paste the DB URL into chat.
