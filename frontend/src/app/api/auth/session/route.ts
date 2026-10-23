@@ -83,3 +83,31 @@ export async function DELETE() {
 
   return response;
 }
+
+/**
+ * Returns the same-origin cookie session to the existing browser API client.
+ * This synchronizes rotated tokens after the Next.js proxy refreshes them.
+ * Authentication authority remains the backend: this route never validates
+ * credentials or creates tokens, and responses must not be cached.
+ */
+export async function GET(request: Request) {
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("host");
+  if (origin && (!host || new URL(origin).host !== host)) {
+    return NextResponse.json({ detail: "Forbidden origin." }, { status: 403 });
+  }
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  // Parse named cookies without exposing unrelated cookie values.
+  const findCookie = (name: string) => {
+    const prefix = `${name}=`;
+    const pair = cookieHeader.split(";").map((item) => item.trim())
+      .find((item) => item.startsWith(prefix));
+    return pair ? decodeURIComponent(pair.slice(prefix.length)) : null;
+  };
+  const access = findCookie(ACCESS_COOKIE);
+  const refresh = findCookie(REFRESH_COOKIE);
+  return NextResponse.json(
+    { access, refresh },
+    { headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } },
+  );
+}
