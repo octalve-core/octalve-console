@@ -69,6 +69,15 @@ jobs:
       - name: Django system check
         working-directory: backend
         run: python manage.py check
+      - name: Detect missing migrations before any real deployment
+        working-directory: backend
+        run: python manage.py makemigrations --check --dry-run
+      - name: Django production deployment security review (fail on warnings)
+        working-directory: backend
+        env:
+          DEBUG: "false"
+          DATABASE_URL: "sqlite:///:memory:"
+        run: python manage.py check --deploy --fail-level WARNING
       - name: Real Django API and isolated database regression
         working-directory: backend
         run: python manage.py test accounts.tests --verbosity=2
