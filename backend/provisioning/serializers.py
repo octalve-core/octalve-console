@@ -93,6 +93,7 @@ class ProvisioningWebhookSerializer(serializers.ModelSerializer):
             'success_count', 'failure_count', 'created_at'
         ]
         read_only_fields = ['last_sent_at', 'last_status', 'success_count', 'failure_count']
+        extra_kwargs = {'secret': {'write_only': True}}
 
 
 class WebhookDeliverySerializer(serializers.ModelSerializer):

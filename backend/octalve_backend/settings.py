@@ -38,9 +38,23 @@ env = environ.Env()
 environ.Env.read_env(BASE_DIR / '.env')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', True)
+DEBUG = env.bool('DEBUG', False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
+
+# TLS is terminated by the ingress. Vercel documents its x-forwarded-proto
+# header; trust it only in the Vercel runtime, never from arbitrary self-hosted
+# clients. Other reverse proxies must be configured and verified explicitly.
+if env('VERCEL_ENV', default=''):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=not DEBUG)
+# Start with a short HSTS lifetime without forcing sibling/subdomains.
+# Increase only after custom-domain HTTPS and rollback behaviour are verified.
+SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=3600 if not DEBUG else 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+
 
 
 # Application definition
@@ -96,6 +110,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
 
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -138,8 +153,20 @@ import pymysql
 pymysql.install_as_MySQLdb()
 
 # ====================== DATABASE ======================
-if DEBUG:
-    # Development - SQLite
+if env("DATABASE_URL", default=""):
+    # Persistent database URL for preview, cloud and eventual self-hosting.
+    DATABASES = {"default": env.db("DATABASE_URL")}
+elif env("VERCEL_ENV", default=""):
+    # Vercel Function instances have ephemeral storage; missing database
+    # configuration must never silently select SQLite or legacy MySQL.
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "DATABASE_URL is required on Vercel for the Octalve Cloud API. "
+        "Connect an isolated persistent PostgreSQL database to this deployment "
+        "environment before building; do not use SQLite or guessed credentials."
+    )
+elif DEBUG:
+    # Local development - SQLite
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -216,7 +243,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # Email configuration - Save emails to file instead of console
-EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+# Development can use file-based email locally. Hosted reviews must configure
+# an authorized test/transactional provider, not ephemeral disk delivery.
+EMAIL_BACKEND = env.str('EMAIL_BACKEND', default='django.core.mail.backends.filebased.EmailBackend')
 EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
 
 
@@ -328,16 +357,15 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 14       # 14 days
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_SAMESITE = 'Lax'               # 'None' + Secure for truly cross-site
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = False                 # True in prod
+SESSION_COOKIE_SECURE = not DEBUG
 
 CSRF_COOKIE_NAME = 'octalve_csrftoken'
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = False                  # MUST be False for JS to read
-CSRF_COOKIE_SECURE = False                    # True in prod
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
+    "http://localhost:3000", "http://127.0.0.1:3000",
+])
 
 # ---------- DRF ----------
 REST_FRAMEWORK = {
@@ -383,10 +411,9 @@ SIMPLE_JWT = {
 }
 
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
+    "http://localhost:3000", "http://127.0.0.1:3000",
+])
 
 CORS_ALLOW_CREDENTIALS = True
 from corsheaders.defaults import default_headers
@@ -436,11 +463,9 @@ EMAIL_QUOTED_PRINTABLE = False
 
 
 
-# Create logs directory
-LOG_DIR = os.path.join(BASE_DIR, 'logs')
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
-
+# Serverless runtimes may mount the application directory read-only.
+# Send structured operational events to the platform's standard stream; never
+# assume durable local logs or write into the deployed project directory.
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -455,43 +480,16 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(LOG_DIR, 'debug.log'),
-            'maxBytes': 5242880,  # 5MB
-            'backupCount': 5,
-            'formatter': 'verbose',
-        },
-        'error_file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(LOG_DIR, 'errors.log'),
-            'maxBytes': 5242880,
-            'backupCount': 5,
-            'formatter': 'verbose',
-        },
     },
     'loggers': {
-        'django': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-        },
+        'django': {'handlers': ['console'], 'level': 'INFO'},
         'django.request': {
-            'handlers': ['console', 'error_file'],
+            'handlers': ['console'],
             'level': 'ERROR',
             'propagate': False,
         },
-        'accounts': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
-        },
-        'billing': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
-        },
-        'providers': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
-        },
+        'accounts': {'handlers': ['console'], 'level': 'INFO'},
+        'billing': {'handlers': ['console'], 'level': 'INFO'},
+        'providers': {'handlers': ['console'], 'level': 'INFO'},
     },
 }
-
