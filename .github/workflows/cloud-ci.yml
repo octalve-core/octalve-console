@@ -67,3 +67,6 @@ jobs:
       - name: Django system check
         working-directory: backend
         run: python manage.py check
+      - name: Real Django API and isolated database regression
+        working-directory: backend
+        run: python manage.py test accounts.tests --verbosity=2
