@@ -358,9 +358,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       const token = tokenStorage.getAccessToken();
+      const refresh = tokenStorage.getRefreshToken();
 
-      if (token) {
-        await authApi.logout();
+      if (token && refresh) {
+        await authApi.logout(refresh);
       }
     } catch {
       // Always clear client session even if backend logout is unavailable.
