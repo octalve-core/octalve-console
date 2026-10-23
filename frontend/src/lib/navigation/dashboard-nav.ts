@@ -64,6 +64,12 @@ export const adminNavGroups: DashboardNavGroup[] = [
     title: "Commerce",
     items: [
       {
+        label: "Category",
+        href: routes.admin.category,
+        icon: "packageCheck",
+        description: "Category for the products"
+      },
+      {
         label: "Products",
         href: routes.admin.products,
         icon: "boxes",

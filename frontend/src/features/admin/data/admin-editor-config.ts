@@ -24,16 +24,16 @@ export type AdminEditorConfig = {
 };
 
 export const statusOptions: Array<{ label: ResourceStatus | string; value: ResourceStatus | string }> = [
-  { label: "Active", value: "Active" },
-  { label: "Pending", value: "Pending" },
+  { label: "active", value: "Active" },
+  // { label: "Pending", value: "Pending" },
   { label: "Inactive", value: "Inactive" },
-  { label: "Suspended", value: "Suspended" },
-  { label: "Cancelled", value: "Cancelled" },
-  { label: "Draft", value: "Draft" },
-  { label: "Paid", value: "Paid" },
-  { label: "Unpaid", value: "Unpaid" },
-  { label: "Planned", value: "Planned" },
-  { label: "Test", value: "Test" },
+  // { label: "Suspended", value: "Suspended" },
+  // { label: "Cancelled", value: "Cancelled" },
+  // { label: "Draft", value: "Draft" },
+  // { label: "Paid", value: "Paid" },
+  // { label: "Unpaid", value: "Unpaid" },
+  // { label: "Planned", value: "Planned" },
+  { label: "Test Mode", value: "test" },
 ];
 
 export const adminEditorConfig = {

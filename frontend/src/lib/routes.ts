@@ -10,6 +10,7 @@ export const routes = {
   admin: {
     root: "/admin",
     customers: "/admin/customers",
+    category: "/admin/category",  
     products: "/admin/products",
     plans: "/admin/plans",
     orders: "/admin/orders",

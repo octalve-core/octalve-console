@@ -196,99 +196,87 @@ class CustomUserCreateNoTokenView(CreateAPIView):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
-    Custom serializer that allows login with either email
+    Login with email OR username.
+    Handles lockout, LoginHistory, and returns custom user payload.
     """
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Rename the 'username' field to 'email' for clarity
-        self.fields['email'] = self.fields.pop('username')
-        self.fields['email'].label = 'Email'
-        self.fields['email'].help_text = 'Enter your email address'
-    
+        # USERNAME_FIELD = 'email', so SimpleJWT already produced an 'email' field.
+        # Nothing to rename — just relabel it.
+        if 'email' in self.fields:
+            self.fields['email'].label = 'Email or username'
+            self.fields['email'].help_text = 'Enter your email or username'
+
     def validate(self, attrs):
-        """
-        Validate the login credentials allowing email
-        """
-        # Get the email and password from request
-        email = attrs.get('email')
+        identifier = attrs.get('email') or attrs.get('username')
         password = attrs.get('password')
-        
-        # Initialize user as None
-        user = None
-        
-        # Check if the input is valid
-        if not email or not password:
+
+        if not identifier or not password:
             raise serializers.ValidationError(
                 'Both email/username and password are required.',
-                code='authorization'
+                code='authorization',
             )
-        
-        if '@' in email:
-            # Input contains @, treat as email
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                raise serializers.ValidationError(
-                    'No active account found with the given credentials.',
-                    code='authorization'
-                )
+
+        # Look up by email or username
+        if '@' in identifier:
+            user = User.objects.filter(email__iexact=identifier).first()
         else:
-            # Input doesn't contain @, treat as username
-            try:
-                user = User.objects.get(username=email)
-            except User.DoesNotExist:
-                raise serializers.ValidationError(
-                    'No active account found with the given credentials.',
-                    code='authorization'
-                )
-        
-        # Check if user exists and password is correct
-        if user and user.check_password(password):
-            # Check if user is active
-            if not user.is_active:
-                raise serializers.ValidationError(
-                    'This account is inactive.',
-                    code='authorization'
-                )
-            
-            # Set the username field for the parent serializer
-            attrs['username'] = user.username
-            
-            # Call parent validation
-            data = super().validate(attrs)
-            
-            # Add custom user data to response
-            data['user'] = {
+            user = User.objects.filter(username__iexact=identifier).first()
+
+        if not user:
+            raise serializers.ValidationError(
+                'No active account found with the given credentials.',
+                code='authorization',
+            )
+
+        # Lockout check
+        if getattr(user, 'is_locked', False):
+            raise serializers.ValidationError(
+                'Account is locked. Try again later.', code='authorization'
+            )
+
+        # Password check
+        if not user.check_password(password):
+            raise serializers.ValidationError(
+                'No active account found with the given credentials.',
+                code='authorization',
+            )
+
+        # Active check
+        if not user.is_active:
+            raise serializers.ValidationError(
+                'This account is inactive.', code='authorization'
+            )
+
+        # ---- Build tokens manually (do NOT call super().validate) ----
+        # super().validate() calls authenticate(email=identifier, password=...),
+        # which fails when the caller used a *username* identifier.
+        refresh = self.get_token(user)
+
+        self.context['user'] = user          # view needs this for login()
+
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'user': {
                 'id': user.id,
                 'email': user.email,
                 'username': user.username,
                 'full_name': user.full_name,
                 'role': user.role,
                 'referral_code': user.referral_code,
-            }
-            
-            return data
-        else:
-            raise serializers.ValidationError(
-                'Unable to log in with provided credentials.',
-                code='authorization'
-            )
-    
+            },
+        }
+
     @classmethod
     def get_token(cls, user):
-        """
-        Customize token claims with additional user information
-        """
         token = super().get_token(user)
-        
-        # Add custom claims to the token payload
         token['email'] = user.email
         token['username'] = user.username
         token['full_name'] = user.full_name
         token['role'] = user.role
         token['user_id'] = user.id
-        
         return token
 
 
