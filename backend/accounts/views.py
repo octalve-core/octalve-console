@@ -322,19 +322,35 @@ class CustomLogoutView(APIView):
 
     def post(self, request):
         refresh_token = request.data.get('refresh')
+        if not isinstance(refresh_token, str) or not refresh_token.strip():
+            # A missing token cannot be blacklisted. End the Django session
+            # but never report successful server-side refresh revocation.
+            django_logout(request)
+            return Response(
+                {'error': 'Refresh token is required for server-side revocation.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        if refresh_token:
-            try:
-                RefreshToken(refresh_token).blacklist()
-            except TokenError:
-                pass  # invalid/expired refresh — proceed to end the session anyway
+        try:
+            token = RefreshToken(refresh_token)
+            if str(token.get(api_settings.USER_ID_CLAIM)) != str(request.user.pk):
+                return Response(
+                    {'error': 'Refresh token does not belong to this account.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            token.blacklist()
+        except TokenError:
+            django_logout(request)
+            return Response(
+                {'error': 'Refresh token is invalid, expired or already revoked.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
         django_logout(request)
         return Response(
             {'message': 'Successfully logged out'},
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
-
 
 class CustomUserInfoView(APIView):
     """
