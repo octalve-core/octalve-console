@@ -5,12 +5,14 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 import hashlib
 import hmac
 import json
 from .models import PaymentGateway, Transaction, PaymentIntent, WebhookEvent
+from .signatures import verify_webhook_signature
 from .serializers import (
     PaymentGatewaySerializer, TransactionSerializer, PaymentIntentSerializer,
     InitializePaymentSerializer, VerifyPaymentSerializer, WebhookPayloadSerializer
@@ -322,57 +324,35 @@ class WebhookView(APIView):
     permission_classes = [AllowAny]
     
     def post(self, request, gateway_code):
+        gateway = get_object_or_404(PaymentGateway, code=gateway_code)
+        # No unverified event or untrusted headers reach durable storage.
+        if not self.verify_signature(gateway_code, request, gateway=gateway):
+            return Response({'error': 'Invalid signature'}, status=status.HTTP_401_UNAUTHORIZED)
         payload = request.data
-        headers = request.headers
-        
-        # Save webhook event
+        if not isinstance(payload, dict):
+            return Response({'error': 'Invalid payload'}, status=status.HTTP_400_BAD_REQUEST)
         event = WebhookEvent.objects.create(
-            gateway=get_object_or_404(PaymentGateway, code=gateway_code),
-            event_id=payload.get('id', payload.get('event_id', str(timezone.now().timestamp()))),
+            gateway=gateway,
+            event_id=str(payload.get('id') or payload.get('event_id') or timezone.now().timestamp()),
             event_type=payload.get('event', payload.get('event_type', 'unknown')),
             payload=payload,
-            headers=dict(headers)
+            headers={'content-type': request.headers.get('Content-Type', '')},
+            is_verified=True,
         )
-        
-        # Verify webhook signature
-        if not self.verify_signature(gateway_code, request):
-            event.mark_processed(success=False, error='Invalid signature')
-            return Response({'error': 'Invalid signature'}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        event.is_verified = True
-        event.save()
-        
-        # Process webhook
-        if gateway_code == 'paystack':
-            self.process_paystack_webhook(event)
-        elif gateway_code == 'flutterwave':
-            self.process_flutterwave_webhook(event)
-        
-        event.mark_processed()
-        return Response({'status': 'ok'})
+        # Signed webhooks alone do NOT prove paid amount/currency/reference.
+        # The legacy processors below do not reconcile with the provider or
+        # settle invoices atomically. Quarantine until that service is tested.
+        event.mark_processed(success=False, error='Pending provider reconciliation')
+        return Response({'status': 'pending_reconciliation'}, status=status.HTTP_202_ACCEPTED)
     
-    def verify_signature(self, gateway_code, request):
-        """Verify webhook signature"""
+    def verify_signature(self, gateway_code, request, gateway=None):
+        """Fail closed on missing credentials, unsupported gateways or malformed data."""
         try:
-            gateway = PaymentGateway.objects.get(code=gateway_code)
-            webhook_secret = gateway.get_webhook_secret()
-            
-            if not webhook_secret:
-                return True  # Skip verification if no secret
-            
-            signature = request.headers.get('X-Paystack-Signature')
-            if not signature:
-                return False
-            
-            # Verify signature
-            computed = hmac.new(
-                webhook_secret.encode(),
-                request.body,
-                hashlib.sha512
-            ).hexdigest()
-            
-            return hmac.compare_digest(computed, signature)
-        except:
+            configured = gateway or PaymentGateway.objects.get(code=gateway_code)
+            return verify_webhook_signature(
+                gateway_code, configured.get_webhook_secret(), request.headers, request.body
+            )
+        except (PaymentGateway.DoesNotExist, ValueError, TypeError):
             return False
     
     def process_paystack_webhook(self, event):

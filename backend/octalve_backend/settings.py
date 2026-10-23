@@ -38,7 +38,7 @@ env = environ.Env()
 environ.Env.read_env(BASE_DIR / '.env')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', True)
+DEBUG = env.bool('DEBUG', False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
@@ -138,8 +138,11 @@ import pymysql
 pymysql.install_as_MySQLdb()
 
 # ====================== DATABASE ======================
-if DEBUG:
-    # Development - SQLite
+if env("DATABASE_URL", default=""):
+    # Persistent database URL for preview, cloud and eventual self-hosting.
+    DATABASES = {"default": env.db("DATABASE_URL")}
+elif DEBUG:
+    # Local development - SQLite
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -328,16 +331,15 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 14       # 14 days
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_SAMESITE = 'Lax'               # 'None' + Secure for truly cross-site
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = False                 # True in prod
+SESSION_COOKIE_SECURE = not DEBUG
 
 CSRF_COOKIE_NAME = 'octalve_csrftoken'
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = False                  # MUST be False for JS to read
-CSRF_COOKIE_SECURE = False                    # True in prod
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
+    "http://localhost:3000", "http://127.0.0.1:3000",
+])
 
 # ---------- DRF ----------
 REST_FRAMEWORK = {
@@ -383,10 +385,9 @@ SIMPLE_JWT = {
 }
 
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
+    "http://localhost:3000", "http://127.0.0.1:3000",
+])
 
 CORS_ALLOW_CREDENTIALS = True
 from corsheaders.defaults import default_headers

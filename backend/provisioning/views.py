@@ -43,6 +43,7 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
             return ProvisioningTask.objects.all()
         return ProvisioningTask.objects.filter(service__client=user)
     
+    @permission_required('manage_provisioning')
     def create(self, request, *args, **kwargs):
         """Create a new provisioning task"""
         serializer = CreateProvisioningTaskSerializer(data=request.data)
@@ -51,7 +52,7 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
         service = get_object_or_404(Service, id=serializer.validated_data['service_id'])
         
         # Check permissions
-        if request.user.role not in ['admin', 'staff'] and service.client != request.user:
+        if request.user.role not in ['admin', 'staff'] and not request.user.is_superuser:
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         # Get provider
@@ -71,6 +72,7 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
         return Response(ProvisioningTaskSerializer(task).data, status=status.HTTP_201_CREATED)
     
     @action(detail=True, methods=['post'])
+    @permission_required('manage_provisioning')
     def retry(self, request, pk=None):
         """Retry a failed task"""
         task = self.get_object()
@@ -90,6 +92,7 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
         return Response({'message': 'Task queued for retry'})
     
     @action(detail=True, methods=['post'])
+    @permission_required('manage_provisioning')
     def cancel(self, request, pk=None):
         """Cancel a queued task"""
         task = self.get_object()
@@ -101,6 +104,7 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
         return Response({'message': 'Task cancelled'})
     
     @action(detail=True, methods=['post'])
+    @permission_required('manage_provisioning')
     def mark_needs_review(self, request, pk=None):
         """Mark task as needing review"""
         task = self.get_object()
@@ -142,6 +146,8 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def pending(self, request):
         """Get pending tasks (for workers)"""
+        if request.user.role not in ['admin', 'staff'] and not request.user.is_superuser:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         tasks = ProvisioningTask.objects.filter(
             status__in=['queued', 'retrying'],
             scheduled_at__lte=timezone.now()
@@ -225,7 +231,9 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
                 else:
                     task.mark_failed(result.error)
             
-            return {'success': True, 'task_id': task.id, 'message': 'Task processed'}
+            return {'success': task.status == 'completed',
+                    'task_id': task.id, 'status': task.status,
+                    'message': 'Task completed' if task.status == 'completed' else 'Task not completed'}
             
         except Exception as e:
             task.mark_failed(str(e))

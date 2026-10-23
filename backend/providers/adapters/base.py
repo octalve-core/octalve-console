@@ -51,15 +51,6 @@ class BaseProviderAdapter(ABC):
         if headers:
             request_headers.update(headers)
         
-        # Log request (redacted)
-        request_log = {
-            'url': url,
-            'method': method,
-            'headers': {k: '***' if k.lower() in ['authorization', 'api-key', 'x-api-key'] else v 
-                       for k, v in request_headers.items()},
-            'body': data
-        }
-        
         try:
             response = requests.request(
                 method=method,
@@ -130,9 +121,10 @@ class BaseProviderAdapter(ABC):
             action=endpoint.split('/')[0] if '/' in endpoint else endpoint,
             endpoint=endpoint,
             method=method,
-            request_body=json.dumps(request_body)[:1000] if request_body else '',
+            # Provider payloads contain passwords, access keys and personal data.
+            request_body='[redacted]' if request_body else '',
             status_code=status_code,
-            response_body=json.dumps(response_body)[:1000],
+            response_body='[redacted]' if response_body else '',
             success=success,
             duration_ms=duration_ms
         )
