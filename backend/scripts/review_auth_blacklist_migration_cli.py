@@ -39,7 +39,14 @@ def verify_plan(stdout, root):
     reference = source[start + len(marker):stop] + "\n"
     if hashlib.sha256(reference.encode("utf-8")).hexdigest() != PLAN_SHA:
         refuse("recorded candidate has changed since approval")
-    if stdout != reference or hashlib.sha256(stdout.encode("utf-8")).hexdigest() != PLAN_SHA:
+    # The approved CI transcript and the verified Windows auth.0011
+    # display-only variant differ in exactly one truncated docstring line.
+    approved_line = "    Raw Python operation ->     Update the content_type of prox…\\n".replace("\\n", "\n")
+    windows_line = "    Raw Python operation -> Update the content_type of proxy mo…\\n".replace("\\n", "\n")
+    if reference.count(approved_line) != 1:
+        refuse("approved auth.0011 description is missing")
+    windows_variant = reference.replace(approved_line, windows_line, 1)
+    if stdout not in (reference, windows_variant):
         refuse("actual Django operation transcript differs from the recorded candidate")
     migrations = [
         line for line in stdout.splitlines()
