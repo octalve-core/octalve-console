@@ -28,7 +28,7 @@ export function SignupPageClient() {
     phone: "",
     password: "",
     confirmPassword: "",
-    acceptedTerms: true,
+    acceptedTerms: false,
   });
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>({});
