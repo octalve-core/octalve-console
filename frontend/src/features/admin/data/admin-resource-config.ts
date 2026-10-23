@@ -1,3 +1,4 @@
+import { getFallbackData } from "@/lib/config/data-source";
 import { adminApi } from "@/lib/api/endpoints";
 import { schemaApi } from "@/lib/api/schema-api";
 import { adminDemo, type AdminRecord } from "./admin-demo-data";
@@ -38,7 +39,7 @@ export const adminResourceConfig: Record<AdminResourceKey, AdminResourceConfig> 
     searchPlaceholder: "Search customers by name or email...",
     emptyTitle: "No customers found",
     emptyDescription: "Customers from the Django API will appear here once available.",
-    fallback: adminDemo.customers,
+    fallback: getFallbackData(adminDemo.customers),
     loader: () => adminApi.customers(),
   },
   products: {
@@ -51,7 +52,7 @@ export const adminResourceConfig: Record<AdminResourceKey, AdminResourceConfig> 
     searchPlaceholder: "Search products...",
     emptyTitle: "No products found",
     emptyDescription: "Products from the catalog API will appear here.",
-    fallback: adminDemo.products,
+    fallback: getFallbackData(adminDemo.products),
     loader: () => schemaApi.catalog.products(),
   },
   plans: {
@@ -64,7 +65,7 @@ export const adminResourceConfig: Record<AdminResourceKey, AdminResourceConfig> 
     searchPlaceholder: "Search plans...",
     emptyTitle: "No plans found",
     emptyDescription: "Plans from the catalog API will appear here.",
-    fallback: adminDemo.plans,
+    fallback: getFallbackData(adminDemo.plans),
     loader: () => schemaApi.catalog.plans(),
   },
   orders: {
@@ -77,7 +78,7 @@ export const adminResourceConfig: Record<AdminResourceKey, AdminResourceConfig> 
     searchPlaceholder: "Search orders...",
     emptyTitle: "No orders found",
     emptyDescription: "Orders from the Django API will appear here.",
-    fallback: adminDemo.orders,
+    fallback: getFallbackData(adminDemo.orders),
     loader: () => schemaApi.orders.orders(),
   },
   invoices: {
@@ -90,7 +91,7 @@ export const adminResourceConfig: Record<AdminResourceKey, AdminResourceConfig> 
     searchPlaceholder: "Search invoices...",
     emptyTitle: "No invoices found",
     emptyDescription: "Invoices from the billing API will appear here.",
-    fallback: adminDemo.invoices,
+    fallback: getFallbackData(adminDemo.invoices),
     loader: () => schemaApi.billing.invoices(),
   },
   domains: {
@@ -103,7 +104,7 @@ export const adminResourceConfig: Record<AdminResourceKey, AdminResourceConfig> 
     searchPlaceholder: "Search domains...",
     emptyTitle: "No domains found",
     emptyDescription: "Domains from the domain API will appear here.",
-    fallback: adminDemo.domains,
+    fallback: getFallbackData(adminDemo.domains),
     loader: () => schemaApi.domains.domains(),
   },
   gateways: {
@@ -116,7 +117,7 @@ export const adminResourceConfig: Record<AdminResourceKey, AdminResourceConfig> 
     searchPlaceholder: "Search gateways...",
     emptyTitle: "No gateways found",
     emptyDescription: "Payment gateways from the backend will appear here.",
-    fallback: adminDemo.gateways,
+    fallback: getFallbackData(adminDemo.gateways),
     loader: () => schemaApi.payments.gateways(),
   },
   providers: {
@@ -129,7 +130,7 @@ export const adminResourceConfig: Record<AdminResourceKey, AdminResourceConfig> 
     searchPlaceholder: "Search providers...",
     emptyTitle: "No providers found",
     emptyDescription: "Provider adapters from the backend will appear here.",
-    fallback: adminDemo.providers,
+    fallback: getFallbackData(adminDemo.providers),
     loader: () => schemaApi.providers.providers(),
   },
   provisioning: {
@@ -142,7 +143,7 @@ export const adminResourceConfig: Record<AdminResourceKey, AdminResourceConfig> 
     searchPlaceholder: "Search provisioning tasks...",
     emptyTitle: "No provisioning tasks found",
     emptyDescription: "Provisioning queue items from the backend will appear here.",
-    fallback: adminDemo.provisioning,
+    fallback: getFallbackData(adminDemo.provisioning),
     loader: () => schemaApi.provisioning.tasks(),
   },
 };

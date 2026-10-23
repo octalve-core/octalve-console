@@ -171,7 +171,11 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
         setValues(buildInitialState(editorConfig.fields, fallbackRecord));
 
         if (!foundApiRecord) {
-          setNotice("Live API record was not found locally. The form is prefilled with fallback data.");
+          if (fallbackRecord) {
+            setNotice("Development fallback record loaded.");
+          } else {
+            setError("The requested record does not exist in the live API.");
+          }
         }
       } catch {
         const fallbackRecord =
@@ -183,7 +187,11 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
 
         setSourceRecord(fallbackRecord);
         setValues(buildInitialState(editorConfig.fields, fallbackRecord));
-        setNotice("Live API data is not available yet. The form is using fallback data.");
+        if (fallbackRecord) {
+          setNotice("Development fallback record loaded.");
+        } else {
+          setError("Could not load this record from the live API. Editing is unavailable.");
+        }
       } finally {
         if (active) setIsLoading(false);
       }
@@ -198,6 +206,10 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (effectiveMode === "edit" && !sourceRecord) {
+      setError("A verified record must be loaded before it can be edited.");
+      return;
+    }
     setError("");
     setNotice("");
     setFieldErrors({});

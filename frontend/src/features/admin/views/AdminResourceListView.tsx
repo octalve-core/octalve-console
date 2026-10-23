@@ -107,7 +107,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
     } catch {
       setRecords(config.fallback);
       setIsUsingFallback(true);
-      setError("Live API data is not available yet. Showing safe demo records for layout continuity.");
+      setError("Live API data is not available yet. No live API records could be loaded. Please retry.");
     } finally {
       setIsLoading(false);
     }
@@ -177,7 +177,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
 
           {isUsingFallback ? (
             <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-              {error || "Showing fallback records until the backend returns live data."}
+              {error || "No verified backend records are available."}
             </div>
           ) : null}
 
