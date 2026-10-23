@@ -29,8 +29,38 @@ try {
     $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
     try {
       $url = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
-      if ([string]::IsNullOrWhiteSpace($url)) { throw "No URL entered." }
-      $env:DATABASE_URL_UNPOOLED = $url.Trim()
+      if ([string]::IsNullOrWhiteSpace($url)) {
+        throw "No URL entered. In Neon Connect, choose preview/review/cloud-auth-token-lifecycle and copy the PostgreSQL URL."
+      }
+      $connectionUrl = $url.Trim()
+      # Neon sometimes copies the pooled endpoint by default. Restrict this
+      # correction to the one verified Auth Review endpoint only. Every other
+      # endpoint, including Foundation Review and Neon main, must fail closed.
+      $expectedDirectHost = "ep-patient-butterfly-b8midydm.c-14.us-east-1.aws.neon.tech"
+      $expectedPooledHost = "ep-patient-butterfly-b8midydm-pooler.c-14.us-east-1.aws.neon.tech"
+      $hostMatch = [regex]::Match(
+        $connectionUrl,
+        '^(?i:postgres(?:ql)?)://[^/\s]+@(?<hostname>[^/:?]+)(?=[:/?]|$)'
+      )
+      if (-not $hostMatch.Success) {
+        throw "Input is not a complete PostgreSQL URL. Copy only the URL starting with postgresql://, not DATABASE_URL= or quotation marks."
+      }
+      $enteredHost = $hostMatch.Groups["hostname"].Value.ToLowerInvariant()
+      if ($enteredHost -ceq $expectedPooledHost) {
+        # Only this exact Neon Auth Review pooler maps to the verified direct
+        # host. Preserve the password, database, role and all URL parameters.
+        $hostGroup = $hostMatch.Groups["hostname"]
+        $connectionUrl = $connectionUrl.Substring(0, $hostGroup.Index) +
+          $expectedDirectHost + $connectionUrl.Substring($hostGroup.Index + $hostGroup.Length)
+        Write-Host "Recognized the exact Auth Review pooled endpoint. Using its verified direct hostname for migrations."
+      } elseif ($enteredHost -cne $expectedDirectHost) {
+        # Public hostnames are safe to display; passwords are NEVER printed.
+        if ($enteredHost -ceq "ep-damp-morning-b8ll84zq.c-14.us-east-1.aws.neon.tech") {
+          throw "Foundation Review connection detected. Select preview/review/cloud-auth-token-lifecycle in Neon, not Foundation Review."
+        }
+        throw "Wrong database branch or host ($enteredHost). Select the isolated Auth Review branch in Neon. Nothing applied."
+      }
+      $env:DATABASE_URL_UNPOOLED = $connectionUrl
     } finally {
       [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
       $secret.Dispose()
