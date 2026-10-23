@@ -9,6 +9,7 @@ from types import ModuleType
 from unittest import TestCase, mock
 
 path = Path(__file__).resolve().parents[1] / "scripts" / "review_auth_blacklist_migration_cli.py"
+sys.path.insert(0, str(path.parent))
 with mock.patch.dict(sys.modules, {"psycopg": ModuleType("psycopg")}):
     spec = importlib.util.spec_from_file_location("_auth_review_cli", path)
     cli = importlib.util.module_from_spec(spec)
