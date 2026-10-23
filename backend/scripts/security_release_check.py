@@ -6,7 +6,9 @@ Octalve domain; explicitly reject other warnings instead of disabling checks.
 """
 import os
 import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "octalve_backend.settings")
 import django
 django.setup()
