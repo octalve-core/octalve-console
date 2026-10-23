@@ -142,6 +142,15 @@ pymysql.install_as_MySQLdb()
 if env("DATABASE_URL", default=""):
     # Persistent database URL for preview, cloud and eventual self-hosting.
     DATABASES = {"default": env.db("DATABASE_URL")}
+elif env("VERCEL_ENV", default=""):
+    # Vercel Function instances have ephemeral storage; missing database
+    # configuration must never silently select SQLite or legacy MySQL.
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "DATABASE_URL is required on Vercel for the Octalve Cloud API. "
+        "Connect an isolated persistent PostgreSQL database to this deployment "
+        "environment before building; do not use SQLite or guessed credentials."
+    )
 elif DEBUG:
     # Local development - SQLite
     DATABASES = {

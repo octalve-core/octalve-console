@@ -88,3 +88,29 @@ class CloudAccountApiTests(APITestCase):
         request = RequestFactory().get("/api/health/?refresh=secret-token")
         response = SimpleRequestLoggingMiddleware(lambda _request: self.client.get("/api/health/"))(request)
         self.assertEqual(response.status_code, 200)
+
+    def test_vercel_preview_without_database_fails_closed(self):
+        """Isolated source import; intentionally no database is contacted."""
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        env = os.environ.copy()
+        env.update({
+            "VERCEL_ENV": "preview",
+            "DEBUG": "false",
+            "DJANGO_SECRET_KEY": "only-a-test-key-not-for-deployments",
+        })
+        for key in ("DATABASE_URL", "DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT"):
+            env.pop(key, None)
+        result = subprocess.run(
+            [sys.executable, "-c", "import octalve_backend.settings"],
+            cwd=str(Path(__file__).resolve().parents[1]),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("DATABASE_URL is required on Vercel", result.stderr)
