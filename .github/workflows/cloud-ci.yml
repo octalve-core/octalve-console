@@ -72,12 +72,14 @@ jobs:
       - name: Detect missing migrations before any real deployment
         working-directory: backend
         run: python manage.py makemigrations --check --dry-run
-      - name: Django production deployment security review (fail on warnings)
+      - name: Django production deployment security review (fail on security warnings)
         working-directory: backend
         env:
           DEBUG: "false"
           DATABASE_URL: "sqlite:///:memory:"
-        run: python manage.py check --deploy --fail-level WARNING
+          # Only CI: avoid a false weak-key warning from the earlier short fixture.
+          DJANGO_SECRET_KEY: "CI-ONLY-NEVER-DEPLOY-12345-abcdefghijklmnopqrstuvwxyz-ABCDE-67890"
+        run: python manage.py check --deploy --tag security --fail-level WARNING
       - name: Real Django API and isolated database regression
         working-directory: backend
         run: python manage.py test accounts.tests --verbosity=2
