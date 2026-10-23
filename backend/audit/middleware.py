@@ -28,7 +28,7 @@ class APILoggingMiddleware:
                 user=request.user,
                 method=request.method,
                 path=request.path,
-                query_string=request.META.get('QUERY_STRING', ''),
+                query_string='',  # Never persist bearer tokens or PII from query parameters.
                 status_code=response.status_code,
                 response_time_ms=response_time_ms,
                 ip_address=request.META.get('REMOTE_ADDR'),

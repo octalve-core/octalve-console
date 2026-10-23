@@ -77,3 +77,14 @@ class CloudAccountApiTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(WebhookEvent.objects.filter(gateway=gateway).count(), 0)
+
+    def test_log_configuration_has_no_file_handlers(self):
+        from django.conf import settings
+        self.assertEqual(set(settings.LOGGING["handlers"]), {"console"})
+
+    def test_request_logger_never_captures_sensitive_query(self):
+        from django.test import RequestFactory
+        from octalve_backend.middleware import SimpleRequestLoggingMiddleware
+        request = RequestFactory().get("/api/health/?refresh=secret-token")
+        response = SimpleRequestLoggingMiddleware(lambda _request: self.client.get("/api/health/"))(request)
+        self.assertEqual(response.status_code, 200)
