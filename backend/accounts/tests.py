@@ -131,6 +131,26 @@ class CloudAccountApiTests(APITestCase):
         response = SimpleRequestLoggingMiddleware(lambda _request: self.client.get("/api/health/"))(request)
         self.assertEqual(response.status_code, 200)
 
+    def test_secure_https_redirect_and_proxy_header_on_review_runtime(self):
+        from django.test import override_settings
+        from django.test.client import RequestFactory
+        from django.middleware.security import SecurityMiddleware
+        factory = RequestFactory()
+        with override_settings(
+            DEBUG=False, SECURE_SSL_REDIRECT=True,
+            SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTO', 'https'),
+        ):
+            middleware = SecurityMiddleware(lambda request: None)
+            insecure_request = factory.get('/api/health/', HTTP_HOST='api.example.test')
+            redirected = middleware.process_request(insecure_request)
+            self.assertEqual(redirected.status_code, 301)
+            self.assertTrue(redirected['Location'].startswith('https://'))
+            trusted_request = factory.get(
+                '/api/health/', HTTP_HOST='api.example.test',
+                HTTP_X_FORWARDED_PROTO='https',
+            )
+            self.assertIsNone(middleware.process_request(trusted_request))
+
     def test_vercel_preview_without_database_fails_closed(self):
         """Isolated source import; intentionally no database is contacted."""
         import os

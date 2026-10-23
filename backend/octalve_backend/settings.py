@@ -42,6 +42,20 @@ DEBUG = env.bool('DEBUG', False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
+# TLS is terminated by the ingress. Vercel documents its x-forwarded-proto
+# header; trust it only in the Vercel runtime, never from arbitrary self-hosted
+# clients. Other reverse proxies must be configured and verified explicitly.
+if env('VERCEL_ENV', default=''):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=not DEBUG)
+# Start with a short HSTS lifetime without forcing sibling/subdomains.
+# Increase only after custom-domain HTTPS and rollback behaviour are verified.
+SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=3600 if not DEBUG else 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+
+
 
 # Application definition
 
