@@ -76,5 +76,40 @@ class NeonMigrationPreflightTests(unittest.TestCase):
             cli.check_connection_identity(FakeConnection(row=("neondb", "neondb_owner", 0, "django_migrations")))
 
 
+
+    def test_plan_capture_forces_utf8_regardless_of_host_locale(self):
+        expected = SimpleNamespace(returncode=0, stdout="    Raw Python operation -> prox…\n", stderr="")
+        with mock.patch.object(cli.subprocess, "run", return_value=expected) as runner:
+            result = cli.capture_django_plan(Path("backend"), {"VERCEL_ENV": "preview"})
+        self.assertEqual(result, expected)
+        arguments = runner.call_args.kwargs
+        self.assertEqual(arguments["env"]["PYTHONIOENCODING"], "utf-8")
+        self.assertEqual(arguments["encoding"], "utf-8")
+        self.assertEqual(arguments["errors"], "strict")
+        self.assertNotIn("PYTHONIOENCODING", {"VERCEL_ENV": "preview"})
+
+    def test_recorded_transcript_matches_approved_hash(self):
+        root = path.parents[2]
+        import hashlib
+        doc = (root / "docs" / "CLOUD_FOUNDATION_NEON_INITIAL_MIGRATION_PLAN_2026-10-23.md").read_text(encoding="utf-8")
+        doc = doc.replace("\r\n", "\n")
+        marker = "```text\n"
+        start = doc.find(marker)
+        end = doc.find("\n```", start + len(marker))
+        self.assertGreaterEqual(start, 0)
+        self.assertGreaterEqual(end, 0)
+        transcript = doc[start + len(marker):end] + "\n"
+        self.assertEqual(hashlib.sha256(transcript.encode("utf-8")).hexdigest(), cli.EXPECTED_PLAN_SHA256)
+        with contextlib.redirect_stdout(io.StringIO()):
+            cli.verify_reviewed_plan(transcript, root)
+
+    def test_mismatch_reports_only_plan_operation_without_approving(self):
+        root = path.parents[2]
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            with self.assertRaisesRegex(SystemExit, "plan differs"):
+                cli.verify_reviewed_plan("Planned operations:\nother.0001_initial\n", root)
+        self.assertIn("First differing Django plan line:", output.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

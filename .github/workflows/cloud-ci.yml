@@ -76,6 +76,17 @@ jobs:
       - name: Detect missing migrations before any real deployment
         working-directory: backend
         run: python manage.py makemigrations --check --dry-run
+      - name: Verify reviewed migration-plan fingerprint (no migrations applied)
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from scripts.review_neon_migration_cli import capture_django_plan, verify_reviewed_plan
+          backend = Path.cwd()
+          result = capture_django_plan(backend, os.environ.copy())
+          verify_reviewed_plan(result.stdout, backend.parent)
+          PY
       - name: Django production deployment security review (fail on security warnings)
         working-directory: backend
         env:

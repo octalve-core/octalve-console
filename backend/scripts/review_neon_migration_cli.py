@@ -43,6 +43,62 @@ def check_connection_identity(conn):
         fail("nonempty schema; this initial-migration command must not be rerun")
     print("PASS: exact Neon Foundation Preview host and neondb; client TLS enabled; 0 tables.")
 
+def capture_django_plan(backend, env):
+    """Capture deterministic, Unicode-safe Django plan text on Linux/Windows."""
+    plan_env = env.copy()
+    # Windows redirected Python stdout can inherit the active ANSI code page.
+    # Force the child to emit UTF-8 and explicitly decode UTF-8 on the parent.
+    # Only the captured operation list is hashed, never a DB secret.
+    plan_env["PYTHONIOENCODING"] = "utf-8"
+    plan = subprocess.run(
+        [sys.executable, "manage.py", "migrate", "--plan"],
+        cwd=backend, env=plan_env, capture_output=True,
+        encoding="utf-8", errors="strict", timeout=120,
+    )
+    if plan.returncode:
+        fail("Django migration planning failed; exit code " + str(plan.returncode))
+    return plan
+
+
+def verify_reviewed_plan(stdout, repo_root):
+    """Reject altered plans; the dated GitHub document is the locked authority."""
+    from itertools import zip_longest
+
+    doc_path = repo_root / "docs" / "CLOUD_FOUNDATION_NEON_INITIAL_MIGRATION_PLAN_2026-10-23.md"
+    doc = doc_path.read_text(encoding="utf-8")
+    doc = doc.replace("\r\n", "\n")
+    marker = "```text\n"
+    start = doc.find(marker)
+    end = doc.find("\n```", start + len(marker))
+    if start == -1 or end == -1:
+        fail("approved migration transcript is missing")
+    reference = doc[start + len(marker):end] + "\n"
+    reference_digest = hashlib.sha256(reference.encode("utf-8")).hexdigest()
+    if reference_digest != EXPECTED_PLAN_SHA256:
+        fail("approved migration transcript differs from its locked fingerprint")
+
+    digest = hashlib.sha256(stdout.encode("utf-8")).hexdigest()
+    migrations = [line for line in stdout.splitlines()
+                  if line and not line.startswith(" ") and line != "Planned operations:"]
+    operations = [line for line in stdout.splitlines() if line.startswith("    ")]
+    print("Django plan:", len(migrations), "migrations;", len(operations), "operations.")
+    if (digest != EXPECTED_PLAN_SHA256 or len(migrations) != EXPECTED_MIGRATIONS
+            or len(operations) != EXPECTED_OPERATIONS):
+        print("Migration transcript SHA-256 (observed):", digest)
+        print("Migration transcript SHA-256 (approved):", EXPECTED_PLAN_SHA256)
+        for index, (expected_line, actual_line) in enumerate(
+            zip_longest(reference.splitlines(), stdout.splitlines(), fillvalue="<end>"), 1
+        ):
+            if expected_line != actual_line:
+                # Migration operation labels only, never database credentials.
+                print("First differing Django plan line:", index)
+                print("Approved:", repr(expected_line[:180]))
+                print("Observed:", repr(actual_line[:180]))
+                break
+        fail("plan differs from reviewed SHA-256 / 36 migrations / 200 operations")
+    print("PASS: plan matches reviewed document, SHA-256", digest)
+
+
 def main():
     if len(sys.argv) != 2 or sys.argv[1] not in ("plan", "apply"):
         fail("usage: review_neon_migration_cli.py plan|apply")
@@ -71,21 +127,8 @@ def main():
     env["DATABASE_URL"] = direct_url
     env["DEBUG"] = "false"
     env.setdefault("DJANGO_SECRET_KEY", "local-cli-only-migration-key-not-for-runtime")
-    plan = subprocess.run(
-        [sys.executable, "manage.py", "migrate", "--plan"],
-        cwd=backend, env=env, capture_output=True, text=True, timeout=120
-    )
-    if plan.returncode:
-        fail("Django migration planning failed: " + plan.stderr[-1400:])
-    digest = hashlib.sha256(plan.stdout.encode()).hexdigest()
-    migrations = [x for x in plan.stdout.splitlines()
-                  if x and not x.startswith(" ") and x != "Planned operations:"]
-    operations = [x for x in plan.stdout.splitlines() if x.startswith("    ")]
-    print("Django plan:", len(migrations), "migrations;", len(operations), "operations.")
-    if (digest != EXPECTED_PLAN_SHA256 or len(migrations) != EXPECTED_MIGRATIONS
-            or len(operations) != EXPECTED_OPERATIONS):
-        fail("plan differs from reviewed SHA-256 / 36 migrations / 200 operations")
-    print("PASS: plan matches reviewed document, SHA-256", digest)
+    plan = capture_django_plan(backend, env)
+    verify_reviewed_plan(plan.stdout, repo_root)
     if action == "plan":
         print("PLAN ONLY: no schema modifications made.")
         return
