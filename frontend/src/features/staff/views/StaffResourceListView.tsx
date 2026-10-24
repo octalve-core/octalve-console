@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { RefreshCcw, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -20,7 +19,6 @@ export function StaffResourceListView({ resource }: StaffResourceListViewProps) 
   const config = staffResourceConfig[resource];
 
   const [records, setRecords] = useState<StaffRecord[]>(config.fallback);
-  const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
   const [error, setError] = useState("");
@@ -54,18 +52,6 @@ export function StaffResourceListView({ resource }: StaffResourceListViewProps) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource]);
 
-  const filteredRecords = useMemo(() => {
-    const term = query.trim().toLowerCase();
-
-    if (!term) return records;
-
-    return records.filter((record) =>
-      [record.title, record.subtitle, record.meta, record.status, record.id]
-        .join(" ")
-        .toLowerCase()
-        .includes(term),
-    );
-  }, [query, records]);
 
   return (
     <DashboardShell
@@ -85,18 +71,6 @@ export function StaffResourceListView({ resource }: StaffResourceListViewProps) 
         }
       >
         <div className="space-y-5">
-          <Card className="p-4">
-            <div className="flex h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={config.searchPlaceholder}
-                className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400"
-              />
-            </div>
-          </Card>
-
           {isUsingFallback ? (
             <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
               {error || "Showing fallback records until the backend returns live data."}
@@ -107,7 +81,7 @@ export function StaffResourceListView({ resource }: StaffResourceListViewProps) 
             <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Connecting to the Django API." />
           ) : (
             <StaffRecordList
-              records={filteredRecords}
+              records={records}
               resource={resource}
               emptyTitle={config.emptyTitle}
               emptyDescription={config.emptyDescription}
