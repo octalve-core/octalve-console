@@ -4,7 +4,7 @@ import { api } from "./client";
 import type {
   ApiKeyPayload,
   AuditLog,
-  AuthTokenResponse,
+  AuthSession,
   Customer,
   Domain,
   Gateway,
@@ -100,7 +100,7 @@ export const apiPaths = {
 
 export const authApi = {
   login(payload: LoginPayload) {
-    return api.post<AuthTokenResponse>(apiPaths.auth.login, payload, {
+    return api.post<AuthSession>(apiPaths.auth.login, payload, {
       skipAuth: true,
     });
   },
@@ -116,26 +116,18 @@ export const authApi = {
       re_password: payload.password,
     };
 
-    return api.post<SignupResponse>(apiPaths.auth.signup, signupData, {
+    return api.post<AuthSession>(apiPaths.auth.signup, signupData, {
       skipAuth: true,
     });
   },
 
-  logout(refreshToken: string) {
-    return api.post<{ message?: string; detail?: string }>(
-      apiPaths.auth.logout,
-      { refresh: refreshToken },
-    );
+  logout() {
+    // The server reads the refresh cookie. Never pass refresh JWTs in JS.
+    return api.post<{ ok?: boolean }>(apiPaths.auth.logout, {});
   },
 
   me() {
     return api.get<User>(apiPaths.auth.me);
-  },
-
-  refreshToken(refreshToken: string) {
-    return api.post<{ access: string; refresh: string }>(apiPaths.auth.refresh, {
-      refresh: refreshToken,
-    });
   },
 
   requestPasswordReset(email: string) {
