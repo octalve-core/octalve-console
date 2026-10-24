@@ -113,7 +113,8 @@ async function forward(request: NextRequest, context: Context) {
   }
 
   const apiPath = path.map(encodeURIComponent).join("/");
-  const target = `${base}/${apiPath}${request.nextUrl.search}`;
+  const trailingSlash = request.nextUrl.pathname.endsWith("/") ? "/" : "";
+  const target = `${base}/${apiPath}${trailingSlash}${request.nextUrl.search}`;
   const isLogin = apiPath === "auth/jwt/create";
   const isRegistration = apiPath === "auth/register";
   const isLogout = apiPath === "auth/logout";
