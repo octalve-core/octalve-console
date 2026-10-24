@@ -3,7 +3,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
@@ -17,11 +17,22 @@ from rbac.decorators import permission_required
 import uuid
 
 
+class OrderWriteAuthority(BasePermission):
+    """Clients may place orders, never modify payment/provisioning authority."""
+
+    def has_permission(self, request, view):
+        if view.action in ("update", "partial_update", "destroy"):
+            user = request.user
+            return bool(user and user.is_authenticated and
+                        (user.is_superuser or user.role == "admin"))
+        return True
+
+
 class OrderViewSet(viewsets.ModelViewSet):
     """ViewSet for orders"""
     
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, OrderWriteAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['status', 'source']
     search_fields = ['order_number', 'client__email', 'client__full_name']
