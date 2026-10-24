@@ -343,3 +343,21 @@ class AuthAbuseProtectionTests(APITestCase):
         )
         with patch.dict("os.environ", {"VERCEL_ENV": ""}):
             self.assertEqual(_request_ip(request), "127.0.0.1")
+
+    def test_prune_is_dry_run_before_explicit_apply(self):
+        from accounts.models import AuthThrottleBucket
+        from django.core.management import call_command
+        from django.utils import timezone
+        from datetime import timedelta
+        from io import StringIO
+        bucket = AuthThrottleBucket.objects.create(
+            fingerprint="a" * 64,
+            attempts=3,
+            expires_at=timezone.now() - timedelta(days=3),
+        )
+        output = StringIO()
+        call_command("prune_auth_throttles", stdout=output)
+        self.assertIn("PLAN ONLY", output.getvalue())
+        self.assertTrue(AuthThrottleBucket.objects.filter(pk=bucket.pk).exists())
+        call_command("prune_auth_throttles", "--apply", stdout=StringIO())
+        self.assertFalse(AuthThrottleBucket.objects.filter(pk=bucket.pk).exists())
