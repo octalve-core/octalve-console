@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCcw, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -84,7 +83,6 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
   const config = adminResourceConfig[resource];
 
   const [records, setRecords] = useState<AdminRecord[]>(config.fallback);
-  const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
   const [error, setError] = useState("");
@@ -118,18 +116,6 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource]);
 
-  const filteredRecords = useMemo(() => {
-    const term = query.trim().toLowerCase();
-
-    if (!term) return records;
-
-    return records.filter((record) =>
-      [record.title, record.subtitle, record.meta, record.status, record.id]
-        .join(" ")
-        .toLowerCase()
-        .includes(term),
-    );
-  }, [query, records]);
 
   return (
     <DashboardShell
@@ -157,24 +143,6 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
         }
       >
         <div className="space-y-5">
-          <Card className="p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex h-12 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4">
-                <Search className="h-4 w-4 text-slate-400" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={config.searchPlaceholder}
-                  className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400"
-                />
-              </div>
-
-              <div className="text-sm text-slate-500">
-                {filteredRecords.length} record{filteredRecords.length === 1 ? "" : "s"}
-              </div>
-            </div>
-          </Card>
-
           {isUsingFallback ? (
             <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
               {error || "Showing fallback records until the backend returns live data."}
@@ -187,7 +155,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
             <ErrorState description={error} />
           ) : (
             <AdminRecordList
-              records={filteredRecords}
+              records={records}
               emptyTitle={config.emptyTitle}
               emptyDescription={config.emptyDescription}
             />
