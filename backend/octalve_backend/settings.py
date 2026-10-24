@@ -119,6 +119,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
+    # Shared Postgres-backed abuse control, never per-instance LocMemCache.
+    'accounts.security_throttle.AuthAbuseLimitMiddleware',
     'rbac.middleware.RBACMiddleware',
     'audit.middleware.APILoggingMiddleware', 
     'audit.middleware.AuditMiddleware',  
