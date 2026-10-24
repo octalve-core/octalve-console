@@ -225,8 +225,10 @@ async function forward(request: NextRequest, context: Context) {
     }
     const response = safeForward(final);
     if (rotated) {
-      if (final.ok) setSessionCookies(response, rotated.access, rotated.refresh);
-      else clearSessionCookies(response);
+      // A legitimate API-level 403 (insufficient role) must NOT log out the
+      // user. Only a second 401 proves the refreshed identity was rejected.
+      if (final.status === 401) clearSessionCookies(response);
+      else setSessionCookies(response, rotated.access, rotated.refresh);
     }
     return response;
   } catch {
