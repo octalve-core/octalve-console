@@ -16,7 +16,7 @@ class SimpleRequestLoggingMiddleware:
         
         # Get request details
         method = request.method
-        path = request.get_full_path()
+        path = request.path  # Exclude untrusted/sensitive query strings from logs.
         
         # Process request
         response = self.get_response(request)

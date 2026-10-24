@@ -115,3 +115,6 @@ yarn-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Workstation-specific backend ignore file; keep locally, never commit.
+/backend/.gitignore

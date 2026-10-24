@@ -12,7 +12,7 @@ const REFRESH_COOKIE = IS_PRODUCTION
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-  "https://api.octalve.cloud";
+  "https://api.cloud.octalve.com/api";
 
 const ACCESS_MAX_AGE = 60 * 60;
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
@@ -356,7 +356,7 @@ async function resolveSession(request: NextRequest): Promise<SessionCheck> {
   };
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const safeQueryRedirect = buildSafeQueryRedirect(request);
 
   if (safeQueryRedirect) {
