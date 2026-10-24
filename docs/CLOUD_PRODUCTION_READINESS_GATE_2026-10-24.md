@@ -119,3 +119,17 @@ This records **preparation only**; it does not change the NO GO decision above.
 2. Resolve the commercial hosting entitlement and choose the deployment target.
 3. Establish an appropriate Production database protection/restore plan, verify a new recovery point and its restoration method, and authorize the exact Production migration plan separately. **Do not run the Auth Review migration wrapper against Production.**
 4. Add only approved Production-scoped secrets and verified domain settings. Stage a deployment without public promotion; test Django health **and database readiness**, browser auth lifecycle and legal/email flows. Payments and provisioning remain disabled.
+
+
+## Domain assignment preparation — 2026-10-24 (subdomains only)
+
+**Owner instruction:** prepare existing Vercel Production projects for domain binding; the domain owner will edit Cloudflare. **This does not authorize migrations or an unqualified public release.**
+
+- Vercel project `octalve-console` (`prj_CqAeZgrQPFXrNFFZTMnMkUhijQua`): `console.cloud.octalve.com` attached, currently **unverified** (requires Cloudflare TXT ownership challenge and DNS).
+- Vercel project `octalve-cloud-api` (`prj_iFSbPGawzM1peDZDYw8AnDCYBvbz`): `api.cloud.octalve.com` attached, currently **unverified** (requires Cloudflare TXT ownership challenge and DNS).
+- The two subdomains currently have **no CNAME/A records** in Vercel's DNS diagnostics. Parent `cloud.octalve.com` has an existing external destination; **do not change it**.
+- DNS provider identified as Cloudflare: `max.ns.cloudflare.com` and `phoenix.ns.cloudflare.com`. Each subdomain's recommended CNAME destination is `cname.vercel-dns.com`; DNS owner must inspect existing records first. Vercel's project-domain API provides a separate `vc-domain-verify` TXT challenge for each subdomain at `_vercel.octalve.com` (read the current value at verification time rather than committing challenge tokens to source).
+- API **Production-only** plain variables now set: `DEBUG=false`, `FRONTEND_URL=https://console.cloud.octalve.com`, `ALLOWED_HOSTS=api.cloud.octalve.com`, `CORS_ALLOWED_ORIGINS=https://console.cloud.octalve.com`, `CSRF_TRUSTED_ORIGINS=https://console.cloud.octalve.com`.
+- Console **Production-only** plain variables now set: `NEXT_PUBLIC_ALLOW_FALLBACK_DATA=false`, `NEXT_PUBLIC_APP_URL=https://console.cloud.octalve.com`, `NEXT_PUBLIC_API_BASE_URL=https://api.cloud.octalve.com/api`.
+- Production Django `DJANGO_SECRET_KEY`, Production `DATABASE_URL`, `ENCRYPTION_KEY` if feature-required, real production mail setup, and explicit database migration approval **remain missing**. The Neon primary `main` still has no Django tables. No DB migrations or releases ran during this preparation.
+- **Deployment decision: blocked.** A new production-target deployment would either fail Django settings initialization or expose a nonfunctional signup/login experience. Never point Production at the working Auth Review database as a workaround. Keep the existing Production deployments and both draft PRs unchanged until schema and secret gates are satisfied.
