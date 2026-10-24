@@ -278,7 +278,7 @@ class AuthAbuseProtectionTests(APITestCase):
             {"email": "not-present@example.invalid", "password": "InvalidPassword-2026"},
             format="json",
         )
-        self.assertEqual(blocked.status_code, 429, blocked.data)
+        self.assertEqual(blocked.status_code, 429, blocked.content)
         self.assertGreater(int(blocked["Retry-After"]), 0)
         self.assertEqual(blocked["Cache-Control"], "no-store")
 
