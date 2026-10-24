@@ -50,7 +50,7 @@ class CloudProductionReleaseBoundaryTests(TestCase):
         gateway = (FRONTEND / "app/api/cloud/[...path]/route.ts").read_text(encoding="utf-8-sig")
         server = (FRONTEND / "lib/api/server-session.ts").read_text(encoding="utf-8-sig")
         self.assertIn("/api/cloud", client)
-        self.assertNotIn('Authorization\`, \`Bearer', client)
+        self.assertNotIn('headers.set("Authorization"', client)
         self.assertIn("sessionStorage", client)  # Only to PURGE old legacy tokens
         self.assertIn('Browser JWT storage is disabled.', client)
         self.assertIn('return NextResponse.json(', session)
