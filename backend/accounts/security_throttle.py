@@ -61,7 +61,7 @@ def _request_ip(request):
             client_ip = ipaddress.ip_address(supplied_ip).compressed
             stamp = int(timestamp)
             if abs(int(time.time()) - stamp) <= 60:
-                message = f"v1\\n{client_ip}\\n{timestamp}\\n{request.method}\\n{request.path}"
+                message = f"v1\n{client_ip}\n{timestamp}\n{request.method}\n{request.path}"
                 expected = hmac.new(
                     secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256,
                 ).hexdigest()
