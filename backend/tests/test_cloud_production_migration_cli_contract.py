@@ -53,6 +53,7 @@ class ProductionAuthMigrationGuardTests(TestCase):
         valid = "postgresql://neondb_owner:example@" + cli.HOST + "/neondb?sslmode=require"
         self.assertEqual(cli.validate_direct_url(valid), valid)
         with mock.patch.dict("os.environ", {"OCTALVE_CLOUD_ENV": "review"}, clear=True), \
+                mock.patch.object(sys, "argv", ["production_auth_schema_migration_cli.py", "plan"]), \
                 self.assertRaisesRegex(SystemExit, "Production environment"):
             cli.main()
 
