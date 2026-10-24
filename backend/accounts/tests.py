@@ -356,7 +356,7 @@ class AuthAbuseProtectionTests(APITestCase):
         forwarded = "198.51.100.98"
         ts = str(int(time.time()))
         path = "/api/auth/jwt/create/"
-        message = f"v1\\n{forwarded}\\n{ts}\\nPOST\\n{path}"
+        message = f"v1\n{forwarded}\n{ts}\nPOST\n{path}"
         signature = hmac.new(
             secret.encode(), message.encode(), hashlib.sha256,
         ).hexdigest()
