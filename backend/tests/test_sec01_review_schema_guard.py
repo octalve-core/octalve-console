@@ -17,16 +17,17 @@ class ReviewSchemaGuardTests(TestCase):
         self.assertTrue(guard.PREVIEW_TARGETS)
         self.assertNotIn("ep-cool-butterfly-b8jvzofp.c-14.us-east-1.aws.neon.tech",
                          guard.PREVIEW_TARGETS.values())
-        self.assertEqual(len(guard.PREVIEW_TARGETS), 2)
+        self.assertEqual(len(guard.PREVIEW_TARGETS), 1)
 
     def test_rejects_absent_wrong_or_pooled_database(self):
         for branch, host in guard.PREVIEW_TARGETS.items():
             cases = [
                 "",
-                "postgresql://neondb_owner:secret@ep-cool-butterfly-b8jvzofp.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require",
-                f"postgresql://neondb_owner:secret@{host.replace('.c-14', '-pooler.c-14')}/neondb?sslmode=require",
-                f"postgresql://neondb_owner:secret@{host}/neondb?sslmode=disable",
-                f"postgresql://other:secret@{host}/neondb?sslmode=require",
+                "postgresql://octalve_sec01_review_owner:secret@ep-cool-butterfly-b8jvzofp.c-14.us-east-1.aws.neon.tech/octalve_sec01_review?sslmode=require",
+                f"postgresql://octalve_sec01_review_owner:secret@{host.replace('.c-14', '-pooler.c-14')}/octalve_sec01_review?sslmode=require",
+                f"postgresql://octalve_sec01_review_owner:secret@{host}/octalve_sec01_review?sslmode=disable",
+                f"postgresql://other:secret@{host}/octalve_sec01_review?sslmode=require",
+                f"postgresql://octalve_sec01_review_owner:secret@{host}/neondb?sslmode=require",
             ]
             for case in cases:
                 with self.subTest(branch=branch,case=case[:35]), mock.patch.dict(
@@ -38,7 +39,7 @@ class ReviewSchemaGuardTests(TestCase):
 
     def test_correct_direct_preview_url_is_accepted(self):
         branch, host = next(iter(guard.PREVIEW_TARGETS.items()))
-        uri = f"postgresql://neondb_owner:secret@{host}/neondb?sslmode=require"
+        uri = f"postgresql://octalve_sec01_review_owner:secret@{host}/octalve_sec01_review?sslmode=require"
         with mock.patch.dict("os.environ", {
             "DATABASE_URL_UNPOOLED": uri,
             "OCTALVE_SEC01_REVIEW_BRANCH": branch,
@@ -50,5 +51,20 @@ class ReviewSchemaGuardTests(TestCase):
         self.assertIn('typed = input("Type exact approval [" + AUTHORIZATION + "]: ")', contents)
         self.assertIn('if typed != AUTHORIZATION:', contents)
         self.assertIn('"migrate", "accounts", "0003", "--noinput"', contents)
-        self.assertIn('"neondb_owner", 48, 91, 0, 0, 0, None', contents)
+        self.assertIn('REVIEW_DATABASE, REVIEW_OWNER, 48, 91, 0, 0, 0, None', contents)
         self.assertNotIn("ep-cool-butterfly-b8jvzofp", contents)
+
+    def test_rejects_unknown_branch_even_with_correct_host(self):
+        host = next(iter(guard.PREVIEW_TARGETS.values()))
+        uri = f"postgresql://octalve_sec01_review_owner:secret@{host}/octalve_sec01_review?sslmode=require"
+        with mock.patch.dict("os.environ", {"DATABASE_URL_UNPOOLED": uri,
+                   "OCTALVE_SEC01_REVIEW_BRANCH": "review/cloud-sec-01-auth-hardening"}, clear=True):
+            with self.assertRaisesRegex(SystemExit, "REFUSED"):
+                guard.validate_target()
+
+    def test_exact_isolation_tuple_denies_inherited_accounts_or_tokens(self):
+        # The guard must retain fail-closed account and blacklist preconditions.
+        source = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("users, outstanding, revoked, throttle", source)
+        self.assertIn("REVIEW_DATABASE, REVIEW_OWNER, 48, 91, 0, 0, 0, None", source)
+        self.assertIn("Preview is not a synthetic-only clean 48/91 baseline", source)
