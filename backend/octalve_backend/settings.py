@@ -324,7 +324,7 @@ DJOSER = {
     'USERNAME_RESET_CONFIRM_URL': 'username-reset/confirm/{uid}/{token}',
     'ACTIVATION_URL': 'activate/{uid}/{token}',
     
-    'PASSWORD_RESET_SHOW_EMAIL_NOT_FOUND': True,  # Don't reveal if email exists (security)
+    'PASSWORD_RESET_SHOW_EMAIL_NOT_FOUND': False,  # OWASP: do not enumerate registered accounts
     'PASSWORD_RESET_CONFIRM_RETYPE': True,  # Require password confirmation
     'SET_PASSWORD_RETYPE': True,
 
