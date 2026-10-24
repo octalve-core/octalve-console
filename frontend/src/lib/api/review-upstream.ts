@@ -22,7 +22,7 @@ export function resolveAuthReviewUpstream(request: NextRequest) {
   if (bypass && /^[A-Za-z0-9]{32}$/.test(bypass)) {
     return {
       apiBase: `${REVIEW_API_ORIGIN}/api`,
-      protectedHeaders: { "x-vercel-protection-bypass": bypass },
+      protectedHeaders: { "x-vercel-protection-bypass": bypass } as Record<string, string>,
     };
   }
 
@@ -35,6 +35,6 @@ export function resolveAuthReviewUpstream(request: NextRequest) {
     apiBase: `${REVIEW_API_ORIGIN}/api`,
     protectedHeaders: {
       "x-vercel-trusted-oidc-idp-token": oidcToken,
-    },
+    } as Record<string, string>,
   };
 }
