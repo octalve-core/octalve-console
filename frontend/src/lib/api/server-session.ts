@@ -1,5 +1,7 @@
 import "server-only";
-import { NextResponse } from "next/server";
+import { createHmac } from "node:crypto";
+import { isIP } from "node:net";
+import { NextRequest, NextResponse } from "next/server";
 
 export const SESSION_ACCESS_COOKIE =
   process.env.NODE_ENV === "production"
@@ -73,4 +75,32 @@ export function sameOriginRequest(
     }
   }
   return site === "same-origin" || site === "none";
+}
+
+/**
+ * Bind the actual browser IP to an API request using a short-lived HMAC.
+ * Never accept a caller-supplied signature. All header values originate
+ * from Vercel's trusted edge metadata and this server-side secret.
+ */
+export function signedClientIpHeaders(
+  request: NextRequest,
+  method: string,
+  djangoPath: string,
+): Record<string, string> {
+  const secret = process.env.OCTALVE_BFF_SHARED_SECRET || "";
+  if (secret.length < 32 || !process.env.VERCEL_ENV) return {};
+  const rawIp = (
+    request.headers.get("x-vercel-forwarded-for") ||
+    request.headers.get("x-forwarded-for") ||
+    ""
+  ).split(",")[0].trim();
+  if (!isIP(rawIp)) return {};
+  const ts = String(Math.floor(Date.now() / 1000));
+  const message = `v1\n${rawIp}\n${ts}\n${method}\n${djangoPath}`;
+  return {
+    "x-octalve-client-ip": rawIp,
+    "x-octalve-client-ip-ts": ts,
+    "x-octalve-client-ip-sig":
+      createHmac("sha256", secret).update(message).digest("hex"),
+  };
 }
