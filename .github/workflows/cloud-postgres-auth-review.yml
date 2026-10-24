@@ -103,6 +103,31 @@ jobs:
                   for name, definition in constraints:
                       print('CONSTRAINT', name, definition)
           PY
+      - name: Verify atomic throttle budget across concurrent database clients
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os
+          from concurrent.futures import ThreadPoolExecutor
+          import django
+          os.environ.setdefault("DJANGO_SETTINGS_MODULE", "octalve_backend.settings")
+          django.setup()
+          from accounts.models import AuthThrottleBucket
+          from accounts.security_throttle import _spend
+          AuthThrottleBucket.objects.all().delete()
+          def attempt(_):
+              from django.db import close_old_connections
+              close_old_connections()
+              try:
+                  return _spend("sec01-test:ip", "198.51.100.1", 8, 600)
+              finally:
+                  close_old_connections()
+          with ThreadPoolExecutor(max_workers=12) as pool:
+              results = list(pool.map(attempt, range(24)))
+          assert results.count(0) == 8, 'Concurrency bypassed the eight-attempt budget'
+          assert sum(x > 0 for x in results) == 16, 'Unexpected throttle denial count'
+          print('PASS: 24 concurrent calls, exactly 8 allowed, 16 throttled in shared PostgreSQL')
+          PY
       - name: Test real auth lifecycle against PostgreSQL
         working-directory: backend
         run: python manage.py test accounts.tests --verbosity=2
