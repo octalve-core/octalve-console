@@ -343,3 +343,55 @@ class AuthAbuseProtectionTests(APITestCase):
         )
         with patch.dict("os.environ", {"VERCEL_ENV": ""}):
             self.assertEqual(_request_ip(request), "127.0.0.1")
+
+    def test_signed_bff_forwarding_cannot_be_spoofed_by_direct_client(self):
+        import hashlib
+        import hmac
+        import time
+        from django.test import RequestFactory
+        from unittest.mock import patch
+        from accounts.security_throttle import _request_ip
+
+        secret = "SEC01-CI-only-signed-proxy-test-key-1234567890"
+        forwarded = "198.51.100.98"
+        ts = str(int(time.time()))
+        path = "/api/auth/jwt/create/"
+        message = f"v1\n{forwarded}\n{ts}\nPOST\n{path}"
+        signature = hmac.new(
+            secret.encode(), message.encode(), hashlib.sha256,
+        ).hexdigest()
+        req = RequestFactory().post(
+            path,
+            HTTP_X_FORWARDED_FOR="203.0.113.45",
+            HTTP_X_OCTALVE_CLIENT_IP=forwarded,
+            HTTP_X_OCTALVE_CLIENT_IP_TS=ts,
+            HTTP_X_OCTALVE_CLIENT_IP_SIG=signature,
+        )
+        with patch.dict("os.environ", {
+            "VERCEL_ENV": "production",
+            "OCTALVE_BFF_SHARED_SECRET": secret,
+        }):
+            self.assertEqual(_request_ip(req), forwarded)
+            req.META["HTTP_X_OCTALVE_CLIENT_IP_SIG"] = "0" * 64
+            self.assertEqual(_request_ip(req), "203.0.113.45")
+            req.META["HTTP_X_OCTALVE_CLIENT_IP_SIG"] = signature
+            req.path = "/api/auth/register/"
+            self.assertEqual(_request_ip(req), "203.0.113.45")
+
+    def test_prune_is_dry_run_before_explicit_apply(self):
+        from accounts.models import AuthThrottleBucket
+        from django.core.management import call_command
+        from django.utils import timezone
+        from datetime import timedelta
+        from io import StringIO
+        bucket = AuthThrottleBucket.objects.create(
+            fingerprint="a" * 64,
+            attempts=3,
+            expires_at=timezone.now() - timedelta(days=3),
+        )
+        output = StringIO()
+        call_command("prune_auth_throttles", stdout=output)
+        self.assertIn("PLAN ONLY", output.getvalue())
+        self.assertTrue(AuthThrottleBucket.objects.filter(pk=bucket.pk).exists())
+        call_command("prune_auth_throttles", "--apply", stdout=StringIO())
+        self.assertFalse(AuthThrottleBucket.objects.filter(pk=bucket.pk).exists())
