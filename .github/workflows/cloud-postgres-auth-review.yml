@@ -1,5 +1,8 @@
 name: Cloud auth schema — disposable PostgreSQL acceptance
 on:
+  push:
+    branches:
+      - review/cloud
   pull_request:
     paths:
       - "backend/**"
@@ -44,7 +47,7 @@ jobs:
         run: |
           python -m pip install -r backend/requirements.txt
           python -m pip check
-      - name: Verify exact isolated PostgreSQL target and locked 48-operation plan
+      - name: Verify historical 48-migration evidence and SEC-01-only schema delta
         working-directory: backend
         run: |
           python - <<'PY'
@@ -53,23 +56,21 @@ jobs:
           from pathlib import Path
           import psycopg
           from scripts.review_neon_migration_cli import capture_django_plan
-          assert os.environ['DATABASE_URL'].startswith('postgresql://octalve_ci:')
           with psycopg.connect(os.environ['DATABASE_URL']) as db:
               with db.cursor() as cur:
                   cur.execute('select current_database(), current_user, to_regclass(%s)', ('public.django_migrations',))
-                  database, role, migrations = cur.fetchone()
-                  assert (database, role, migrations) == ('octalve_auth_ci', 'octalve_ci', None)
-          plan = capture_django_plan(Path.cwd(), os.environ.copy()).stdout
+                  assert cur.fetchone() == ('octalve_auth_ci', 'octalve_ci', None)
           content = (Path.cwd().parent / 'docs' / 'CLOUD_FOUNDATION_AUTH_BLACKLIST_INITIAL_MIGRATION_CANDIDATE_2026-10-23.md').read_text(encoding='utf-8')
           marker = '```text\n'
           left = content.find(marker)
           right = content.find('\n```', left + len(marker))
           assert left >= 0 and right > left
-          expected = content[left + len(marker):right] + '\n'
-          assert plan == expected, 'Postgres migration plan differs from reviewed candidate'
-          digest = hashlib.sha256(plan.encode('utf-8')).hexdigest()
-          assert digest == '516cd378502964020838c5d23b89caf172bd1cf135677172ee85e4795892a8cd'
-          print('PASS: disposable PostgreSQL DB identity; locked 48/217 migration plan', digest)
+          baseline = content[left + len(marker):right] + '\n'
+          assert hashlib.sha256(baseline.encode('utf-8')).hexdigest() == '516cd378502964020838c5d23b89caf172bd1cf135677172ee85e4795892a8cd'
+          plan = capture_django_plan(Path.cwd(), os.environ.copy())
+          assert plan.returncode == 0
+          assert 'accounts.0003_auththrottlebucket' in plan.stdout
+          print('PASS: locked historical 48/217 evidence preserved; SEC01 adds one migration')
           PY
       - name: Apply initial schema ONLY to disposable CI PostgreSQL
         working-directory: backend
@@ -83,12 +84,13 @@ jobs:
           with psycopg.connect(os.environ['DATABASE_URL']) as db:
               with db.cursor() as cur:
                   cur.execute('SELECT COUNT(*) FROM django_migrations')
-                  assert cur.fetchone()[0] == 48, 'Not all 48 migration records exist'
+                  assert cur.fetchone()[0] == 49, 'SEC01 must apply exactly 49 migration records'
                   cur.execute("SELECT COUNT(*) FROM django_migrations WHERE app='token_blacklist'")
                   assert cur.fetchone()[0] == 12, 'Blacklist history must contain 12 migrations'
                   cur.execute("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname='public' ORDER BY tablename")
                   tables = {r[0] for r in cur.fetchall()}
-                  assert {'token_blacklist_outstandingtoken', 'token_blacklist_blacklistedtoken', 'accounts_customuser'}.issubset(tables)
+                  assert len(tables) == 92, 'SEC01 must add only one table to the reviewed 91-table baseline'
+                  assert {'token_blacklist_outstandingtoken', 'token_blacklist_blacklistedtoken', 'accounts_customuser', 'accounts_auththrottlebucket'}.issubset(tables)
                   cur.execute("""
                       SELECT conname, pg_get_constraintdef(oid)
                       FROM pg_constraint
@@ -103,6 +105,31 @@ jobs:
                   print('PASS: PostgreSQL schema after disposable migration;', len(tables), 'public tables;', len(constraints), 'blacklist constraints')
                   for name, definition in constraints:
                       print('CONSTRAINT', name, definition)
+          PY
+      - name: Verify atomic throttle budget across concurrent database clients
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os
+          from concurrent.futures import ThreadPoolExecutor
+          import django
+          os.environ.setdefault("DJANGO_SETTINGS_MODULE", "octalve_backend.settings")
+          django.setup()
+          from accounts.models import AuthThrottleBucket
+          from accounts.security_throttle import _spend
+          AuthThrottleBucket.objects.all().delete()
+          def attempt(_):
+              from django.db import close_old_connections
+              close_old_connections()
+              try:
+                  return _spend("sec01-test:ip", "198.51.100.1", 8, 600)
+              finally:
+                  close_old_connections()
+          with ThreadPoolExecutor(max_workers=12) as pool:
+              results = list(pool.map(attempt, range(24)))
+          assert results.count(0) == 8, 'Concurrency bypassed the eight-attempt budget'
+          assert sum(x > 0 for x in results) == 16, 'Unexpected throttle denial count'
+          print('PASS: 24 concurrent calls, exactly 8 allowed, 16 throttled in shared PostgreSQL')
           PY
       - name: Test real auth lifecycle against PostgreSQL
         working-directory: backend

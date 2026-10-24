@@ -1,122 +1,52 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  SESSION_ACCESS_COOKIE,
+  SESSION_REFRESH_COOKIE,
+  clearSessionCookies,
+  sameOriginRequest,
+} from "@/lib/api/server-session";
 
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
+export const dynamic = "force-dynamic";
 
-const ACCESS_COOKIE = IS_PRODUCTION
-  ? "__Host-octalve_console_access"
-  : "octalve_console_access";
-
-const REFRESH_COOKIE = IS_PRODUCTION
-  ? "__Host-octalve_console_refresh"
-  : "octalve_console_refresh";
-
-const ACCESS_MAX_AGE = 60 * 60;
-const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
-
-const cookieBase = {
-  httpOnly: true,
-  secure: IS_PRODUCTION,
-  sameSite: "lax" as const,
-  path: "/",
+const headers = {
+  "Cache-Control": "private, no-store",
+  "Referrer-Policy": "no-referrer",
 };
 
-function getToken(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function isSameOriginRequest(request: NextRequest) {
-  const site = request.headers.get("sec-fetch-site");
-  if (site && site !== "same-origin" && site !== "none") return false;
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    return new URL(origin).origin === request.nextUrl.origin;
-  } catch {
-    return false;
-  }
-}
-
-function denied() {
+export async function GET(request: NextRequest) {
+  // Never disclose JWTs or refresh tokens to browser JavaScript.
   return NextResponse.json(
-    { detail: "Forbidden origin." },
-    { status: 403, headers: { "Cache-Control": "no-store" } },
+    {
+      authenticated: Boolean(
+        request.cookies.get(SESSION_ACCESS_COOKIE)?.value ||
+        request.cookies.get(SESSION_REFRESH_COOKIE)?.value,
+      ),
+    },
+    { headers },
   );
 }
 
-export async function POST(request: NextRequest) {
-  if (!isSameOriginRequest(request)) return denied();
-  const body = await request.json().catch(() => ({}));
-
-  const access = getToken((body as Record<string, unknown>).access);
-  const refresh = getToken((body as Record<string, unknown>).refresh);
-
-  if (!access) {
-    return NextResponse.json(
-      { detail: "Missing access token." },
-      { status: 400 },
-    );
-  }
-
-  const response = NextResponse.json(
-    { ok: true },
-    {
-      headers: {
-        "Cache-Control": "no-store",
-      },
-    },
+export async function POST() {
+  // Legacy client-supplied JWT exchange is prohibited. Session creation
+  // happens only through the server-side BFF credential exchange.
+  return NextResponse.json(
+    { detail: "Use the secure authentication exchange." },
+    { status: 405, headers },
   );
-
-  response.cookies.set(ACCESS_COOKIE, access, {
-    ...cookieBase,
-    maxAge: ACCESS_MAX_AGE,
-  });
-
-  if (refresh) {
-    response.cookies.set(REFRESH_COOKIE, refresh, {
-      ...cookieBase,
-      maxAge: REFRESH_MAX_AGE,
-    });
-  }
-
-  return response;
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!isSameOriginRequest(request)) return denied();
-  const response = NextResponse.json(
-    { ok: true },
-    {
-      headers: {
-        "Cache-Control": "no-store",
-      },
-    },
-  );
-
-  response.cookies.set(ACCESS_COOKIE, "", {
-    ...cookieBase,
-    maxAge: 0,
-  });
-
-  response.cookies.set(REFRESH_COOKIE, "", {
-    ...cookieBase,
-    maxAge: 0,
-  });
-
+  if (!sameOriginRequest(
+    request.headers.get("origin") || "",
+    request.headers.get("sec-fetch-site"),
+    request.nextUrl.origin,
+  )) {
+    return NextResponse.json(
+      { detail: "Forbidden origin." },
+      { status: 403, headers },
+    );
+  }
+  const response = NextResponse.json({ ok: true }, { headers });
+  clearSessionCookies(response);
   return response;
-}
-
-/**
- * Returns the same-origin cookie session to the existing browser API client.
- * This synchronizes rotated tokens after the Next.js proxy refreshes them.
- * Authentication authority remains the backend: this route never validates
- * credentials or creates tokens, and responses must not be cached.
- */
-export async function GET(request: NextRequest) {
-  if (!isSameOriginRequest(request)) return denied();
-  const access = request.cookies.get(ACCESS_COOKIE)?.value ?? null;
-  const refresh = request.cookies.get(REFRESH_COOKIE)?.value ?? null;
-  return NextResponse.json(
-    { access, refresh },
-    { headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } },
-  );
 }
