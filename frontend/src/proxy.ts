@@ -1,5 +1,4 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { resolveAuthReviewUpstream } from "./lib/api/review-upstream";
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
@@ -277,51 +276,30 @@ function buildLoginRedirect(request: NextRequest) {
   return response;
 }
 
-async function fetchCurrentUser(
-  accessToken: string,
-  request: NextRequest,
-): Promise<BackendUser | null> {
-  const reviewBridgeConfigured =
-    process.env.VERCEL_ENV === "preview" &&
-    Boolean(process.env.OCTALVE_CLOUD_REVIEW_UPSTREAM_ORIGIN);
-  const upstream = reviewBridgeConfigured
-    ? resolveAuthReviewUpstream(request)
-    : null;
-  // Fail closed when this branch explicitly opts into the protected Review bridge.
-  if (reviewBridgeConfigured && !upstream) return null;
-  const response = await fetch(`${upstream?.apiBase ?? API_BASE_URL}/auth/users/me/`, {
+async function fetchCurrentUser(accessToken: string): Promise<BackendUser | null> {
+  const response = await fetch(`${API_BASE_URL}/auth/users/me/`, {
     method: "GET",
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${accessToken}`,
-      ...(upstream?.protectedHeaders ?? {}),
     },
     cache: "no-store",
-    redirect: "manual",
   });
 
   if (!response.ok) return null;
+
   return response.json() as Promise<BackendUser>;
 }
 
-async function refreshAccessToken(refreshToken: string, request: NextRequest) {
-  const reviewBridgeConfigured =
-    process.env.VERCEL_ENV === "preview" &&
-    Boolean(process.env.OCTALVE_CLOUD_REVIEW_UPSTREAM_ORIGIN);
-  const upstream = reviewBridgeConfigured
-    ? resolveAuthReviewUpstream(request)
-    : null;
-  if (reviewBridgeConfigured && !upstream) return null;
-  const response = await fetch(`${upstream?.apiBase ?? API_BASE_URL}/auth/jwt/refresh/`, {
+async function refreshAccessToken(refreshToken: string) {
+  const response = await fetch(`${API_BASE_URL}/auth/jwt/refresh/`, {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      ...(upstream?.protectedHeaders ?? {}),
     },
     body: JSON.stringify({ refresh: refreshToken }),
     cache: "no-store",
-    redirect: "manual",
   });
 
   if (!response.ok) return null;
@@ -332,6 +310,7 @@ async function refreshAccessToken(refreshToken: string, request: NextRequest) {
   };
 
   if (!payload.access) return null;
+
   return {
     access: payload.access,
     refresh: payload.refresh,
@@ -343,7 +322,7 @@ async function resolveSession(request: NextRequest): Promise<SessionCheck> {
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
 
   if (accessToken) {
-    const user = await fetchCurrentUser(accessToken, request).catch(() => null);
+    const user = await fetchCurrentUser(accessToken).catch(() => null);
 
     if (user) {
       return {
@@ -358,13 +337,13 @@ async function resolveSession(request: NextRequest): Promise<SessionCheck> {
     return { user: null };
   }
 
-  const refreshed = await refreshAccessToken(refreshToken, request).catch(() => null);
+  const refreshed = await refreshAccessToken(refreshToken).catch(() => null);
 
   if (!refreshed?.access) {
     return { user: null };
   }
 
-  const user = await fetchCurrentUser(refreshed.access, request).catch(() => null);
+  const user = await fetchCurrentUser(refreshed.access).catch(() => null);
 
   if (!user) {
     return { user: null };
