@@ -10,9 +10,20 @@ const REFRESH_COOKIE = IS_PRODUCTION
   ? "__Host-octalve_console_refresh"
   : "octalve_console_refresh";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-  "https://api.cloud.octalve.com/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/, "") ?? "";
+const SAFE_API_BASE = (() => {
+  try {
+    const parsed = new URL(API_BASE_URL);
+    const validProtocol = parsed.protocol === "https:" ||
+      (parsed.protocol === "http:" && ["localhost", "127.0.0.1"].includes(parsed.hostname));
+    return validProtocol && parsed.pathname.replace(/\/$/, "") === "/api" &&
+      !parsed.username && !parsed.password && !parsed.search && !parsed.hash
+      ? API_BASE_URL
+      : null;
+  } catch {
+    return null;
+  }
+})();
 
 const ACCESS_MAX_AGE = 60 * 60;
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
@@ -277,7 +288,8 @@ function buildLoginRedirect(request: NextRequest) {
 }
 
 async function fetchCurrentUser(accessToken: string): Promise<BackendUser | null> {
-  const response = await fetch(`${API_BASE_URL}/auth/users/me/`, {
+  if (!SAFE_API_BASE) return null;
+  const response = await fetch(`${SAFE_API_BASE}/auth/users/me/`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -292,7 +304,8 @@ async function fetchCurrentUser(accessToken: string): Promise<BackendUser | null
 }
 
 async function refreshAccessToken(refreshToken: string) {
-  const response = await fetch(`${API_BASE_URL}/auth/jwt/refresh/`, {
+  if (!SAFE_API_BASE) return null;
+  const response = await fetch(`${SAFE_API_BASE}/auth/jwt/refresh/`, {
     method: "POST",
     headers: {
       Accept: "application/json",
