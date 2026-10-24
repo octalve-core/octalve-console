@@ -114,7 +114,7 @@ export function DashboardShell({
   }
 
   const sidebar = (
-    <aside className="flex h-full flex-col bg-slate-950 text-white">
+    <aside className="flex h-full flex-col bg-[#000A16] text-white">
       <div className="flex items-center justify-between px-5 py-5">
         <Link href={`/${role}`} className="flex items-center gap-3">
           <div className="grid h-11 w-11 grid-cols-2 gap-1 rounded-2xl bg-white p-2 shadow-soft">
@@ -162,9 +162,9 @@ export function DashboardShell({
                     href={item.href}
                     onClick={() => setSidebarOpen(false)}
                     className={cn(
-                      "group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition",
+                      "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition",
                       isActive
-                        ? "bg-[#0064E0] text-white shadow-lg shadow-blue-950/20"
+                        ? "bg-[#0064E0] text-white"
                         : "text-slate-300 hover:bg-white/8 hover:text-white",
                     )}
                   >
@@ -179,7 +179,7 @@ export function DashboardShell({
       </div>
 
       <div className="border-t border-white/10 p-4">
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white">
               <LifeBuoy className="h-5 w-5" />
@@ -208,8 +208,8 @@ export function DashboardShell({
   );
 
   return (
-    <div className="min-h-screen bg-[#F6F8FB] text-slate-950">
-      <div className="fixed inset-y-0 left-0 z-40 hidden w-[18.5rem] lg:block">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#142A43]">
+      <div className="fixed inset-y-0 left-0 z-40 hidden w-[17.5rem] lg:block">
         {sidebar}
       </div>
 
@@ -221,15 +221,15 @@ export function DashboardShell({
             onClick={() => setSidebarOpen(false)}
             aria-label="Close sidebar overlay"
           />
-          <div className="relative h-full w-[18.5rem] max-w-[86vw]">
+          <div className="relative h-full w-[17.5rem] max-w-[86vw]">
             {sidebar}
           </div>
         </div>
       ) : null}
 
-      <div className="lg:pl-[18.5rem]">
-        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-[#F6F8FB]/90 backdrop-blur-xl">
-          <div className="flex min-h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="lg:pl-[17.5rem]">
+        <header className="sticky top-0 z-30 border-b border-[#E7EDF5] bg-white/95 backdrop-blur-xl">
+          <div className="flex min-h-[68px] items-center gap-3 px-4 sm:px-6 lg:px-6">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
@@ -239,14 +239,14 @@ export function DashboardShell({
               <Menu className="h-5 w-5" />
             </button>
 
-            <div className="hidden h-12 min-w-0 max-w-xl flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm md:flex">
+            <div className="hidden h-10 min-w-0 max-w-md flex-1 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 shadow-sm md:flex">
               <Search className="h-4 w-4 shrink-0 text-slate-400" />
               <input
                 placeholder="Search customers, invoices, domains..."
                 className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
               />
               <span className="hidden rounded-lg bg-slate-50 px-2 py-1 text-xs text-slate-400 sm:inline">
-                âŒ˜ K
+                Ctrl K
               </span>
             </div>
 
@@ -292,7 +292,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="px-4 py-6 sm:px-6 lg:px-8">
+        <main className="px-4 py-5 sm:px-6 lg:px-6">
           <span className="sr-only">
             {getRoleLabel(role)} {title} {description ?? ""}
           </span>
