@@ -117,7 +117,7 @@ def main():
     print("Independent recovery branch required: " + BACKUP_BRANCH_ID)
     # Authorization cannot be injected by an unattended workflow.
     try:
-        response = input("Type exact Production approval phrase: ")
+        response = input("Type exactly [" + AUTH_PHRASE + "] to authorize Production migration: ")
     except EOFError:
         refuse("interactive approval unavailable")
     if response != AUTH_PHRASE:
