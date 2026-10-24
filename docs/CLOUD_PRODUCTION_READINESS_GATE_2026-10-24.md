@@ -81,3 +81,41 @@ Vercel project Deployment Protection currently uses Vercel Authentication for `*
 7. Confirm the current Vercel/Neon service tiers and commercial-use/retention restrictions before accepting paying customers.
 
 **Decision:** Finish safe code cleanup and CI now. Preserve Review and Production data separation. Do not merge PR #3/#4, apply Production schema, change public DNS, or enable commercial traffic until the recorded gates pass.
+
+
+## Infrastructure preparation addendum — 2026-10-24 (independently rechecked)
+
+This records **preparation only**; it does not change the NO GO decision above.
+
+### Completed without production deployment
+
+1. Vercel `octalve-cloud-api` (`prj_iFSbPGawzM1peDZDYw8AnDCYBvbz`): Production-scoped plain variable `DEBUG=false` **created, then read back and verified**.
+2. Vercel `octalve-console` (`prj_CqAeZgrQPFXrNFFZTMnMkUhijQua`): Production-scoped plain variable `NEXT_PUBLIC_ALLOW_FALLBACK_DATA=false` **created, then read back and verified**.
+3. Neon `falling-surf-50258433` primary `br-dark-bread-b8j0gqz4` (`main`, database `neondb`) rechecked **zero public base tables**; no migration has run.
+4. Neon no-compute checkpoint `br-wild-sea-b8dy0nsz`, named `backup/pre-cloud-production-schema-2026-10-24`, created as a child of **primary main**, then checked `ready`. It captures a pre-migration state; it is **not a continuously updated backup**, and its restore procedure has **not** been tested. Create/verify a current recovery point again immediately before an authorized production migration.
+5. GitHub `main` and both draft PRs remain unmerged. No Vercel Production deployment or Cloudflare DNS changes were made.
+
+### Domain control check
+
+- Vercel Octalve Vault team reports **no parent `octalve.com` domain** in its list. Reading the parent as a team-owned domain returned **403 permission denied**. Do not assume the team controls it.
+- The current domain lookup reports external DNS name servers `max.ns.cloudflare.com` and `phoenix.ns.cloudflare.com`. **Do not change parent/apex records or create Vercel project bindings without verified authority**.
+- Required Console hostname `console.cloud.octalve.com` and API hostname `api.cloud.octalve.com` are **not currently attached** to their Vercel projects. Ownership verification, exact CNAME/TXT records, SSL and end-to-end browser routing remain gated.
+
+### Hosting plan check — commercial release blocker
+
+- The connected Vercel team `octalve-vault` reports the **Hobby** plan. Vercel's currently published Hobby terms restrict it to personal/non-commercial use: https://vercel.com/legal/terms and https://vercel.com/docs/limits/fair-use-guidelines.
+- **Do not accept paying Octalve Cloud customers on this Vercel Hobby deployment.** Choose a contractually permitted paid Vercel plan or a different production host whose current terms explicitly permit the intended commercial workloads. Non-commercial private qualification may continue under applicable terms.
+- Neon Free provides 10 branches per project and limited restore history. The new no-compute checkpoint consumes a branch slot. Verify remaining allowance and actual backup/restore requirements before increasing load or migration: https://neon.com/docs/introduction/plans.
+
+### Credentials intentionally NOT created or guessed
+
+- API Production: `DJANGO_SECRET_KEY`, `DATABASE_URL` for the **primary or separately approved Production database**, `ENCRYPTION_KEY`, verified `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS`, `FRONTEND_URL`, and a real production email provider are still missing.
+- Console Production: `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_APP_URL` remain unset until the authorized canonical endpoints have been attached and verified. Never point them at `/api/cloud`, a protected Preview alias, or a Review Neon database.
+- No secrets are included in source or this report. Set any newly generated secrets **directly as Production-only Sensitive/Encrypted variables in the correct Vercel project**, and audit values/targets privately without exposing them in logs.
+
+### Next operator action gate
+
+1. Verify whether `octalve.com` is owned in Cloudflare and that the correct team can add the two intended subdomains. Inventory existing records **before** requesting changes.
+2. Resolve the commercial hosting entitlement and choose the deployment target.
+3. Establish an appropriate Production database protection/restore plan, verify a new recovery point and its restoration method, and authorize the exact Production migration plan separately. **Do not run the Auth Review migration wrapper against Production.**
+4. Add only approved Production-scoped secrets and verified domain settings. Stage a deployment without public promotion; test Django health **and database readiness**, browser auth lifecycle and legal/email flows. Payments and provisioning remain disabled.
