@@ -281,10 +281,14 @@ async function fetchCurrentUser(
   accessToken: string,
   request: NextRequest,
 ): Promise<BackendUser | null> {
-  const preview = process.env.VERCEL_ENV === "preview";
-  const upstream = preview ? resolveAuthReviewUpstream(request) : null;
-  // Never fall back to the Production API when protected Review identity fails.
-  if (preview && !upstream) return null;
+  const reviewBridgeConfigured =
+    process.env.VERCEL_ENV === "preview" &&
+    Boolean(process.env.OCTALVE_CLOUD_REVIEW_UPSTREAM_ORIGIN);
+  const upstream = reviewBridgeConfigured
+    ? resolveAuthReviewUpstream(request)
+    : null;
+  // Fail closed when this branch explicitly opts into the protected Review bridge.
+  if (reviewBridgeConfigured && !upstream) return null;
   const response = await fetch(`${upstream?.apiBase ?? API_BASE_URL}/auth/users/me/`, {
     method: "GET",
     headers: {
@@ -301,9 +305,13 @@ async function fetchCurrentUser(
 }
 
 async function refreshAccessToken(refreshToken: string, request: NextRequest) {
-  const preview = process.env.VERCEL_ENV === "preview";
-  const upstream = preview ? resolveAuthReviewUpstream(request) : null;
-  if (preview && !upstream) return null;
+  const reviewBridgeConfigured =
+    process.env.VERCEL_ENV === "preview" &&
+    Boolean(process.env.OCTALVE_CLOUD_REVIEW_UPSTREAM_ORIGIN);
+  const upstream = reviewBridgeConfigured
+    ? resolveAuthReviewUpstream(request)
+    : null;
+  if (reviewBridgeConfigured && !upstream) return null;
   const response = await fetch(`${upstream?.apiBase ?? API_BASE_URL}/auth/jwt/refresh/`, {
     method: "POST",
     headers: {
