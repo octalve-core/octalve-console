@@ -123,7 +123,7 @@ async function forward(request: NextRequest, context: Context) {
   const target = `${base}/${apiPath}${trailingSlash}${request.nextUrl.search}`;
   if (path[0] === "auth" &&
       !ALLOWED_AUTH_PATHS.has(apiPath) &&
-      !(path[1] === "customers" && path.length === 3 && /^\\d+$/.test(path[2]))) {
+      !(path[1] === "customers" && path.length === 3 && /^\d+$/.test(path[2]))) {
     return error(404, "API route not found.");
   }
   const isLogin = apiPath === "auth/jwt/create";
