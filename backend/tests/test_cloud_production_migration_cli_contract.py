@@ -59,7 +59,7 @@ class ProductionAuthMigrationGuardTests(TestCase):
 
     def test_requires_explicit_interactive_approval(self):
         content = PATH.read_text(encoding="utf-8")
-        self.assertIn("input(\"Type exact Production approval phrase:", content)
+        self.assertIn('input("Type exactly [" + AUTH_PHRASE + "]', content)
         self.assertIn('result = subprocess.run(', content)
         self.assertNotIn("shell=True", content)
         self.assertNotIn("os.environ.get(\"OCTALVE_AUTH_SCHEMA_APPROVAL\")", content)
