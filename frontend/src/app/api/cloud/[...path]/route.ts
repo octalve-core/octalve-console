@@ -6,6 +6,7 @@ import {
   resolveCloudApiBase,
   sameOriginRequest,
   setSessionCookies,
+  signedClientIpHeaders,
 } from "@/lib/api/server-session";
 
 export const runtime = "nodejs";
@@ -56,10 +57,12 @@ async function upstreamFetch(
   authorization?: string | null,
   body?: ArrayBuffer | string,
   contentType?: string | null,
+  trustedHeaders: Record<string, string> = {},
 ) {
   const headers = new Headers({ Accept: "application/json" });
   if (authorization) headers.set("Authorization", `Bearer ${authorization}`);
   if (contentType) headers.set("Content-Type", contentType);
+  for (const [key, value] of Object.entries(trustedHeaders)) headers.set(key, value);
   return fetch(url, {
     method,
     headers,
@@ -70,13 +73,14 @@ async function upstreamFetch(
   });
 }
 
-async function rotatedToken(base: string, refresh: string | null) {
+async function rotatedToken(base: string, refresh: string | null, request: NextRequest) {
   if (!refresh) return null;
   try {
     const r = await upstreamFetch(
       `${base}/auth/jwt/refresh/`, "POST", null,
       JSON.stringify({ refresh }),
       "application/json",
+      signedClientIpHeaders(request, "POST", "/api/auth/jwt/refresh/"),
     );
     if (!r.ok) return null;
     const data = (await r.json()) as Tokens;
@@ -121,6 +125,7 @@ async function forward(request: NextRequest, context: Context) {
   const apiPath = path.map(encodeURIComponent).join("/");
   const trailingSlash = request.nextUrl.pathname.endsWith("/") ? "/" : "";
   const target = `${base}/${apiPath}${trailingSlash}${request.nextUrl.search}`;
+  const trustedHeaders = signedClientIpHeaders(request, method, `/api/${apiPath}${trailingSlash}`);
   if (path[0] === "auth" &&
       !ALLOWED_AUTH_PATHS.has(apiPath) &&
       !(path[1] === "customers" && path.length === 3 && /^\d+$/.test(path[2]))) {
@@ -151,7 +156,7 @@ async function forward(request: NextRequest, context: Context) {
         let token = access;
         let revokeRefresh = refresh;
         if (!token) {
-          const rotated = await rotatedToken(base, refresh);
+          const rotated = await rotatedToken(base, refresh, request);
           token = rotated?.access || null;
           revokeRefresh = rotated?.refresh || refresh;
         }
@@ -160,14 +165,16 @@ async function forward(request: NextRequest, context: Context) {
             target, "POST", token,
             JSON.stringify({ refresh: revokeRefresh }),
             "application/json",
+            trustedHeaders,
           );
           if (res.status === 401 && refresh) {
-            const rotated = await rotatedToken(base, refresh);
+            const rotated = await rotatedToken(base, refresh, request);
             if (rotated) {
               res = await upstreamFetch(
                 target, "POST", rotated.access,
                 JSON.stringify({ refresh: rotated.refresh }),
                 "application/json",
+                trustedHeaders,
               );
             }
           }
@@ -190,7 +197,7 @@ async function forward(request: NextRequest, context: Context) {
     const credentialExchange = method === "POST" && (isLogin || isRegistration);
     const first = await upstreamFetch(
       target, method, credentialExchange ? null : access,
-      body, contentType,
+      body, contentType, trustedHeaders,
     );
 
     if (credentialExchange) {
@@ -216,10 +223,10 @@ async function forward(request: NextRequest, context: Context) {
     let final = first;
     let rotated: {access: string; refresh: string} | null = null;
     if (first.status === 401 && refresh && !isLogin && !isRegistration) {
-      rotated = await rotatedToken(base, refresh);
+      rotated = await rotatedToken(base, refresh, request);
       if (rotated) {
         final = await upstreamFetch(
-          target, method, rotated.access, body, contentType,
+          target, method, rotated.access, body, contentType, trustedHeaders,
         );
       }
     }
