@@ -20,7 +20,6 @@ import type {
   ProviderConfigPayload,
   Service,
   SignupPayload,
-  SignupResponse,
   SupportTicket,
   Transaction,
   User,
