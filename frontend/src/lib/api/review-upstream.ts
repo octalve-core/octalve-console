@@ -16,9 +16,18 @@ export function resolveAuthReviewUpstream(request: NextRequest) {
     return null;
   }
 
-  // Vercel injects this identity into its own functions. The destination
-  // verifies the signed token against its explicit Preview-to-Preview
-  // Trusted Sources rule. Never accept a browser-provided bypass credential.
+  // The Review-only secret is supplied by the Console server environment.
+  // Never accept a client header or expose it in a response or PUBLIC env var.
+  const bypass = process.env.OCTALVE_CLOUD_REVIEW_BYPASS_SECRET;
+  if (bypass && /^[A-Za-z0-9]{32}$/.test(bypass)) {
+    return {
+      apiBase: `${REVIEW_API_ORIGIN}/api`,
+      protectedHeaders: { "x-vercel-protection-bypass": bypass },
+    };
+  }
+
+  // Prefer signed, short-lived project identity whenever Trusted Sources
+  // becomes available on the API project.
   const oidcToken = request.headers.get("x-vercel-oidc-token");
   if (!oidcToken) return null;
 
