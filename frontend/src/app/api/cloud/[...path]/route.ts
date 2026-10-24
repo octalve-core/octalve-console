@@ -48,7 +48,7 @@ async function upstreamFetch(
   url: string,
   method: string,
   authorization?: string | null,
-  body?: ArrayBuffer,
+  body?: ArrayBuffer | string,
   contentType?: string | null,
 ) {
   const headers = new Headers({ Accept: "application/json" });
@@ -69,7 +69,7 @@ async function rotatedToken(base: string, refresh: string | null) {
   try {
     const r = await upstreamFetch(
       `${base}/auth/jwt/refresh/`, "POST", null,
-      new TextEncoder().encode(JSON.stringify({ refresh })).buffer,
+      JSON.stringify({ refresh }),
       "application/json",
     );
     if (!r.ok) return null;
@@ -136,7 +136,7 @@ async function forward(request: NextRequest, context: Context) {
       try {
         const res = await upstreamFetch(
           target, "POST", access,
-          new TextEncoder().encode(JSON.stringify({ refresh })).buffer,
+          JSON.stringify({ refresh }),
           "application/json",
         );
         revoked = res.ok;
