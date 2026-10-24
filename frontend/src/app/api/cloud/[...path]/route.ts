@@ -24,6 +24,12 @@ const API_ROOTS = new Set([
   "services", "provisioning", "domains", "support", "audit", "settings",
   "reports", "wallet", "dashboard", "knowledge-base",
 ]);
+const ALLOWED_AUTH_PATHS = new Set([
+  "auth/jwt/create", "auth/register", "auth/logout",
+  "auth/users/me", "auth/me",
+  "auth/users/reset_password", "auth/users/reset_password_confirm",
+  "auth/users/set_password", "auth/customers",
+]);
 
 function error(status: number, detail: string) {
   return NextResponse.json(
@@ -115,6 +121,11 @@ async function forward(request: NextRequest, context: Context) {
   const apiPath = path.map(encodeURIComponent).join("/");
   const trailingSlash = request.nextUrl.pathname.endsWith("/") ? "/" : "";
   const target = `${base}/${apiPath}${trailingSlash}${request.nextUrl.search}`;
+  if (path[0] === "auth" &&
+      !ALLOWED_AUTH_PATHS.has(apiPath) &&
+      !(path[1] === "customers" && path.length === 3 && /^\\d+$/.test(path[2]))) {
+    return error(404, "API route not found.");
+  }
   const isLogin = apiPath === "auth/jwt/create";
   const isRegistration = apiPath === "auth/register";
   const isLogout = apiPath === "auth/logout";
