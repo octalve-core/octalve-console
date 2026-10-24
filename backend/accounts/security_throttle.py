@@ -117,10 +117,12 @@ class AuthAbuseLimitMiddleware:
             # also counted, resisting user-enumeration and IP rotation.
             wait = _spend(path + ":ip", ip, ip_limit, ip_seconds)
             if wait:
+                logger.warning("SEC01 authentication rate ceiling hit: route=%s scope=network", path)
                 return _limit_response(wait, 429)
             if subject is not None:
                 wait = _spend(path + ":identity", subject, id_limit, id_seconds)
                 if wait:
+                    logger.warning("SEC01 authentication rate ceiling hit: route=%s scope=identifier", path)
                     return _limit_response(wait, 429)
         except DatabaseError:
             # Unavailable database must never silently disable auth protections.
