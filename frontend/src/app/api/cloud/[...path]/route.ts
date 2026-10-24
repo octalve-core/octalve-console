@@ -133,14 +133,35 @@ async function forward(request: NextRequest, context: Context) {
 
   if (isLogout) {
     let revoked = !refresh;
-    if (access && refresh) {
+    if (refresh) {
       try {
-        const res = await upstreamFetch(
-          target, "POST", access,
-          JSON.stringify({ refresh }),
-          "application/json",
-        );
-        revoked = res.ok;
+        // Revocation requires an authenticated user. If the access JWT has
+        // expired, rotate the refresh first, then revoke the new refresh.
+        let token = access;
+        let revokeRefresh = refresh;
+        if (!token) {
+          const rotated = await rotatedToken(base, refresh);
+          token = rotated?.access || null;
+          revokeRefresh = rotated?.refresh || refresh;
+        }
+        if (token) {
+          let res = await upstreamFetch(
+            target, "POST", token,
+            JSON.stringify({ refresh: revokeRefresh }),
+            "application/json",
+          );
+          if (res.status === 401 && refresh) {
+            const rotated = await rotatedToken(base, refresh);
+            if (rotated) {
+              res = await upstreamFetch(
+                target, "POST", rotated.access,
+                JSON.stringify({ refresh: rotated.refresh }),
+                "application/json",
+              );
+            }
+          }
+          revoked = res.ok;
+        }
       } catch { revoked = false; }
     }
     const response = NextResponse.json(
