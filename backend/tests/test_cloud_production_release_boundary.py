@@ -14,7 +14,7 @@ BACKEND_SETTINGS = ROOT / "backend" / "octalve_backend" / "settings.py"
 class CloudProductionReleaseBoundaryTests(TestCase):
     def test_temporary_api_bridge_is_not_shipped(self):
         self.assertFalse((FRONTEND / "lib/api/review-upstream.ts").exists())
-        self.assertFalse((FRONTEND / "app/api/cloud/[...path]/route.ts").exists())
+        self.assertTrue((FRONTEND / "app/api/cloud/[...path]/route.ts").exists())
 
     def test_public_client_and_session_proxy_have_no_review_bypass(self):
         sources = [
@@ -27,7 +27,6 @@ class CloudProductionReleaseBoundaryTests(TestCase):
             "OCTALVE_CLOUD_REVIEW_BYPASS_SECRET",
             "OCTALVE_CLOUD_REVIEW_UPSTREAM_ORIGIN",
             "octalve-cloud-api-git-review-",
-            "api/cloud",
         )
         for path in sources:
             data = path.read_text(encoding="utf-8-sig")
@@ -39,11 +38,34 @@ class CloudProductionReleaseBoundaryTests(TestCase):
     def test_client_and_proxy_fail_closed_without_api_configuration(self):
         client = (FRONTEND / "lib/api/client.ts").read_text(encoding="utf-8-sig")
         proxy = (FRONTEND / "proxy.ts").read_text(encoding="utf-8-sig")
-        self.assertIn("Octalve Cloud API URL is not configured for this deployment.", client)
+        self.assertIn("Octalve Cloud API URL is not configured.", client)
         self.assertIn("configured.pathname", client)
         self.assertIn("SAFE_API_BASE", proxy)
         self.assertIn("if (!SAFE_API_BASE) return null;", proxy)
         self.assertNotIn('||\n  "https://api.cloud.octalve.com/api"', proxy)
+
+    def test_bff_protects_tokens_and_origin(self):
+        client = (FRONTEND / "lib/api/client.ts").read_text(encoding="utf-8-sig")
+        session = (FRONTEND / "app/api/auth/session/route.ts").read_text(encoding="utf-8-sig")
+        gateway = (FRONTEND / "app/api/cloud/[...path]/route.ts").read_text(encoding="utf-8-sig")
+        server = (FRONTEND / "lib/api/server-session.ts").read_text(encoding="utf-8-sig")
+        self.assertIn("/api/cloud", client)
+        self.assertNotIn('headers.set("Authorization"', client)
+        self.assertIn("sessionStorage", client)  # Only to PURGE old legacy tokens
+        self.assertIn('Browser JWT storage is disabled.', client)
+        self.assertIn('return NextResponse.json(', session)
+        self.assertNotIn('{ access, refresh }', session)
+        self.assertIn('export async function POST()', session)
+        self.assertIn('status: 405', session)
+        self.assertIn('sameOriginRequest(', gateway)
+        self.assertIn('setSessionCookies(', gateway)
+        self.assertIn('clearSessionCookies(', gateway)
+        self.assertIn('Token endpoints are server-only.', gateway)
+        self.assertIn('import "server-only"', server)
+        self.assertIn('httpOnly: true', server)
+        for part in (client, gateway, session, server):
+            self.assertNotIn('x-vercel-protection-bypass', part)
+            self.assertNotIn('octalve-cloud-api-git-review-', part)
 
     def test_vercel_api_requires_persistent_database_url(self):
         settings = BACKEND_SETTINGS.read_text(encoding="utf-8-sig")

@@ -54,8 +54,7 @@ export type AuthTokenResponse = {
 };
 
 export type AuthSession = {
-  access: string;
-  refresh?: string;
+  // Only public identity details may cross the browser/server boundary.
   user: User;
 };
 
