@@ -169,3 +169,13 @@ After `security`, `django-check`, `frontend` and `postgres-auth-schema` GitHub c
 7. The code currently retains compatibility token storage in `sessionStorage` as well as HTTP-only cookies. This is not the preferred OWASP long-term server-only BFF/session architecture; do not advertise an XSS-proof session implementation. Logout blacklists refresh JWTs but does not immediately invalidate existing access JWTs for their full 60-minute lifetime.
 
 **Release remains NO GO for a public customer signup or paid services until the Production schema and security/legal gates are satisfied.**
+
+
+## Production recovery and credentials verified 2026-10-24
+
+- Production-only API secrets now include `DJANGO_SECRET_KEY` and pooled-TLS `DATABASE_URL` for Neon primary `main` (never Auth Review). Values are Sensitive and remain private. Separate one-time migrations require the independently verified **direct** Neon connection, not the runtime pooler.
+- A new manual Neon primary snapshot `snap-young-star-b80832tp` (`cloud-pre-production-auth-schema-2026-10-24`) was created while primary `neondb` contained **zero** public application tables.
+- The snapshot was restored to an **independent** branch `br-lucky-shape-b8792fwn` (`verification/pre-production-auth-snapshot-2026-10-24`), state **READY**; primary `br-dark-bread-b8j0gqz4` remains `main`, state READY. This verifies snapshot-to-new-branch creation but **not** an end-to-end application restore; the recovery branch has a compute, so manage its lifetime and cost separately. Do not delete without owner approval.
+- Review-only production migration script `backend/scripts/production_auth_schema_migration_cli.py`, wrapper `scripts/apply-neon-production-auth.ps1`, and denial tests were committed. The executor must independently validate schema plan, target, TLS, backup and typed approval. No migration has yet been applied to Neon primary.
+- The connected Vercel Sandbox creation API returned `403 forbidden`. Production migration cannot responsibly be called completed from this chat; operator execution is still needed.
+- Owning `octalve.com` domains are attached and Vercel-verified, but this does not imply API authentication readiness or commercial entitlement.
