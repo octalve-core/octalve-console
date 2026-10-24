@@ -260,3 +260,138 @@ class CloudAccountApiTests(APITestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("DATABASE_URL is required on Vercel", result.stderr)
+
+
+class AuthAbuseProtectionTests(APITestCase):
+    """Shared SQL throttle, not process-memory, for serverless auth endpoints."""
+
+    def test_login_limit_blocks_ninth_attempt_with_retry_after(self):
+        for _ in range(8):
+            result = self.client.post(
+                "/api/auth/jwt/create/",
+                {"email": "not-present@example.invalid", "password": "InvalidPassword-2026"},
+                format="json",
+            )
+            self.assertNotEqual(result.status_code, 429, result.data)
+        blocked = self.client.post(
+            "/api/auth/jwt/create/",
+            {"email": "not-present@example.invalid", "password": "InvalidPassword-2026"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 429, blocked.content)
+        self.assertGreater(int(blocked["Retry-After"]), 0)
+        self.assertEqual(blocked["Cache-Control"], "no-store")
+
+    def test_login_limit_tracks_identity_across_source_ips(self):
+        from unittest.mock import patch
+        with patch.dict("os.environ", {"VERCEL_ENV": "production"}):
+            for n in range(8):
+                result = self.client.post(
+                    "/api/auth/jwt/create/",
+                    {"email": "same-target@example.invalid", "password": "InvalidPassword-2026"},
+                    format="json",
+                    HTTP_X_FORWARDED_FOR=f"203.0.113.{n+1}",
+                )
+                self.assertNotEqual(result.status_code, 429, result.data)
+            blocked = self.client.post(
+                "/api/auth/jwt/create/",
+                {"email": "same-target@example.invalid", "password": "InvalidPassword-2026"},
+                format="json", HTTP_X_FORWARDED_FOR="203.0.113.99",
+            )
+            self.assertEqual(blocked.status_code, 429)
+
+    def test_signup_rate_limit_is_persistent(self):
+        for _ in range(5):
+            result = self.client.post(
+                "/api/auth/register/", {"email": "invalid"}, format="json",
+            )
+            self.assertNotEqual(result.status_code, 429)
+        blocked = self.client.post(
+            "/api/auth/register/", {"email": "invalid"}, format="json",
+        )
+        self.assertEqual(blocked.status_code, 429)
+        self.assertEqual(blocked["Cache-Control"], "no-store")
+
+    def test_bucket_fingerprints_never_store_email_or_ip(self):
+        from accounts.models import AuthThrottleBucket
+        self.client.post(
+            "/api/auth/jwt/create/",
+            {"email": "secret-target@example.invalid", "password": "invalid"}, format="json",
+        )
+        buckets = list(AuthThrottleBucket.objects.values_list("fingerprint", flat=True))
+        self.assertEqual(len(buckets), 2)
+        self.assertTrue(all(len(value) == 64 for value in buckets))
+        self.assertTrue(all("example.invalid" not in value and "127.0.0.1" not in value for value in buckets))
+
+    def test_unknown_storage_failure_refuses_authentication(self):
+        from django.db import DatabaseError
+        from unittest.mock import patch
+        with patch("accounts.security_throttle._spend", side_effect=DatabaseError("storage down")):
+            blocked = self.client.post(
+                "/api/auth/jwt/create/", {"email": "anything@example.invalid", "password": "password"}, format="json",
+            )
+        self.assertEqual(blocked.status_code, 503)
+        self.assertEqual(blocked["Cache-Control"], "no-store")
+
+    def test_untrusted_forwarded_header_not_used_outside_vercel(self):
+        from accounts.security_throttle import _request_ip
+        from django.test import RequestFactory
+        from unittest.mock import patch
+        request = RequestFactory().post(
+            "/api/auth/jwt/create/", HTTP_X_FORWARDED_FOR="198.51.100.77",
+            REMOTE_ADDR="127.0.0.1",
+        )
+        with patch.dict("os.environ", {"VERCEL_ENV": ""}):
+            self.assertEqual(_request_ip(request), "127.0.0.1")
+
+    def test_signed_bff_forwarding_cannot_be_spoofed_by_direct_client(self):
+        import hashlib
+        import hmac
+        import time
+        from django.test import RequestFactory
+        from unittest.mock import patch
+        from accounts.security_throttle import _request_ip
+
+        secret = "SEC01-CI-only-signed-proxy-test-key-1234567890"
+        forwarded = "198.51.100.98"
+        ts = str(int(time.time()))
+        path = "/api/auth/jwt/create/"
+        message = f"v1\n{forwarded}\n{ts}\nPOST\n{path}"
+        signature = hmac.new(
+            secret.encode(), message.encode(), hashlib.sha256,
+        ).hexdigest()
+        req = RequestFactory().post(
+            path,
+            HTTP_X_FORWARDED_FOR="203.0.113.45",
+            HTTP_X_OCTALVE_CLIENT_IP=forwarded,
+            HTTP_X_OCTALVE_CLIENT_IP_TS=ts,
+            HTTP_X_OCTALVE_CLIENT_IP_SIG=signature,
+        )
+        with patch.dict("os.environ", {
+            "VERCEL_ENV": "production",
+            "OCTALVE_BFF_SHARED_SECRET": secret,
+        }):
+            self.assertEqual(_request_ip(req), forwarded)
+            req.META["HTTP_X_OCTALVE_CLIENT_IP_SIG"] = "0" * 64
+            self.assertEqual(_request_ip(req), "203.0.113.45")
+            req.META["HTTP_X_OCTALVE_CLIENT_IP_SIG"] = signature
+            req.path = "/api/auth/register/"
+            self.assertEqual(_request_ip(req), "203.0.113.45")
+
+    def test_prune_is_dry_run_before_explicit_apply(self):
+        from accounts.models import AuthThrottleBucket
+        from django.core.management import call_command
+        from django.utils import timezone
+        from datetime import timedelta
+        from io import StringIO
+        bucket = AuthThrottleBucket.objects.create(
+            fingerprint="a" * 64,
+            attempts=3,
+            expires_at=timezone.now() - timedelta(days=3),
+        )
+        output = StringIO()
+        call_command("prune_auth_throttles", stdout=output)
+        self.assertIn("PLAN ONLY", output.getvalue())
+        self.assertTrue(AuthThrottleBucket.objects.filter(pk=bucket.pk).exists())
+        call_command("prune_auth_throttles", "--apply", stdout=StringIO())
+        self.assertFalse(AuthThrottleBucket.objects.filter(pk=bucket.pk).exists())
