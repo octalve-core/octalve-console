@@ -13,11 +13,10 @@ import psycopg
 
 REPO = Path(__file__).resolve().parents[2]
 PREVIEW_TARGETS = {
-    "review/cloud-sec-01-auth-hardening":
-        "ep-rapid-tree-b8sqdze9.c-14.us-east-1.aws.neon.tech",
-    "review/cloud-sec-01-bff-session":
-        "ep-winter-mode-b86rg1ko.c-14.us-east-1.aws.neon.tech",
+    "review/cloud": "ep-flat-wave-b8qrelyt.c-14.us-east-1.aws.neon.tech",
 }
+REVIEW_DATABASE = "octalve_sec01_review"
+REVIEW_OWNER = "octalve_sec01_review_owner"
 AUTHORIZATION = "APPLY SEC01 0003 TO ISOLATED NEON REVIEW ONLY"
 
 
@@ -38,8 +37,8 @@ def validate_target():
         valid = (
             p.scheme in ("postgresql", "postgres")
             and p.hostname == PREVIEW_TARGETS[branch]
-            and p.path == "/neondb"
-            and p.username == "neondb_owner"
+            and p.path == "/" + REVIEW_DATABASE
+            and p.username == REVIEW_OWNER
             and bool(p.password)
             and ssl in (["require"], ["verify-full"])
         )
@@ -68,7 +67,7 @@ def verify_isolation(uri):
             state = cur.fetchone()
     db_name, role, migrations, tables, users, outstanding, revoked, throttle = state
     if (db_name, role, migrations, tables, users, outstanding, revoked, throttle) != (
-        "neondb", "neondb_owner", 48, 91, 0, 0, 0, None
+        REVIEW_DATABASE, REVIEW_OWNER, 48, 91, 0, 0, 0, None
     ):
         deny("Preview is not a synthetic-only clean 48/91 baseline; do not test against Production clones")
     print("PASS: exact SEC01 Review target, encrypted direct connection, zero users/tokens, 48/91 schema.")
