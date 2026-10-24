@@ -48,6 +48,27 @@ class CloudAccountApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertEqual(response.data["email"], self.email)
 
+    def test_login_errors_do_not_enumerate_inactive_or_missing_account(self):
+        self.register()
+        user = get_user_model().objects.get(email=self.email)
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+        inactive = self.client.post(
+            "/api/auth/jwt/create/",
+            {"email": self.email, "password": self.password}, format="json",
+        )
+        missing = self.client.post(
+            "/api/auth/jwt/create/",
+            {"email": "absent-user@example.invalid", "password": self.password},
+            format="json",
+        )
+        self.assertEqual(inactive.status_code, missing.status_code)
+        self.assertEqual(inactive.data, missing.data)
+
+    def test_password_reset_does_not_expose_email_existence(self):
+        from django.conf import settings
+        self.assertIs(settings.DJOSER["PASSWORD_RESET_SHOW_EMAIL_NOT_FOUND"], False)
+
     def test_refresh_rotates_and_rejects_reused_refresh_token(self):
         from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
         signup = self.register()
