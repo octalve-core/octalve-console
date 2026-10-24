@@ -90,6 +90,9 @@ jobs:
       - name: Real Django API and isolated database regression
         working-directory: backend
         run: python manage.py test accounts.tests --verbosity=2
+      - name: BIZ-01 financial write authority regression
+        working-directory: backend
+        run: python manage.py test tests.test_biz01_authority --verbosity=2
       - name: Review revised auth migration plan (read-only, isolated CI)
         working-directory: backend
         run: |
