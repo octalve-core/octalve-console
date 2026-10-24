@@ -8,7 +8,8 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.utils import timezone
-from .models import Order, Coupon, CouponRedemption, Cart
+from .models import Order, OrderItem, Coupon, CouponRedemption, Cart
+from catalog.models import Plan, PlanBillingCycle
 from .serializers import (
     OrderSerializer, CreateOrderSerializer, CouponSerializer,
     ValidateCouponSerializer, CartSerializer
@@ -228,7 +229,7 @@ class CartViewSet(viewsets.GenericViewSet):
     serializer_class = CartSerializer
     permission_classes = [AllowAny]
     
-    def get_cart(self, request):
+    def _get_or_create_cart(self, request):
         """Get or create cart for current session/user"""
         session_key = request.session.session_key
         if not session_key:
@@ -251,14 +252,14 @@ class CartViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'])
     def get_cart(self, request):
         """Get current cart"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         serializer = self.get_serializer(cart)
         return Response(serializer.data)
     
     @action(detail=False, methods=['post'])
     def add_item(self, request):
         """Add item to cart"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         
         plan_id = request.data.get('plan_id')
         cycle_key = request.data.get('cycle_key', '1mo')
@@ -299,7 +300,7 @@ class CartViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'])
     def remove_item(self, request):
         """Remove item from cart"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         plan_id = request.data.get('plan_id')
         
         items = cart.items or []
@@ -313,7 +314,7 @@ class CartViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'])
     def update_quantity(self, request):
         """Update item quantity"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         plan_id = request.data.get('plan_id')
         quantity = request.data.get('quantity', 1)
         
@@ -331,7 +332,7 @@ class CartViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'])
     def clear(self, request):
         """Clear cart"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         cart.items = []
         cart.coupon_code = None
         cart.save()
@@ -341,7 +342,7 @@ class CartViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'])
     def apply_coupon(self, request):
         """Apply coupon to cart"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         coupon_code = request.data.get('coupon_code')
         
         try:
