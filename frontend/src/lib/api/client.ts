@@ -115,9 +115,31 @@ function createUrl(path: string, params?: QueryParams) {
   assertSafeQueryParams(params);
 
   const isAbsolute = /^https?:\/\//i.test(path);
-  const base = API_BASE_URL.replace(/\/$/, "");
+  const base = API_BASE_URL.trim().replace(/\/$/, "");
+  if (!isAbsolute) {
+    // Never silently use a relative Console path, a stale Review bridge, or
+    // an assumed Production API when the deployment lacks explicit config.
+    let configured: URL;
+    try {
+      configured = new URL(base);
+    } catch {
+      throw new Error("Octalve Cloud API URL is not configured for this deployment.");
+    }
+    if (
+      !["https:", "http:"].includes(configured.protocol) ||
+      (configured.protocol !== "https:" &&
+        !["localhost", "127.0.0.1"].includes(configured.hostname)) ||
+      configured.pathname.replace(/\/$/, "") !== "/api" ||
+      configured.search ||
+      configured.hash ||
+      configured.username ||
+      configured.password
+    ) {
+      throw new Error("Octalve Cloud API URL must be an HTTPS origin ending in /api.");
+    }
+  }
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  const url = new URL(isAbsolute ? path : `${base}${cleanPath}`, isBrowser() ? window.location.origin : "http://localhost");
+  const url = new URL(isAbsolute ? path : `${base}${cleanPath}`);
 
   if (params) {
     for (const [key, value] of Object.entries(params)) {

@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
@@ -24,7 +24,27 @@ function getToken(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-export async function POST(request: Request) {
+function isSameOriginRequest(request: NextRequest) {
+  const site = request.headers.get("sec-fetch-site");
+  if (site && site !== "same-origin" && site !== "none") return false;
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  try {
+    return new URL(origin).origin === request.nextUrl.origin;
+  } catch {
+    return false;
+  }
+}
+
+function denied() {
+  return NextResponse.json(
+    { detail: "Forbidden origin." },
+    { status: 403, headers: { "Cache-Control": "no-store" } },
+  );
+}
+
+export async function POST(request: NextRequest) {
+  if (!isSameOriginRequest(request)) return denied();
   const body = await request.json().catch(() => ({}));
 
   const access = getToken((body as Record<string, unknown>).access);
@@ -61,7 +81,8 @@ export async function POST(request: Request) {
   return response;
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  if (!isSameOriginRequest(request)) return denied();
   const response = NextResponse.json(
     { ok: true },
     {
@@ -82,4 +103,20 @@ export async function DELETE() {
   });
 
   return response;
+}
+
+/**
+ * Returns the same-origin cookie session to the existing browser API client.
+ * This synchronizes rotated tokens after the Next.js proxy refreshes them.
+ * Authentication authority remains the backend: this route never validates
+ * credentials or creates tokens, and responses must not be cached.
+ */
+export async function GET(request: NextRequest) {
+  if (!isSameOriginRequest(request)) return denied();
+  const access = request.cookies.get(ACCESS_COOKIE)?.value ?? null;
+  const refresh = request.cookies.get(REFRESH_COOKIE)?.value ?? null;
+  return NextResponse.json(
+    { access, refresh },
+    { headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } },
+  );
 }

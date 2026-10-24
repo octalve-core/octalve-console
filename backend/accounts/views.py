@@ -1,6 +1,6 @@
 # accounts/views.py
 
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
@@ -233,7 +233,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Lockout check
         if getattr(user, 'is_locked', False):
             raise serializers.ValidationError(
-                'Account is locked. Try again later.', code='authorization'
+                'No active account found with the given credentials.', code='authorization'
             )
 
         # Password check
@@ -246,7 +246,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Active check
         if not user.is_active:
             raise serializers.ValidationError(
-                'This account is inactive.', code='authorization'
+                'No active account found with the given credentials.', code='authorization'
             )
 
         # ---- Build tokens manually (do NOT call super().validate) ----
@@ -308,35 +308,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
-class CustomTokenRefreshView(APIView):
-    """
-    Custom token refresh view with better error handling
-    """
-    permission_classes = [AllowAny]
-    
-    def post(self, request):
-        refresh_token = request.data.get('refresh')
-        
-        if not refresh_token:
-            return Response(
-                {'error': 'Refresh token is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            refresh = RefreshToken(refresh_token)
-            access_token = str(refresh.access_token)
-            
-            return Response({
-                'access': access_token,
-                'refresh': str(refresh),
-            }, status=status.HTTP_200_OK)
-            
-        except TokenError as e:
-            return Response(
-                {'error': 'Invalid or expired refresh token', 'detail': str(e)},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+class CustomTokenRefreshView(TokenRefreshView):
+    """Use pinned SimpleJWT rotation, blacklist and active-user checks."""
 
 
 class CustomLogoutView(APIView):
@@ -349,19 +322,35 @@ class CustomLogoutView(APIView):
 
     def post(self, request):
         refresh_token = request.data.get('refresh')
+        if not isinstance(refresh_token, str) or not refresh_token.strip():
+            # A missing token cannot be blacklisted. End the Django session
+            # but never report successful server-side refresh revocation.
+            django_logout(request)
+            return Response(
+                {'error': 'Refresh token is required for server-side revocation.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        if refresh_token:
-            try:
-                RefreshToken(refresh_token).blacklist()
-            except TokenError:
-                pass  # invalid/expired refresh — proceed to end the session anyway
+        try:
+            token = RefreshToken(refresh_token)
+            if str(token.get(api_settings.USER_ID_CLAIM)) != str(request.user.pk):
+                return Response(
+                    {'error': 'Refresh token does not belong to this account.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            token.blacklist()
+        except TokenError:
+            django_logout(request)
+            return Response(
+                {'error': 'Refresh token is invalid, expired or already revoked.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
         django_logout(request)
         return Response(
             {'message': 'Successfully logged out'},
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
-
 
 class CustomUserInfoView(APIView):
     """

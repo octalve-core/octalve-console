@@ -1,0 +1,141 @@
+name: Cloud auth schema — disposable PostgreSQL acceptance
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "docs/CLOUD_FOUNDATION_AUTH_BLACKLIST_INITIAL_MIGRATION_CANDIDATE_2026-10-23.md"
+      - ".github/workflows/cloud-postgres-auth-review.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  postgres-auth-schema:
+    runs-on: ubuntu-latest
+    # This disposable CI service is NEVER Neon and has no external credentials.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: octalve_auth_ci
+          POSTGRES_USER: octalve_ci
+          POSTGRES_PASSWORD: local-only-ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U octalve_ci -d octalve_auth_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: "postgresql://octalve_ci:local-only-ci-password@localhost:5432/octalve_auth_ci?sslmode=disable"
+      DJANGO_SECRET_KEY: "CI-ONLY-NOT-PRODUCTION-SECURE-KEY-abcdefghijklmnopqrstuvwxyz-12345678"
+      FRONTEND_URL: "http://localhost:3000"
+      DEBUG: "true"
+      ALLOWED_HOSTS: "localhost,127.0.0.1"
+      ENCRYPTION_KEY: ""
+      VERCEL_ENV: ""
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Install pinned backend requirements
+        run: |
+          python -m pip install -r backend/requirements.txt
+          python -m pip check
+      - name: Verify exact isolated PostgreSQL target and locked 48-operation plan
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os
+          import hashlib
+          from pathlib import Path
+          import psycopg
+          from scripts.review_neon_migration_cli import capture_django_plan
+          assert os.environ['DATABASE_URL'].startswith('postgresql://octalve_ci:')
+          with psycopg.connect(os.environ['DATABASE_URL']) as db:
+              with db.cursor() as cur:
+                  cur.execute('select current_database(), current_user, to_regclass(%s)', ('public.django_migrations',))
+                  database, role, migrations = cur.fetchone()
+                  assert (database, role, migrations) == ('octalve_auth_ci', 'octalve_ci', None)
+          plan = capture_django_plan(Path.cwd(), os.environ.copy()).stdout
+          content = (Path.cwd().parent / 'docs' / 'CLOUD_FOUNDATION_AUTH_BLACKLIST_INITIAL_MIGRATION_CANDIDATE_2026-10-23.md').read_text(encoding='utf-8')
+          marker = '```text\n'
+          left = content.find(marker)
+          right = content.find('\n```', left + len(marker))
+          assert left >= 0 and right > left
+          expected = content[left + len(marker):right] + '\n'
+          assert plan == expected, 'Postgres migration plan differs from reviewed candidate'
+          digest = hashlib.sha256(plan.encode('utf-8')).hexdigest()
+          assert digest == '516cd378502964020838c5d23b89caf172bd1cf135677172ee85e4795892a8cd'
+          print('PASS: disposable PostgreSQL DB identity; locked 48/217 migration plan', digest)
+          PY
+      - name: Apply initial schema ONLY to disposable CI PostgreSQL
+        working-directory: backend
+        run: python manage.py migrate --noinput
+      - name: Independently verify PostgreSQL schema and migration ledger
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg
+          with psycopg.connect(os.environ['DATABASE_URL']) as db:
+              with db.cursor() as cur:
+                  cur.execute('SELECT COUNT(*) FROM django_migrations')
+                  assert cur.fetchone()[0] == 48, 'Not all 48 migration records exist'
+                  cur.execute("SELECT COUNT(*) FROM django_migrations WHERE app='token_blacklist'")
+                  assert cur.fetchone()[0] == 12, 'Blacklist history must contain 12 migrations'
+                  cur.execute("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname='public' ORDER BY tablename")
+                  tables = {r[0] for r in cur.fetchall()}
+                  assert {'token_blacklist_outstandingtoken', 'token_blacklist_blacklistedtoken', 'accounts_customuser'}.issubset(tables)
+                  cur.execute("""
+                      SELECT conname, pg_get_constraintdef(oid)
+                      FROM pg_constraint
+                      WHERE conrelid IN (
+                          'public.token_blacklist_outstandingtoken'::regclass,
+                          'public.token_blacklist_blacklistedtoken'::regclass
+                      ) ORDER BY conname
+                  """)
+                  constraints = cur.fetchall()
+                  assert any('UNIQUE' in definition and '(jti)' in definition for _,definition in constraints), 'Missing JTI uniqueness'
+                  assert any('FOREIGN KEY' in definition for _,definition in constraints), 'Missing token FK'
+                  print('PASS: PostgreSQL schema after disposable migration;', len(tables), 'public tables;', len(constraints), 'blacklist constraints')
+                  for name, definition in constraints:
+                      print('CONSTRAINT', name, definition)
+          PY
+      - name: Test real auth lifecycle against PostgreSQL
+        working-directory: backend
+        run: python manage.py test accounts.tests --verbosity=2
+      - name: Collect illustrative PostgreSQL SQL for every blacklist migration
+        if: always()
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import re
+          import subprocess
+          import sys
+          names = (
+            '0001_initial','0002_outstandingtoken_jti_hex',
+            '0003_auto_20171017_2007','0004_auto_20171017_2013',
+            '0005_remove_outstandingtoken_jti','0006_auto_20171017_2113',
+            '0007_auto_20171017_2214','0008_migrate_to_bigautofield',
+            '0010_fix_migrate_to_bigautofield','0011_linearizes_history',
+            '0012_alter_outstandingtoken_user','0013_alter_blacklistedtoken_options_and_more',
+          )
+          failed = []
+          for name in names:
+              result = subprocess.run([sys.executable,'manage.py','sqlmigrate','token_blacklist',name],
+                  capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=40)
+              print('SQLMIGRATE',name,'return_code',result.returncode)
+              if result.returncode:
+                  failed.append(name)
+                  print('SQL rendering requires manual review for',name)
+              else:
+                  ddl = [s.strip() for s in result.stdout.splitlines()
+                         if re.match(r'^(CREATE|ALTER|DROP|COMMENT|UPDATE|DELETE|INSERT|SELECT)\b',s.strip(),re.I)]
+                  print('Statements:', len(ddl))
+                  for statement in ddl[:35]:
+                      print(statement[:220])
+          print('SQLMIGRATE_NEEDS_REVIEW', ','.join(failed) if failed else 'none')
+          PY
