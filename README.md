@@ -1,3 +1,5 @@
+> **Verified Production baseline (2026-10-24):** Cloud Console and Django API are READY at GitHub `main` commit `0c58053370fde84ed14717b0688d91bb53ba359e`. Client signup, login, logout and role routing passed initial user browser testing. Neon Production `main` holds 48 migrations and 91 tables. **SEC-01 PR #5 and PR #6 are Review-only and not released**; paid hosting, payment settlement and real provisioning are not accepted. The earlier MVP notes below are historical, not current-state guarantees. See `docs/CLOUD_SEC01_AUTH_ABUSE_QUALIFICATION_2026-10-24.md` and `docs/CLOUD_PRODUCTION_READINESS_GATE_2026-10-24.md`.
+
 # Octalve Console — Premium MVP Package
 
 Octalve Console is a hosting business operating system inspired by the operational depth of WHMCS, Blesta and Paymenter, with cleaner product UX patterns similar to Hostinger, Namecheap and GoDaddy.
