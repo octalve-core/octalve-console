@@ -133,3 +133,39 @@ This records **preparation only**; it does not change the NO GO decision above.
 - Console **Production-only** plain variables now set: `NEXT_PUBLIC_ALLOW_FALLBACK_DATA=false`, `NEXT_PUBLIC_APP_URL=https://console.cloud.octalve.com`, `NEXT_PUBLIC_API_BASE_URL=https://api.cloud.octalve.com/api`.
 - Production Django `DJANGO_SECRET_KEY`, Production `DATABASE_URL`, `ENCRYPTION_KEY` if feature-required, real production mail setup, and explicit database migration approval **remain missing**. The Neon primary `main` still has no Django tables. No DB migrations or releases ran during this preparation.
 - **Deployment decision: blocked.** A new production-target deployment would either fail Django settings initialization or expose a nonfunctional signup/login experience. Never point Production at the working Auth Review database as a workaround. Keep the existing Production deployments and both draft PRs unchanged until schema and secret gates are satisfied.
+
+
+## Production authentication execution update — 2026-10-24
+
+**Owner objective:** Production-domain internal authentication trial, including signup, login, logout, refresh and user-role dashboard routing; **not** the acceptance of paid users.
+
+### Independently completed by the connected apps
+
+- Both `console.cloud.octalve.com` and `api.cloud.octalve.com` are attached and verified in Vercel. Domain verification does not demonstrate application health.
+- Vercel API **Production-only Sensitive** variables are now set: `DATABASE_URL` (Neon primary `br-dark-bread-b8j0gqz4` / `main`, `neondb`, pooled TLS connection) and `DJANGO_SECRET_KEY` (unique secret produced using cryptographic PostgreSQL UUID generation). Values were never put in source code or output; their actual plain text is not shown.
+- Existing API production-only `DEBUG=false`, `ALLOWED_HOSTS`, `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` and Console `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_ALLOW_FALLBACK_DATA=false` remain set.
+- OWASP-focused hardening in Review source: account-locked/inactive logins no longer distinguish themselves from invalid identities, and Djoser no longer reveals whether a password-reset address exists. Backend security regressions were added.
+- Created `backend/scripts/production_auth_schema_migration_cli.py` and `scripts/apply-neon-production-auth.ps1`. They require the **Neon primary direct endpoint**, strict TLS, exact database/role, zero existing tables, the source-pinned 48-migration/217-operation plan and digest `516cd378502964020838c5d23b89caf172bd1cf135677172ee85e4795892a8cd`, recovery-branch acknowledgement `br-wild-sea-b8dy0nsz`, and **interactive typed Production authorization**. No automatic migrations from CI, builds or serverless functions.
+- Attempting to create a disposable Vercel Sandbox to run this command returned **403, not permitted** for the connected team. Consequently the migration has **not** been run; CI's disposable PostgreSQL migration cannot substitute for Production.
+
+### Exact remaining critical path — operator-controlled execution
+
+After `security`, `django-check`, `frontend` and `postgres-auth-schema` GitHub checks all pass at the exact intended commit:
+
+1. Using the local checkout `octalve-core/octalve-console`, check out `review/cloud-auth-token-lifecycle` and fast-forward it. Keep the worktree clean.
+2. Open https://console.neon.tech → project `falling-surf-50258433` → `main` branch → `neondb` → Connect. Select **direct** (not pooled) connection; copy it without revealing it to anyone. It must point to `ep-cool-butterfly-b8jvzofp.c-14.us-east-1.aws.neon.tech`. **Do not use the Auth Review endpoint**.
+3. In PowerShell at the repository root:
+   ```powershell
+   .\scripts\apply-neon-production-auth.ps1 -PlanOnly
+   ```
+   Verify the 48/217 SHA-256 check. This creates no tables.
+4. If recovery checkpoint `br-wild-sea-b8dy0nsz` still reflects the database's pre-migration state and the plan passes, run:
+   ```powershell
+   .\scripts\apply-neon-production-auth.ps1 -Apply
+   ```
+   The runner prompts for the direct URL (hidden) and requires the exact typed phrase displayed by the runner. **Never paste the connection string, Django signing key or tokens into chat**. The script independently verifies counts on completion.
+5. Read back the Neon primary ledger, 12 blacklist migrations, 91 public tables and constraints through a separate read-only connection. If the migration fails mid-way, do **not retry blindly**.
+6. Only after Production database qualification, resolve email sender, legal terms, actual commercial hosting entitlement and browser auth acceptance. Promote PR #3 then PR #4 in the correct order, staging tested Production builds before alias assignment when possible.
+7. The code currently retains compatibility token storage in `sessionStorage` as well as HTTP-only cookies. This is not the preferred OWASP long-term server-only BFF/session architecture; do not advertise an XSS-proof session implementation. Logout blacklists refresh JWTs but does not immediately invalidate existing access JWTs for their full 60-minute lifetime.
+
+**Release remains NO GO for a public customer signup or paid services until the Production schema and security/legal gates are satisfied.**
