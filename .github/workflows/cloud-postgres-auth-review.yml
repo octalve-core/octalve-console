@@ -1,5 +1,8 @@
 name: Cloud auth schema — disposable PostgreSQL acceptance
 on:
+  push:
+    branches:
+      - review/cloud
   pull_request:
     paths:
       - "backend/**"
