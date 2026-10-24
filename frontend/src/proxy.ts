@@ -1,4 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
+import { resolveAuthReviewUpstream } from "./lib/api/review-upstream";
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
@@ -276,30 +277,43 @@ function buildLoginRedirect(request: NextRequest) {
   return response;
 }
 
-async function fetchCurrentUser(accessToken: string): Promise<BackendUser | null> {
-  const response = await fetch(`${API_BASE_URL}/auth/users/me/`, {
+async function fetchCurrentUser(
+  accessToken: string,
+  request: NextRequest,
+): Promise<BackendUser | null> {
+  const preview = process.env.VERCEL_ENV === "preview";
+  const upstream = preview ? resolveAuthReviewUpstream(request) : null;
+  // Never fall back to the Production API when protected Review identity fails.
+  if (preview && !upstream) return null;
+  const response = await fetch(`${upstream?.apiBase ?? API_BASE_URL}/auth/users/me/`, {
     method: "GET",
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${accessToken}`,
+      ...(upstream?.protectedHeaders ?? {}),
     },
     cache: "no-store",
+    redirect: "manual",
   });
 
   if (!response.ok) return null;
-
   return response.json() as Promise<BackendUser>;
 }
 
-async function refreshAccessToken(refreshToken: string) {
-  const response = await fetch(`${API_BASE_URL}/auth/jwt/refresh/`, {
+async function refreshAccessToken(refreshToken: string, request: NextRequest) {
+  const preview = process.env.VERCEL_ENV === "preview";
+  const upstream = preview ? resolveAuthReviewUpstream(request) : null;
+  if (preview && !upstream) return null;
+  const response = await fetch(`${upstream?.apiBase ?? API_BASE_URL}/auth/jwt/refresh/`, {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      ...(upstream?.protectedHeaders ?? {}),
     },
     body: JSON.stringify({ refresh: refreshToken }),
     cache: "no-store",
+    redirect: "manual",
   });
 
   if (!response.ok) return null;
@@ -310,7 +324,6 @@ async function refreshAccessToken(refreshToken: string) {
   };
 
   if (!payload.access) return null;
-
   return {
     access: payload.access,
     refresh: payload.refresh,
@@ -322,7 +335,7 @@ async function resolveSession(request: NextRequest): Promise<SessionCheck> {
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
 
   if (accessToken) {
-    const user = await fetchCurrentUser(accessToken).catch(() => null);
+    const user = await fetchCurrentUser(accessToken, request).catch(() => null);
 
     if (user) {
       return {
@@ -337,13 +350,13 @@ async function resolveSession(request: NextRequest): Promise<SessionCheck> {
     return { user: null };
   }
 
-  const refreshed = await refreshAccessToken(refreshToken).catch(() => null);
+  const refreshed = await refreshAccessToken(refreshToken, request).catch(() => null);
 
   if (!refreshed?.access) {
     return { user: null };
   }
 
-  const user = await fetchCurrentUser(refreshed.access).catch(() => null);
+  const user = await fetchCurrentUser(refreshed.access, request).catch(() => null);
 
   if (!user) {
     return { user: null };
