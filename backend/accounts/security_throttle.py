@@ -10,6 +10,8 @@ import ipaddress
 import json
 import logging
 import os
+import re
+import time
 from datetime import timedelta
 
 from django.conf import settings
@@ -41,7 +43,33 @@ def _fingerprint(scope, value):
 
 
 def _request_ip(request):
-    # Vercel overwrites X-Forwarded-For at ingress. Never trust this header
+    # BFF-to-API forwarding traverses a second Vercel function. The API would
+    # otherwise rate-limit the Console egress IP shared by many customers.
+    # Only a fresh, path-bound HMAC signed by the server-side BFF can restore
+    # the genuine visitor IP. Direct requests cannot forge this identity.
+    secret = os.environ.get("OCTALVE_BFF_SHARED_SECRET", "")
+    supplied_ip = request.META.get("HTTP_X_OCTALVE_CLIENT_IP", "")
+    timestamp = request.META.get("HTTP_X_OCTALVE_CLIENT_IP_TS", "")
+    signature = request.META.get("HTTP_X_OCTALVE_CLIENT_IP_SIG", "")
+    if (
+        os.environ.get("VERCEL_ENV")
+        and len(secret) >= 32 and supplied_ip and timestamp and signature
+        and re.fullmatch(r"[0-9a-f]{64}", signature)
+        and timestamp.isascii() and timestamp.isdecimal()
+    ):
+        try:
+            client_ip = ipaddress.ip_address(supplied_ip).compressed
+            stamp = int(timestamp)
+            if abs(int(time.time()) - stamp) <= 60:
+                message = f"v1\\n{client_ip}\\n{timestamp}\\n{request.method}\\n{request.path}"
+                expected = hmac.new(
+                    secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256,
+                ).hexdigest()
+                if hmac.compare_digest(expected, signature):
+                    return client_ip
+        except ValueError:
+            pass
+    # Vercel replaces X-Forwarded-For at ingress. Never trust this header
     # on local/self-hosted deployments whose proxy has not been verified.
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR") if os.environ.get("VERCEL_ENV") else None
     candidate = (forwarded or request.META.get("REMOTE_ADDR") or "").split(",")[0].strip()
