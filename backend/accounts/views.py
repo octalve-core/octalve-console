@@ -233,7 +233,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Lockout check
         if getattr(user, 'is_locked', False):
             raise serializers.ValidationError(
-                'Account is locked. Try again later.', code='authorization'
+                'No active account found with the given credentials.', code='authorization'
             )
 
         # Password check
@@ -246,7 +246,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Active check
         if not user.is_active:
             raise serializers.ValidationError(
-                'This account is inactive.', code='authorization'
+                'No active account found with the given credentials.', code='authorization'
             )
 
         # ---- Build tokens manually (do NOT call super().validate) ----
