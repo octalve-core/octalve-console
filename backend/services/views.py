@@ -56,37 +56,24 @@ class ServiceViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def credentials(self, request, pk=None):
-        """Get service credentials"""
-        service = self.get_object()
-        
-        # Check permission - only client and admins can see credentials
-        if request.user.role not in ['admin', 'staff'] and service.client != request.user:
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-        
-        try:
-            credentials = service.credentials
-            serializer = ServiceCredentialSerializer(credentials)
-            return Response(serializer.data)
-        except ServiceCredential.DoesNotExist:
-            return Response({'message': 'No credentials available'}, status=status.HTTP_404_NOT_FOUND)
-    
+        """Legacy browser credential download is permanently disabled."""
+        self.get_object()  # Preserve owner-scoped 404.
+        return Response(
+            {"detail": "Provider credentials are server-side only. Use verified OPanel SSO."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
     @action(detail=True, methods=['post'])
     def update_credentials(self, request, pk=None):
-        """Update service credentials (admin only)"""
+        """No browser may write provider passwords or privileged API keys."""
         if not (request.user.is_superuser or request.user.role == 'admin'):
-            return Response({'error': 'Administrator authority required'}, status=status.HTTP_403_FORBIDDEN)
-        service = self.get_object()
-        
-        if request.user.role not in ['admin', 'staff']:
-            return Response({'error': 'Only staff can update credentials'}, status=status.HTTP_403_FORBIDDEN)
-        
-        credentials, created = ServiceCredential.objects.get_or_create(service=service)
-        serializer = ServiceCredentialSerializer(credentials, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        
-        return Response(serializer.data)
-    
+            return Response({"detail": "Not authorised."}, status=status.HTTP_403_FORBIDDEN)
+        self.get_object()
+        return Response(
+            {"detail": "Browser credential mutation is disabled. Use audited provider workers."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
     @action(detail=True, methods=['get'])
     def usage(self, request, pk=None):
         """Get service usage history"""
