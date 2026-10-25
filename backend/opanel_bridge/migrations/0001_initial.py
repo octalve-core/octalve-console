@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
                 ("provider_id_snapshot", models.IntegerField()),
                 ("account_digest", models.CharField(max_length=64)),
                 ("binding_ref", models.UUIDField(default=uuid.uuid4, editable=False, unique=True)),
-                ("confirmation_source", models.CharField(default="provider_api_readback", max_length=40)),
+                ("confirmation_source", models.CharField(max_length=40)),
                 ("confirmed_at", models.DateTimeField()),
                 ("revoked_at", models.DateTimeField(blank=True, null=True)),
                 ("service", models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name="opanel_binding", to="services.service")),
