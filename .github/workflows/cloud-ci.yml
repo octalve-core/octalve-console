@@ -91,7 +91,7 @@ jobs:
         run: python scripts/security_release_check.py
       - name: Real Django API and isolated database regression
         working-directory: backend
-        run: python manage.py test accounts.tests orders.tests tests.test_biz01_authority --verbosity=2
+        run: python manage.py test accounts.tests orders.tests tests.test_biz01_authority catalog.tests --verbosity=2
       - name: BIZ-01 financial write authority regression
         working-directory: backend
         run: python manage.py test tests.test_biz01_authority --verbosity=2
