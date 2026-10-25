@@ -115,10 +115,13 @@ class PaidHostingFunnelTests(TestCase):
             task.mark_completed({"provider": "200 OK"})
         service.refresh_from_db()
         self.assertEqual(service.status, "pending")
-        # Repeated provider verification after the intent has completed is
-        # refused before any network call. Duplicate value is never delivered.
-        with self.assertRaises(Exception):
-            settle_verified_intent(self.intent.pk, getter=self.getter)
+        # Exactly-once financial delivery: duplicates return the original
+        # locked transaction and never issue another gateway HTTP GET.
+        second_tx, created_again = settle_verified_intent(self.intent.pk, getter=self.getter)
+        self.assertFalse(created_again)
+        self.assertEqual(second_tx.pk, tx.pk)
+        self.assertEqual(self.getter.call_count, 1)
+        self.assertEqual(Transaction.objects.count(), 1)
 
     def test_outbox_requires_genuine_payment_evidence_and_does_not_accept_paid_flags(self):
         self.invoice.status = "paid"
