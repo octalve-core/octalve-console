@@ -43,46 +43,19 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def pay_with_wallet(self, request, pk=None):
-        """Pay invoice using wallet balance"""
-        invoice = self.get_object()
-        
-        if invoice.status == 'paid':
-            return Response({'error': 'Invoice already paid'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        wallet = request.user.wallet
-        if wallet.balance < invoice.amount_due:
-            return Response({'error': 'Insufficient wallet balance'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Deduct from wallet
-        wallet.deduct_balance(
-            amount=invoice.amount_due,
-            description=f"Payment for invoice {invoice.invoice_number}",
-            reference=invoice.invoice_number,
-            created_by=request.user
+        """No unverified wallet debit or invoice-paid shortcut.
+
+        Legacy implementation deducted wallet funds then called invoice.mark_paid()
+        without an atomic trusted transaction and recorded amount_due only after
+        marking it zero. Block until the wallet ledger and settlement outbox are
+        independently qualified; preventing lost money is more important than
+        maintaining an unsafe convenience endpoint.
+        """
+        return Response(
+            {'error': 'Wallet invoice payment is temporarily unavailable.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-        
-        # Mark invoice as paid
-        invoice.mark_paid()
-        
-        # Create transaction record
-        from payments.models import Transaction
-        Transaction.objects.create(
-            client=request.user,
-            invoice=invoice,
-            gateway=None,
-            reference=f"WALLET-{invoice.invoice_number}",
-            transaction_type='payment',
-            currency=invoice.currency,
-            amount=invoice.amount_due,
-            fee=0,
-            net_amount=invoice.amount_due,
-            status='successful',
-            payment_method='wallet',
-            paid_at=timezone.now()
-        )
-        
-        return Response({'message': 'Invoice paid successfully'})
-    
+
     @action(detail=True, methods=['get'])
     def download_pdf(self, request, pk=None):
         """Download invoice as PDF"""
