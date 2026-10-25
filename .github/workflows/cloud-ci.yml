@@ -49,6 +49,8 @@ jobs:
         run: corepack enable && corepack prepare pnpm@9.15.9 --activate
       - name: Install
         run: pnpm install --frozen-lockfile
+      - name: BFF canonical Django paths (regression)
+        run: node frontend/scripts/test-cloud-api-path.cjs
       - name: TypeScript
         run: pnpm typecheck:frontend
       - name: Next.js build
