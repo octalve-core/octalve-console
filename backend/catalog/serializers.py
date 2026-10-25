@@ -19,15 +19,17 @@ class PlanBillingCycleSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanBillingCycle
         fields = ['id', 'cycle_key', 'label', 'months', 'price', 'regular_price', 
-                  'discount_percent', 'setup_fee', 'monthly_price', 'is_default']
+                  'discount_percent', 'setup_fee', 'monthly_price', 'is_default', 'is_active']
 
 class PlanSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_type = serializers.CharField(source='product.product_type', read_only=True)
     features = PlanFeatureSerializer(many=True, read_only=True)
     billing_cycles = PlanBillingCycleSerializer(many=True, read_only=True)
     
     class Meta:
         model = Plan
-        fields = ['id', 'product', 'name', 'slug', 'description', 'currency', 
+        fields = ['id', 'product', 'product_name', 'product_type', 'name', 'slug', 'description', 'currency', 
                   'base_price', 'status', 'is_public', 'is_popular', 'sort_order',
                   'features', 'billing_cycles']
 
