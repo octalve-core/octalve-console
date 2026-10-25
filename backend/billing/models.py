@@ -1,6 +1,7 @@
 # billing/models.py
 
-from django.db import models
+from django.db import models, transaction
+from octalve_backend.document_sequence import lock_document_sequence
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.utils import timezone
@@ -63,9 +64,13 @@ class Invoice(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.invoice_number:
-            self.invoice_number = self.generate_invoice_number()
+            with transaction.atomic():
+                lock_document_sequence(2)
+                self.invoice_number = self.generate_invoice_number()
+                self.amount_due = self.total - self.amount_paid
+                return super().save(*args, **kwargs)
         self.amount_due = self.total - self.amount_paid
-        super().save(*args, **kwargs)
+        return super().save(*args, **kwargs)
     
     def generate_invoice_number(self):
         """Generate unique invoice number: INV-2024-00001"""
