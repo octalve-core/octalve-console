@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Service, ServiceUsage
+from opanel_bridge.policy import enabled, eligible
 
 
 def opanel_overview(service):
@@ -41,7 +42,7 @@ def opanel_overview(service):
             'ssl': False,
             'backups': False,
             'email': False,
-            'panel_sso': False,
+            'panel_sso': bool(enabled() and eligible(service.client_id, service.pk)),
         },
         'message': (
             'Provider-backed OPanel management requires separately accepted '
