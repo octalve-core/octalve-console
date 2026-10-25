@@ -26,6 +26,14 @@ from rbac.decorators import permission_required
 import re
 
 
+def _requires_approved_provider(operation):
+    """Fail closed: neither draft offers nor internal records prove an external action."""
+    return Response(
+        {'error': f'{operation} unavailable until approved provider authority and confirmed execution are implemented.'},
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
+
+
 class DomainViewSet(viewsets.ModelViewSet):
     """ViewSet for domains"""
     
@@ -53,31 +61,9 @@ class DomainViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def update_nameservers(self, request, pk=None):
-        """Update domain nameservers"""
-        domain = self.get_object()
-        nameservers = request.data.get('nameservers', [])
-        
-        # Clear existing
-        domain.nameservers.all().delete()
-        
-        # Create new
-        for idx, ns in enumerate(nameservers):
-            DomainNameserver.objects.create(
-                domain=domain,
-                hostname=ns,
-                sort_order=idx
-            )
-        
-        # Call provider API to update nameservers
-        if domain.provider:
-            adapter = ProviderRegistry.get_adapter(domain.provider.id)
-            result = adapter.update_nameservers(domain.domain_name, nameservers)
-            
-            if not result.success:
-                return Response({'error': result.error}, status=status.HTTP_400_BAD_REQUEST)
-        
-        return Response({'message': 'Nameservers updated successfully'})
-    
+        self.get_object()  # Enforce ownership; do not write local nameservers first.
+        return _requires_approved_provider('Nameserver change')
+
     @action(detail=True, methods=['get'])
     def dns_records(self, request, pk=None):
         """Get DNS records"""
@@ -88,94 +74,33 @@ class DomainViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def create_dns_record(self, request, pk=None):
-        """Create DNS record"""
-        domain = self.get_object()
-        serializer = DNSRecordCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        # Create record
-        record = DNSRecord.objects.create(
-            domain=domain,
-            record_type=serializer.validated_data['record_type'],
-            name=serializer.validated_data['name'],
-            value=serializer.validated_data['value'],
-            ttl=serializer.validated_data['ttl'],
-            priority=serializer.validated_data.get('priority')
-        )
-        
-        # Call provider API to create record
-        if domain.provider:
-            adapter = ProviderRegistry.get_adapter(domain.provider.id)
-            result = adapter.update_dns_record(domain.domain_name, {
-                'type': record.record_type,
-                'name': record.name,
-                'value': record.value,
-                'ttl': record.ttl,
-                'priority': record.priority
-            })
-            
-            if result.success:
-                record.provider_record_id = result.data.get('record_id')
-                record.save()
-        
-        return Response(DNSRecordSerializer(record).data, status=status.HTTP_201_CREATED)
-    
+        self.get_object()
+        return _requires_approved_provider('DNS record creation')
+
     @action(detail=True, methods=['post'])
     def delete_dns_record(self, request, pk=None):
-        """Delete DNS record"""
-        domain = self.get_object()
-        record_id = request.data.get('record_id')
-        
-        record = get_object_or_404(DNSRecord, id=record_id, domain=domain)
-        
-        # Call provider API to delete record
-        if domain.provider and record.provider_record_id:
-            adapter = ProviderRegistry.get_adapter(domain.provider.id)
-            adapter.delete_dns_record(domain.domain_name, record.provider_record_id)
-        
-        record.delete()
-        return Response({'message': 'DNS record deleted'})
-    
+        self.get_object()
+        return _requires_approved_provider('DNS record deletion')
+
     @action(detail=True, methods=['post'])
     def renew(self, request, pk=None):
-        """Renew domain"""
-        domain = self.get_object()
-        years = request.data.get('years', 1)
-        
-        # Get TLD pricing
-        tld_pricing = TLDPricing.objects.filter(tld=domain.tld, status='active').first()
-        if not tld_pricing:
-            return Response({'error': 'Pricing not found for TLD'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Create invoice for renewal
-        amount = tld_pricing.renewal_price * years
-        
-        invoice = Invoice.objects.create(
-            client=domain.client,
-            subtotal=amount,
-            total=amount,
-            due_date=timezone.now() + timezone.timedelta(days=7),
-            metadata={'type': 'domain_renewal', 'domain_id': domain.id, 'years': years}
-        )
-        
-        InvoiceItem.objects.create(
-            invoice=invoice,
-            description=f"Renewal of {domain.domain_name} for {years} year(s)",
-            product_id=0,  # Domain product
-            domain_name=domain.domain_name,
-            quantity=years,
-            unit_price=tld_pricing.renewal_price,
-            subtotal=amount,
-            period_start=timezone.now(),
-            period_end=timezone.now() + timezone.timedelta(days=years * 365)
-        )
-        
-        return Response({
-            'message': 'Renewal invoice created',
-            'invoice_id': invoice.id,
-            'invoice_number': invoice.invoice_number,
-            'amount': amount
-        })
+        self.get_object()
+        return _requires_approved_provider('Domain renewal')
+
+    def create(self, request, *args, **kwargs):
+        return _requires_approved_provider('Domain record creation')
+
+    def update(self, request, *args, **kwargs):
+        self.get_object()
+        return _requires_approved_provider('Domain record update')
+
+    def partial_update(self, request, *args, **kwargs):
+        self.get_object()
+        return _requires_approved_provider('Domain record update')
+
+    def destroy(self, request, *args, **kwargs):
+        self.get_object()
+        return _requires_approved_provider('Domain record deletion')
 
 
 class DNSRecordViewSet(viewsets.ModelViewSet):
@@ -192,12 +117,23 @@ class DNSRecordViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def toggle_active(self, request, pk=None):
-        """Toggle DNS record active status"""
-        record = self.get_object()
-        record.is_active = not record.is_active
-        record.save()
-        
-        return Response({'is_active': record.is_active})
+        self.get_object()
+        return _requires_approved_provider('DNS state change')
+
+    def create(self, request, *args, **kwargs):
+        return _requires_approved_provider('DNS record creation')
+
+    def update(self, request, *args, **kwargs):
+        self.get_object()
+        return _requires_approved_provider('DNS record update')
+
+    def partial_update(self, request, *args, **kwargs):
+        self.get_object()
+        return _requires_approved_provider('DNS record update')
+
+    def destroy(self, request, *args, **kwargs):
+        self.get_object()
+        return _requires_approved_provider('DNS record deletion')
 
 
 class TLDPricingViewSet(viewsets.ReadOnlyModelViewSet):
@@ -218,204 +154,25 @@ class DomainSearchViewSet(viewsets.GenericViewSet):
     
     @action(detail=False, methods=['post'])
     def check(self, request):
-        """Check domain availability"""
+        """Never fabricate registrar availability or imply an unchecked offer."""
         serializer = DomainCheckSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        domain_name = serializer.validated_data['domain_name']
-        
-        # Parse domain and TLD
-        parts = domain_name.split('.')
-        domain = parts[0]
-        tld = '.' + '.'.join(parts[1:])
-        
-        # Get TLD pricing
-        tld_pricing = TLDPricing.objects.filter(tld=tld, status='active').first()
-        
-        # Check availability (would call provider API)
-        # For now, simulate
-        from providers.registry import ProviderRegistry
-        provider = Provider.objects.filter(adapter_type='DomainRegistrarAdapter', status='active').first()
-        
-        if provider:
-            adapter = ProviderRegistry.get_adapter(provider.id)
-            result = adapter.check_availability(domain_name)
-            
-            is_available = result.success and result.data.get('available', False)
-            price = tld_pricing.register_price if is_available and tld_pricing else None
-        else:
-            # Mock response for development
-            is_available = False
-            price = tld_pricing.register_price if tld_pricing else None
-        
-        # Log search
-        DomainSearchLog.objects.create(
-            client=request.user if request.user.is_authenticated else None,
-            session_key=request.session.session_key,
-            query=domain_name,
-            tld=tld,
-            is_available=is_available,
-            price=price,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT')
-        )
-        
-        return Response({
-            'domain': domain_name,
-            'available': is_available,
-            'price': price,
-            'currency': 'NGN',
-            'tld_info': {
-                'tld': tld,
-                'register_price': tld_pricing.register_price if tld_pricing else None,
-                'transfer_price': tld_pricing.transfer_price if tld_pricing else None,
-                'renewal_price': tld_pricing.renewal_price if tld_pricing else None,
-            } if tld_pricing else None
-        })
-    
+        return _requires_approved_provider('Live registrar availability and pricing')
+
     @action(detail=False, methods=['post'])
-    @transaction.atomic
     def register(self, request):
-        """Register a domain"""
-        serializer = DomainRegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        domain_name = serializer.validated_data['domain_name']
-        years = serializer.validated_data['years']
-        
-        # Get TLD pricing
-        parts = domain_name.split('.')
-        tld = '.' + '.'.join(parts[1:])
-        tld_pricing = TLDPricing.objects.filter(tld=tld, status='active').first()
-        
-        if not tld_pricing:
-            return Response({'error': 'TLD not supported'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Calculate price
-        amount = tld_pricing.register_price * years
-        
-        # Create order
-        order = Order.objects.create(
-            client=request.user,
-            source='web',
-            status='pending_payment',
-            subtotal=amount,
-            total=amount
-        )
-        
-        # Create order item
-        OrderItem.objects.create(
-            order=order,
-            product_id=0,  # Domain product ID
-            plan_id=0,  # Domain plan ID
-            billing_cycle_id=0,
-            item_type='domain',
-            description=f"Domain registration: {domain_name} for {years} year(s)",
-            domain_name=domain_name,
-            quantity=years,
-            unit_price=tld_pricing.register_price,
-            cycle_key='yearly',
-            months=years * 12,
-            config={
-                'nameservers': serializer.validated_data.get('nameservers', []),
-                'registrant_contact': serializer.validated_data.get('registrant_contact'),
-                'admin_contact': serializer.validated_data.get('admin_contact'),
-                'privacy_protection': serializer.validated_data.get('privacy_protection', False)
-            }
-        )
-        
-        # Create invoice
-        invoice = Invoice.create_from_order(order)
-        
-        return Response({
-            'message': 'Domain registration initiated',
-            'order_id': order.id,
-            'order_number': order.order_number,
-            'invoice_id': invoice.id,
-            'invoice_number': invoice.invoice_number,
-            'amount': amount
-        })
-    
+        """Registration requires an approved quote and verified settlement."""
+        return _requires_approved_provider('Domain registration')
+
     @action(detail=False, methods=['post'])
-    @transaction.atomic
     def transfer(self, request):
-        """Transfer a domain"""
-        serializer = DomainTransferSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        domain_name = serializer.validated_data['domain_name']
-        
-        # Get TLD pricing
-        parts = domain_name.split('.')
-        tld = '.' + '.'.join(parts[1:])
-        tld_pricing = TLDPricing.objects.filter(tld=tld, status='active').first()
-        
-        if not tld_pricing:
-            return Response({'error': 'TLD not supported'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Calculate price
-        amount = tld_pricing.transfer_price
-        
-        # Create order
-        order = Order.objects.create(
-            client=request.user,
-            source='web',
-            status='pending_payment',
-            subtotal=amount,
-            total=amount
-        )
-        
-        # Create order item
-        OrderItem.objects.create(
-            order=order,
-            product_id=0,
-            plan_id=0,
-            billing_cycle_id=0,
-            item_type='domain',
-            description=f"Domain transfer: {domain_name}",
-            domain_name=domain_name,
-            quantity=1,
-            unit_price=tld_pricing.transfer_price,
-            cycle_key='once',
-            months=0,
-            config={
-                'epp_code': serializer.validated_data['epp_code'],
-                'auth_code': serializer.validated_data.get('auth_code')
-            }
-        )
-        
-        # Create invoice
-        invoice = Invoice.create_from_order(order)
-        
-        return Response({
-            'message': 'Domain transfer initiated',
-            'order_id': order.id,
-            'order_number': order.order_number,
-            'invoice_id': invoice.id,
-            'invoice_number': invoice.invoice_number,
-            'amount': amount
-        })
-    
+        """Do not collect or persist EPP codes until transfer integration exists."""
+        return _requires_approved_provider('Domain transfer')
+
     @action(detail=False, methods=['get'])
     def suggestions(self, request):
-        """Get domain suggestions"""
-        keyword = request.query_params.get('keyword', '')
-        
-        if not keyword:
-            return Response({'suggestions': []})
-        
-        tlds = ['.com', '.ng', '.org', '.net', '.io', '.co', '.africa']
-        suggestions = []
-        
-        for tld in tlds:
-            suggestions.append({
-                'domain': f"{keyword}{tld}",
-                'tld': tld,
-                'available': False,
-                'price': 15000  # Mock price
-            })
-        
-        return Response({'suggestions': suggestions})
+        """No hard-coded TLDs, unverified availability or guessed prices."""
+        return _requires_approved_provider('Registrar-backed domain suggestions')
 
 
 class SSLCertificateViewSet(viewsets.ModelViewSet):
@@ -434,54 +191,21 @@ class SSLCertificateViewSet(viewsets.ModelViewSet):
         return SSLCertificate.objects.filter(client=user)
     
     @action(detail=False, methods=['post'])
-    @transaction.atomic
     def order(self, request):
-        """Order SSL certificate"""
-        serializer = SSLOrderSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        years = serializer.validated_data['years']
-        
-        # Mock pricing - would get from provider
-        prices = {'dv': 25000, 'ov': 45000, 'wildcard': 85000}
-        amount = prices.get(serializer.validated_data['certificate_type'], 25000) * years
-        
-        # Create order
-        order = Order.objects.create(
-            client=request.user,
-            source='web',
-            status='pending_payment',
-            subtotal=amount,
-            total=amount
-        )
-        
-        # Create order item
-        OrderItem.objects.create(
-            order=order,
-            product_id=0,
-            plan_id=0,
-            billing_cycle_id=0,
-            item_type='ssl',
-            description=f"SSL Certificate: {serializer.validated_data['common_name']}",
-            quantity=years,
-            unit_price=amount / years,
-            cycle_key='yearly',
-            months=years * 12,
-            config={
-                'common_name': serializer.validated_data['common_name'],
-                'san_domains': serializer.validated_data.get('san_domains', []),
-                'certificate_type': serializer.validated_data['certificate_type']
-            }
-        )
-        
-        # Create invoice
-        invoice = Invoice.create_from_order(order)
-        
-        return Response({
-            'message': 'SSL certificate order created',
-            'order_id': order.id,
-            'order_number': order.order_number,
-            'invoice_id': invoice.id,
-            'amount': amount
-        })
+        """An SSL order needs a priced provider offer and certificate workflow."""
+        return _requires_approved_provider('SSL certificate ordering')
 
+    def create(self, request, *args, **kwargs):
+        return _requires_approved_provider('SSL certificate record creation')
+
+    def update(self, request, *args, **kwargs):
+        self.get_object()
+        return _requires_approved_provider('SSL certificate record update')
+
+    def partial_update(self, request, *args, **kwargs):
+        self.get_object()
+        return _requires_approved_provider('SSL certificate record update')
+
+    def destroy(self, request, *args, **kwargs):
+        self.get_object()
+        return _requires_approved_provider('SSL certificate record deletion')
