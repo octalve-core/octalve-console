@@ -95,3 +95,40 @@ class HostingCheckoutTests(TestCase):
         invoice.refresh_from_db()
         self.assertEqual(order.status, "pending_payment")
         self.assertEqual(invoice.status, "unpaid")
+
+
+from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
+from django.db import connection, close_old_connections
+from django.test import TransactionTestCase
+from django.utils import timezone
+from unittest import skipUnless
+
+
+@skipUnless(connection.vendor == "postgresql", "Parallel document-number test requires PostgreSQL")
+class ConcurrentDocumentNumbersTests(TransactionTestCase):
+    def test_order_and_invoice_numbers_remain_unique_under_parallel_creation(self):
+        users = [
+            get_user_model().objects.create_user(
+                email=f"checkout-{n}@example.test", username=f"checkout{n}",
+                password="unused-ci-credential"
+            ) for n in range(8)
+        ]
+
+        def create_documents(user_id):
+            close_old_connections()
+            try:
+                user = get_user_model().objects.get(pk=user_id)
+                order = Order.objects.create(client=user, total=Decimal("100.00"))
+                invoice = Invoice.objects.create(
+                    client=user, order=order, total=Decimal("100.00"),
+                    due_date=timezone.now() + timedelta(days=7),
+                )
+                return order.order_number, invoice.invoice_number
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            refs = list(pool.map(create_documents, [u.pk for u in users]))
+        self.assertEqual(len({r[0] for r in refs}), 8)
+        self.assertEqual(len({r[1] for r in refs}), 8)
