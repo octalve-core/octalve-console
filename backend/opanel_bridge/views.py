@@ -113,6 +113,32 @@ class ExchangeView(APIView):
             }, headers={"Cache-Control": "no-store"})
 
 
+def safe_hosting_overview(service):
+    """Explicit allowlist of entitled hosting display data, never provider config.
+
+    This is NOT a live provider resource fetch or technical operation.
+    The returned usage comes only from recorded Console snapshots.
+    """
+    from services.models import ServiceUsage
+    latest = ServiceUsage.objects.filter(service=service).first()
+    usage = None if latest is None else {
+        "disk_used_mb": latest.disk_used_mb,
+        "disk_limit_mb": latest.disk_limit_mb,
+        "bandwidth_used_mb": latest.bandwidth_used_mb,
+        "bandwidth_limit_mb": latest.bandwidth_limit_mb,
+        "recorded_at": latest.recorded_at.isoformat(),
+    }
+    return {
+        "service_id": service.pk,
+        "label": service.label,
+        "domain": service.domain_name or "",
+        "status": service.status,
+        "next_due_date": service.next_due_date.isoformat(),
+        "usage_status": "recorded" if usage is not None else "unavailable",
+        "usage": usage,
+    }
+
+
 class EntitlementView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -134,4 +160,5 @@ class EntitlementView(APIView):
             "service_id": service.pk,
             "binding_ref": str(proof.binding_ref),
             "capabilities": ["overview"],
+            "overview": safe_hosting_overview(service),
         }, headers={"Cache-Control": "no-store"})
