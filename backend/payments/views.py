@@ -93,6 +93,9 @@ class PaymentInitializeView(APIView):
         if invoice_id < 1 or str(invoice_id) != str(request.data["invoice_id"]):
             return Response({"error": "Invalid invoice ID."},
                             status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(request.data["gateway"], str) or request.data["gateway"] not in ("paystack", "flutterwave"):
+            return Response({"error": "Invalid hosted gateway."},
+                            status=status.HTTP_400_BAD_REQUEST)
         invoice = Invoice.objects.filter(pk=invoice_id, client=request.user).first()
         if invoice is None:
             return Response({"error": "Invoice not found."},
