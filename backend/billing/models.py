@@ -91,6 +91,7 @@ class Invoice(models.Model):
         invoice = cls.objects.create(
             order=order,
             client=order.client,
+            currency=order.currency,
             subtotal=order.subtotal,
             discount_total=order.discount_total,
             total=order.total,
