@@ -24,7 +24,7 @@ const SECRET_QUERY_KEYS = new Set([
 const API_ROOTS = new Set([
   "auth", "catalog", "orders", "billing", "providers", "payments",
   "services", "provisioning", "domains", "support", "audit", "settings",
-  "reports", "wallet", "dashboard", "knowledge-base",
+  "reports", "wallet", "dashboard", "knowledge-base", "integrations",
 ]);
 const ALLOWED_AUTH_PATHS = new Set([
   "auth/jwt/create", "auth/register", "auth/logout",
@@ -134,6 +134,12 @@ async function forward(request: NextRequest, context: Context) {
   if (path[0] === "auth" &&
       !ALLOWED_AUTH_PATHS.has(apiPath) &&
       !(path[1] === "customers" && path.length === 3 && /^\d+$/.test(path[2]))) {
+    return error(404, "API route not found.");
+  }
+  // Only Console-authenticated issuance is browser-reachable. The confidential
+  // code exchange and entitlement endpoints are server-to-server exclusively.
+  if (path[0] === "integrations" &&
+      !(apiPath === "integrations/opanel/v1/authorize" && method === "POST")) {
     return error(404, "API route not found.");
   }
   const isLogin = apiPath === "auth/jwt/create";
