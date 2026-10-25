@@ -513,4 +513,10 @@ CLOUD_GATEWAY_READBACK_ENABLED = env.bool("CLOUD_GATEWAY_READBACK_ENABLED", defa
 CLOUD_SETTLEMENT_COMMIT_ENABLED = env.bool("CLOUD_SETTLEMENT_COMMIT_ENABLED", default=False)
 CLOUD_FULFILLMENT_STAGING_ENABLED = env.bool("CLOUD_FULFILLMENT_STAGING_ENABLED", default=False)
 CLOUD_PROVISIONING_WORKER_ENABLED = env.bool("CLOUD_PROVISIONING_WORKER_ENABLED", default=False)
+# Hosted payment initiation and signature-authenticated inbox are separate
+# opt-ins. Never enable for real money without isolated browser acceptance.
+CLOUD_HOSTED_CHECKOUT_ENABLED = env.bool("CLOUD_HOSTED_CHECKOUT_ENABLED", default=False)
+CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED = env.bool("CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED", default=False)
+CLOUD_PAYMENT_RETURN_URL = env("CLOUD_PAYMENT_RETURN_URL", default="")
+
 
