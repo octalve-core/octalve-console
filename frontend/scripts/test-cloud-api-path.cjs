@@ -35,7 +35,7 @@ test("Production login URL contains exactly one /api prefix and ends with a slas
   const base = "https://api.cloud.octalve.com/api";
   const path = canonicalCloudDjangoPath(["auth", "jwt", "create"]);
   assert.equal(cloudUpstreamUrl(base, path), "https://api.cloud.octalve.com/api/auth/jwt/create/");
-  assert.doesNotMatch(cloudUpstreamUrl(base, path), /\\/api\\/api\\//);
+  assert.equal(cloudUpstreamUrl(base, path).includes("/api/api/"), false);
 });
 
 test("Review login, signup, catalog and orders keep canonical routes and queries", () => {
