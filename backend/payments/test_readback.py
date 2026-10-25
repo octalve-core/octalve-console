@@ -10,8 +10,7 @@ from payments.readback import PaymentReadbackRejected, verify_gateway_intent
 
 def response(body, status=200, headers=None):
     raw = json.dumps(body).encode()
-    return SimpleNamespace(status_code=status, raw=io.BytesIO(raw),
-                           headers=headers or {}, close=lambda: None)
+    wire = Mock()\n    wire.read.return_value = raw\n    return SimpleNamespace(status_code=status, raw=wire,\n                           headers=headers or {}, close=lambda: None)
 
 
 @override_settings(CLOUD_GATEWAY_READBACK_ENABLED=True)
@@ -71,8 +70,7 @@ class GatewayReadbackTests(SimpleTestCase):
             self.paystack(domain="test"),
             self.paystack(id="other-account"),
             response({"status": False, "data": {"status": "success"}}),
-            self.paystack(headers={"Content-Length": "1000000"}) if False else response(
-                {"status": True}, headers={"Content-Length": "1000000"}),
+            response({"status": True}, headers={"Content-Length": "1000000"}),
             self.paystack(),
         ]
         for ix, res in enumerate(cases):
