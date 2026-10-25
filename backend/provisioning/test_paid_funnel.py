@@ -18,6 +18,8 @@ from payments.models import PaymentGateway, PaymentIntent, Transaction
 from payments.settlement import SettlementRefused, settle_verified_intent
 from providers.models import Provider
 from provisioning.fulfillment import FulfillmentRefused, stage_paid_order
+from provisioning.reconcile import ReconciliationRefused, reconcile_verified_hosting
+from opanel_bridge.models import VerifiedHostingBinding
 from provisioning.models import ProvisioningTask
 from services.models import Service
 from opanel_bridge.policy import eligible
@@ -41,7 +43,8 @@ class PaidHostingFunnelTests(TestCase):
             name="Approved mock WHM", adapter_type="CpanelAdapter",
             base_url="https://whm.synthetic-provider.test:2087",
             status="active", health_status="healthy",
-            test_mode=False, config={"hosting_account_owner": "resellerops"},
+            test_mode=False, username="resellerapi",
+            config={"hosting_account_owner": "resellerops"},
         )
         self.gateway = PaymentGateway.objects.create(
             code="paystack", name="Mock Paystack",
@@ -169,3 +172,85 @@ class PaidHostingFunnelTests(TestCase):
         with self.assertRaises(FulfillmentRefused):
             stage_paid_order(self.order.pk)
         self.assertFalse(ProvisioningTask.objects.exists())
+
+    @override_settings(CLOUD_PROVISIONING_WORKER_ENABLED=True,
+                       OPANEL_READBACK_ENABLED=True,
+                       OPANEL_ISSUER_ENABLED=True,
+                       OPANEL_CLIENT_SECRET="synthetic-opanel-secret-0123456789abcdef",
+                       OPANEL_CLIENT_ID="octalve-opanel",
+                       OPANEL_CALLBACK_URL="https://panel.example.test/auth/callback/")
+    def test_provider_reconciliation_then_opanel_customer_launch(self):
+        import base64
+        import hashlib
+        from rest_framework.test import APIClient
+        payment, _ = settle_verified_intent(self.intent.pk, getter=self.getter)
+        service, task = stage_paid_order(self.order.pk)[0]
+        account = task.payload["expected_account"]
+        provider_reply = {
+            "metadata": {"result": 1}, "data": {"acct": [{
+                "user": account, "domain": "verified.example.test",
+                "owner": "resellerops", "suspended": 0,
+            }]}
+        }
+        reply = Mock(status_code=200, headers={}, content=json.dumps(provider_reply).encode())
+        reply.json.return_value = provider_reply
+        getter = Mock(return_value=reply)
+        with patch.dict("os.environ", {"CLOUD_INVENTORY_ALLOWED_HOSTS": "whm.synthetic-provider.test"}):
+            with patch.object(Provider, "get_api_key", return_value="provider-test-key"):
+                # Dry run never creates a service authority.
+                reconcile_verified_hosting(task.pk, getter=getter)
+                service.refresh_from_db()
+                self.assertEqual(service.status, "pending")
+                self.assertFalse(VerifiedHostingBinding.objects.exists())
+                reconcile_verified_hosting(task.pk, getter=getter, apply=True)
+        service.refresh_from_db()
+        self.order.refresh_from_db()
+        task.refresh_from_db()
+        self.assertEqual(service.status, "active")
+        self.assertEqual(service.provider_identifier, account)
+        self.assertEqual(task.status, "completed")
+        self.assertEqual(self.order.status, "provisioned")
+        self.assertIsNotNone(eligible(service.client_id, service.pk))
+        self.assertEqual(VerifiedHostingBinding.objects.count(), 1)
+        with self.assertRaises(ReconciliationRefused):
+            reconcile_verified_hosting(task.pk, getter=getter, apply=True)
+        # The existing Console issuer grants OPanel only after that proof.
+        verifier = "x" * 50
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        api = APIClient()
+        api.force_authenticate(self.order.client)
+        path = "/api/integrations/opanel/v1/"
+        issued = api.post(path + "authorize/", {
+            "service_id": service.pk, "state": "s" * 32,
+            "code_challenge": challenge,
+        }, format="json")
+        self.assertEqual(issued.status_code, 200, getattr(issued, "data", {}))
+        anonymous = APIClient()
+        exchanged = anonymous.post(path + "exchange/", {
+            "code": issued.data["code"], "code_verifier": verifier,
+            "redirect_uri": "https://panel.example.test/auth/callback/",
+        }, format="json",
+            HTTP_X_OPANEL_CLIENT_ID="octalve-opanel",
+            HTTP_AUTHORIZATION="Bearer synthetic-opanel-secret-0123456789abcdef")
+        self.assertEqual(exchanged.status_code, 200, getattr(exchanged, "data", {}))
+        self.assertEqual(exchanged.data["service_id"], service.pk)
+
+    @override_settings(CLOUD_PROVISIONING_WORKER_ENABLED=True, OPANEL_READBACK_ENABLED=True)
+    def test_provider_account_wrong_reseller_cannot_activate_or_create_opanel_proof(self):
+        settle_verified_intent(self.intent.pk, getter=self.getter)
+        service, task = stage_paid_order(self.order.pk)[0]
+        wrong = {"metadata": {"result": 1}, "data": {"acct": [{
+            "user": task.payload["expected_account"],
+            "domain": "verified.example.test",
+            "owner": "other-reseller", "suspended": 0,
+        }]}}
+        reply = Mock(status_code=200, content=json.dumps(wrong).encode())
+        reply.json.return_value = wrong
+        with patch.dict("os.environ", {"CLOUD_INVENTORY_ALLOWED_HOSTS": "whm.synthetic-provider.test"}):
+            with patch.object(Provider, "get_api_key", return_value="provider-test-key"):
+                with self.assertRaises(ReconciliationRefused):
+                    reconcile_verified_hosting(task.pk, getter=Mock(return_value=reply), apply=True)
+        service.refresh_from_db()
+        self.assertEqual(service.status, "pending")
+        self.assertIsNone(service.provider_identifier)
+        self.assertFalse(VerifiedHostingBinding.objects.exists())
