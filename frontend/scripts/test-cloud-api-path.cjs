@@ -15,7 +15,7 @@ const compiled = ts.transpileModule(source, {
 }).outputText;
 const loaded = { exports: {} };
 new Function("module", "exports", compiled)(loaded, loaded.exports);
-const { canonicalCloudDjangoPath } = loaded.exports;
+const { canonicalCloudDjangoPath, cloudUpstreamUrl } = loaded.exports;
 
 test("login and signup always use Django's canonical slash endpoint", () => {
   assert.equal(canonicalCloudDjangoPath(["auth", "jwt", "create"]), "/api/auth/jwt/create/");
@@ -31,10 +31,32 @@ test("route segments remain percent-encoded independently", () => {
   assert.equal(canonicalCloudDjangoPath(["catalog", "plans", "a b"]), "/api/catalog/plans/a%20b/");
 });
 
+test("Production login URL contains exactly one /api prefix and ends with a slash", () => {
+  const base = "https://api.cloud.octalve.com/api";
+  const path = canonicalCloudDjangoPath(["auth", "jwt", "create"]);
+  assert.equal(cloudUpstreamUrl(base, path), "https://api.cloud.octalve.com/api/auth/jwt/create/");
+  assert.doesNotMatch(cloudUpstreamUrl(base, path), /\\/api\\/api\\//);
+});
+
+test("Review login, signup, catalog and orders keep canonical routes and queries", () => {
+  const base = "https://octalve-cloud-n1avwv1au-octalve-vault.vercel.app/api";
+  assert.equal(cloudUpstreamUrl(base, canonicalCloudDjangoPath(["auth", "register"])),
+    base + "/auth/register/");
+  assert.equal(cloudUpstreamUrl(base, canonicalCloudDjangoPath(["catalog", "plans"]), "?page=2"),
+    base + "/catalog/plans/?page=2");
+  assert.equal(cloudUpstreamUrl(base, canonicalCloudDjangoPath(["orders", "orders"])),
+    base + "/orders/orders/");
+});
+
+test("noncanonical upstream base and path are rejected, not redirected", () => {
+  assert.throws(() => cloudUpstreamUrl("https://api.cloud.octalve.com", "/api/auth/jwt/create/"), /Invalid canonical/);
+  assert.throws(() => cloudUpstreamUrl("https://api.cloud.octalve.com/api", "/auth/jwt/create/"), /Invalid canonical/);
+});
+
 test("the production BFF uses one identical canonical path for URL and signed IP", () => {
   const route = fs.readFileSync(path.join(__dirname, "../src/app/api/cloud/[...path]/route.ts"), "utf8");
   assert.match(route, /const djangoPath = canonicalCloudDjangoPath\(path\);/);
-  assert.match(route, /const target = \`\$\{base\}\$\{djangoPath\}\$\{request\.nextUrl\.search\}\`;/);
+  assert.match(route, /const target = cloudUpstreamUrl\(base, djangoPath, request\.nextUrl\.search\);/);
   assert.match(route, /signedClientIpHeaders\(request, method, djangoPath\)/);
   assert.match(route, /redirect: "manual"/);
   assert.match(route, /Upstream redirect rejected\./);
