@@ -98,3 +98,47 @@ No domain or SSL purchase without live provider evidence + admin approved valid 
 - Cloudflare proxied vs DNS-only TLS coverage: https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/
 - Let's Encrypt ACME challenges: https://letsencrypt.org/docs/challenge-types/
 - ICANN AuthInfo transfer code: https://www.icann.org/resources/pages/auth-2013-05-03-en
+
+
+---
+
+## A1 + A2 implementation extension — owner-directed infrastructure sourcing
+
+Octalve offers two **distinct fulfilment business models** through one retail API:
+
+1. **Octalve-operated infrastructure**: Octalve leases/buys a physical or dedicated server from any eligible data center, installs/configures DirectAdmin or cPanel/WHM, creates technical packages, and connects the authorised reseller account. Inventory is imported read-only and kept private. Octalve admins approve brand/package descriptions, cycles, features, public prices and the exact technical package mapping. Provider retains the source of technical limits, and Octalve retains customer-facing billing authority.
+2. **Contractual white-label supplier / partner-reseller**: an approved third-party compute, VPS, cloud, hosting or SSL reseller supplies inventory and fulfilment through its documented API. Octalve controls its own storefront, customer accounts and retail invoices. Check provider contracts, permitted branding, sub-account/agency arrangements, customer data protections, chargebacks and who receives cancellation requests before enabling sales. An arbitrary API token does not guarantee resale rights. Supplier costs/currency and all discount-adjusted retail totals must cover partner obligations. API adapters are implemented **per actual provider**, not guessed as a universal provider API.
+
+**What this branch actually implements:** A1 read-only inventory staging for DirectAdmin legacy `CMD_API_PACKAGES_USER` and WHM API 1 `listpkgs`; a strict host allowlist and TLS/no redirects; private `ProviderPackage` rows that begin **unapproved**; provider connection verification from inventory read; merchant-approved supplier package status; A2 admin-only `CatalogOfferDraft` and `PublishedCatalogOffer` DB models, a dedicated admin workbench, accepted retail billing cycles and features, revision snapshots, source mapping and an explicit publish action. Client plan listings read published Plan/PlanBillingCycle values, and new-version checkout requires a matching offer revision. Draft editing cannot alter live pricing.
+
+**Not implemented:** direct server hosting-account provisioning in either WHM or DirectAdmin, production VPS/cloud compute integration, external registrar API, payment settlement, DNS routing, SSL issuance, or customer service activation. A WHM/DirectAdmin package **cannot be published as a VPS**. A compute/VPS partner needs a genuine selected provider adapter, credential protection, contract approval, egress controls, reconciliation and confirmation prior to publishing/fulfilment.
+
+### Connection and publication operator flow
+
+1. Configure an Octalve server or authorised reseller account in `/admin/servers/new` with the exact provider adapter identifier, TLS endpoint, `fulfillment_model = owned_server | partner_reseller`, server group and write-only scoped token. Keep provider **inactive** until tested. The associated supplier API host must be set explicitly in the **server environment** `CLOUD_INVENTORY_ALLOWED_HOSTS` as a comma-separated hostname allowlist; never expose secrets or this allowlist through a client-settable API. DNS-level SSRF/effective egress allowlisting must be applied for Production.
+2. In `/admin/catalog/workbench`, verify connection (read-only package lookup); mark provider active once health verified; import packages. Import is staged `is_active=False`, does **not** generate Octalve prices and will return explicit errors if the provider API is unsupported or returns an unexpected payload.
+3. Review package inventory limits and supplier provenance. For partner resale, record *contractually verified* per-term wholesale costs and source currency (not invented). Explicitly approve supplier package. A changed technical inventory resets the package to unapproved.
+4. Create category/product in Catalog workbench, create offer draft referencing approved supplier package. Configure pricing and billing cycles (1, 3, 6, 12, 24, 36 months), retail currency, approved marketing features and the source provider package. Nothing appears for sale yet.
+5. Publish draft atomically; validates supplier active+healthy, technical package approval and provenance, customer-facing claim against provider resource caps, partner retail price >= same-currency supplier wholesale cost for each term. Creates/updates Plan, PlanFeature, PlanBillingCycle, active mapping and a new immutable PublishedCatalogOffer revision. Existing versions remain unchanged and old invoice/order line prices are preserved.
+6. The customer reads one published catalog, selects plan+cycle and explicitly sends the published revision in checkout. Django locks and rechecks current revision, price, supplier health, technical mapping and partner cost; rejects stale offers, lost supplier availability or discount-driven reseller losses. The frozen plan/technical mapping revision is captured on the order item.
+7. Only after financial-authority, provisioning worker, true external provider acceptance, domain/DNS/SSL tests and UI acceptance pass can this become a general public hosting service.
+
+**Migration:** catalog `0002_catalog_offers` creates exactly two commercial authority tables. The historical SEC-01 baseline remains 49 migrations / 92 tables. An isolated disposable PostgreSQL integration expects **50 migrations / 94 public tables** after applying A2. Do not apply to Production until separately qualified/authorized.
+
+### Multiple registrars, wholesale pricing and branded nameservers: future A3–A5 requirements
+
+- Multiple independent registrar provider records (e.g. verified Openprovider, ResellerClub, GoDaddy Reseller APIs) must support different per-TLD **registration, renewal, transfer, restoration, premium-domain and term-specific** prices; route a quote to an admin-approved preferred/backup registrar per TLD. Never auto-route based on the lowest advertised cost alone: include term, effective wholesale + tax/FX/fees, API availability, supported TLD extensions, local-presence rules, renewal cost, rate limits, failure/lock policy and registrar service reliability. Pin selected registrar to each domain; do not switch its authority merely because a cheaper quote appears later.
+- A separate DNS authority provides public nameservers. `ns1.octalve.cloud` and `ns2.octalve.cloud` are **proposed names only**, not active services. Choose and verify which Octalve-owned domain to use. To operate branded authoritative DNS, configure an actually authoritative DNS service (or a supported paid vanity-NS provider), at least two publicly reachable NS nodes or approved nameservers, verified parent delegation, registrar child/host/glue records for in-bailiwick NS, redundant IPv4/IPv6 as applicable, UDP+TCP53, SOA/NS consistency, DNSSEC support and monitoring. Cloudflare standard DNS plans do **not** automatically give Octalve account-wide branded NS.
+- For domains bought separately, allow admin DNS defaults; for domains combined with hosting use the validated service's authoritative DNS target. Users can keep an external DNS provider; never switch NS or overwrite MX/TXT records without explicit informed consent and a preview. Existing registered domains must attach to hosting only after ownership verification.
+- API-neutral reseller implementations are a **contract** supported by separate vendor-specific adapters; extending Provider.ADAPTER_TYPES alone does not mean an API works or reseller rights exist.
+
+### Official technical references
+
+- DirectAdmin legacy user packages: https://docs.directadmin.com/developer/api/legacy-api.html
+- WHM API 1 listpkgs: https://api.docs.cpanel.net/openapi/whm/operation/listpkgs/
+- WHMCS registrar/TLD routing: https://docs.whmcs.com/8-13/domains/domain-registrars
+- Domain reseller APIs: https://docs.openprovider.com/ ; https://www.resellerclub.com/developer-portal ; https://reseller.godaddy.com/docs
+- DigitalOcean contractual resale models: https://www.digitalocean.com/legal/partner-terms-and-conditions
+- Vultr partner program: https://discover.vultr.com/partner
+- Cloudflare vanity nameserver plan limits: https://developers.cloudflare.com/dns/nameservers/custom-nameservers/
+- IANA authoritative nameserver requirements: https://www.iana.org/help/nameserver-requirements
