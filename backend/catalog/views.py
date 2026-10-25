@@ -12,13 +12,14 @@ from .serializers import (
     PlanProviderMappingSerializer
 )
 from rbac.decorators import permission_required
+from .permissions import CatalogPublicationAuthority, InternalSupplierAuthority
 
 class ProductCategoryViewSet(viewsets.ModelViewSet):
     """ViewSet for product categories"""
     
     queryset = ProductCategory.objects.filter(is_active=True)
     serializer_class = ProductCategorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CatalogPublicationAuthority]
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['sort_order', 'name']
@@ -45,7 +46,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     
     queryset = Product.objects.filter(status='active', is_public=True)
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CatalogPublicationAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['category', 'product_type', 'status']
     search_fields = ['name', 'description']
@@ -80,7 +81,7 @@ class PlanViewSet(viewsets.ModelViewSet):
     
     queryset = Plan.objects.filter(status='active', is_public=True)
     serializer_class = PlanSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CatalogPublicationAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['product', 'status', 'is_popular']
     search_fields = ['name', 'description']
@@ -102,7 +103,7 @@ class PlanProviderMappingViewSet(viewsets.ModelViewSet):
     
     queryset = PlanProviderMapping.objects.filter(is_active=True)
     serializer_class = PlanProviderMappingSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [InternalSupplierAuthority]
     
     def get_queryset(self):
         """Only staff/admin can see mappings"""
