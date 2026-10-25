@@ -69,37 +69,18 @@ class ProviderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     @permission_required('manage_providers')
     def test_connection(self, request, pk=None):
-        """
-        Test connection to the provider
-        """
+        """Read-only verified inventory request; never provision a test account."""
         provider = self.get_object()
-        
         try:
-            adapter = ProviderRegistry.get_adapter(provider.id)
-            result = adapter.test_connection()
-            
-            # Update provider health based on test
-            if result.success:
-                provider.update_health(True, result.data.get('message', 'Connection successful'))
-                return Response({
-                    'success': True,
-                    'message': 'Connection test successful',
-                    'data': result.data
-                })
-            else:
-                provider.update_health(False, result.error)
-                return Response({
-                    'success': False,
-                    'error': result.error
-                }, status=status.HTTP_400_BAD_REQUEST)
-                
-        except Exception as e:
-            provider.update_health(False, str(e))
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+            packages = fetch_inventory(provider)
+        except InventoryError as exc:
+            provider.update_health(False, 'Inventory test rejected or unavailable')
+            return Response({'success': False, 'error': str(exc)},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        provider.update_health(True, 'Inventory access verified')
+        return Response({'success': True, 'verified_package_count': len(packages),
+                         'note': 'No supplier or retail records were changed.'})
+
     @action(detail=True, methods=['post'])
     @permission_required('manage_providers')
     def sync_packages(self, request, pk=None):
