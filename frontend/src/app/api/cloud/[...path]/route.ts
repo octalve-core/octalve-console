@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canonicalCloudDjangoPath } from "@/lib/api/cloud-path";
 import {
   SESSION_ACCESS_COOKIE,
   SESSION_REFRESH_COOKIE,
@@ -123,9 +124,12 @@ async function forward(request: NextRequest, context: Context) {
   }
 
   const apiPath = path.map(encodeURIComponent).join("/");
-  const trailingSlash = request.nextUrl.pathname.endsWith("/") ? "/" : "";
-  const target = `${base}/${apiPath}${trailingSlash}${request.nextUrl.search}`;
-  const trustedHeaders = signedClientIpHeaders(request, method, `/api/${apiPath}${trailingSlash}`);
+  // Next.js may strip a trailing slash from /api/cloud/... while Django's
+  // APPEND_SLASH redirects its slashless endpoints. Preserve redirect: "manual"
+  // and always target Django's canonical path instead of following a 301.
+  const djangoPath = canonicalCloudDjangoPath(path);
+  const target = `${base}${djangoPath}${request.nextUrl.search}`;
+  const trustedHeaders = signedClientIpHeaders(request, method, djangoPath);
   if (path[0] === "auth" &&
       !ALLOWED_AUTH_PATHS.has(apiPath) &&
       !(path[1] === "customers" && path.length === 3 && /^\d+$/.test(path[2]))) {
