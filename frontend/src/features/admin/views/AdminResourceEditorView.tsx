@@ -41,7 +41,7 @@ function getParamValue(value: string | string[] | undefined) {
 
 function getInitialValue(field: AdminEditorField, record?: AdminRecord | null) {
   if (!record) {
-    if (field.name === "status") return "Active";
+    if (field.name === "status") return field.options?.[0]?.value ?? "Active";
     if (field.name === "currency") return "NGN";
     if (field.name === "priority") return "normal";
     return "";
