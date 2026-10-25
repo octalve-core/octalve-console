@@ -62,6 +62,7 @@ class CreateOrderItemSerializer(serializers.Serializer):
     """Serializer for creating order items"""
     
     plan_id = serializers.IntegerField()
+    offer_revision = serializers.IntegerField(required=False, min_value=1)
     cycle_key = serializers.CharField(default='1mo')
     quantity = serializers.IntegerField(default=1, min_value=1)
     domain_name = serializers.CharField(required=False, allow_blank=True)
@@ -86,18 +87,51 @@ class CreateOrderSerializer(serializers.Serializer):
         validated_items = []
         for item in value:
             try:
-                plan = Plan.objects.select_related('product').get(
+                plan = Plan.objects.select_for_update().select_related('product').get(
                     id=item['plan_id'], status='active', is_public=True,
                     product__status='active', product__is_public=True,
                     product__category__is_active=True,
                 )
-                billing_cycle = PlanBillingCycle.objects.get(
+                billing_cycle = PlanBillingCycle.objects.select_for_update().get(
                     plan=plan, 
                     cycle_key=item.get('cycle_key', '1mo'),
                     is_active=True
                 )
                 if plan.product.product_type not in ('shared_hosting', 'wordpress_hosting', 'vps'):
                     raise serializers.ValidationError('Only hosting plans can be ordered here')
+                # A2 prices are versioned. Reject a stale checkout instead of
+                # silently repricing a customer's previously displayed offer.
+                # Older pre-A2 test/catalog plans remain compatible until migrated.
+                from catalog.models import PublishedCatalogOffer, PlanProviderMapping
+                from providers.models import ProviderPackage
+                published = PublishedCatalogOffer.objects.filter(plan=plan).order_by('-revision').first()
+                if published:
+                    if item.get('offer_revision') != published.revision:
+                        raise serializers.ValidationError(
+                            'Catalog offer changed. Refresh your plan and reconfirm its price.'
+                        )
+                    quoted_cycle = next((
+                        c for c in published.snapshot.get('billing_cycles', [])
+                        if c['cycle_key'] == billing_cycle.cycle_key
+                    ), None)
+                    if not quoted_cycle or (
+                        Decimal(str(quoted_cycle['price'])) != billing_cycle.price
+                        or Decimal(str(quoted_cycle['setup_fee'])) != billing_cycle.setup_fee
+                        or published.snapshot.get('currency') != plan.currency
+                    ):
+                        raise serializers.ValidationError('Published catalog amount is inconsistent; checkout disabled.')
+                    mapping = PlanProviderMapping.objects.filter(
+                        plan=plan, is_active=True,
+                        provider_id=published.snapshot.get('supplier_provider_id'),
+                        provider_package_id=published.snapshot.get('technical_package_id'),
+                    ).first()
+                    if not mapping or not ProviderPackage.objects.filter(
+                        pk=published.snapshot.get('supplier_inventory_id'),
+                        provider_id=mapping.provider_id, is_active=True,
+                        provider__status='active', provider__health_status='healthy',
+                    ).exists():
+                        raise serializers.ValidationError('Hosting supplier is not currently available.')
+                    item['published_catalog_offer'] = published
                 item['item_type'] = 'vps' if plan.product.product_type == 'vps' else 'hosting'
                 item['plan'] = plan
                 item['billing_cycle'] = billing_cycle
