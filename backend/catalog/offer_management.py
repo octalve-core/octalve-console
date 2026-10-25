@@ -127,7 +127,7 @@ def check_resource_claims(features, specs, adapter_type):
             raise serializers.ValidationError({'features': f'{feature["label"]} exceeds supplier allowance.'})
 
 
-def check_supplier_offer(package, offer):
+def check_supplier_offer(package, offer, product_type):
     provider = package.provider
     if provider.status != 'active' or provider.health_status != 'healthy':
         raise serializers.ValidationError('Supplier must be active and connection-tested healthy.')
@@ -138,6 +138,8 @@ def check_supplier_offer(package, offer):
         raise serializers.ValidationError('Set provider fulfillment_model: owned_server or partner_reseller.')
     if provider.adapter_type not in ('DirectAdminAdapter', 'CpanelAdapter'):
         raise serializers.ValidationError('No qualified package inventory adapter for this provider.')
+    if product_type == 'vps':
+        raise serializers.ValidationError('A DirectAdmin/WHM web-hosting package is not a VPS product. Await a qualified compute reseller adapter.')
     if not package.specs:
         raise serializers.ValidationError('Supplier resource inventory is missing.')
     check_resource_claims(offer['features'], package.specs, provider.adapter_type)
@@ -204,7 +206,7 @@ class OfferDraftViewSet(viewsets.ViewSet):
         product, package = draft.product, draft.provider_package
         if product.status != 'active' or not product.is_public or not product.category.is_active:
             raise serializers.ValidationError('Product category and product must be public and active.')
-        check_supplier_offer(package, offer)
+        check_supplier_offer(package, offer, product.product_type)
 
         plan = draft.plan
         if plan:
@@ -222,7 +224,8 @@ class OfferDraftViewSet(viewsets.ViewSet):
         plan.is_popular = offer['is_popular']
         plan.is_public = True
         plan.status = 'active'
-        plan.base_price = Decimal(offer['billing_cycles'][0]['price'])
+        default_cycle = next((c for c in offer['billing_cycles'] if c['is_default']), offer['billing_cycles'][0])
+        plan.base_price = Decimal(default_cycle['price'])
         plan.save()
 
         PlanFeature.objects.filter(plan=plan).delete()
