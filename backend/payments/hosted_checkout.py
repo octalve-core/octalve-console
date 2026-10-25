@@ -48,9 +48,12 @@ def _checkout_url(value, gateway):
         raise CheckoutRefused("Gateway returned an invalid checkout link.")
     try:
         parsed = urlsplit(value)
+        valid_path = (re.fullmatch(r"/[A-Za-z0-9_-]{8,150}", parsed.path)
+                      if gateway == "paystack" else re.fullmatch(
+                          r"/v3/hosted/pay/[A-Za-z0-9_-]{8,150}", parsed.path))
         if (parsed.scheme != "https" or parsed.hostname != ALLOWED_CHECKOUT[gateway]
                 or parsed.username or parsed.password or parsed.port not in (None, 443)
-                or parsed.fragment or parsed.query or not parsed.path.startswith("/")):
+                or parsed.fragment or parsed.query or not valid_path):
             raise CheckoutRefused("Gateway returned an unapproved checkout link.")
     except ValueError:
         raise CheckoutRefused("Gateway returned an unapproved checkout link.") from None
@@ -132,7 +135,7 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None):
     """
     if not getattr(settings, "CLOUD_HOSTED_CHECKOUT_ENABLED", False):
         raise CheckoutRefused("Hosted payment initialization is disabled.")
-    if gateway_code not in ALLOWED_CHECKOUT:
+    if not isinstance(gateway_code, str) or gateway_code not in ALLOWED_CHECKOUT:
         raise CheckoutRefused("Unsupported hosted gateway.")
     with transaction.atomic():
         try:
