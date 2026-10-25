@@ -61,6 +61,24 @@ def _validate_item(item, invoice):
     return provider, package, domain
 
 
+def planned_hosting_username(order_item_id):
+    """Reversible, collision-free 8-character username for DA and WHM.
+
+    DirectAdmin's legacy create-user API accepts only 4–8 alphanumeric
+    characters. Encoding the stable DB primary key (not truncating/modulo)
+    in six base36 digits guarantees no collisions within the supported range.
+    """
+    if type(order_item_id) is not int or not 1 <= order_item_id < 36 ** 6:
+        raise FulfillmentRefused("Order ID exceeds the common DA/WHM username range.")
+    alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
+    number = order_item_id
+    digits = ""
+    for _ in range(6):
+        digits = alphabet[number % 36] + digits
+        number //= 36
+    return "oc" + digits
+
+
 def stage_paid_order(order_id):
     """Internal server-only staging under order locks; reruns are idempotent."""
     if not getattr(settings, "CLOUD_FULFILLMENT_STAGING_ENABLED", False):
@@ -117,9 +135,7 @@ def stage_paid_order(order_id):
             # Deterministic provider username for the one paid order item.
             # The actual account must still be created/proven on an authorised
             # hosting server; this value is NOT evidence of an account.
-            planned_account = f"oc{item.pk:010d}"
-            if len(planned_account) > 16:
-                raise FulfillmentRefused("Order identifier exceeds safe hosting username length.")
+            planned_account = planned_hosting_username(item.pk)
             key = f"paid-hosting:order-item:{item.pk}:v1"
             task = ProvisioningTask.objects.select_for_update().filter(lock_key=key).first()
             if task:
