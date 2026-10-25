@@ -38,7 +38,8 @@ def eligible(subject_id, service_id):
         return None
     if not service.provider_id or not service.provider_identifier or not service.activated_at:
         return None
-    if service.next_due_date <= timezone.now():
+    now = timezone.now()
+    if service.next_due_date <= now or service.activated_at > now:
         return None
     try:
         proof = service.opanel_binding
@@ -49,6 +50,7 @@ def eligible(subject_id, service_id):
         or proof.confirmation_source != "provider_api_readback"
         or proof.confirmed_at is None
         or proof.confirmed_at < service.activated_at
+        or proof.confirmed_at > now
         or proof.provider_id_snapshot != service.provider_id
         or proof.account_digest != account_digest(service)
     ):
