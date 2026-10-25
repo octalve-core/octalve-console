@@ -48,7 +48,7 @@ function getResourceIcon(resource: ClientResourceKey) {
 function getDetailActions(resource: ClientResourceKey, record: ClientRecord) {
   if (resource === "services") {
     return [
-      { label: "Open OPanel", href: `/client/services/${encodeURIComponent(String(record.id))}/opanel`, variant: "primary" as const },
+      { label: "View hosting status", href: `/client/services/${encodeURIComponent(String(record.id))}/hosting-status`, variant: "primary" as const },
       { label: "Request support", href: "/client/support/new", variant: "outline" as const },
     ];
   }
