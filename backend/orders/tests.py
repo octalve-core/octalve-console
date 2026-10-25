@@ -35,6 +35,13 @@ class HostingCheckoutTests(TestCase):
             "plan_id": self.plan.id, "cycle_key": "1mo", "quantity": 1,
         }]}
 
+    def test_client_can_browse_active_public_hosting_catalog(self):
+        response = self.client.get("/api/catalog/plans/")
+        self.assertEqual(response.status_code, 200)
+        rows = response.data.get("results", []) if isinstance(response.data, dict) else response.data
+        self.assertTrue(any(item["id"] == self.plan.id for item in rows))
+        self.assertEqual(next(item for item in rows if item["id"] == self.plan.id)["billing_cycles"][0]["setup_fee"], "200.00")
+
     def test_order_and_invoice_are_unpaid_with_server_pricing(self):
         payload = self.payload()
         payload["total"] = "0.01"  # Browser-provided totals must never determine invoice amounts.
