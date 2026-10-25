@@ -504,3 +504,6 @@ OPANEL_ISSUER_ENABLED = env.bool("OPANEL_ISSUER_ENABLED", default=False)
 OPANEL_CLIENT_ID = env("OPANEL_CLIENT_ID", default="octalve-opanel")
 OPANEL_CLIENT_SECRET = env("OPANEL_CLIENT_SECRET", default="")
 OPANEL_CALLBACK_URL = env("OPANEL_CALLBACK_URL", default="")
+
+# Read-only provider account verification: off without an approved test server.
+OPANEL_READBACK_ENABLED = env.bool("OPANEL_READBACK_ENABLED", default=False)
