@@ -10,10 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import { authApi } from "@/lib/api/endpoints";
-import { tokenStorage } from "@/lib/api/client";
 import type {
   AuthSession,
-  AuthTokenResponse,
   LoginPayload,
   SignupPayload,
   User,
@@ -153,62 +151,8 @@ function normalizeUser(
   };
 }
 
-function hasAccessToken(value: unknown): value is AuthTokenResponse {
-  const session = value as Partial<AuthTokenResponse> | undefined;
-
-  return Boolean(
-    session &&
-    typeof session === "object" &&
-    typeof session.access === "string",
-  );
-}
-
-async function syncMiddlewareSession(
-  access?: string | null,
-  refresh?: string | null,
-) {
-  if (typeof window === "undefined" || !access) return;
-
-  const response = await fetch("/api/auth/session", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      access,
-      refresh,
-    }),
-    credentials: "same-origin",
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error("Unable to secure frontend session.");
-  }
-}
-
-async function syncMiddlewareSessionFromStorage() {
-  // The proxy may have rotated the HTTP-only cookie refresh before React
-  // hydrates. Read that same-origin cookie state first, rather than writing
-  // stale sessionStorage tokens back over a successfully rotated cookie.
-  const response = await fetch("/api/auth/session", {
-    method: "GET", credentials: "same-origin", cache: "no-store",
-  });
-  if (!response.ok) throw new Error("Unable to reconcile browser session.");
-  const state = (await response.json()) as { access?: string | null; refresh?: string | null };
-  if (state.access && state.refresh) {
-    tokenStorage.setTokens(state.access, state.refresh);
-    return;
-  }
-  const accessToken = tokenStorage.getAccessToken();
-  if (accessToken) {
-    await syncMiddlewareSession(accessToken, tokenStorage.getRefreshToken());
-  }
-}
-
-async function clearMiddlewareSession() {
-  if (typeof window === "undefined") return;
-
+async function clearBrowserSession() {
+  // Compatible with old sessions, but never reads a JWT into JavaScript.
   try {
     await fetch("/api/auth/session", {
       method: "DELETE",
@@ -216,64 +160,7 @@ async function clearMiddlewareSession() {
       cache: "no-store",
     });
   } catch {
-    // Always continue with local token cleanup.
-  }
-}
-
-async function clearClientSession() {
-  await clearMiddlewareSession();
-  tokenStorage.clearTokens();
-}
-
-function storeTokens(session: Pick<AuthTokenResponse, "access" | "refresh">) {
-  tokenStorage.setTokens(session.access, session.refresh);
-}
-
-function getSessionUserFallback(
-  session: Partial<AuthTokenResponse> | null | undefined,
-  fallback: UserFallback = {},
-): UserFallback {
-  if (!session?.user) return fallback;
-
-  const normalizedSessionUser = normalizeUser(
-    session.user as BackendUser,
-    fallback,
-  );
-
-  return {
-    id: normalizedSessionUser.id,
-    name: normalizedSessionUser.name,
-    email: normalizedSessionUser.email,
-    role: normalizedSessionUser.role,
-  };
-}
-
-async function buildAuthoritativeSession(
-  tokenResponse: AuthTokenResponse,
-  fallback: UserFallback = {},
-): Promise<AuthSession> {
-  storeTokens(tokenResponse);
-
-  try {
-    const currentUser = normalizeUser(
-      await authApi.me(),
-      getSessionUserFallback(tokenResponse, fallback),
-    );
-
-    const authoritativeSession: AuthSession = {
-      ...tokenResponse,
-      user: currentUser,
-    };
-
-    await syncMiddlewareSession(
-      authoritativeSession.access,
-      authoritativeSession.refresh,
-    );
-
-    return authoritativeSession;
-  } catch (error) {
-    await clearClientSession();
-    throw error;
+    // Backend logout is authoritative; local state is also cleared.
   }
 }
 
@@ -283,19 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      await syncMiddlewareSessionFromStorage();
-      const token = tokenStorage.getAccessToken();
-      if (!token) {
-        await clearMiddlewareSession();
-        setUser(null);
-        return null;
-      }
-      const currentUser = normalizeUser(await authApi.me());
-
-      setUser(currentUser);
-      return currentUser;
+      const authenticatedUser = normalizeUser(await authApi.me());
+      if (!authenticatedUser.email) throw new Error("No authenticated identity.");
+      setUser(authenticatedUser);
+      return authenticatedUser;
     } catch {
-      await clearClientSession();
       setUser(null);
       return null;
     } finally {
@@ -303,78 +182,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    refreshUser();
-  }, [refreshUser]);
+  useEffect(() => { void refreshUser(); }, [refreshUser]);
 
-  const login = useCallback(async (payload: LoginPayload) => {
-    const tokenResponse = await authApi.login({
+  const login = useCallback(async (payload: LoginPayload): Promise<AuthSession> => {
+    const response = await authApi.login({
       email: payload.email.trim().toLowerCase(),
       password: payload.password,
     });
-
-    const authoritativeSession = await buildAuthoritativeSession(
-      tokenResponse,
-      {
-        email: payload.email.trim().toLowerCase(),
-      },
-    );
-
-    setUser(authoritativeSession.user);
-
-    return authoritativeSession;
+    const authenticatedUser = normalizeUser(response.user);
+    if (!authenticatedUser.email) {
+      throw new Error("Server did not verify the authenticated identity.");
+    }
+    setUser(authenticatedUser);
+    return { user: authenticatedUser };
   }, []);
 
-  const signup = useCallback(async (payload: SignupPayload) => {
-    const signupResponse = await authApi.signup(payload);
-
-    if (hasAccessToken(signupResponse)) {
-      const authoritativeSession = await buildAuthoritativeSession(
-        signupResponse,
-        {
-          name: payload.full_name,
-          email: payload.email,
-          role: "client",
-        },
-      );
-
-      setUser(authoritativeSession.user);
-
-      return authoritativeSession;
+  const signup = useCallback(async (payload: SignupPayload): Promise<AuthSession> => {
+    const response = await authApi.signup(payload);
+    const authenticatedUser = normalizeUser(response.user);
+    if (!authenticatedUser.email) {
+      throw new Error("Server did not verify the new account.");
     }
-
-    const tokenResponse = await authApi.login({
-      email: payload.email.trim().toLowerCase(),
-      password: payload.password,
-    });
-
-    const authoritativeSession = await buildAuthoritativeSession(
-      tokenResponse,
-      {
-        name: payload.full_name,
-        email: payload.email,
-        role: "client",
-      },
-    );
-
-    setUser(authoritativeSession.user);
-
-    return authoritativeSession;
+    setUser(authenticatedUser);
+    return { user: authenticatedUser };
   }, []);
 
   const logout = useCallback(async () => {
+    let revokeFailed = false;
     try {
-      const token = tokenStorage.getAccessToken();
-      const refresh = tokenStorage.getRefreshToken();
-
-      if (token && refresh) {
-        await authApi.logout(refresh);
-      }
+      await authApi.logout();
     } catch {
-      // Always clear client session even if backend logout is unavailable.
+      revokeFailed = true;
     } finally {
-      await clearClientSession();
+      await clearBrowserSession();
       setUser(null);
+    }
+    if (revokeFailed) {
+      throw new Error("Signed out locally; server token revocation could not be verified.");
     }
   }, []);
 

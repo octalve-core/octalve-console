@@ -1,6 +1,7 @@
 # orders/models.py
 
-from django.db import models
+from django.db import models, transaction
+from octalve_backend.document_sequence import lock_document_sequence
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
@@ -76,8 +77,11 @@ class Order(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.order_number:
-            self.order_number = self.generate_order_number()
-        super().save(*args, **kwargs)
+            with transaction.atomic():
+                lock_document_sequence(1)
+                self.order_number = self.generate_order_number()
+                return super().save(*args, **kwargs)
+        return super().save(*args, **kwargs)
     
     def generate_order_number(self):
         """Generate unique order number: ORD-2024-00001"""

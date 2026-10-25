@@ -1,186 +1,116 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CreditCard, Loader2, LockKeyhole, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Loader2, ShieldCheck } from "lucide-react";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { clientApi } from "@/lib/api/endpoints";
-import { toClientOrderPayload } from "@/lib/api/payload-mappers";
-import { formatCurrency } from "@/lib/formatters";
-import { clientOrderPlans } from "../data/client-order-data";
+import { loadSellablePlans, defaultCycle, formatPlanAmount, type ClientOrderPlan } from "../data/client-order-data";
+
+type Confirmation = {
+  order_number?: string;
+  invoice?: { invoice_number: string; status: string; amount_due: string };
+};
 
 export function ClientCheckoutView() {
-  const [planId, setPlanId] = useState(clientOrderPlans[0]?.id ?? "");
+  const [plans, setPlans] = useState<ClientOrderPlan[]>([]);
+  const [planId, setPlanId] = useState("");
+  const [cycleKey, setCycleKey] = useState("");
   const [domain, setDomain] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("paystack");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [checkoutId, setCheckoutId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const plan = searchParams.get("plan");
-
-    if (plan) {
-      setPlanId(plan);
-    }
+    let active = true;
+    const qs = new URLSearchParams(window.location.search);
+    const requestedPlan = qs.get("plan") || "";
+    const requestedCycle = qs.get("cycle") || "";
+    setCheckoutId(crypto.randomUUID());
+    loadSellablePlans().then(items => {
+      if (!active) return;
+      setPlans(items);
+      const chosen = items.find(p => p.id === requestedPlan) || (!requestedPlan ? items[0] : undefined);
+      if (!chosen) {setError("This plan is not available. Return to plan selection.");return;}
+      const cycle = chosen.cycles.find(c => c.key === requestedCycle) || (!requestedCycle ? defaultCycle(chosen) : undefined);
+      if (!cycle) {setError("This billing period is unavailable. Return to plan selection.");return;}
+      setPlanId(chosen.id);
+      setCycleKey(cycle.key);
+    }).catch(() => {if(active)setError("The live catalog could not be loaded. No order was created.");})
+      .finally(() => {if(active)setLoading(false);});
+    return () => {active = false;};
   }, []);
 
-  const selectedPlan = useMemo(() => {
-    return clientOrderPlans.find((plan) => plan.id === planId) ?? clientOrderPlans[0];
-  }, [planId]);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setNotice("");
+  const selected = plans.find(p => p.id === planId);
+  const cycle = selected?.cycles.find(c => c.key === cycleKey);
+  const total = (cycle?.price || 0) + (cycle?.setupFee || 0);
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selected || !cycle || !checkoutId || submitting || confirmation) return;
+    setSubmitting(true);
     setError("");
-    setIsSubmitting(true);
-
     try {
-      await clientApi.createOrder(
-        toClientOrderPayload({
-          plan_id: selectedPlan?.id ?? "",
-          product: selectedPlan?.product ?? "",
-          domain,
-          payment_method: paymentMethod,
-          total: String(selectedPlan?.price ?? 0),
-        }),
-      );
-
-      setNotice("Order created successfully. Payment initialization can now be connected to the selected gateway.");
+      const result = await clientApi.createOrder({
+        checkout_id: checkoutId,
+        items: [{plan_id:Number(selected.id), cycle_key:cycle.key, quantity:1, domain_name:domain.trim()}],
+      });
+      const record = result as unknown as Confirmation;
+      if (!record.order_number || !record.invoice?.invoice_number || record.invoice.status !== "unpaid") {
+        setError("Order response requires review. Check Orders and Invoices before retrying.");
+        return;
+      }
+      setConfirmation(record);
     } catch {
-      setError("The order API is not available yet or rejected the payload. Check the order serializer field names.");
+      setError("Order creation was not confirmed. Retrying this form uses the same checkout key to prevent duplicate invoices.");
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   }
 
-  return (
-    <DashboardShell
-      role="client"
-      title="Checkout"
-      description="Complete your service order securely."
-    >
-      <DashboardPage
-        eyebrow="Checkout"
-        title="Complete your order"
-        description="Confirm your service details and payment method. This page is ready for Paystack, Flutterwave, wallet, and manual transfer integration."
-      >
-        <form onSubmit={handleSubmit} className="grid gap-5 xl:grid-cols-[1fr_22rem]">
-          <Card>
-            <div className="grid gap-5">
-              <div>
-                <label htmlFor="plan" className="block text-sm font-medium text-slate-700">
-                  Selected plan
-                </label>
-                <select
-                  id="plan"
-                  value={planId}
-                  onChange={(event) => setPlanId(event.target.value)}
-                  className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-[#0064E0] focus:ring-4 focus:ring-[#0064E0]/10"
-                >
-                  {clientOrderPlans.map((plan) => (
-                    <option key={plan.id} value={plan.id}>
-                      {plan.name} — {formatCurrency(plan.price)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="domain" className="block text-sm font-medium text-slate-700">
-                  Domain or project name
-                </label>
-                <input
-                  id="domain"
-                  value={domain}
-                  onChange={(event) => setDomain(event.target.value)}
-                  placeholder="example.com"
-                  className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#0064E0] focus:ring-4 focus:ring-[#0064E0]/10"
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="paymentMethod" className="block text-sm font-medium text-slate-700">
-                  Payment method
-                </label>
-                <select
-                  id="paymentMethod"
-                  value={paymentMethod}
-                  onChange={(event) => setPaymentMethod(event.target.value)}
-                  className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-[#0064E0] focus:ring-4 focus:ring-[#0064E0]/10"
-                >
-                  <option value="paystack">Paystack</option>
-                  <option value="flutterwave">Flutterwave</option>
-                  <option value="wallet">Wallet</option>
-                  <option value="bank_transfer">Bank transfer</option>
-                </select>
-              </div>
-
-              {notice ? (
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
-                  {notice}
-                </div>
-              ) : null}
-
-              {error ? (
-                <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-                  {error}
-                </div>
-              ) : null}
-
-              <div className="flex justify-end border-t border-slate-200 pt-5">
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4" />
-                      Create order
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </Card>
-
-          <div className="space-y-5">
-            <Card>
-              <h3 className="text-lg font-medium tracking-[-0.03em] text-slate-950">Order summary</h3>
-
-              <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-                <p className="text-sm font-medium text-slate-950">{selectedPlan?.name}</p>
-                <p className="mt-1 text-sm text-slate-500">{selectedPlan?.product}</p>
-                <p className="mt-4 text-3xl font-medium tracking-[-0.05em] text-slate-950">
-                  {formatCurrency(selectedPlan?.price ?? 0)}
-                </p>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-
-              <h3 className="mt-5 text-lg font-medium tracking-[-0.03em] text-slate-950">Serializer-ready checkout</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Checkout payloads are mapped before submission so the UI can stay clean while Django receives backend-ready fields.
-              </p>
-
-              <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
-                <LockKeyhole className="h-4 w-4" />
-                API-ready payment flow
-              </div>
-            </Card>
+  return <DashboardShell role="client" title="Checkout" description="Create a pending invoice for an available plan.">
+    <DashboardPage eyebrow="Checkout" title="Review your hosting order"
+      description="Your order and unpaid invoice are created by Octalve Cloud. No payment or provisioning occurs at checkout.">
+      {loading ? <p role="status" className="rounded-2xl bg-white p-6 text-sm text-slate-500">Loading your selected plan...</p> : null}
+      {error ? <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p> : null}
+      {!loading && (!selected || !cycle) ? <Link className="text-sm font-semibold text-[#0064E0]" href="/client/order">Choose an available plan</Link> : null}
+      {confirmation ? <div className="max-w-xl rounded-2xl border border-[#D9E9FA] bg-white p-6">
+        <ShieldCheck className="h-8 w-8 text-[#0064E0]"/>
+        <h2 className="mt-3 text-xl font-semibold text-[#142A43]">Order recorded</h2>
+        <p className="mt-2 text-sm text-slate-600">Order {confirmation.order_number} has a pending invoice {confirmation.invoice?.invoice_number}. Payment is not yet confirmed.</p>
+        <div className="mt-5 flex flex-wrap gap-3"><Link className="rounded-full bg-[#0064E0] px-5 py-3 text-sm font-semibold text-white" href="/client/invoices">View invoices</Link>
+          <Link className="rounded-full border border-slate-200 px-5 py-3 text-sm" href="/client/orders">View orders</Link></div>
+      </div> : null}
+      {selected && cycle && !confirmation ? <form onSubmit={submit} className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <section className="rounded-2xl border border-[#E5EBF3] bg-white p-5">
+          <label htmlFor="checkout-plan" className="text-xs font-medium text-slate-600">Hosting plan</label>
+          <p id="checkout-plan" className="mt-2 text-base font-semibold text-[#142A43]">{selected.product} — {selected.name}</p>
+          <p className="mt-1 text-sm text-slate-500">{cycle.label}</p>
+          <label htmlFor="checkout-domain" className="mt-6 block text-xs font-medium text-slate-600">Domain or project name (optional)</label>
+          <input id="checkout-domain" value={domain} onChange={e=>setDomain(e.target.value)} maxLength={255}
+            placeholder="example.com" className="mt-2 h-11 w-full rounded-xl border border-[#E5EBF3] px-4 text-sm focus:border-[#0064E0] focus:outline-none"/>
+          <p className="mt-2 text-xs leading-5 text-slate-500">You can provide a domain later. Domain registration is not included in this hosting order.</p>
+          <div className="mt-6 flex gap-3 rounded-xl bg-[#EFF6FF] p-4 text-sm leading-6 text-[#26476B]">
+            <ShieldCheck className="mt-1 h-5 w-5 shrink-0 text-[#0064E0]"/>
+            An unpaid invoice will be issued. Payment collection, verification and service activation are separate steps.
           </div>
-        </form>
-      </DashboardPage>
-    </DashboardShell>
-  );
+        </section>
+        <section className="h-fit rounded-2xl border border-[#E5EBF3] bg-white p-5">
+          <h2 className="text-base font-semibold text-[#142A43]">Order summary</h2>
+          <dl className="mt-5 space-y-3 text-sm">
+            <div className="flex justify-between gap-4"><dt className="text-slate-500">Plan</dt><dd>{formatPlanAmount(cycle.price,selected.currency)}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-slate-500">Setup fee</dt><dd>{formatPlanAmount(cycle.setupFee,selected.currency)}</dd></div>
+            <div className="flex justify-between gap-4 border-t border-slate-100 pt-3 font-semibold"><dt>Estimated due</dt><dd>{formatPlanAmount(total,selected.currency)}</dd></div>
+          </dl>
+          <p className="mt-4 text-xs leading-5 text-slate-500">The backend calculates the final authoritative invoice amount.</p>
+          <button disabled={submitting || !checkoutId} type="submit" className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#0064E0] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">
+            {submitting && <Loader2 size={16} className="animate-spin"/>}{submitting ? "Creating pending invoice..." : "Create order and pending invoice"}
+          </button>
+          <Link href="/client/order" className="mt-4 block text-center text-xs font-semibold text-[#0064E0]">Change plan</Link>
+        </section>
+      </form> : null}
+    </DashboardPage>
+  </DashboardShell>;
 }

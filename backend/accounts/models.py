@@ -177,3 +177,16 @@ class LoginHistory(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.login_time}"
+
+
+# Durable, cross-instance authentication abuse counters. Key material is HMACed
+# before storage: no email address or client IP is written into this table.
+class AuthThrottleBucket(models.Model):
+    fingerprint = models.CharField(max_length=64, primary_key=True, editable=False)
+    attempts = models.PositiveIntegerField(default=0)
+    expires_at = models.DateTimeField(db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "authentication throttle bucket"
+        verbose_name_plural = "authentication throttle buckets"

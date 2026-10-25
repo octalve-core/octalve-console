@@ -1,96 +1,80 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ArrowRight, CheckCircle2, ShoppingCart } from "lucide-react";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import { formatCurrency } from "@/lib/formatters";
-import { clientOrderPlans } from "../data/client-order-data";
+import { loadSellablePlans, defaultCycle, formatPlanAmount, type ClientOrderPlan } from "../data/client-order-data";
 
 export function ClientOrderView() {
-  const [selectedPlanId, setSelectedPlanId] = useState(clientOrderPlans[0]?.id ?? "");
-  const selectedPlan = clientOrderPlans.find((plan) => plan.id === selectedPlanId) ?? clientOrderPlans[0];
+  const [plans, setPlans] = useState<ClientOrderPlan[]>([]);
+  const [planId, setPlanId] = useState("");
+  const [cycleKey, setCycleKey] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let live = true;
+    loadSellablePlans().then(items => {
+      if (!live) return;
+      setPlans(items);
+      const first = items[0];
+      setPlanId(first?.id || "");
+      setCycleKey(defaultCycle(first)?.key || "");
+    }).catch(() => { if(live) setError("The live catalog is temporarily unavailable. No order has been placed."); })
+      .finally(() => {if(live) setLoading(false);});
+    return () => {live = false;};
+  }, []);
 
-  return (
-    <DashboardShell
-      role="client"
-      title="Order service"
-      description="Choose hosting, VPS, email, or domain services for your business."
-    >
-      <DashboardPage
-        eyebrow="Order"
-        title="Choose a service"
-        description="Select a service plan and continue to checkout. The checkout flow is API-ready for Django orders and payments."
-      >
-        <div className="grid gap-5 xl:grid-cols-[1fr_22rem]">
-          <div className="grid gap-5 lg:grid-cols-3">
-            {clientOrderPlans.map((plan) => {
-              const selected = plan.id === selectedPlanId;
+  const selected = plans.find(p => p.id === planId);
+  const cycle = selected?.cycles.find(c => c.key === cycleKey) || defaultCycle(selected);
+  function selectPlan(plan: ClientOrderPlan) {
+    setPlanId(plan.id);
+    setCycleKey(defaultCycle(plan)?.key || "");
+  }
 
-              return (
-                <button
-                  key={plan.id}
-                  type="button"
-                  onClick={() => setSelectedPlanId(plan.id)}
-                  className={`rounded-[1.5rem] border bg-white p-5 text-left shadow-sm transition ${
-                    selected ? "border-[#0064E0] ring-4 ring-[#0064E0]/10" : "border-slate-200 hover:border-[#0064E0]/30"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
-                      <ShoppingCart className="h-6 w-6" />
-                    </div>
-
-                    {plan.popular ? <Badge tone="success">Popular</Badge> : null}
-                  </div>
-
-                  <h2 className="mt-5 text-lg font-medium tracking-[-0.03em] text-slate-950">{plan.name}</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">{plan.description}</p>
-
-                  <p className="mt-5 text-3xl font-medium tracking-[-0.05em] text-slate-950">
-                    {formatCurrency(plan.price)}
-                    <span className="text-sm font-normal text-slate-500">/{plan.cycle}</span>
-                  </p>
-
-                  <div className="mt-5 space-y-3">
-                    {plan.features.map((feature) => (
-                      <div key={feature} className="flex items-center gap-2 text-sm text-slate-600">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                        {feature}
-                      </div>
-                    ))}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <Card>
-            <h3 className="text-lg font-medium tracking-[-0.03em] text-slate-950">Order summary</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Review your selected service before continuing to checkout.
-            </p>
-
-            {selectedPlan ? (
-              <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-                <p className="text-sm font-medium text-slate-950">{selectedPlan.name}</p>
-                <p className="mt-1 text-sm text-slate-500">{selectedPlan.product}</p>
-                <p className="mt-4 text-2xl font-medium tracking-[-0.04em] text-slate-950">
-                  {formatCurrency(selectedPlan.price)}
-                </p>
-              </div>
-            ) : null}
-
-            <Button href={`/client/order/checkout?plan=${encodeURIComponent(selectedPlan?.id ?? "")}`} className="mt-5 w-full">
-              Continue to checkout
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Card>
+  return <DashboardShell role="client" title="Order service" description="Choose an available hosting plan.">
+    <DashboardPage eyebrow="Services" title="Choose your hosting plan"
+      description="Only active plans and prices provided by the Octalve Cloud catalog are shown.">
+      {loading ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading available plans...</div> : null}
+      {error ? <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p> : null}
+      {!loading && !error && plans.length === 0 ? <div className="rounded-2xl border border-[#E5EBF3] bg-white p-6 text-sm text-slate-600">No hosting plans are currently available for purchase.</div> : null}
+      {plans.length > 0 && <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          {plans.map(plan => {
+            const chosen = selected?.id === plan.id;
+            const pricing = defaultCycle(plan);
+            return <button key={plan.id} type="button" aria-pressed={chosen} onClick={() => selectPlan(plan)}
+              className={`rounded-2xl border bg-white p-5 text-left transition hover:border-[#AFCFFF] ${chosen ? "border-[#0064E0] ring-2 ring-[#0064E0]/10" : "border-[#E5EBF3]"}`}>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF3FF] text-[#0064E0]"><ShoppingCart size={19}/></span>
+              <h2 className="mt-4 text-base font-semibold text-[#142A43]">{plan.name}</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{plan.description}</p>
+              <p className="mt-4 text-xl font-semibold text-[#142A43]">{pricing ? formatPlanAmount(pricing.price,plan.currency) : "—"}</p>
+              <p className="mt-1 text-xs text-slate-500">{pricing?.label}{pricing?.setupFee ? " + setup fee" : ""}</p>
+              <ul className="mt-4 space-y-2">{plan.features.map((feature,index) => <li key={index} className="flex gap-2 text-xs text-slate-600"><CheckCircle2 className="h-4 w-4 shrink-0 text-[#0064E0]"/>{feature}</li>)}</ul>
+            </button>;
+          })}
         </div>
-      </DashboardPage>
-    </DashboardShell>
-  );
+        <div className="h-fit rounded-2xl border border-[#E5EBF3] bg-white p-5">
+          <h3 className="text-base font-semibold text-[#142A43]">Order summary</h3>
+          <p className="mt-2 text-sm text-slate-600">{selected?.name}</p>
+          <label htmlFor="order-cycle" className="mt-5 block text-xs font-medium text-slate-600">Billing period</label>
+          <select id="order-cycle" value={cycle?.key || ""} onChange={e => setCycleKey(e.target.value)}
+            className="mt-2 h-11 w-full rounded-xl border border-[#E5EBF3] bg-white px-3 text-sm">
+            {selected?.cycles.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </select>
+          <dl className="mt-5 space-y-2 text-sm">
+            <div className="flex justify-between gap-4"><dt className="text-slate-500">Plan</dt><dd>{formatPlanAmount(cycle?.price || 0,selected?.currency || "NGN")}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-slate-500">Setup fee</dt><dd>{formatPlanAmount(cycle?.setupFee || 0,selected?.currency || "NGN")}</dd></div>
+            <div className="flex justify-between gap-4 border-t border-slate-100 pt-3 font-semibold"><dt>Estimated total</dt><dd>{formatPlanAmount((cycle?.price || 0)+(cycle?.setupFee || 0),selected?.currency || "NGN")}</dd></div>
+          </dl>
+          {selected && cycle && <Link href={`/client/order/checkout?plan=${encodeURIComponent(selected.id)}&cycle=${encodeURIComponent(cycle.key)}`}
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#0064E0] px-4 py-3 text-sm font-semibold text-white">
+            Continue to checkout <ArrowRight size={17}/>
+          </Link>}
+          <p className="mt-3 text-xs leading-5 text-slate-500">Final amounts are confirmed by the server when you place an order. No payment is collected on this page.</p>
+        </div>
+      </div>}
+    </DashboardPage>
+  </DashboardShell>;
 }

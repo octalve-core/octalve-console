@@ -3,12 +3,14 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
+from decimal import Decimal
 from django.utils import timezone
-from .models import Order, Coupon, CouponRedemption, Cart
+from .models import Order, OrderItem, Coupon, CouponRedemption, Cart
+from catalog.models import Plan, PlanBillingCycle
 from .serializers import (
     OrderSerializer, CreateOrderSerializer, CouponSerializer,
     ValidateCouponSerializer, CartSerializer
@@ -17,11 +19,22 @@ from rbac.decorators import permission_required
 import uuid
 
 
+class OrderWriteAuthority(BasePermission):
+    """Clients may place orders, never modify payment/provisioning authority."""
+
+    def has_permission(self, request, view):
+        if view.action in ("update", "partial_update", "destroy"):
+            user = request.user
+            return bool(user and user.is_authenticated and
+                        (user.is_superuser or user.role == "admin"))
+        return True
+
+
 class OrderViewSet(viewsets.ModelViewSet):
     """ViewSet for orders"""
     
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, OrderWriteAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['status', 'source']
     search_fields = ['order_number', 'client__email', 'client__full_name']
@@ -43,19 +56,40 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         
         validated_data = serializer.validated_data
+        from django.contrib.auth import get_user_model
+        # Serialize retries by locking the client, before creating an order.
+        get_user_model().objects.select_for_update().get(pk=request.user.pk)
+        checkout_id = str(validated_data['checkout_id'])
+        existing = Order.objects.filter(client=request.user, metadata__checkout_id=checkout_id).first()
+        if existing:
+            data = OrderSerializer(existing).data
+            previous = existing.invoices.first()
+            if previous:
+                data['invoice'] = {
+                    'id': previous.id, 'invoice_number': previous.invoice_number,
+                    'status': previous.status, 'amount_due': str(previous.amount_due),
+                }
+            return Response(data, status=status.HTTP_200_OK)
         coupon = serializer.context.get('coupon')
         
         # Calculate totals
-        subtotal = sum(item['unit_price'] * item['quantity'] for item in validated_data['items'])
+        currencies = {item['plan'].currency for item in validated_data['items']}
+        if len(currencies) != 1:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'items': 'All items must have the same currency.'})
+        subtotal = sum((item['unit_price'] * item['quantity'] for item in validated_data['items']), Decimal('0.00'))
         
         # Apply coupon
         discount_total = 0
         coupon_discount = 0
         if coupon:
+            from rest_framework.exceptions import ValidationError
+            coupon = Coupon.objects.select_for_update().get(pk=coupon.pk)
             is_valid, message = coupon.is_valid(client=request.user, order_amount=subtotal)
-            if is_valid:
-                discount_total = coupon.calculate_discount(subtotal)
-                coupon_discount = discount_total
+            if not is_valid:
+                raise ValidationError({'coupon_code': message})
+            discount_total = coupon.calculate_discount(subtotal)
+            coupon_discount = discount_total
         
         total = subtotal - discount_total
         
@@ -67,6 +101,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             subtotal=subtotal,
             discount_total=discount_total,
             total=total,
+            currency=next(iter(currencies)),
+            metadata={'checkout_id': checkout_id},
             coupon_code=coupon.code if coupon else None,
             coupon_discount=coupon_discount,
             notes=validated_data.get('notes', ''),
@@ -88,7 +124,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 description=item_data['description'],
                 domain_name=item_data.get('domain_name', ''),
                 quantity=item_data['quantity'],
-                unit_price=billing_cycle.price,
+                unit_price=item_data['unit_price'],
                 cycle_key=billing_cycle.cycle_key,
                 months=billing_cycle.months,
                 config=item_data.get('config', {})
@@ -109,7 +145,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         from billing.models import Invoice
         invoice = Invoice.create_from_order(order)
         
-        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+        data = OrderSerializer(order).data
+        data['invoice'] = {
+            'id': invoice.id, 'invoice_number': invoice.invoice_number,
+            'status': invoice.status, 'amount_due': str(invoice.amount_due),
+        }
+        return Response(data, status=status.HTTP_201_CREATED)
     
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
@@ -217,7 +258,7 @@ class CartViewSet(viewsets.GenericViewSet):
     serializer_class = CartSerializer
     permission_classes = [AllowAny]
     
-    def get_cart(self, request):
+    def _get_or_create_cart(self, request):
         """Get or create cart for current session/user"""
         session_key = request.session.session_key
         if not session_key:
@@ -240,14 +281,14 @@ class CartViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'])
     def get_cart(self, request):
         """Get current cart"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         serializer = self.get_serializer(cart)
         return Response(serializer.data)
     
     @action(detail=False, methods=['post'])
     def add_item(self, request):
         """Add item to cart"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         
         plan_id = request.data.get('plan_id')
         cycle_key = request.data.get('cycle_key', '1mo')
@@ -288,7 +329,7 @@ class CartViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'])
     def remove_item(self, request):
         """Remove item from cart"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         plan_id = request.data.get('plan_id')
         
         items = cart.items or []
@@ -302,7 +343,7 @@ class CartViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'])
     def update_quantity(self, request):
         """Update item quantity"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         plan_id = request.data.get('plan_id')
         quantity = request.data.get('quantity', 1)
         
@@ -320,7 +361,7 @@ class CartViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'])
     def clear(self, request):
         """Clear cart"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         cart.items = []
         cart.coupon_code = None
         cart.save()
@@ -330,7 +371,7 @@ class CartViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'])
     def apply_coupon(self, request):
         """Apply coupon to cart"""
-        cart = self.get_cart(request)
+        cart = self._get_or_create_cart(request)
         coupon_code = request.data.get('coupon_code')
         
         try:

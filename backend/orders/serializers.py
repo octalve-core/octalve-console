@@ -75,24 +75,39 @@ class CreateOrderSerializer(serializers.Serializer):
     items = CreateOrderItemSerializer(many=True)
     coupon_code = serializers.CharField(required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
+    checkout_id = serializers.UUIDField(required=True)
     
     def validate_items(self, value):
         if not value:
             raise serializers.ValidationError("At least one item is required")
+        if len(value) > 20:
+            raise serializers.ValidationError("Too many order items")
         
         validated_items = []
         for item in value:
             try:
-                plan = Plan.objects.get(id=item['plan_id'], status='active')
+                plan = Plan.objects.select_related('product').get(
+                    id=item['plan_id'], status='active', is_public=True,
+                    product__status='active', product__is_public=True,
+                    product__category__is_active=True,
+                )
                 billing_cycle = PlanBillingCycle.objects.get(
                     plan=plan, 
                     cycle_key=item.get('cycle_key', '1mo'),
                     is_active=True
                 )
+                if plan.product.product_type not in ('shared_hosting', 'wordpress_hosting', 'vps'):
+                    raise serializers.ValidationError('Only hosting plans can be ordered here')
+                item['item_type'] = 'vps' if plan.product.product_type == 'vps' else 'hosting'
                 item['plan'] = plan
                 item['billing_cycle'] = billing_cycle
-                item['unit_price'] = billing_cycle.price
+                if billing_cycle.months < 1 or billing_cycle.price <= 0:
+                    raise serializers.ValidationError('Billing cycle has invalid pricing')
+                item['unit_price'] = billing_cycle.price + billing_cycle.setup_fee
+                item['setup_fee'] = billing_cycle.setup_fee
                 item['description'] = f"{plan.product.name} - {plan.name} ({billing_cycle.label})"
+                if billing_cycle.setup_fee:
+                    item['description'] += f" incl. {plan.currency} {billing_cycle.setup_fee} setup fee"
                 validated_items.append(item)
             except Plan.DoesNotExist:
                 raise serializers.ValidationError(f"Plan {item['plan_id']} not found")

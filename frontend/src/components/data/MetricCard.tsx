@@ -27,21 +27,21 @@ export function MetricCard({
   className,
 }: MetricCardProps) {
   return (
-    <Card className={cn("overflow-hidden", className)}>
+    <Card className={cn("overflow-hidden border-[#E5EBF3] shadow-[0_1px_2px_rgba(15,23,42,.035)]", className)}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className="mt-3 text-3xl font-medium tracking-[-0.05em] text-slate-950">
+          <p className="mt-2 text-[25px] font-semibold tracking-[-0.035em] text-slate-950">
             {value}
           </p>
 
           {description ? (
-            <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+            <p className="mt-2 text-xs leading-5 text-slate-500">{description}</p>
           ) : null}
         </div>
 
         {icon ? (
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0064E0]/10 text-[#0064E0]">
             {icon}
           </div>
         ) : null}

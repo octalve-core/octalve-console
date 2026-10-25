@@ -12,81 +12,34 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 const ACCESS_TOKEN_KEY = "octalve_console_access_token";
 const REFRESH_TOKEN_KEY = "octalve_console_refresh_token";
-
 const SENSITIVE_QUERY_KEYS = new Set([
-  "password",
-  "new_password",
-  "re_new_password",
-  "re_password",
-  "token",
-  "access",
-  "refresh",
-  "secret",
-  "secret_key",
-  "api_key",
+  "password", "new_password", "re_new_password", "re_password",
+  "token", "access", "refresh", "secret", "secret_key", "api_key",
 ]);
 
 function isBrowser() {
   return typeof window !== "undefined";
 }
 
-function getStorage() {
-  if (!isBrowser()) return null;
-  return window.sessionStorage;
-}
-
-function removeLegacyLocalStorageTokens() {
+function purgeLegacyWebStorage() {
   if (!isBrowser()) return;
-
-  try {
-    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-    window.localStorage.removeItem("octalve_console_demo_user");
-  } catch {
-    // Ignore browser storage errors.
+  for (const storage of [window.localStorage, window.sessionStorage]) {
+    try {
+      storage.removeItem(ACCESS_TOKEN_KEY);
+      storage.removeItem(REFRESH_TOKEN_KEY);
+      storage.removeItem("octalve_console_demo_user");
+    } catch {
+      // Storage might be unavailable in a hardened browsing context.
+    }
   }
 }
 
+/** Deprecated compatibility only. Never store or return session credentials. */
 export const tokenStorage = {
-  getAccessToken() {
-    removeLegacyLocalStorageTokens();
-    return getStorage()?.getItem(ACCESS_TOKEN_KEY) ?? null;
-  },
-
-  getRefreshToken() {
-    removeLegacyLocalStorageTokens();
-    return getStorage()?.getItem(REFRESH_TOKEN_KEY) ?? null;
-  },
-
-  setTokens(access?: string | null, refresh?: string | null) {
-    const storage = getStorage();
-    if (!storage) return;
-
-    removeLegacyLocalStorageTokens();
-
-    if (access) {
-      storage.setItem(ACCESS_TOKEN_KEY, access);
-    } else {
-      storage.removeItem(ACCESS_TOKEN_KEY);
-    }
-
-    if (refresh) {
-      storage.setItem(REFRESH_TOKEN_KEY, refresh);
-    } else {
-      storage.removeItem(REFRESH_TOKEN_KEY);
-    }
-  },
-
-  clearTokens() {
-    const storage = getStorage();
-
-    if (storage) {
-      storage.removeItem(ACCESS_TOKEN_KEY);
-      storage.removeItem(REFRESH_TOKEN_KEY);
-    }
-
-    removeLegacyLocalStorageTokens();
-  },
+  getAccessToken() { purgeLegacyWebStorage(); return null; },
+  getRefreshToken() { purgeLegacyWebStorage(); return null; },
+  setTokens() { throw new Error("Browser JWT storage is disabled."); },
+  clearTokens() { purgeLegacyWebStorage(); },
 };
 
 export class ApiError extends Error {
@@ -113,49 +66,56 @@ function assertSafeQueryParams(params?: QueryParams) {
 
 function createUrl(path: string, params?: QueryParams) {
   assertSafeQueryParams(params);
-
-  const isAbsolute = /^https?:\/\//i.test(path);
-  const base = API_BASE_URL.trim().replace(/\/$/, "");
-  if (!isAbsolute) {
-    // Never silently use a relative Console path, a stale Review bridge, or
-    // an assumed Production API when the deployment lacks explicit config.
-    let configured: URL;
-    try {
-      configured = new URL(base);
-    } catch {
-      throw new Error("Octalve Cloud API URL is not configured for this deployment.");
-    }
-    if (
-      !["https:", "http:"].includes(configured.protocol) ||
-      (configured.protocol !== "https:" &&
-        !["localhost", "127.0.0.1"].includes(configured.hostname)) ||
-      configured.pathname.replace(/\/$/, "") !== "/api" ||
-      configured.search ||
-      configured.hash ||
-      configured.username ||
-      configured.password
-    ) {
-      throw new Error("Octalve Cloud API URL must be an HTTPS origin ending in /api.");
-    }
+  purgeLegacyWebStorage();
+  const backend = API_BASE_URL.trim().replace(/\/$/, "");
+  let configured: URL;
+  try {
+    configured = new URL(backend);
+  } catch {
+    throw new Error("Octalve Cloud API URL is not configured.");
   }
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  const url = new URL(isAbsolute ? path : `${base}${cleanPath}`);
+  if (
+    !(configured.protocol === "https:" ||
+      (configured.protocol === "http:" &&
+       ["localhost", "127.0.0.1"].includes(configured.hostname))) ||
+    configured.pathname.replace(/\/$/, "") !== "/api" ||
+    configured.username || configured.password ||
+    configured.search || configured.hash
+  ) {
+    throw new Error("Octalve Cloud API URL must end in /api on a permitted origin.");
+  }
 
+  let cleanPath: string;
+  if (/^https?:\/\//i.test(path)) {
+    const supplied = new URL(path);
+    if (supplied.origin !== configured.origin ||
+        !supplied.pathname.startsWith("/api/") ||
+        supplied.username || supplied.password) {
+      throw new Error("Untrusted external API destination.");
+    }
+    cleanPath = supplied.pathname.slice(4) + supplied.search;
+  } else {
+    cleanPath = path.startsWith("/") ? path : `/${path}`;
+  }
+
+  // The browser only calls the same-origin BFF; it never sends Django JWTs.
+  const dest = isBrowser()
+    ? new URL(`/api/cloud${cleanPath}`, window.location.origin)
+    : new URL(`${backend}${cleanPath}`);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (Array.isArray(value)) {
         for (const item of value) {
           if (item !== undefined && item !== null) {
-            url.searchParams.append(key, String(item));
+            dest.searchParams.append(key, String(item));
           }
         }
       } else if (value !== undefined && value !== null) {
-        url.searchParams.set(key, String(value));
+        dest.searchParams.set(key, String(value));
       }
     }
   }
-
-  return isAbsolute || base ? url.toString() : `${cleanPath}${url.search}`;
+  return isBrowser() ? dest.pathname + dest.search : dest.toString();
 }
 
 async function parseResponse(response: Response) {
@@ -209,13 +169,7 @@ async function request<T>(
 
   headers.set("Accept", "application/json");
 
-  if (!options.skipAuth) {
-    const accessToken = tokenStorage.getAccessToken();
-
-    if (accessToken) {
-      headers.set("Authorization", `Bearer ${accessToken}`);
-    }
-  }
+  // Authentication lives in HttpOnly cookies; the BFF adds Authorization.
 
   const response = await fetch(createUrl(path, options.params), {
     method,
@@ -226,7 +180,7 @@ async function request<T>(
         : body instanceof FormData
           ? body
           : JSON.stringify(body ?? {}),
-    credentials: "include",
+    credentials: "same-origin",
     cache: "no-store",
   });
 
