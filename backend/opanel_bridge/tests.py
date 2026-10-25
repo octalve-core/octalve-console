@@ -8,6 +8,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 from services.models import Service
+from providers.models import Provider
 from .models import OPanelLaunchGrant, VerifiedHostingBinding
 from .policy import account_digest
 
@@ -32,14 +33,22 @@ class OPanelIssuerTests(TestCase):
             email="stranger-sso@example.test", username="ssostranger",
             password="local-test-password-123", role="client")
         now = timezone.now()
+        self.provider = Provider.objects.create(
+            name="Synthetic verification provider",
+            adapter_type="CpanelAdapter",
+            base_url="https://test-host.example.test:2087",
+            username="operator",
+            config={"hosting_account_owner": "resellerops"},
+            status="active", health_status="healthy", test_mode=False,
+        )
         self.service = Service.objects.create(
-            client=self.owner, product_id=1, plan_id=2, provider_id=3,
+            client=self.owner, product_id=1, plan_id=2, provider_id=self.provider.pk,
             status="active", label="Test Hosting", service_type="hosting",
             domain_name="safe.example.test", provider_identifier="server-only-account",
             activated_at=now - timedelta(minutes=10), next_due_date=now + timedelta(days=30),
             billing_cycle="1mo", amount=Decimal("3000"), currency="NGN")
         self.proof = VerifiedHostingBinding.objects.create(
-            service=self.service, provider_id_snapshot=3, account_digest=account_digest(self.service),
+            service=self.service, provider_id_snapshot=self.provider.pk, account_digest=account_digest(self.service),
             confirmation_source="provider_api_readback", confirmed_at=now - timedelta(minutes=1))
         self.api = APIClient()
         self.api.force_authenticate(self.owner)
@@ -153,3 +162,29 @@ class OPanelIssuerTests(TestCase):
     def test_anonymous_authorization_is_denied(self):
         self.api.force_authenticate(user=None)
         self.assertIn(self.issue().status_code, (401, 403))
+
+    def test_modified_provider_credentials_or_origin_invalidate_current_grant(self):
+        code = self.issue().data["code"]
+        self.provider.base_url = "https://other.example.test:2087"
+        self.provider.save(update_fields=["base_url"])
+        self.assertEqual(self.redeem(code).status_code, 403)
+        self.assertEqual(self.issue().status_code, 404)
+
+    def test_unhealthy_provider_disables_active_service_sso(self):
+        self.provider.health_status = "unhealthy"
+        self.provider.save(update_fields=["health_status"])
+        self.assertEqual(self.issue().status_code, 404)
+
+    def test_duplicate_provider_account_bound_to_another_customer_fails_closed(self):
+        Service.objects.create(
+            client=self.stranger, product_id=1, plan_id=2, provider_id=self.provider.pk,
+            status="active", label="Conflicting account", service_type="hosting",
+            domain_name="safe.example.test", provider_identifier="SERVER-ONLY-ACCOUNT",
+            activated_at=timezone.now()-timedelta(minutes=10),
+            next_due_date=timezone.now()+timedelta(days=30),
+            billing_cycle="1mo", amount=Decimal("3000"), currency="NGN",
+        )
+        self.assertEqual(self.issue().status_code, 404)
+        self.assertEqual(self.confidential(ENTITLEMENT, {
+            "subject_id": self.owner.pk, "service_id": self.service.pk,
+        }).status_code, 404)
