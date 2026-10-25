@@ -114,12 +114,20 @@ def stage_paid_order(order_id):
                     next_due_date=timezone.now() + relativedelta(months=item.months),
                     activated_at=None,
                 )
+            # Deterministic provider username for the one paid order item.
+            # The actual account must still be created/proven on an authorised
+            # hosting server; this value is NOT evidence of an account.
+            planned_account = f"oc{item.pk:010d}"
+            if len(planned_account) > 16:
+                raise FulfillmentRefused("Order identifier exceeds safe hosting username length.")
             key = f"paid-hosting:order-item:{item.pk}:v1"
             task = ProvisioningTask.objects.select_for_update().filter(lock_key=key).first()
             if task:
                 if (task.order_item_id != item.pk or task.order_id != order.pk
                         or task.service_id != service.pk or task.provider_id != provider.pk
-                        or task.action != "provision"):
+                        or task.action != "provision"
+                        or task.payload.get("expected_account") != planned_account
+                        or task.metadata.get("settlement_transaction_id") != payment.pk):
                     raise FulfillmentRefused("Conflicting fulfillment idempotency key.")
             else:
                 task = ProvisioningTask.objects.create(
@@ -128,7 +136,8 @@ def stage_paid_order(order_id):
                     action="provision", status="queued", lock_key=key,
                     payload={"domain": domain, "provider_package_id": package,
                              "order_item_id": item.pk, "invoice_id": invoice.pk,
-                             "settlement_reference": payment.reference},
+                             "settlement_reference": payment.reference,
+                             "expected_account": planned_account},
                     metadata={"authority": "verified_paid_order",
                               "settlement_transaction_id": payment.pk,
                               "requires_vendor_confirmation": True},
