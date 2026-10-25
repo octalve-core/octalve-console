@@ -10,7 +10,10 @@ from payments.readback import PaymentReadbackRejected, verify_gateway_intent
 
 def response(body, status=200, headers=None):
     raw = json.dumps(body).encode()
-    wire = Mock()\n    wire.read.return_value = raw\n    return SimpleNamespace(status_code=status, raw=wire,\n                           headers=headers or {}, close=lambda: None)
+    wire = Mock()
+    wire.read.return_value = raw
+    return SimpleNamespace(status_code=status, raw=wire,
+                           headers=headers or {}, close=lambda: None)
 
 
 @override_settings(CLOUD_GATEWAY_READBACK_ENABLED=True)
