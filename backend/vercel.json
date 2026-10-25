@@ -3,7 +3,7 @@
   "git": {
     "deploymentEnabled": {
       "main": true,
-      "review/cloud": true,
+      "review/cloud": false,
       "*": false
     }
   }
