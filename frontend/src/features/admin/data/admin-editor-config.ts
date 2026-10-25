@@ -1,7 +1,7 @@
 import type { ResourceStatus } from "@/lib/api/types";
 import type { AdminResourceKey } from "./admin-resource-config";
 
-export type AdminFieldType = "text" | "email" | "number" | "date" | "textarea" | "select";
+export type AdminFieldType = "text" | "email" | "number" | "date" | "textarea" | "select" | "password";
 
 export type AdminEditorField = {
   name: string;
@@ -169,12 +169,22 @@ export const adminEditorConfig = {
     description: "Connect infrastructure providers like DirectAdmin, cPanel, VPS, and registrar APIs.",
     fields: [
       { name: "name", label: "Provider name", type: "text", placeholder: "DirectAdmin Node 1", required: true },
-      { name: "adapter_type", label: "Adapter type", type: "text", placeholder: "directadmin", required: true },
-      { name: "base_url", label: "Base URL", type: "text", placeholder: "https://opanel.octalve.cloud", required: false },
-      { name: "username", label: "Username", type: "text", placeholder: "API username", required: false },
-      { name: "api_key", label: "API key", type: "text", placeholder: "API key", required: false },
-      { name: "secret", label: "Secret", type: "text", placeholder: "Optional secret", required: false },
-      { name: "status", label: "Status", type: "select", required: true, options: statusOptions },
+      { name: "adapter_type", label: "Adapter type", type: "select", required: true, options: [
+        { label: "DirectAdmin (only currently implemented adapter)", value: "DirectAdminAdapter" },
+        { label: "Domain registrar (integration required)", value: "DomainRegistrarAdapter" },
+        { label: "DNS / Cloudflare (integration required)", value: "CloudflareAdapter" },
+        { label: "SSL issuer (integration required)", value: "SslProviderAdapter" },
+      ] },
+      { name: "base_url", label: "Provider API URL", type: "text", placeholder: "https://your-provider.example", required: true },
+      { name: "username", label: "Provider account name", type: "text", placeholder: "Scoped API username", required: false },
+      { name: "api_key", label: "API key (write-only)", type: "password", placeholder: "Stored encrypted; not shown after saving", required: false },
+      { name: "secret", label: "Secret (write-only)", type: "password", placeholder: "Do not paste credentials into chat", required: false },
+      { name: "status", label: "Status", type: "select", required: true, options: [
+        { label: "Inactive until verified", value: "inactive" },
+        { label: "Active (requires verified adapter)", value: "active" },
+        { label: "Maintenance", value: "maintenance" },
+        { label: "Error", value: "error" },
+      ] },
     ],
   },
   provisioning: {
