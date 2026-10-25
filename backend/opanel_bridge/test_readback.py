@@ -186,6 +186,64 @@ class VerifiedAccountReadbackTests(TestCase):
                 with self.assertRaises(ReadbackRejected):
                     _da_account(text, "checkhost", "verified.example.test")
 
+    @override_settings(
+        OPANEL_ISSUER_ENABLED=True,
+        OPANEL_CLIENT_SECRET="local-only-sso-integration-secret-0123456789abcdef",
+        OPANEL_CLIENT_ID="octalve-opanel",
+        OPANEL_CALLBACK_URL="https://panel.example.test/auth/callback/",
+    )
+    def test_provider_readback_then_console_sso_then_revocation(self):
+        """Synthetic end-to-end provider proof -> Console issuer -> entitlement denial."""
+        import base64
+        import hashlib
+        from rest_framework.test import APIClient
+        verifier = "x" * 50
+        challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(verifier.encode()).digest()
+        ).rstrip(b"=").decode()
+        customer = APIClient()
+        customer.force_authenticate(self.service.client)
+        path = "/api/integrations/opanel/v1/"
+        def issue():
+            return customer.post(path+"authorize/", {
+                "service_id": self.service.pk,
+                "state": "s" * 32, "code_challenge": challenge,
+            }, format="json")
+        def exchange(code):
+            external = APIClient()
+            return external.post(path+"exchange/", {
+                "code": code, "code_verifier": verifier,
+                "redirect_uri": "https://panel.example.test/auth/callback/",
+            }, format="json", HTTP_AUTHORIZATION="Bearer local-only-sso-integration-secret-0123456789abcdef",
+                HTTP_X_OPANEL_CLIENT_ID="octalve-opanel")
+        def current():
+            external = APIClient()
+            return external.post(path+"entitlement/", {
+                "subject_id": self.service.client_id,
+                "service_id": self.service.pk,
+            }, format="json", HTTP_AUTHORIZATION="Bearer local-only-sso-integration-secret-0123456789abcdef",
+                HTTP_X_OPANEL_CLIENT_ID="octalve-opanel")
+        self.assertEqual(issue().status_code, 404)
+        readback_service(self.service.pk, apply=False, getter=self.getter)
+        self.assertEqual(issue().status_code, 404)
+        readback_service(self.service.pk, apply=True, getter=self.getter)
+        self.assertEqual(current().status_code, 200)
+        code = issue().data["code"]
+        self.assertEqual(exchange(code).status_code, 200)
+        self.assertEqual(exchange(code).status_code, 403)
+        issued_before_revocation = issue().data["code"]
+        self.getter.return_value = vendor_response({
+            "metadata": {"result": 1}, "data": {"acct": [{
+                "user": "checkhost", "domain": "verified.example.test",
+                "suspended": 1,
+            }]}
+        })
+        with self.assertRaises(ReadbackRejected):
+            readback_service(self.service.pk, apply=True, getter=self.getter)
+        self.assertEqual(current().status_code, 404)
+        self.assertEqual(issue().status_code, 404)
+        self.assertEqual(exchange(issued_before_revocation).status_code, 403)
+
     def test_wrong_whm_summary_schema_fails_closed(self):
         with self.assertRaises(ReadbackRejected):
             _whm_account({"metadata": {"result": 1}, "data": {"acct": [{}, {}]}},
