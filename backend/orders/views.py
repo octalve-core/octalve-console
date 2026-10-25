@@ -115,6 +115,23 @@ class OrderViewSet(viewsets.ModelViewSet):
             plan = item_data['plan']
             billing_cycle = item_data['billing_cycle']
             
+            config = dict(item_data.get('config') or {})
+            catalog_offer = item_data.get('published_catalog_offer')
+            # Never trust a client-supplied snapshot. Pin the approved
+            # supplier/retail revision used to produce the invoice.
+            config.pop('catalog_offer_snapshot', None)
+            if catalog_offer:
+                config['catalog_offer_snapshot'] = {
+                    'revision': catalog_offer.revision,
+                    'plan_id': plan.pk,
+                    'currency': plan.currency,
+                    'supplier_provider_id': catalog_offer.snapshot['supplier_provider_id'],
+                    'technical_package_id': catalog_offer.snapshot['technical_package_id'],
+                    'price': str(billing_cycle.price),
+                    'setup_fee': str(billing_cycle.setup_fee),
+                    'billing_period': billing_cycle.cycle_key,
+                }
+
             OrderItem.objects.create(
                 order=order,
                 product_id=plan.product.id,
@@ -127,7 +144,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 unit_price=item_data['unit_price'],
                 cycle_key=billing_cycle.cycle_key,
                 months=billing_cycle.months,
-                config=item_data.get('config', {})
+                config=config
             )
         
         # Record coupon redemption
