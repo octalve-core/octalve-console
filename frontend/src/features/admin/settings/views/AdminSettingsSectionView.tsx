@@ -33,10 +33,14 @@ export function AdminSettingsSectionView({ section }: AdminSettingsSectionViewPr
         title={item.title}
         description={item.description}
         actions={
-          <Button type="button">
-            <Save className="h-4 w-4" />
-            Save changes
-          </Button>
+          section === "providers" ? (
+            <Button href="/admin/servers">Manage provider connections</Button>
+          ) : (
+            <Button type="button">
+              <Save className="h-4 w-4" />
+              Save changes
+            </Button>
+          )
         }
       >
         <div className="grid gap-5 xl:grid-cols-[1fr_22rem]">
@@ -59,8 +63,9 @@ export function AdminSettingsSectionView({ section }: AdminSettingsSectionViewPr
             </div>
 
             <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
-              This settings section is UI-ready and API-ready. When the backend exposes a final payload for this section,
-              only this section mapping needs to be connected.
+              {section === "providers"
+                ? "This is not a verified provider status dashboard. Use Manage provider connections to inspect saved provider records; pricing sync, registrar and SSL automation are not yet live."
+                : "This settings section is UI-ready. Backend persistence must be verified before settings can be considered operational."}
             </div>
           </Card>
 
