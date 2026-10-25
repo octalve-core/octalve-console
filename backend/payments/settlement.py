@@ -70,7 +70,7 @@ def settle_verified_intent(intent_id, *, getter=None):
         existing = Transaction.objects.select_for_update().filter(reference=locked.reference).first()
         if existing:
             if (locked.status == "completed" and invoice.status == "paid" and
-                    order.status == "paid" and existing.status == "successful" and
+                    order.status in ("paid", "provisioned") and existing.status == "successful" and
                     existing.invoice_id == invoice.pk and
                     existing.gateway_id == locked.gateway_id and
                     existing.client_id == locked.client_id and
