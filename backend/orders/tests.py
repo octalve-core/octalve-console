@@ -38,7 +38,7 @@ class HostingCheckoutTests(TestCase):
     def test_order_and_invoice_are_unpaid_with_server_pricing(self):
         payload = self.payload()
         payload["total"] = "0.01"  # Browser-provided totals must never determine invoice amounts.
-        result = self.client.post("/api/orders/", payload, format="json")
+        result = self.client.post("/api/orders/orders/", payload, format="json")
         self.assertEqual(result.status_code, 201, result.data)
         order = Order.objects.get()
         invoice = Invoice.objects.get(order=order)
@@ -53,8 +53,8 @@ class HostingCheckoutTests(TestCase):
 
     def test_same_checkout_id_never_creates_second_invoice(self):
         payload = self.payload()
-        first = self.client.post("/api/orders/", payload, format="json")
-        again = self.client.post("/api/orders/", payload, format="json")
+        first = self.client.post("/api/orders/orders/", payload, format="json")
+        again = self.client.post("/api/orders/orders/", payload, format="json")
         self.assertEqual(first.status_code, 201, first.data)
         self.assertEqual(again.status_code, 200, again.data)
         self.assertEqual(Order.objects.count(), 1)
@@ -63,7 +63,7 @@ class HostingCheckoutTests(TestCase):
     def test_non_public_plan_is_rejected_without_financial_documents(self):
         self.plan.is_public = False
         self.plan.save(update_fields=["is_public"])
-        result = self.client.post("/api/orders/", self.payload(), format="json")
+        result = self.client.post("/api/orders/orders/", self.payload(), format="json")
         self.assertEqual(result.status_code, 400, result.data)
         self.assertFalse(Order.objects.exists())
         self.assertFalse(Invoice.objects.exists())
@@ -71,17 +71,17 @@ class HostingCheckoutTests(TestCase):
     def test_inactive_cycle_is_rejected(self):
         self.cycle.is_active = False
         self.cycle.save(update_fields=["is_active"])
-        result = self.client.post("/api/orders/", self.payload(), format="json")
+        result = self.client.post("/api/orders/orders/", self.payload(), format="json")
         self.assertEqual(result.status_code, 400, result.data)
         self.assertFalse(Order.objects.exists())
 
     def test_client_cannot_modify_order_or_invoice_financial_state(self):
-        success = self.client.post("/api/orders/", self.payload(), format="json")
+        success = self.client.post("/api/orders/orders/", self.payload(), format="json")
         self.assertEqual(success.status_code, 201, success.data)
         order = Order.objects.get()
         invoice = Invoice.objects.get()
         self.assertEqual(self.client.patch(
-            f"/api/orders/{order.id}/", {"status": "paid"}, format="json").status_code, 403)
+            f"/api/orders/orders/{order.id}/", {"status": "paid"}, format="json").status_code, 403)
         self.assertEqual(self.client.patch(
             f"/api/billing/invoices/{invoice.id}/", {"status": "paid"}, format="json").status_code, 403)
         order.refresh_from_db()
