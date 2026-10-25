@@ -82,9 +82,8 @@ function normalizeRecord(item: unknown, configKey: AdminResourceKey): AdminRecor
 export function AdminResourceListView({ resource }: AdminResourceListViewProps) {
   const config = adminResourceConfig[resource];
 
-  const [records, setRecords] = useState<AdminRecord[]>(config.fallback);
+  const [records, setRecords] = useState<AdminRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUsingFallback, setIsUsingFallback] = useState(false);
   const [error, setError] = useState("");
 
   async function loadRecords() {
@@ -95,17 +94,10 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
       const response = await config.loader();
       const apiRecords = unwrapList(response).map((item) => normalizeRecord(item, config.key));
 
-      if (apiRecords.length > 0) {
-        setRecords(apiRecords);
-        setIsUsingFallback(false);
-      } else {
-        setRecords(config.fallback);
-        setIsUsingFallback(true);
-      }
+      setRecords(apiRecords);
     } catch {
-      setRecords(config.fallback);
-      setIsUsingFallback(true);
-      setError("Live API data is not available yet. Showing safe demo records for layout continuity.");
+      setRecords([]);
+      setError("Unable to retrieve live records. Retry when the service is available.");
     } finally {
       setIsLoading(false);
     }
@@ -143,15 +135,9 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
         }
       >
         <div className="space-y-5">
-          {isUsingFallback ? (
-            <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-              {error || "Showing fallback records until the backend returns live data."}
-            </div>
-          ) : null}
-
           {isLoading ? (
             <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Connecting to the Django API." />
-          ) : error && records.length === 0 ? (
+          ) : error ? (
             <ErrorState description={error} />
           ) : (
             <AdminRecordList
