@@ -30,7 +30,7 @@ class CatalogAuthorityTests(SimpleTestCase):
             for method in ("GET", "POST", "PATCH"):
                 allowed = InternalSupplierAuthority().has_permission(
                     SimpleNamespace(user=user, method=method), SimpleNamespace())
-                self.assertEqual(allowed, role == "admin" or (role == "staff" and method == "GET"))
+                self.assertEqual(allowed, role == "admin")
 
 
 class UnqualifiedProviderOperationsTests(SimpleTestCase):
