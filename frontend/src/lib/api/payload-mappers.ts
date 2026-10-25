@@ -178,6 +178,8 @@ export function toAdminResourcePayload(resource: AdminResourceKey, payload: Form
       return compactPayload({
         name: cleanString(payload.name),
         adapter_type: cleanString(payload.adapter_type),
+        config: { fulfillment_model: cleanString(payload.fulfillment_model) },
+        server_group: cleanString(payload.server_group),
         base_url: cleanString(payload.base_url),
         username: cleanString(payload.username),
         api_key: cleanString(payload.api_key),
