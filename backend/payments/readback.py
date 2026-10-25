@@ -93,7 +93,7 @@ def verify_gateway_intent(intent, *, getter=None):
         if len(data_bytes) > 65536:
             raise PaymentReadbackRejected("Gateway verification response oversized.")
         import json
-        packet = json.loads(data_bytes.decode("utf-8"))
+        packet = json.loads(data_bytes.decode("utf-8"), parse_float=Decimal)
         if not isinstance(packet, dict):
             raise PaymentReadbackRejected("Gateway verification response invalid.")
         data = packet.get("data")
