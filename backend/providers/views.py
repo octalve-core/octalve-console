@@ -35,10 +35,9 @@ class ProviderViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
             return Provider.objects.all()
-        # Staff can view providers but not sensitive data
-        if user.role == 'staff':
-            return Provider.objects.all()
-        # Clients cannot view providers
+        # Provider records include raw config/metadata and connection endpoints.
+        # Until an explicitly redacted staff health DTO exists, keep these
+        # internal supplier configuration records administrator-only.
         return Provider.objects.none()
     
     def get_serializer_context(self):
