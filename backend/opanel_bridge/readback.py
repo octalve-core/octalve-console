@@ -22,6 +22,24 @@ from .policy import account_digest
 USERNAME = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{1,31}$")
 
 
+def required_owner(provider):
+    """Configured reseller/owner identity must match vendor read-back verbatim."""
+    config = provider.config if isinstance(provider.config, dict) else {}
+    owner = config.get("hosting_account_owner")
+    if not isinstance(owner, str) or not USERNAME.fullmatch(owner):
+        raise ReadbackRejected("Expected hosting account owner has not been approved.")
+    return owner
+
+
+def unique_account(service):
+    """Never authorize a provider account referenced by two Console services."""
+    return not Service.objects.filter(
+        provider_id=service.provider_id,
+        provider_identifier__iexact=service.provider_identifier,
+    ).exclude(pk=service.pk).exists()
+
+
+
 class ReadbackRejected(Exception):
     """Redacted failure: provider raw responses/credentials MUST NOT be logged."""
 
@@ -41,7 +59,7 @@ def _normalize_domain(value):
     return value.strip().rstrip(".").lower()
 
 
-def _da_account(data, account, domain):
+def _da_account(data, account, domain, owner):
     if isinstance(data, str):
         # Do not permit duplicate ambiguous keys or oversized provider replies.
         fields = parse_qs(data, keep_blank_values=True, strict_parsing=False)
@@ -53,6 +71,7 @@ def _da_account(data, account, domain):
     if (
         str(data.get("error", "0")) != "0"
         or data.get("username") != account
+        or data.get("creator") != owner
         or _normalize_domain(data.get("domain")) != domain
         or str(data.get("usertype", "")).lower() != "user"
         or str(data.get("account", "")).upper() != "ON"
@@ -62,7 +81,7 @@ def _da_account(data, account, domain):
     return True
 
 
-def _whm_account(data, account, domain):
+def _whm_account(data, account, domain, owner):
     if not isinstance(data, dict) or not isinstance(data.get("metadata"), dict):
         raise ReadbackRejected("Invalid WHM account response.")
     if str(data["metadata"].get("result")) != "1":
@@ -73,6 +92,7 @@ def _whm_account(data, account, domain):
     item = records[0]
     if (
         item.get("user") != account
+        or item.get("owner") != owner
         or _normalize_domain(item.get("domain")) != domain
         or str(item.get("suspended", "")).lower() not in ("0", "false")
     ):
@@ -93,8 +113,10 @@ def verify_existing_account(service, provider, *, getter=None):
         or provider.status != "active"
         or provider.health_status != "healthy"
         or provider.test_mode
+        or not unique_account(service)
     ):
         raise ReadbackRejected("Service or provider is not eligible for account verification.")
+    owner = required_owner(provider)
     account = service.provider_identifier
     domain = _normalize_domain(service.domain_name)
     if not isinstance(account, str) or not USERNAME.fullmatch(account) or not domain or len(domain) > 253:
@@ -132,10 +154,10 @@ def verify_existing_account(service, provider, *, getter=None):
     if response.status_code != 200 or len(response.content) > 100_000:
         raise ReadbackRejected("Provider refused or oversized the account read-back.")
     if provider.adapter_type == "DirectAdminAdapter":
-        _da_account(response.text, account, domain)
+        _da_account(response.text, account, domain, owner)
     else:
         try:
-            _whm_account(response.json(), account, domain)
+            _whm_account(response.json(), account, domain, owner)
         except ValueError as exc:
             raise ReadbackRejected("WHM returned malformed JSON.") from exc
     return ReadbackResult(True, provider.adapter_type, service.pk, provider.pk, timezone.now())
@@ -177,6 +199,12 @@ def readback_service(service_id, *, apply=False, getter=None):
             or fresh.next_due_date <= timezone.now()
             or fresh.provider_id != provider.pk
             or fresh.provider_identifier != service.provider_identifier
+            or not unique_account(fresh)
+            or live_provider.adapter_type != provider.adapter_type
+            or live_provider.base_url != provider.base_url
+            or live_provider.username != provider.username
+            or live_provider.config != provider.config
+            or live_provider.get_api_key() != provider.get_api_key()
             or _normalize_domain(fresh.domain_name) != _normalize_domain(service.domain_name)
             or live_provider.status != "active"
             or live_provider.health_status != "healthy"
