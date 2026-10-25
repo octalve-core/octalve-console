@@ -43,3 +43,6 @@ Official vendor documentation:
 - Genuine account-scoped file/DNS/database/email APIs and finished Next.js OPanel workspace.
 - Live end-to-end browser SSO with authorised server; all real provider test evidence.
 - Production deploy, secure secret configuration and controlled browser verification.
+
+## Task lifecycle regression discovered and closed in Phase 3C
+Legacy `ProvisioningTask.mark_completed()` previously auto-activated pending hosting, or unsuspended a service, solely because a task was labeled completed. This bypassed the intended provider confirmation if a future actor supplied a forged or premature completion. **Mutation task completion now fails closed** pending an audited worker for provision, suspend, unsuspend, terminate, package/password/VM changes. Read-only usage/details synchronization tasks may record completion without any service status mutation. New Django regression tests require a pending service to remain pending even if task.result_data claims success. This is intentional and does not implement hosting creation.
