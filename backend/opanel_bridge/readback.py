@@ -150,7 +150,18 @@ def readback_service(service_id, *, apply=False, getter=None):
         provider = Provider.objects.get(pk=service.provider_id)
     except (Service.DoesNotExist, Provider.DoesNotExist, TypeError, ValueError):
         raise ReadbackRejected("Service has no valid configured provider.")
-    result = verify_existing_account(service, provider, getter=getter)
+    try:
+        result = verify_existing_account(service, provider, getter=getter)
+    except ReadbackRejected:
+        if apply:
+            # A failed confirmation run must immediately revoke old proof;
+            # no stale 15-minute permission survives a known negative result.
+            with transaction.atomic():
+                proof = VerifiedHostingBinding.objects.select_for_update().filter(service_id=service.pk, revoked_at__isnull=True).first()
+                if proof is not None:
+                    proof.revoked_at = timezone.now()
+                    proof.save(update_fields=["revoked_at"])
+        raise
     if not apply:
         return result
     with transaction.atomic():
