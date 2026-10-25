@@ -48,7 +48,7 @@ function getResourceIcon(resource: ClientResourceKey) {
 function getDetailActions(resource: ClientResourceKey, record: ClientRecord) {
   if (resource === "services") {
     return [
-      { label: "Open control panel", href: "#", variant: "primary" as const },
+      { label: "Open OPanel", href: `/client/services/${encodeURIComponent(String(record.id))}/opanel`, variant: "primary" as const },
       { label: "Request support", href: "/client/support/new", variant: "outline" as const },
     ];
   }
