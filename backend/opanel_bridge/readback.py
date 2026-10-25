@@ -100,14 +100,25 @@ def _whm_account(data, account, domain, owner):
     return True
 
 
-def verify_existing_account(service, provider, *, getter=None):
-    """Make exactly one read-only, bounded, TLS-verified vendor request."""
+def verify_existing_account(service, provider, *, getter=None, pending_account=None):
+    """Make one read-only vendor GET. Pre-activation mode is worker-only.
+
+    Normal OPanel readback MUST use active service.provider_identifier.
+    A verified paid hosting worker may supply its deterministic expected
+    account for an unactivated, server-recorded pending service; this does
+    NOT itself activate hosting or make an entitlement available.
+    """
     if not getattr(settings, "OPANEL_READBACK_ENABLED", False):
         raise ReadbackRejected("Account read-back is disabled.")
     if (
         service.service_type != "hosting"
-        or service.status != "active"
-        or not service.activated_at
+        or not (
+            (pending_account is None and service.status == "active" and service.activated_at)
+            or (pending_account is not None
+                and getattr(settings, "CLOUD_PROVISIONING_WORKER_ENABLED", False)
+                and service.status == "pending" and service.activated_at is None
+                and not service.provider_identifier)
+        )
         or service.next_due_date <= timezone.now()
         or service.provider_id != provider.pk
         or provider.status != "active"
@@ -117,7 +128,7 @@ def verify_existing_account(service, provider, *, getter=None):
     ):
         raise ReadbackRejected("Service or provider is not eligible for account verification.")
     owner = required_owner(provider)
-    account = service.provider_identifier
+    account = service.provider_identifier if pending_account is None else pending_account
     domain = _normalize_domain(service.domain_name)
     if not isinstance(account, str) or not USERNAME.fullmatch(account) or not domain or len(domain) > 253:
         raise ReadbackRejected("Provider account reference is incomplete.")
