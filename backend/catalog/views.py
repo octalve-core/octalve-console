@@ -93,6 +93,19 @@ class PlanViewSet(viewsets.ModelViewSet):
             return Plan.objects.all()
         return Plan.objects.filter(status='active', is_public=True, product__status='active', product__is_public=True, product__category__is_active=True)
     
+    # A2 price authority: retail plans must change through reviewed drafts.
+    def create(self, request, *args, **kwargs):
+        return Response({'error': 'Use the supplier-backed offer draft and publish workflow.'}, status=409)
+
+    def update(self, request, *args, **kwargs):
+        return Response({'error': 'Use a new reviewed offer draft to change pricing.'}, status=409)
+
+    def partial_update(self, request, *args, **kwargs):
+        return Response({'error': 'Use a new reviewed offer draft to change pricing.'}, status=409)
+
+    def destroy(self, request, *args, **kwargs):
+        return Response({'error': 'Retire retail packages through a reviewed lifecycle, not hard deletion.'}, status=409)
+
     # Browsing active public plans is allowed to authenticated client accounts.
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
