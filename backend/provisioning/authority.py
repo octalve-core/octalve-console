@@ -47,14 +47,24 @@ def evaluate_payment_to_provisioning(invoice, transaction):
         return decline('Payment currencies do not agree.')
     if transaction.transaction_type != 'payment' or transaction.status != 'successful':
         return decline('No successful settled payment transaction.')
-    if not transaction.webhook_verified or transaction.paid_at is None:
-        return decline('Payment was not independently verified.')
+    if transaction.paid_at is None:
+        return decline('Payment has no settled timestamp.')
+    metadata = transaction.metadata if isinstance(transaction.metadata, dict) else {}
+    source = metadata.get('verification_source')
+    if source == 'signed_webhook_and_api_verification':
+        if not transaction.webhook_verified:
+            return decline('Signed event verification is missing.')
+    elif source == 'provider_api_verified':
+        if (metadata.get('provider_api_verified') is not True
+                or not transaction.provider_reference
+                or metadata.get('verified_remote_id') != transaction.provider_reference):
+            return decline('Independent gateway readback evidence is missing.')
+    else:
+        return decline('No accepted server-side verification provenance.')
     if transaction.gateway is None or transaction.gateway.status != 'active' or transaction.gateway.test_mode:
         return decline('Payment gateway is inactive or in test mode.')
     if transaction.gateway.code not in ELIGIBLE_GATEWAYS:
         return decline('This gateway has no approved automatic-settlement adapter.')
-    if transaction.metadata.get('verification_source') not in VERIFIED_SOURCES:
-        return decline('No accepted server-side verification provenance.')
     if Decimal(str(transaction.amount)) < Decimal(str(invoice.total)):
         return decline('Verified transaction does not cover the invoice.')
     return ProvisioningDecision(True, 'Eligible for a separately authorised provisioning worker.')
