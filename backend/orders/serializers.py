@@ -96,6 +96,9 @@ class CreateOrderSerializer(serializers.Serializer):
                     cycle_key=item.get('cycle_key', '1mo'),
                     is_active=True
                 )
+                if plan.product.product_type not in ('shared_hosting', 'wordpress_hosting', 'vps'):
+                    raise serializers.ValidationError('Only hosting plans can be ordered here')
+                item['item_type'] = 'vps' if plan.product.product_type == 'vps' else 'hosting'
                 item['plan'] = plan
                 item['billing_cycle'] = billing_cycle
                 if billing_cycle.months < 1 or billing_cycle.price <= 0:
@@ -103,6 +106,8 @@ class CreateOrderSerializer(serializers.Serializer):
                 item['unit_price'] = billing_cycle.price + billing_cycle.setup_fee
                 item['setup_fee'] = billing_cycle.setup_fee
                 item['description'] = f"{plan.product.name} - {plan.name} ({billing_cycle.label})"
+                if billing_cycle.setup_fee:
+                    item['description'] += f" incl. {plan.currency} {billing_cycle.setup_fee} setup fee"
                 validated_items.append(item)
             except Plan.DoesNotExist:
                 raise serializers.ValidationError(f"Plan {item['plan_id']} not found")
