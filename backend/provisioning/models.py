@@ -110,7 +110,7 @@ class ProvisioningTask(models.Model):
         provider-confirmation worker, which has NOT been approved. A queued task
         or an arbitrary success result cannot activate or unsuspend a service.
         """
-        if self.action in ('provision', 'suspend', 'unsuspend', 'terminate', 'change_package', 'change_password', 'reboot', 'start', 'stop'):
+        if self.action not in ('sync_usage', 'sync_details'):
             raise ValueError("Provider-changing task completion requires the audited reconciliation worker.")
         self.status = 'completed'
         self.completed_at = timezone.now()
