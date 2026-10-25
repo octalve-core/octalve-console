@@ -20,7 +20,8 @@ def enabled():
 
 
 def account_digest(service):
-    key = f"{service.provider_id}:{service.provider_identifier or ''}"
+    domain = (service.domain_name or "").strip().rstrip(".").lower()
+    key = f"{service.provider_id}:{service.provider_identifier or ''}:{domain}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
@@ -51,6 +52,7 @@ def eligible(subject_id, service_id):
         or proof.confirmed_at is None
         or proof.confirmed_at < service.activated_at
         or proof.confirmed_at > now
+        or (now - proof.confirmed_at).total_seconds() > 900
         or proof.provider_id_snapshot != service.provider_id
         or proof.account_digest != account_digest(service)
     ):
