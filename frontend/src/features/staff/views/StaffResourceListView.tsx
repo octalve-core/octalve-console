@@ -5,6 +5,7 @@ import { RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { staffResourceConfig } from "../data/staff-resource-config";
 import type { StaffRecord, StaffResourceKey } from "../data/staff-demo-data";
@@ -18,9 +19,8 @@ type StaffResourceListViewProps = {
 export function StaffResourceListView({ resource }: StaffResourceListViewProps) {
   const config = staffResourceConfig[resource];
 
-  const [records, setRecords] = useState<StaffRecord[]>(config.fallback);
+  const [records, setRecords] = useState<StaffRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUsingFallback, setIsUsingFallback] = useState(false);
   const [error, setError] = useState("");
 
   async function loadRecords() {
@@ -31,17 +31,10 @@ export function StaffResourceListView({ resource }: StaffResourceListViewProps) 
       const response = await config.loader();
       const apiRecords = unwrapStaffList(response).map((item) => normalizeStaffRecord(item, config.key));
 
-      if (apiRecords.length > 0) {
-        setRecords(apiRecords);
-        setIsUsingFallback(false);
-      } else {
-        setRecords(config.fallback);
-        setIsUsingFallback(true);
-      }
+      setRecords(apiRecords);
     } catch {
-      setRecords(config.fallback);
-      setIsUsingFallback(true);
-      setError("Live API data is not available yet. Showing safe demo records for layout continuity.");
+      setRecords([]);
+      setError("Unable to retrieve live records. Retry when the service is available.");
     } finally {
       setIsLoading(false);
     }
@@ -71,14 +64,10 @@ export function StaffResourceListView({ resource }: StaffResourceListViewProps) 
         }
       >
         <div className="space-y-5">
-          {isUsingFallback ? (
-            <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-              {error || "Showing fallback records until the backend returns live data."}
-            </div>
-          ) : null}
-
           {isLoading ? (
             <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Connecting to the Django API." />
+          ) : error ? (
+            <ErrorState description={error} />
           ) : (
             <StaffRecordList
               records={records}
