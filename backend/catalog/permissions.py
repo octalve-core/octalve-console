@@ -27,12 +27,10 @@ class CatalogPublicationAuthority(BasePermission):
 
 
 class InternalSupplierAuthority(BasePermission):
-    """Never expose wholesale package pricing/mappings to client accounts."""
+    """Only administrators may read supplier costs and provider package mappings."""
 
     def has_permission(self, request, view):
         user = request.user
         if not user or not getattr(user, "is_authenticated", False):
             return False
-        if request.method not in SAFE_METHODS:
-            return is_cloud_admin(user)
-        return is_cloud_admin(user) or getattr(user, "role", None) == "staff"
+        return is_cloud_admin(user)
