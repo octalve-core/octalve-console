@@ -1,5 +1,6 @@
 # orders/serializers.py
 
+from decimal import Decimal
 from rest_framework import serializers
 from django.conf import settings
 from .models import Order, OrderItem, Coupon, CouponRedemption, Cart
