@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
-from services.models import Service
+from services.models import Service, ServiceUsage
 from providers.models import Provider
 from .models import OPanelLaunchGrant, VerifiedHostingBinding
 from .policy import account_digest
@@ -188,3 +188,50 @@ class OPanelIssuerTests(TestCase):
         self.assertEqual(self.confidential(ENTITLEMENT, {
             "subject_id": self.owner.pk, "service_id": self.service.pk,
         }).status_code, 404)
+
+    def test_entitled_overview_is_explicitly_redacted_snapshot_not_provider_access(self):
+        """Independent OPanel receives safe read-only data, never config or keys."""
+        self.service.config = {"password": "super-secret-server-token"}
+        self.service.metadata = {"api_key": "metadata-raw-secret"}
+        self.service.save(update_fields=["config", "metadata"])
+        self.provider.config = {
+            "hosting_account_owner": "resellerops",
+            "private": "provider-admin-private-key",
+        }
+        self.provider.save(update_fields=["config"])
+        # Refresh the proof: changing provider config intentionally voids
+        # all earlier authorization fingerprints.
+        self.proof.account_digest = account_digest(self.service)
+        self.proof.save(update_fields=["account_digest"])
+        ServiceUsage.objects.create(
+            service=self.service,
+            disk_used_mb=125, disk_limit_mb=1024,
+            bandwidth_used_mb=48, bandwidth_limit_mb=2048,
+            raw_data={"provider_api_key": "never-transfer-to-panel"},
+        )
+        response = self.confidential(ENTITLEMENT, {
+            "subject_id": self.owner.pk, "service_id": self.service.pk,
+        })
+        self.assertEqual(response.status_code, 200, response.data)
+        view = response.data["overview"]
+        self.assertEqual(view["service_id"], self.service.pk)
+        self.assertEqual(view["status"], "active")
+        self.assertEqual(view["label"], "Test Hosting")
+        self.assertEqual(view["domain"], "safe.example.test")
+        self.assertEqual(view["usage"]["disk_used_mb"], 125)
+        self.assertEqual(view["usage_status"], "recorded")
+        raw = str(response.data)
+        for forbidden in (
+            "super-secret-server-token", "metadata-raw-secret",
+            "provider-admin-private-key", "never-transfer-to-panel",
+            "provider_identifier", "encrypted_api_key",
+        ):
+            self.assertNotIn(forbidden, raw)
+
+    def test_overview_is_not_disclosed_to_different_subject_or_revoked_service(self):
+        request = {"subject_id": self.stranger.pk, "service_id": self.service.pk}
+        self.assertEqual(self.confidential(ENTITLEMENT, request).status_code, 404)
+        self.proof.revoked_at = timezone.now()
+        self.proof.save(update_fields=["revoked_at"])
+        request["subject_id"] = self.owner.pk
+        self.assertEqual(self.confidential(ENTITLEMENT, request).status_code, 404)
