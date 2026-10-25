@@ -104,22 +104,21 @@ class ProvisioningTask(models.Model):
         self.save(update_fields=['status', 'started_at', 'executed_by', 'updated_at'])
     
     def mark_completed(self, result_data=None):
-        """Mark task as completed"""
+        """Mark a verified read-only task completed; never grant hosting authority.
+
+        Mutating host actions must go through the future durable settlement and
+        provider-confirmation worker, which has NOT been approved. A queued task
+        or an arbitrary success result cannot activate or unsuspend a service.
+        """
+        if self.action in ('provision', 'suspend', 'unsuspend', 'terminate', 'change_package', 'change_password', 'reboot', 'start', 'stop'):
+            raise ValueError("Provider-changing task completion requires the audited reconciliation worker.")
         self.status = 'completed'
         self.completed_at = timezone.now()
         if result_data:
             self.result_data = result_data
         self.save(update_fields=['status', 'completed_at', 'result_data', 'updated_at'])
-        
-        # Update service status based on action
-        if self.action == 'provision' and self.service.status == 'pending':
-            self.service.activate()
-        elif self.action == 'terminate':
-            self.service.terminate()
-        elif self.action == 'suspend':
-            self.service.suspend()
-        elif self.action == 'unsuspend':
-            self.service.unsuspend()
+
+        # No implicit service state mutation; future accepted workers own it.
     
     def mark_failed(self, error, error_code=None):
         """Mark task as failed"""
