@@ -507,3 +507,10 @@ OPANEL_CALLBACK_URL = env("OPANEL_CALLBACK_URL", default="")
 
 # Read-only provider account verification: off without an approved test server.
 OPANEL_READBACK_ENABLED = env.bool("OPANEL_READBACK_ENABLED", default=False)
+# Paid hosting pipeline is disabled until approved isolated gateway and
+# provider acceptance. These switches never expose a customer endpoint.
+CLOUD_GATEWAY_READBACK_ENABLED = env.bool("CLOUD_GATEWAY_READBACK_ENABLED", default=False)
+CLOUD_SETTLEMENT_COMMIT_ENABLED = env.bool("CLOUD_SETTLEMENT_COMMIT_ENABLED", default=False)
+CLOUD_FULFILLMENT_STAGING_ENABLED = env.bool("CLOUD_FULFILLMENT_STAGING_ENABLED", default=False)
+CLOUD_PROVISIONING_WORKER_ENABLED = env.bool("CLOUD_PROVISIONING_WORKER_ENABLED", default=False)
+
