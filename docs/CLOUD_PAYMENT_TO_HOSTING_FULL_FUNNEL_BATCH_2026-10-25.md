@@ -96,3 +96,54 @@ No supplied example ID must be treated as an existing legitimate account or paym
 7. Qualify Console PR #13 before #14; OPanel PR #1 independent. Merge and deploy in dependency order only after all mandatory gates pass and owner approves Production release.
 
 **Sources:** Paystack official https://paystack.com/docs/api/transaction/ ; Flutterwave v3 https://developer.flutterwave.com/reference/verify-transaction-with-tx_ref ; DirectAdmin https://docs.directadmin.com/developer/api/ ; WHM https://api.docs.cpanel.net/.
+
+## Next consolidated increment — hosted checkout and signed notifications (25 October)
+
+The previous release remains Review-only and all commercial live execution is still disabled. This increment **does not require any schema migration** and does not change the independently deployed OPanel repository.
+
+### A. Two-stage public hosted checkout, blocked until separate acceptance
+- New `backend/payments/hosted_checkout.py` implements server-generated, single-use merchant reference and PaymentIntent reservation for an exact owned NGN invoice, followed by fixed Paystack `POST https://api.paystack.co/transaction/initialize` or Flutterwave v3 `POST https://api.flutterwave.com/v3/payments`.
+- Paystack sends integer kobo; Flutterwave sends exact decimal NGN major units. Neither caller-supplied amount nor browser gateway secrets are accepted. Both use TLS, no redirects, limited 8s timeout and 64KiB response.
+- Callback/return address comes **only** from `CLOUD_PAYMENT_RETURN_URL`, a preapproved HTTPS value. A hosted link is accepted only on exact `checkout.paystack.com` or `checkout.flutterwave.com` with the expected provider route, no credentials, ports, fragments or query redirects.
+- Reservation happens BEFORE network I/O. A confirmed attempt reuses its originally validated hosted URL. On timeouts or ambiguous provider result, the attempt remains `processing`, `checkout_state=reserved`; NO automatic re-POST, switch of gateway, or new merchant reference. Operator reconciliation is mandatory.
+- `/api/payments/initialize/` is now implemented behind **two** default-off flags and strictly enforces authenticated invoice owner and exactly `{invoice_id,gateway}`. It returns only the hosted URL, server reference, expiration and invoice ID. `/api/payments/verify/` is a separately gated *read-only owner-scoped DB status* endpoint: it ignores browser status/transaction query parameters and NEVER marks payment successful.
+- These endpoints are not activated for real customers; no hosted payment link has been opened or charged.
+
+### B. Signature-verified, redacted webhook inbox
+- `backend/payments/webhook_inbox.py` verifies Paystack `X-Paystack-Signature` HMAC-SHA512 using the gateway secret, or Flutterwave v3 `verif-hash` using a separately configured webhook secret. JSON parsing happens only after signature verification, with a 64KiB body cap.
+- `/api/payments/webhook/<gateway>/` is disabled by default. When explicitly enabled, it accepts only supported successful charge-event types and stores a minimal deterministic deduplicated `WebhookEvent`: intent ID, merchant reference and gateway transaction ID. No card, customer email, authorization code, complete provider payload or secret headers are stored.
+- Webhook ingestion NEVER marks invoice/order paid, never creates a financial `Transaction`, never stages hosting and never enables OPanel. A separate independent gateway API verification and atomic settlement are still mandatory.
+- Unknown gateway references or non-charge events do not create customer entitlement. Signed webhook retries are idempotent. No customer browser initiates settlement via redirect.
+
+### C. Provider-create contract (deliberately no remote write)
+- Provider documentation establishes DirectAdmin legacy username maximum of **8 alphanumeric characters**. The prior `oc<ten-digit-id>` username proposal was incompatible. `planned_hosting_username()` now encodes an order-item primary key into `oc` plus six base36 digits: collision-free across IDs 1 through `36**6-1` and exactly eight characters, valid for DA and WHM.
+- `backend/provisioning/account_creation_plan.py` provides an immutable financial- and seller-verified username/domain/package/owner/email preflight for a uniquely staged, fully settled queued hosting task. The operator cannot request arbitrary usernames or provider packages. No password or vendor secrets are returned.
+- `execute_account_creation()` still intentionally **rejects all writes**. A proper remote-create worker requires approved dedicated provider credentials, tested live/vendor call syntax, a durable unknown-result marker, account-absence proof, never-blind-retry rules, and account-scoped TLS/egress controls. These cannot be inferred from simulated tests.
+- The existing provider reconciliation can attach and activate a *truly verified existing* hosting account using independent vendor readback, but it will not create an account.
+
+### Configuration — all disabled by default
+
+```env
+CLOUD_HOSTED_CHECKOUT_ENABLED=false
+CLOUD_HOSTED_CHECKOUT_HTTP_ENABLED=false
+CLOUD_PAYMENT_STATUS_HTTP_ENABLED=false
+CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED=false
+CLOUD_PAYMENT_RETURN_URL=
+CLOUD_GATEWAY_READBACK_ENABLED=false
+CLOUD_SETTLEMENT_COMMIT_ENABLED=false
+CLOUD_FULFILLMENT_STAGING_ENABLED=false
+CLOUD_PROVISIONING_WORKER_ENABLED=false
+OPANEL_READBACK_ENABLED=false
+OPANEL_ISSUER_ENABLED=false
+```
+
+**Qualification conditions:** two feature flags required for browser checkout, authenticated owner-scoped invoice, cryptographically sound transaction signature, exact reference/amount/currency verification by gateway API, and provider readback before service activation. Actual live checkout execution and onboarding are NOT available while disabled.
+
+### Verification
+
+- `payments.test_checkout_webhooks`: test provider initialization URLs, exact amounts and owned invoices, repeated checkout, ambiguous POST recovery, malicious URLs, forged browser amounts, signed webhook dedup/redaction, unsigned-event denial, absence of financial/provisioning writes and owner-scoped payment-status-only access.
+- `provisioning.test_paid_funnel`: provider account username length, base36 uniqueness, settled-only creation preflight, all remote create attempts rejected.
+- Existing `payments.test_readback`, `provisioning.test_paid_funnel`, `opanel_bridge.tests` continue to assert independent payment evidence, atomic settle and verified existing account SSO.
+- C1 CI and disposable PostgreSQL workflows provide isolated synthetic evidence. Neither is a live gateway transaction, production feature enablement, provider create acceptance nor browser E2E.
+
+Official references: https://paystack.com/docs/api/transaction/ , https://paystack.com/docs/payments/webhooks/ , https://developer.flutterwave.com/reference/checkout , https://developer.flutterwave.com/docs/webhooks , https://docs.directadmin.com/developer/api/legacy-api.html , https://api.docs.cpanel.net/specifications/whm.openapi/account-creation .
