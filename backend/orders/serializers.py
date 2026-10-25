@@ -75,6 +75,7 @@ class CreateOrderSerializer(serializers.Serializer):
     items = CreateOrderItemSerializer(many=True)
     coupon_code = serializers.CharField(required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
+    checkout_id = serializers.UUIDField(required=True)
     
     def validate_items(self, value):
         if not value:
@@ -99,7 +100,7 @@ class CreateOrderSerializer(serializers.Serializer):
                 item['billing_cycle'] = billing_cycle
                 if billing_cycle.months < 1 or billing_cycle.price <= 0:
                     raise serializers.ValidationError('Billing cycle has invalid pricing')
-                item['unit_price'] = billing_cycle.price
+                item['unit_price'] = billing_cycle.price + billing_cycle.setup_fee
                 item['setup_fee'] = billing_cycle.setup_fee
                 item['description'] = f"{plan.product.name} - {plan.name} ({billing_cycle.label})"
                 validated_items.append(item)
