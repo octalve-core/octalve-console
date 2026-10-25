@@ -15,6 +15,7 @@ from .serializers import (
 )
 from .registry import ProviderRegistry
 from rbac.decorators import permission_required
+from catalog.permissions import InternalSupplierAuthority
 
 
 class ProviderViewSet(viewsets.ModelViewSet):
@@ -55,6 +56,11 @@ class ProviderViewSet(viewsets.ModelViewSet):
         """Update provider (admin only)"""
         return super().update(request, *args, **kwargs)
     
+    @permission_required('manage_providers')
+    def partial_update(self, request, *args, **kwargs):
+        """PATCH must enforce the same provider-secret authority as PUT."""
+        return super().partial_update(request, *args, **kwargs)
+
     @permission_required('manage_providers')
     def destroy(self, request, *args, **kwargs):
         """Delete provider (admin only)"""
@@ -97,18 +103,13 @@ class ProviderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     @permission_required('manage_providers')
     def sync_packages(self, request, pk=None):
-        """
-        Sync available packages from the provider
-        """
-        provider = self.get_object()
-        
-        # This would call provider API to fetch packages
-        # For now, return placeholder
-        return Response({
-            'message': 'Package sync initiated',
-            'provider': provider.name
-        })
-    
+        """No success response until an authenticated provider sync is audited."""
+        self.get_object()
+        return Response(
+            {'error': 'Supplier package sync is unavailable until adapter-backed sync and admin review are implemented.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
     @action(detail=True, methods=['get'])
     def health(self, request, pk=None):
         """
@@ -154,48 +155,12 @@ class ProviderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     @permission_required('manage_providers')
     def provision_test(self, request, pk=None):
-        """
-        Test provisioning with provider (for debugging)
-        """
-        provider = self.get_object()
-        serializer = ProviderTestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        try:
-            adapter = ProviderRegistry.get_adapter(provider.id)
-            
-            # This is a test - create a test account
-            test_data = {
-                'username': serializer.validated_data.get('test_username', 'testuser'),
-                'password': serializer.validated_data.get('test_password', 'TestPass123!'),
-                'domain': serializer.validated_data.get('test_domain', 'test.octalve.com'),
-                'package': serializer.validated_data.get('test_package', 'starter'),
-                'email': serializer.validated_data.get('test_email', 'test@octalve.com'),
-                'name': 'Test User'
-            }
-            
-            result = adapter.provision(test_data)
-            
-            if result.success:
-                # Clean up - delete test account
-                adapter.terminate(test_data['username'])
-                
-                return Response({
-                    'success': True,
-                    'message': 'Test provisioning successful',
-                    'data': result.data
-                })
-            else:
-                return Response({
-                    'success': False,
-                    'error': result.error
-                }, status=status.HTTP_400_BAD_REQUEST)
-                
-        except Exception as e:
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        """Do not create/deallocate live provider accounts in an HTTP test."""
+        self.get_object()
+        return Response(
+            {'error': 'Provider provisioning tests require an isolated, audited worker.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
 
 class ProviderPackageViewSet(viewsets.ModelViewSet):
@@ -204,7 +169,7 @@ class ProviderPackageViewSet(viewsets.ModelViewSet):
     """
     
     serializer_class = ProviderPackageSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [InternalSupplierAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['provider', 'is_active']
     search_fields = ['name', 'provider_package_id']
@@ -213,7 +178,7 @@ class ProviderPackageViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role in ['admin', 'staff'] or user.is_superuser:
             return ProviderPackage.objects.all()
-        return ProviderPackage.objects.filter(is_active=True)
+        return ProviderPackage.objects.none()
     
     @action(detail=False, methods=['get'])
     def by_provider(self, request):
@@ -224,7 +189,7 @@ class ProviderPackageViewSet(viewsets.ModelViewSet):
         if not provider_id:
             return Response({'error': 'provider_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        packages = ProviderPackage.objects.filter(provider_id=provider_id, is_active=True)
+        packages = self.get_queryset().filter(provider_id=provider_id, is_active=True)
         serializer = self.get_serializer(packages, many=True)
         return Response(serializer.data)
 
