@@ -14,9 +14,9 @@ from .readback import (
     _da_account, _whm_account,
 )
 
-DA_REPLY = "error=0&username=checkhost&domain=verified.example.test&usertype=user&account=ON&suspended=no"
+DA_REPLY = "error=0&username=checkhost&domain=verified.example.test&creator=resellerops&usertype=user&account=ON&suspended=no"
 WHM_REPLY = {"metadata": {"result": 1}, "data": {"acct": [
-    {"user": "checkhost", "domain": "verified.example.test", "suspended": 0},
+    {"user": "checkhost", "domain": "verified.example.test", "owner": "resellerops", "suspended": 0},
 ]}}
 
 
@@ -45,6 +45,7 @@ class VerifiedAccountReadbackTests(TestCase):
             base_url="https://whm.verified-host.test:2087",
             username="least-privilege-operator",
             status="active", health_status="healthy",
+            config={"hosting_account_owner": "resellerops"},
             test_mode=False, timeout_seconds=4,
         )
         self.service = Service.objects.create(
@@ -118,7 +119,7 @@ class VerifiedAccountReadbackTests(TestCase):
         self.assertIsNotNone(eligible(self.service.client_id, self.service.pk))
         self.getter.return_value = vendor_response({
             "metadata": {"result": 1}, "data": {"acct": [
-                {"user": "checkhost", "domain": "verified.example.test", "suspended": 1},
+                {"user": "checkhost", "domain": "verified.example.test", "owner": "resellerops", "suspended": 1},
             ]}
         })
         with self.assertRaises(ReadbackRejected):
@@ -184,7 +185,7 @@ class VerifiedAccountReadbackTests(TestCase):
         ):
             with self.subTest(text=text):
                 with self.assertRaises(ReadbackRejected):
-                    _da_account(text, "checkhost", "verified.example.test")
+                    _da_account(text, "checkhost", "verified.example.test", "resellerops")
 
     @override_settings(
         OPANEL_ISSUER_ENABLED=True,
@@ -235,7 +236,7 @@ class VerifiedAccountReadbackTests(TestCase):
         self.getter.return_value = vendor_response({
             "metadata": {"result": 1}, "data": {"acct": [{
                 "user": "checkhost", "domain": "verified.example.test",
-                "suspended": 1,
+                "owner": "resellerops", "suspended": 1,
             }]}
         })
         with self.assertRaises(ReadbackRejected):
@@ -247,4 +248,47 @@ class VerifiedAccountReadbackTests(TestCase):
     def test_wrong_whm_summary_schema_fails_closed(self):
         with self.assertRaises(ReadbackRejected):
             _whm_account({"metadata": {"result": 1}, "data": {"acct": [{}, {}]}},
-                         "checkhost", "verified.example.test")
+                         "checkhost", "verified.example.test", "resellerops")
+
+    def test_cross_reseller_account_rejected_without_proof(self):
+        self.getter.return_value = vendor_response({
+            "metadata": {"result": 1}, "data": {"acct": [{
+                "user": "checkhost", "domain": "verified.example.test",
+                "owner": "notourreseller", "suspended": 0,
+            }]}
+        })
+        with self.assertRaises(ReadbackRejected):
+            readback_service(self.service.pk, apply=True, getter=self.getter)
+        self.assertFalse(VerifiedHostingBinding.objects.exists())
+
+    def test_directadmin_wrong_creator_rejected(self):
+        with self.assertRaises(ReadbackRejected):
+            _da_account(DA_REPLY.replace("creator=resellerops", "creator=unknown"),
+                        "checkhost", "verified.example.test", "resellerops")
+
+    def test_missing_expected_owner_blocks_network(self):
+        self.provider.config = {}
+        self.provider.save(update_fields=["config"])
+        with self.assertRaises(ReadbackRejected):
+            verify_existing_account(self.service, self.provider, getter=self.getter)
+        self.getter.assert_not_called()
+
+    def test_owner_configuration_change_revokes_proof_eligibility(self):
+        readback_service(self.service.pk, apply=True, getter=self.getter)
+        self.assertIsNotNone(eligible(self.service.client_id, self.service.pk))
+        self.provider.config = {"hosting_account_owner": "newreseller"}
+        self.provider.save(update_fields=["config"])
+        self.assertIsNone(eligible(self.service.client_id, self.service.pk))
+
+    def test_duplicate_provider_account_rejected_before_network(self):
+        Service.objects.create(
+            client=self.service.client, product_id=1, plan_id=1,
+            provider_id=self.provider.pk, service_type="hosting",
+            status="terminated", label="Conflicting historic account",
+            domain_name="verified.example.test", provider_identifier="CHECKHOST",
+            billing_cycle="1mo", amount=Decimal("3000"), currency="NGN",
+            next_due_date=timezone.now()+timedelta(days=30),
+        )
+        with self.assertRaises(ReadbackRejected):
+            verify_existing_account(self.service, self.provider, getter=self.getter)
+        self.getter.assert_not_called()
