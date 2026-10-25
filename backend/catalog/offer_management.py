@@ -28,6 +28,8 @@ TECHNICAL = {
     'email accounts': ('nemails', 'maxpop'),
     'databases': ('mysql', 'maxsql'),
     'ftp accounts': ('ftp', 'maxftp'),
+    'websites': ('vdomains', 'maxaddon'),
+    'domains': ('vdomains', 'maxaddon'),
 }
 
 
@@ -108,9 +110,20 @@ def check_resource_claims(features, specs, adapter_type):
     """Reject overstated/unknown limits rather than selling fictitious capacity."""
     panel_index = 0 if adapter_type == 'DirectAdminAdapter' else 1
     for feature in features:
-        key = feature['label'].strip().lower()
+        key = ' '.join(feature['label'].strip().lower().split())
         if key not in TECHNICAL:
-            continue  # Non-resource marketing claims need separate human review.
+            # Do not accept semantic variants such as "Unlimited NVMe
+            # Storage" or unproven SSL/backups as harmless marketing copy.
+            gated_terms = (
+                'storage', 'disk', 'bandwidth', 'email', 'database', 'ftp',
+                'website', 'domain', 'memory', 'ram', 'cpu', 'vcpu',
+                'core', 'ssl', 'certificate', 'backup', 'snapshot', 'cdn',
+            )
+            if any(word in key for word in gated_terms):
+                raise serializers.ValidationError({
+                    'features': f'{feature["label"]} needs an explicit verified capability mapping.'
+                })
+            continue  # Purely descriptive admin-controlled sales copy.
         supplier_key = TECHNICAL[key][panel_index]
         if supplier_key not in specs:
             raise serializers.ValidationError({'features': f'Provider does not verify {feature["label"]}.'})
@@ -123,6 +136,10 @@ def check_resource_claims(features, specs, adapter_type):
             raise serializers.ValidationError({'features': f'Unverifiable {feature["label"]} limit.'})
         if claimed is None and supplied is not None:
             raise serializers.ValidationError({'features': f'{feature["label"]} is not unlimited at supplier.'})
+        if supplied is not None and panel_index == 1 and key in ('websites', 'domains'):
+            # WHM MAXADDON excludes the primary website. DA vdomains is the
+            # direct website/domain allowance for the hosted package.
+            supplied += 1
         if supplied is not None and claimed is not None and claimed > supplied:
             raise serializers.ValidationError({'features': f'{feature["label"]} exceeds supplier allowance.'})
 
