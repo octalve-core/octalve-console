@@ -227,3 +227,66 @@ class CheckoutAndWebhookTests(TestCase):
         self.assertEqual(Service.objects.count(), 0)
         self.invoice.refresh_from_db()
         self.assertEqual(self.invoice.status, "unpaid")
+
+    @override_settings(CLOUD_HOSTED_CHECKOUT_HTTP_ENABLED=True)
+    def test_checkout_api_denies_foreign_invoice_and_browser_amount_injection(self):
+        api = APIClient()
+        api.force_authenticate(self.stranger)
+        with patch("payments.hosted_checkout.requests.post") as post:
+            result = api.post("/api/payments/initialize/", {
+                "invoice_id": self.invoice.pk, "gateway": "paystack",
+            }, format="json")
+        self.assertEqual(result.status_code, 404)
+        post.assert_not_called()
+        api.force_authenticate(self.owner)
+        with patch("payments.hosted_checkout.requests.post") as post:
+            result = api.post("/api/payments/initialize/", {
+                "invoice_id": self.invoice.pk, "gateway": "paystack",
+                "amount": "1.00",
+            }, format="json")
+        self.assertEqual(result.status_code, 400)
+        post.assert_not_called()
+        self.assertFalse(PaymentIntent.objects.exists())
+
+    @override_settings(CLOUD_HOSTED_CHECKOUT_HTTP_ENABLED=True)
+    def test_checkout_api_returns_only_server_verified_hosted_url(self):
+        api = APIClient()
+        api.force_authenticate(self.owner)
+        with patch("payments.hosted_checkout.requests.post", side_effect=lambda _url, **kwargs:
+                   self.paystack_reply(kwargs["json"]["reference"])) as post:
+            first = api.post("/api/payments/initialize/", {
+                "invoice_id": self.invoice.pk, "gateway": "paystack",
+            }, format="json")
+            repeat = api.post("/api/payments/initialize/", {
+                "invoice_id": self.invoice.pk, "gateway": "paystack",
+            }, format="json")
+        self.assertEqual(first.status_code, 201, getattr(first, "data", {}))
+        self.assertEqual(repeat.status_code, 200)
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(first.data["checkout_url"], repeat.data["checkout_url"])
+        self.assertEqual(first.data["checkout_url"],
+                         "https://checkout.paystack.com/test_12345")
+        self.assertNotIn("sk_live", str(first.data))
+        self.assertNotIn("amount", first.data)
+
+    @override_settings(CLOUD_PAYMENT_STATUS_HTTP_ENABLED=True)
+    def test_return_status_is_owner_scoped_and_ignores_gateway_success_query(self):
+        api = APIClient()
+        api.force_authenticate(self.owner)
+        answer = api.get(
+            f"/api/payments/verify/?invoice_id={self.invoice.pk}&status=successful&tx_ref=FAKE")
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(answer.data["invoice_status"], "unpaid")
+        self.assertNotIn("transaction_reference", answer.data)
+        api.force_authenticate(self.stranger)
+        answer = api.get(f"/api/payments/verify/?invoice_id={self.invoice.pk}")
+        self.assertEqual(answer.status_code, 404)
+
+    def test_disabled_checkout_and_status_endpoints_are_not_payment_shortcuts(self):
+        api = APIClient()
+        api.force_authenticate(self.owner)
+        self.assertEqual(api.post("/api/payments/initialize/", {
+            "invoice_id": self.invoice.pk, "gateway": "paystack"}, format="json").status_code, 503)
+        self.assertEqual(api.get(
+            f"/api/payments/verify/?invoice_id={self.invoice.pk}").status_code, 503)
+        self.assertFalse(Transaction.objects.exists())
