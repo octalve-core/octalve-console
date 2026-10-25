@@ -168,6 +168,18 @@ class PaidHostingFunnelTests(TestCase):
             with self.assertRaises(FulfillmentRefused):
                 stage_paid_order(self.order.pk)
 
+    def test_unsafe_wallet_payment_shortcut_is_disabled_without_debit_or_settlement(self):
+        from rest_framework.test import APIClient
+        api = APIClient()
+        api.force_authenticate(self.order.client)
+        reply = api.post(f"/api/billing/invoices/{self.invoice.pk}/pay_with_wallet/")
+        self.assertEqual(reply.status_code, 503)
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, "unpaid")
+        self.assertEqual(self.order.status, "pending_payment")
+        self.assertFalse(Transaction.objects.exists())
+
     def test_unhealthy_provider_cannot_be_staged(self):
         settle_verified_intent(self.intent.pk, getter=self.getter)
         self.provider.health_status = "unhealthy"
