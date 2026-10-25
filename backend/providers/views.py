@@ -14,6 +14,7 @@ from .serializers import (
     ProviderTestSerializer, ProviderHealthCheckSerializer
 )
 from .registry import ProviderRegistry
+from .inventory import fetch_inventory, InventoryError
 from rbac.decorators import permission_required
 from catalog.permissions import InternalSupplierAuthority
 
@@ -102,12 +103,45 @@ class ProviderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     @permission_required('manage_providers')
     def sync_packages(self, request, pk=None):
-        """No success response until an authenticated provider sync is audited."""
-        self.get_object()
-        return Response(
-            {'error': 'Supplier package sync is unavailable until adapter-backed sync and admin review are implemented.'},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
+        """Read-only HTTPS inventory import into private, UNAPPROVED staging.
+
+        DirectAdmin and WHM are supported. A successful inventory sync does
+        not publish customer retail offers or create hosting accounts.
+        """
+        provider = self.get_object()
+        try:
+            offers = fetch_inventory(provider)
+        except InventoryError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        now = timezone.now()
+        created = changed = unchanged = 0
+        with transaction.atomic():
+            for offer in offers:
+                identity = {'provider': provider, 'provider_package_id': offer['provider_package_id']}
+                row = ProviderPackage.objects.select_for_update().filter(**identity).first()
+                specs = offer['specs']
+                if row is None:
+                    ProviderPackage.objects.create(
+                        **identity, name=offer['name'], specs=specs, pricing={},
+                        raw_data={'origin': 'adapter_verified', 'adapter': provider.adapter_type},
+                        is_active=False,
+                    )
+                    created += 1
+                else:
+                    was_changed = row.name != offer['name'] or row.specs != specs
+                    row.name, row.specs, row.last_synced_at = offer['name'], specs, now
+                    if was_changed:
+                        row.is_active = False  # Require renewed approval of changed limits.
+                        changed += 1
+                    else:
+                        unchanged += 1
+                    row.save(update_fields=['name', 'specs', 'last_synced_at', 'is_active'])
+        return Response({
+            'provider_id': provider.pk, 'staged': len(offers), 'created': created,
+            'changed_needs_review': changed, 'unchanged': unchanged,
+            'retail_published': False,
+            'message': 'Inventory staged. Approve each supplier package, map an Octalve offer and publish retail prices separately.',
+        })
 
     @action(detail=True, methods=['get'])
     def health(self, request, pk=None):
