@@ -31,4 +31,4 @@ class OPanelLaunchGrant(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        indexes = [models.Index(fields=["expires_at"])]
+        indexes = [models.Index(fields=["expires_at"], name="opanel_grant_expires_idx")]
