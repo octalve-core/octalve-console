@@ -91,7 +91,7 @@ export function CatalogAuthorityWorkbench() {
     }));
     setCycles(existing.length?existing:[blankCycle()]);
     const mapping=mappings.find(m=>m.plan===plan.id&&m.is_active);
-    const pkg=packages.find(p=>p.provider===mapping?.provider_id&&p.provider_package_id===mapping.provider_package_id);
+    const pkg=mapping ? packages.find(p=>p.provider===mapping.provider_id&&p.provider_package_id===mapping.provider_package_id) : undefined;
     if(pkg){setProviderId(String(pkg.provider));setPackageId(String(pkg.id));}
   }
   function editCycle(index:number,key:keyof Cycle,value:string|boolean) {
@@ -118,6 +118,27 @@ export function CatalogAuthorityWorkbench() {
     return execute(()=>api.post("/catalog/offer-drafts/",payload),
       "Offer saved as draft. It is NOT available for customer purchase until published.");
   }
+  async function approveSupplierPackage(){
+    if(!supplier){setError("Choose an imported supplier package.");return;}
+    const provider=providers.find(p=>p.id===supplier.provider);
+    const costs:Record<string,string>={};
+    for(const line of wholesale.split("\\n").map(x=>x.trim()).filter(Boolean)){
+      const parts=line.split("=");
+      if(parts.length!==2 || !periods.some(p=>p.key===parts[0].trim()) ||
+         !(Number(parts[1].trim())>0)){
+        setError("Supplier costs must use a valid billing period and positive amount, e.g. 1mo=2000.");return;
+      }
+      costs[parts[0].trim()]=parts[1].trim();
+    }
+    if(provider?.config?.fulfillment_model==="partner_reseller" && Object.keys(costs).length===0){
+      setError("Partner resale requires documented supplier costs for each commercial period.");return;
+    }
+    await execute(()=>api.patch(`/providers/packages/${supplier.id}/`,{
+      is_active:true,
+      pricing:Object.keys(costs).length ? {currency:costCurrency,cycles:costs,origin:"admin_reviewed_supplier_quote"} : {},
+    }),"Supplier inventory reviewed. This does NOT publish customer retail prices.");
+  }
+
   const supplier=packages.find(p=>String(p.id)===packageId);
   const activeProvider=providers.find(p=>String(p.id)===providerId);
   const actionClasses="rounded-xl bg-[#0064E0] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
@@ -153,11 +174,24 @@ export function CatalogAuthorityWorkbench() {
             <button type="button" className={actionClasses} disabled={busy||!providerId} onClick={()=>void execute(()=>api.post(`/providers/providers/${providerId}/test_connection/`,{}),"Connection and read-only inventory verified.")}>Verify connection</button>
             <button type="button" className={actionClasses} disabled={busy||!providerId} onClick={()=>void execute(()=>api.post(`/providers/providers/${providerId}/sync_packages/`,{}),"Supplier inventory staged; review individual packages before selling.")}>Sync package inventory</button>
           </div>
+          <div className="grid gap-2 rounded-xl border border-blue-100 bg-blue-50 p-3 md:grid-cols-3">
+            <div><label className={label} htmlFor="wholesale-selected">Supplier package to review</label>
+              <select id="wholesale-selected" className={field} value={packageId} onChange={e=>{const p=packages.find(x=>String(x.id)===e.target.value);setPackageId(e.target.value);setCostCurrency(p?.pricing?.currency||"NGN");setWholesale(Object.entries(p?.pricing?.cycles||{}).map(([k,v])=>`${k}=${v}`).join("\\n"));}}>
+                <option value="">Choose imported package</option>{packages.filter(p=>!providerId||String(p.provider)===providerId).map(p=><option value={p.id} key={p.id}>{p.name}</option>)}
+              </select></div>
+            <div><label className={label} htmlFor="cost-currency">Supplier-cost currency</label><input id="cost-currency" className={field} maxLength={3} value={costCurrency} onChange={e=>setCostCurrency(e.target.value.toUpperCase())}/></div>
+            <div><label className={label} htmlFor="supplier-costs">Supplier wholesale quotes (for resale)</label>
+              <textarea id="supplier-costs" className={field} rows={3} placeholder={"1mo=1500\\n12mo=15000"} value={wholesale} onChange={e=>setWholesale(e.target.value)}/></div>
+            <div className="md:col-span-3">
+              <p className="mb-2 text-xs text-slate-600">For Octalve-owned servers the supplier list contains technical capacities, not an invented wholesale price. For reseller partners enter the costs from their approved agreement before selling.</p>
+              <button type="button" className={actionClasses} onClick={()=>void approveSupplierPackage()} disabled={busy||!packageId}>Approve supplier inventory</button>
+            </div>
+          </div>
           <h3 className="text-sm font-semibold">Imported supplier packages (private)</h3>
           {packages.filter(p=>!providerId||String(p.provider)===providerId).map(p=><div key={p.id} className="rounded-xl border border-slate-200 p-3 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div><strong>{p.name}</strong> <span className="text-slate-500">· {p.provider_name} · {p.is_active?"Approved inventory":"Needs admin review"}</span></div>
-              <button disabled={busy||p.is_active} onClick={()=>void execute(()=>api.patch(`/providers/packages/${p.id}/`,{is_active:true}),"Supplier package approved internally (not published).")} className="rounded-xl border px-3 py-1 text-xs disabled:opacity-40">Approve supplier package</button>
+              <button type="button" disabled={busy} onClick={()=>{setPackageId(String(p.id));setProviderId(String(p.provider));setCostCurrency(p.pricing?.currency||"NGN");setWholesale(Object.entries(p.pricing?.cycles||{}).map(([period,amount])=>`${period}=${amount}`).join("\\n"));}} className="rounded-xl border px-3 py-1 text-xs">Review package and costs</button>
             </div>
             <p className="mt-1 break-words text-xs text-slate-600">{Object.entries(p.specs||{}).map(([k,v])=>`${k}: ${v}`).join(" · ")||"No verified specifications"}</p>
           </div>)}
