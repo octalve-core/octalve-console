@@ -9,7 +9,11 @@ The new backend/operator-only `opanel_bridge.readback` module queries **one exac
 
 - DirectAdmin: GET /CMD_API_SHOW_USER_CONFIG?user=<recorded hosting username>. Require error=0, exact username, main domain, usertype=user, account=ON and suspended=no.
 - WHM API 1: GET /json-api/accountsummary?api.version=1&user=<recorded hosting username>. Require metadata.result=1, a single account in data.acct, exact user and domain, suspended=0.
-- Both: exact HTTPS hostname on CLOUD_INVENTORY_ALLOWED_HOSTS, approved port, no redirects, validated TLS, 10-second timeout bound and 100KB response cap. No arbitrary browser account name or host overrides.
+- Both: exact HTTPS hostname on CLOUD_INVENTORY_ALLOWED_HOSTS, approved port, no redirects, validated TLS, 10-second timeout bound and 100KB response cap.
+- **Mandatory reseller ownership evidence:** provider.config.hosting_account_owner must match the authorised reseller/owner name. DirectAdmin's creator and WHM's owner fields must equal this setting. The provider API-login identity can differ from the account owner.
+- **Unique technical-account authority:** any other Console service referencing the same provider and username (case-insensitive) denies both services' SSO access, even if one is expired or archived. Do not guess which customer should own an ambiguous account.
+- **Provider revisions invalidate proof:** base URL, adapter type, API-login identity, encrypted token revision and approved reseller name are included in the provider-account fingerprint.
+ No arbitrary browser account name or host overrides.
 - Enforce provider active/healthy and non-test, service active/hosting/unexpired with activation timestamp, real existing provider account and primary domain.
 - Dry run does not update DB. Explicit --apply creates/renews the private VerifiedHostingBinding only after matching readback and locked second eligibility check. On an attempted --apply with a negative provider response, old active proof is revoked immediately. Re-authorisation after revocation creates a NEW binding reference.
 - Entitlement checks reject proofs older than **15 minutes** and require matching provider/account/domain digest; OPanel re-checks Console before each authorised request. This is a temporary fail-closed acceptance gate, NOT a substitute for a future provider-event/reconciliation worker.
@@ -22,7 +26,7 @@ Official vendor documentation:
 
 ## Before a genuinely live test (not yet done)
 1. Qualify an isolated owned or authorised reseller test server, real test account and approved least-privilege read-only API token. Ensure operator access/contract, test DNS domain and verified domain ownership. Do not send secrets through chat, GitHub or browser storage.
-2. Configure server-only Provider row using existing admin settings; encrypt token in existing credential store. Record its exact user/domain on a synthetic or expressly authorised test Service. Provisioning/payment authority is still disabled; do NOT misclassify a test fixture as a paid customer.
+2. Configure the server-only Provider row using existing admin settings; set hosting_account_owner explicitly to the verified vendor account owner and encrypt the token in the existing credential store. Record its exact user/domain on a synthetic or expressly authorised test Service. Provisioning/payment authority is still disabled; do NOT misclassify a test fixture as a paid customer.
 3. Restrict network egress to the approved endpoint. Hostname allowlisting does **not** by itself eliminate DNS rebinding, proxy redirects, malicious resolver results or internal-IP SSRF; inspect and enforce the deployment network boundary before setting OPANEL_READBACK_ENABLED=true.
 4. In an isolated Review environment with secure environment variables only, set OPANEL_READBACK_ENABLED=true and CLOUD_INVENTORY_ALLOWED_HOSTS to the approved exact hostname. Never enable on Production based on CI fixtures alone.
 5. From backend/ run `python manage.py check_hosting_account --service-id <fixture-id>` for remote read-only verification, inspect evidence, then explicitly run `python manage.py check_hosting_account --service-id <fixture-id> --apply` to persist verified proof. This does not create or alter the provider account.
