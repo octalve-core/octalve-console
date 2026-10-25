@@ -90,9 +90,9 @@ class PlanViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
             return Plan.objects.all()
-        return Plan.objects.filter(status='active', is_public=True)
+        return Plan.objects.filter(status='active', is_public=True, product__status='active', product__is_public=True, product__category__is_active=True)
     
-    @permission_required('view_products')
+    # Browsing active public plans is allowed to authenticated client accounts.
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
