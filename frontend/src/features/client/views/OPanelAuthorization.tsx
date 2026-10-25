@@ -30,9 +30,18 @@ export function OPanelAuthorization() {
       const grant = await api.post<Grant>("/integrations/opanel/v1/authorize/", {
         service_id: Number(id), state, code_challenge: challenge,
       });
+      // Defense-in-depth: never follow a callback host supplied by a mutable
+      // API response unless it exactly matches the publicly configured panel.
+      const base = process.env.NEXT_PUBLIC_OPANEL_BASE_URL || "";
+      if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/?$/.test(base)) {
+        throw new Error("The panel destination is not configured.");
+      }
+      const expected = new URL("/auth/callback/", base);
       const redirect = new URL(grant.redirect_uri);
-      if (redirect.protocol !== "https:" || redirect.username || redirect.password ||
-          redirect.hash || redirect.search || grant.state !== state) {
+      if (redirect.protocol !== "https:" ||
+          redirect.origin !== expected.origin || redirect.pathname !== expected.pathname ||
+          redirect.username || redirect.password || redirect.hash || redirect.search ||
+          grant.state !== state || !/^[A-Za-z0-9_-]{48,128}$/.test(grant.code)) {
         throw new Error("The approved panel callback is invalid.");
       }
       redirect.searchParams.set("code", grant.code);
