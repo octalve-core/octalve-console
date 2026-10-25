@@ -29,6 +29,31 @@ def settle_verified_intent(intent_id, *, getter=None):
     except (PaymentIntent.DoesNotExist, ValueError, TypeError):
         raise SettlementRefused("Payment intent not found.") from None
 
+    # Idempotent duplicates are read-only and DO NOT query the gateway or
+    # create a second transaction. A complete financial ledger is required.
+    if intent.status == "completed":
+        with db_transaction.atomic():
+            seen = PaymentIntent.objects.select_for_update().get(pk=intent.pk)
+            paid_invoice = Invoice.objects.select_for_update().get(pk=seen.invoice_id)
+            prior = Transaction.objects.select_for_update().filter(reference=seen.reference).first()
+            paid_order = Order.objects.select_for_update().filter(pk=paid_invoice.order_id).first()
+            proof = prior.metadata if prior and isinstance(prior.metadata, dict) else {}
+            if (seen.status == "completed" and paid_invoice.status == "paid"
+                    and paid_order is not None and paid_order.status in ("paid", "provisioned")
+                    and prior is not None and prior.status == "successful"
+                    and prior.gateway_id == seen.gateway_id
+                    and prior.invoice_id == paid_invoice.pk
+                    and prior.client_id == seen.client_id
+                    and prior.currency == seen.currency and prior.amount == seen.amount
+                    and paid_invoice.amount_due == Decimal("0")
+                    and paid_invoice.amount_paid == paid_invoice.total
+                    and proof.get("verification_source") == "provider_api_verified"
+                    and proof.get("provider_api_verified") is True
+                    and proof.get("verified_remote_id") == prior.provider_reference
+                    and prior.provider_reference):
+                return prior, False
+            raise SettlementRefused("Completed payment has inconsistent financial authority.")
+
     # The only remotely trusted financial fact is a fresh, independent API
     # verification of the exact previously issued reference.
     verified = verify_gateway_intent(intent, getter=getter)
