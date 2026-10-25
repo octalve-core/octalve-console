@@ -79,11 +79,17 @@ class CreateOrderSerializer(serializers.Serializer):
     def validate_items(self, value):
         if not value:
             raise serializers.ValidationError("At least one item is required")
+        if len(value) > 20:
+            raise serializers.ValidationError("Too many order items")
         
         validated_items = []
         for item in value:
             try:
-                plan = Plan.objects.get(id=item['plan_id'], status='active')
+                plan = Plan.objects.select_related('product').get(
+                    id=item['plan_id'], status='active', is_public=True,
+                    product__status='active', product__is_public=True,
+                    product__category__is_active=True,
+                )
                 billing_cycle = PlanBillingCycle.objects.get(
                     plan=plan, 
                     cycle_key=item.get('cycle_key', '1mo'),
@@ -91,7 +97,10 @@ class CreateOrderSerializer(serializers.Serializer):
                 )
                 item['plan'] = plan
                 item['billing_cycle'] = billing_cycle
+                if billing_cycle.months < 1 or billing_cycle.price <= 0:
+                    raise serializers.ValidationError('Billing cycle has invalid pricing')
                 item['unit_price'] = billing_cycle.price
+                item['setup_fee'] = billing_cycle.setup_fee
                 item['description'] = f"{plan.product.name} - {plan.name} ({billing_cycle.label})"
                 validated_items.append(item)
             except Plan.DoesNotExist:
