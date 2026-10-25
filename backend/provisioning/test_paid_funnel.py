@@ -19,6 +19,7 @@ from payments.settlement import SettlementRefused, settle_verified_intent
 from providers.models import Provider
 from provisioning.fulfillment import FulfillmentRefused, stage_paid_order, planned_hosting_username
 from provisioning.reconcile import ReconciliationRefused, reconcile_verified_hosting
+from provisioning.account_creation_plan import plan_account_creation, execute_account_creation, CreationPlanRefused
 from opanel_bridge.models import VerifiedHostingBinding
 from provisioning.models import ProvisioningTask
 from services.models import Service
@@ -189,6 +190,29 @@ class PaidHostingFunnelTests(TestCase):
         self.assertEqual(self.invoice.status, "unpaid")
         self.assertEqual(self.order.status, "pending_payment")
         self.assertFalse(Transaction.objects.exists())
+
+    def test_creation_contract_only_from_settled_hosting_and_no_remote_create(self):
+        with self.assertRaises(CreationPlanRefused):
+            plan_account_creation(0)
+        settle_verified_intent(self.intent.pk, getter=self.getter)
+        service, task = stage_paid_order(self.order.pk)[0]
+        spec = plan_account_creation(task.pk)
+        self.assertEqual(spec.username, task.payload["expected_account"])
+        self.assertEqual(len(spec.username), 8)
+        self.assertEqual(spec.domain, "verified.example.test")
+        self.assertEqual(spec.package, "verified_starter")
+        self.assertEqual(spec.reseller_owner, "resellerops")
+        self.assertEqual(spec.adapter_type, "CpanelAdapter")
+        self.assertFalse(spec.remote_account_creation_enabled)
+        with self.assertRaises(CreationPlanRefused):
+            execute_account_creation(spec)
+        task.payload = {**task.payload, "expected_account": "attacker"}
+        task.save(update_fields=["payload"])
+        with self.assertRaises(CreationPlanRefused):
+            plan_account_creation(task.pk)
+        service.refresh_from_db()
+        self.assertEqual(service.status, "pending")
+        self.assertFalse(VerifiedHostingBinding.objects.exists())
 
     def test_unhealthy_provider_cannot_be_staged(self):
         settle_verified_intent(self.intent.pk, getter=self.getter)
