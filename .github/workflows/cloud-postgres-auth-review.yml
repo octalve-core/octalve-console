@@ -134,6 +134,9 @@ jobs:
       - name: Test real auth lifecycle against PostgreSQL
         working-directory: backend
         run: python manage.py test accounts.tests --verbosity=2
+      - name: BIZ-01 order and pending-invoice regression on disposable PostgreSQL
+        working-directory: backend
+        run: python manage.py test orders.tests --verbosity=2
       - name: Collect illustrative PostgreSQL SQL for every blacklist migration
         if: always()
         working-directory: backend
