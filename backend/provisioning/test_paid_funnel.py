@@ -17,7 +17,7 @@ from orders.models import Order, OrderItem
 from payments.models import PaymentGateway, PaymentIntent, Transaction
 from payments.settlement import SettlementRefused, settle_verified_intent
 from providers.models import Provider
-from provisioning.fulfillment import FulfillmentRefused, stage_paid_order
+from provisioning.fulfillment import FulfillmentRefused, stage_paid_order, planned_hosting_username
 from provisioning.reconcile import ReconciliationRefused, reconcile_verified_hosting
 from opanel_bridge.models import VerifiedHostingBinding
 from provisioning.models import ProvisioningTask
@@ -87,6 +87,16 @@ class PaidHostingFunnelTests(TestCase):
                                   return_value="sk_live_FixtureOnly_0123456789abcdef")
         self.token.start()
         self.addCleanup(self.token.stop)
+
+    def test_deterministic_account_name_obeys_directadmin_eight_character_limit(self):
+        self.assertEqual(planned_hosting_username(1), "oc000001")
+        self.assertEqual(planned_hosting_username(35), "oc00000z")
+        self.assertEqual(planned_hosting_username(36), "oc000010")
+        self.assertNotEqual(planned_hosting_username(36), planned_hosting_username(35))
+        self.assertEqual(len(planned_hosting_username(36**6-1)), 8)
+        for invalid in (0, -1, 36**6, None, "1", 1.0):
+            with self.subTest(id=invalid), self.assertRaises(FulfillmentRefused):
+                planned_hosting_username(invalid)
 
     def test_full_verified_payment_stages_once_without_activating_or_provisioning(self):
         tx, created = settle_verified_intent(self.intent.pk, getter=self.getter)
