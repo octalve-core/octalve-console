@@ -517,6 +517,10 @@ CLOUD_PROVISIONING_WORKER_ENABLED = env.bool("CLOUD_PROVISIONING_WORKER_ENABLED"
 # opt-ins. Never enable for real money without isolated browser acceptance.
 CLOUD_HOSTED_CHECKOUT_ENABLED = env.bool("CLOUD_HOSTED_CHECKOUT_ENABLED", default=False)
 CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED = env.bool("CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED", default=False)
+# Separate browser-facing opt-in: never infer enablement from internal CLI.
+CLOUD_HOSTED_CHECKOUT_HTTP_ENABLED = env.bool("CLOUD_HOSTED_CHECKOUT_HTTP_ENABLED", default=False)
+CLOUD_PAYMENT_STATUS_HTTP_ENABLED = env.bool("CLOUD_PAYMENT_STATUS_HTTP_ENABLED", default=False)
+
 CLOUD_PAYMENT_RETURN_URL = env("CLOUD_PAYMENT_RETURN_URL", default="")
 
 
