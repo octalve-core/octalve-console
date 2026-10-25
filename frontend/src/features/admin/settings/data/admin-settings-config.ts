@@ -101,14 +101,14 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "providers",
     title: "Providers",
-    description: "DirectAdmin, cPanel, VPS, registrar, and automation providers.",
+    description: "Manage supplier connections, hosting panels, registrar integrations and approval gates.",
     href: "/admin/settings/providers",
     icon: PlugZap,
-    status: "Connected",
+    status: "Needs setup",
     fields: [
-      { label: "Primary panel", value: "DirectAdmin" },
-      { label: "Provisioning", value: "API-ready" },
-      { label: "Registrar", value: "Planned" },
+      { label: "Provider identity", value: "Inspect live records under Servers / Providers" },
+      { label: "Provisioning", value: "Disabled pending audited worker and payment authority" },
+      { label: "Registrar and SSL", value: "Not yet configured as live integrations" },
     ],
   },
   {
