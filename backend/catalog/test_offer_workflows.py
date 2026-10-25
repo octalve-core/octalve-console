@@ -151,3 +151,48 @@ class OfferPublicationTests(TestCase):
         publish=self.api.post(f'/api/catalog/offer-drafts/{response.data["id"]}/publish/',{},format='json')
         self.assertEqual(publish.status_code,400)
         self.assertEqual(PublishedCatalogOffer.objects.count(),0)
+
+    def test_checkout_requires_current_published_revision_and_supplier_health(self):
+        from orders.serializers import CreateOrderSerializer
+        from uuid import uuid4
+        draft=self.api.post('/api/catalog/offer-drafts/',self.payload(),format='json')
+        self.assertEqual(draft.status_code,201,draft.data)
+        published=self.api.post(f'/api/catalog/offer-drafts/{draft.data["id"]}/publish/',{},format='json')
+        self.assertEqual(published.status_code,200,published.data)
+        plan_id=published.data['plan_id']
+        def checkout(revision):
+            return CreateOrderSerializer(data={
+                'checkout_id':str(uuid4()),
+                'items':[{'plan_id':plan_id,'cycle_key':'1mo','offer_revision':revision,'quantity':1}]
+            })
+        stale=checkout(99)
+        self.assertFalse(stale.is_valid())
+        current=checkout(1)
+        self.assertTrue(current.is_valid(),current.errors)
+        self.assertEqual(current.validated_data['items'][0]['published_catalog_offer'].revision,1)
+        self.provider.health_status='unhealthy'
+        self.provider.save(update_fields=['health_status'])
+        disabled=checkout(1)
+        self.assertFalse(disabled.is_valid())
+
+    def test_vps_cannot_be_misrepresented_as_directadmin_or_whm_package(self):
+        vps=Product.objects.create(category=self.category,name='VPS',product_type='vps')
+        draft=self.api.post('/api/catalog/offer-drafts/',self.payload(product_id=vps.pk),format='json')
+        self.assertEqual(draft.status_code,201,draft.data)
+        published=self.api.post(f'/api/catalog/offer-drafts/{draft.data["id"]}/publish/',{},format='json')
+        self.assertEqual(published.status_code,400)
+        self.assertFalse(Plan.objects.filter(product=vps).exists())
+
+    def test_supplier_sync_stages_changed_limits_without_changing_retail_prices(self):
+        self.admin.is_superuser=True
+        self.admin.save(update_fields=['is_superuser'])
+        with patch('providers.views.fetch_inventory',return_value=[
+            {'provider_package_id':'business','name':'Business',
+             'specs':{'quota':'10240','bwlimit':'100000'}}
+        ]):
+            synced=self.api.post(f'/api/providers/providers/{self.provider.pk}/sync_packages/',{},format='json')
+        self.assertEqual(synced.status_code,200,synced.data)
+        self.supplier_package.refresh_from_db()
+        self.assertFalse(self.supplier_package.is_active)
+        self.assertEqual(self.supplier_package.specs['quota'],'10240')
+        self.assertEqual(Plan.objects.count(),0)
