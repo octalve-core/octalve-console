@@ -10,7 +10,7 @@ class VerifiedHostingBinding(models.Model):
     provider_id_snapshot = models.IntegerField()
     account_digest = models.CharField(max_length=64)
     binding_ref = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    confirmation_source = models.CharField(max_length=40, default="provider_api_readback")
+    confirmation_source = models.CharField(max_length=40)
     confirmed_at = models.DateTimeField()
     revoked_at = models.DateTimeField(null=True, blank=True)
 
