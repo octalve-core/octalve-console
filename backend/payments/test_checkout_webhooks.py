@@ -122,7 +122,9 @@ class CheckoutAndWebhookTests(TestCase):
         for bad in ("http://checkout.paystack.com/path",
                     "https://checkout.paystack.com.evil.test/path",
                     "https://checkout.paystack.com@evil.test/path",
-                    "https://127.0.0.1/path"):
+                    "https://127.0.0.1/path",
+                    "https://checkout.paystack.com/",
+                    "https://checkout.paystack.com/fake?next=evil"):
             with self.subTest(url=bad):
                 # New invoice isolated per attempt.
                 with self.assertRaises(CheckoutRefused):
