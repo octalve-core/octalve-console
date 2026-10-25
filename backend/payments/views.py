@@ -94,8 +94,17 @@ class WebhookView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, gateway_code):
-        # Deliberately reject external events without recording or settling.
-        return Response(
-            {'error': 'Payment webhook processing is not enabled.'},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
+        # Only the separately gated, signature-authenticated inbox is public.
+        # Even with ingest enabled, signed events NEVER settle, mark paid,
+        # create a hosting service or call the provider.
+        if not getattr(settings, "CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED", False):
+            return Response({"error": "Payment webhook processing is not enabled."},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        from .webhook_inbox import accept_signed_event, WebhookRejected
+        try:
+            event, created = accept_signed_event(
+                gateway_code, request.body, request.headers)
+        except WebhookRejected:
+            return Response({"error": "Notification not accepted."},
+                            status=status.HTTP_403_FORBIDDEN)
+        return Response({"accepted": True}, status=status.HTTP_200_OK)
