@@ -126,12 +126,25 @@ class CreateOrderSerializer(serializers.Serializer):
                         provider_id=published.snapshot.get('supplier_provider_id'),
                         provider_package_id=published.snapshot.get('technical_package_id'),
                     ).first()
-                    if not mapping or not ProviderPackage.objects.filter(
+                    inventory = (ProviderPackage.objects.select_related('provider').filter(
                         pk=published.snapshot.get('supplier_inventory_id'),
-                        provider_id=mapping.provider_id, is_active=True,
-                        provider__status='active', provider__health_status='healthy',
-                    ).exists():
+                        provider_id=mapping.provider_id if mapping else None,
+                        is_active=True, provider__status='active',
+                        provider__health_status='healthy',
+                    ).first())
+                    if not mapping or not inventory:
                         raise serializers.ValidationError('Hosting supplier is not currently available.')
+                    if inventory.provider.config.get('fulfillment_model') == 'partner_reseller':
+                        wholesale = inventory.pricing
+                        if wholesale.get('currency') != plan.currency:
+                            raise serializers.ValidationError('Supplier cost currency no longer matches retail currency.')
+                        try:
+                            cost = Decimal(str(wholesale['cycles'][billing_cycle.cycle_key]))
+                        except (ValueError, ArithmeticError, TypeError, KeyError):
+                            raise serializers.ValidationError('Partner supplier cost is unavailable for checkout.')
+                        if cost <= 0 or billing_cycle.price < cost:
+                            raise serializers.ValidationError('Current supplier costs exceed approved retail price.')
+                        item['supplier_cost'] = cost
                     item['published_catalog_offer'] = published
                 item['item_type'] = 'vps' if plan.product.product_type == 'vps' else 'hosting'
                 item['plan'] = plan
