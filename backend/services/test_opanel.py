@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APIClient
-from services.models import Service, ServiceUsage
+from services.models import Service, ServiceUsage, ServiceCredential
 
 
 class OPanelIsolationTests(TestCase):
@@ -57,3 +57,27 @@ class OPanelIsolationTests(TestCase):
         self.assertEqual(response.status_code,200)
         self.assertFalse(response.data['active'])
         self.assertFalse(response.data['capabilities']['panel_sso'])
+
+    def test_generic_service_endpoints_never_expose_hosting_credentials_or_provider_config(self):
+        self.service.config = {'api_key': 'must-never-leak-provider-api-key'}
+        self.service.save(update_fields=['config'])
+        ServiceCredential.objects.create(
+            service=self.service, username='private-host-username',
+            encrypted_password='private-host-encrypted-password',
+            metadata={'admin_token': 'must-never-leak-admin-token'},
+        )
+        self.api.force_authenticate(self.owner)
+        response = self.api.get(f'/api/services/services/{self.service.pk}/')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertNotIn('credentials', response.data)
+        self.assertNotIn('config', response.data)
+        body = str(response.data)
+        for secret in ['private-host-username', 'must-never-leak-admin-token',
+                       'must-never-leak-provider-api-key', 'private-host-encrypted-password']:
+            self.assertNotIn(secret, body)
+        blocked = self.api.get(f'/api/services/services/{self.service.pk}/credentials/')
+        self.assertEqual(blocked.status_code, 503)
+        self.assertNotIn('username', str(blocked.data))
+        self.assertEqual(self.api.post(
+            f'/api/services/services/{self.service.pk}/update_credentials/',
+            {'password': 'attempt-exposed'}, format='json').status_code, 403)
