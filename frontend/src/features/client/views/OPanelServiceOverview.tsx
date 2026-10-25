@@ -13,7 +13,7 @@ type Overview = {
   usage:{disk_used_mb:number; disk_limit_mb:number;bandwidth_used_mb:number;bandwidth_limit_mb:number;recorded_at:string}|null;
   capabilities:Record<string,boolean>;
 };
-const modules = ["files","subdomains","dns","databases","ssl","backups","email","panel_sso"] as const;
+const modules = ["files","subdomains","dns","databases","ssl","backups","email"] as const;
 const names:Record<string,string> = {files:"File manager",subdomains:"Subdomains",dns:"DNS manager",
   databases:"Databases",ssl:"SSL certificates",backups:"Backups",email:"Email accounts",panel_sso:"Advanced panel"};
 
@@ -43,6 +43,12 @@ export function OPanelServiceOverview(){
             <p className="mt-2 text-sm">Service status: <strong>{data.status}</strong></p>
             {!data.active&&<p className="mt-2 text-sm text-amber-800">No confirmed active hosting account is available yet.</p>}
             <p className="mt-3 text-sm text-slate-600">{data.message}</p>
+            {data.capabilities.panel_sso && /^https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/?$/.test(process.env.NEXT_PUBLIC_OPANEL_BASE_URL || "") && (
+              <a className="mt-4 inline-flex rounded-lg bg-[#0064E0] px-4 py-3 font-medium text-white"
+                href={`${(process.env.NEXT_PUBLIC_OPANEL_BASE_URL || "").replace(/\/$/, "")}/auth/start/?service_id=${encodeURIComponent(String(data.service_id))}`}>
+                Manage hosting / Open OPanel
+              </a>
+            )}
           </section>
           <section className="rounded-2xl border bg-white p-5">
             <h2 className="mb-3 text-lg font-semibold">Recorded resource usage</h2>
