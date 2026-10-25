@@ -92,7 +92,15 @@ class OrderViewSet(viewsets.ModelViewSet):
             coupon_discount = discount_total
         
         total = subtotal - discount_total
-        
+        # Price concessions must not silently make a white-label resale loss.
+        approved_partner_cost = sum(
+            (item.get('supplier_cost', Decimal('0')) * item['quantity']
+             for item in validated_data['items']), Decimal('0')
+        )
+        if approved_partner_cost > total:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'coupon_code': 'Discount exceeds approved partner resale margin.'})
+
         # Create order
         order = Order.objects.create(
             client=request.user,
