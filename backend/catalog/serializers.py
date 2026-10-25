@@ -26,12 +26,16 @@ class PlanSerializer(serializers.ModelSerializer):
     product_type = serializers.CharField(source='product.product_type', read_only=True)
     features = PlanFeatureSerializer(many=True, read_only=True)
     billing_cycles = PlanBillingCycleSerializer(many=True, read_only=True)
-    
+    published_revision = serializers.SerializerMethodField()
+
+    def get_published_revision(self, obj):
+        return obj.published_versions.order_by('-revision').values_list('revision', flat=True).first()
+
     class Meta:
         model = Plan
         fields = ['id', 'product', 'product_name', 'product_type', 'name', 'slug', 'description', 'currency', 
                   'base_price', 'status', 'is_public', 'is_popular', 'sort_order',
-                  'features', 'billing_cycles']
+                  'features', 'billing_cycles', 'published_revision']
 
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
