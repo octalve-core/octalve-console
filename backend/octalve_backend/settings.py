@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     'payments.apps.PaymentsConfig',
     'wallet.apps.WalletConfig',
     'services.apps.ServicesConfig',
+    'opanel_bridge.apps.OPanelBridgeConfig',
     'domains.apps.DomainsConfig',
     'providers.apps.ProvidersConfig',
     'provisioning.apps.ProvisioningConfig',
@@ -496,3 +497,10 @@ LOGGING = {
         'providers': {'handlers': ['console'], 'level': 'INFO'},
     },
 }
+
+# OPanel confidential-client SSO is DISABLED until audited credentials, a fixed
+# HTTPS callback and independently verified provider bindings are configured.
+OPANEL_ISSUER_ENABLED = env.bool("OPANEL_ISSUER_ENABLED", default=False)
+OPANEL_CLIENT_ID = env("OPANEL_CLIENT_ID", default="octalve-opanel")
+OPANEL_CLIENT_SECRET = env("OPANEL_CLIENT_SECRET", default="")
+OPANEL_CALLBACK_URL = env("OPANEL_CALLBACK_URL", default="")
