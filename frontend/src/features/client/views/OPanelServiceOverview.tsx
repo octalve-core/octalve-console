@@ -30,9 +30,9 @@ export function OPanelServiceOverview(){
       .finally(()=>{if(current)setLoading(false);});
     return()=>{current=false;};
   },[params.id]);
-  return <DashboardShell role="client" title="OPanel" description="Technical management for your Octalve hosting service.">
-    <DashboardPage eyebrow="Octalve Cloud / OPanel" title={data?.label||"Your hosting service"}
-      description="Securely view the status and recorded usage of services you own.">
+  return <DashboardShell role="client" title="Hosting status" description="Read-only hosting information provided by Octalve Console.">
+    <DashboardPage eyebrow="Octalve Cloud / Console" title={data?.label||"Your hosting service"}
+      description="This is Console service status, not an OPanel sign-in. Full management will launch separately through secure Console SSO once qualified.">
       <div className="space-y-5">
         <Link href={`/client/services/${encodeURIComponent(String(params.id))}`} className="text-sm font-medium text-[#0064E0]">Back to Console service</Link>
         {loading&&<div role="status" className="rounded-xl bg-white p-6">Loading service status...</div>}
@@ -53,7 +53,7 @@ export function OPanelServiceOverview(){
             </div>:<p className="text-sm text-slate-500">No verified provider usage snapshot has been recorded.</p>}
           </section>
           <section className="rounded-2xl border bg-white p-5">
-            <h2 className="mb-3 text-lg font-semibold">Management tools</h2>
+            <h2 className="mb-3 text-lg font-semibold">Future OPanel management tools</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {modules.map(key=><div key={key} className="rounded-xl border p-4">
                 <p className="font-medium text-sm">{names[key]}</p>
