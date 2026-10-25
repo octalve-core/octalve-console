@@ -31,11 +31,14 @@ def required_owner(provider):
     return owner
 
 
-def unique_account(service):
-    """Never authorize a provider account referenced by two Console services."""
+def unique_account(service, account=None):
+    """Never bind one provider account to multiple Console services."""
+    account = account if account is not None else service.provider_identifier
+    if not account:
+        return False
     return not Service.objects.filter(
         provider_id=service.provider_id,
-        provider_identifier__iexact=service.provider_identifier,
+        provider_identifier__iexact=account,
     ).exclude(pk=service.pk).exists()
 
 
@@ -124,7 +127,7 @@ def verify_existing_account(service, provider, *, getter=None, pending_account=N
         or provider.status != "active"
         or provider.health_status != "healthy"
         or provider.test_mode
-        or not unique_account(service)
+        or not unique_account(service, pending_account)
     ):
         raise ReadbackRejected("Service or provider is not eligible for account verification.")
     owner = required_owner(provider)
