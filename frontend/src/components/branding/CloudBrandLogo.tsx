@@ -10,9 +10,9 @@ import {useState} from "react";
 export function CloudBrandLogo({href="/client"}:{href?:string}){
  const [src,setSrc]=useState("/branding/octalve-cloud-logo.png");
  return <Link href={href} aria-label="Octalve Cloud home"
-    className="flex h-16 w-full min-w-0 items-center justify-start px-9 py-3 focus-visible:outline-2 focus-visible:outline-blue-600">
-   <span className="flex h-full w-full max-w-[140px] items-center justify-start overflow-hidden">
-     <Image src={src} alt="Octalve Cloud" width={140} height={36} unoptimized priority
+    className="flex h-16 w-full min-w-0 items-center justify-start px-14 py-3 focus-visible:outline-2 focus-visible:outline-blue-600">
+   <span className="flex h-full w-full max-w-[133px] items-center justify-start overflow-hidden">
+     <Image src={src} alt="Octalve Cloud" width={133} height={34} unoptimized priority
        onError={()=>{if(src!=="/assets/logo/octalve.png")setSrc("/assets/logo/octalve.png");}}
        className="block h-auto max-h-9 w-full object-contain object-left"/>
    </span>
