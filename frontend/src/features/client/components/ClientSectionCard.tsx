@@ -9,9 +9,10 @@ type ClientSectionCardProps = {
   description: string;
   href: string;
   records: ClientRecord[];
+  state?: "loading" | "ready" | "unavailable";
 };
 
-export function ClientSectionCard({ title, description, href, records }: ClientSectionCardProps) {
+export function ClientSectionCard({ title, description, href, records, state = "ready" }: ClientSectionCardProps) {
   return (
     <Card className="border-[#E6EBF2] p-5 shadow-[0_1px_2px_rgba(15,23,42,.035)]">
       <div className="flex items-start justify-between gap-4">
@@ -27,7 +28,10 @@ export function ClientSectionCard({ title, description, href, records }: ClientS
       </div>
 
       <div className="mt-5 space-y-3">
-        {records.slice(0, 3).map((record) => (
+        {state==="loading"&&<p className="rounded-xl bg-slate-50 px-3 py-4 text-sm text-slate-500">Updating your account…</p>}
+        {state==="unavailable"&&<p className="rounded-xl bg-slate-50 px-3 py-4 text-sm text-slate-600">We couldn't load these details right now.</p>}
+        {state==="ready"&&records.length===0&&<p className="rounded-xl bg-slate-50 px-3 py-4 text-sm text-slate-500">Nothing to show here yet.</p>}
+        {state==="ready"&&records.slice(0, 3).map((record) => (
           <Link
             href={record.actionHref}
             key={record.id}
