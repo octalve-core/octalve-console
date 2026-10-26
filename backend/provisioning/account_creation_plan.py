@@ -39,14 +39,20 @@ class AccountCreationPlan:
     remote_account_creation_enabled: bool = False
 
 
-def plan_account_creation(task_id):
+def plan_account_creation(task_id, *, allow_reserved=False):
     """Pure database preflight; always requires approved financial provenance."""
     try:
         task = ProvisioningTask.objects.select_related(
             "service", "provider", "order", "order_item").get(pk=task_id)
     except (ProvisioningTask.DoesNotExist, ValueError, TypeError):
         raise CreationPlanRefused("Hosting task not found.") from None
-    if (task.action != "provision" or task.status != "queued"
+    if (task.action != "provision" or not (
+            task.status == "queued" or (
+                allow_reserved and task.status == "pending_confirmation"
+                and isinstance(task.metadata, dict)
+                and isinstance(task.metadata.get("remote_create"), dict)
+                and task.metadata["remote_create"].get("state") == "reserved_no_network"))
+            
             or not task.order_id or not task.order_item_id
             or not task.provider_id or not task.service_id
             or task.lock_key != f"paid-hosting:order-item:{task.order_item_id}:v1"
