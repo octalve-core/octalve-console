@@ -11,6 +11,7 @@ from payments.readback import verify_gateway_intent, PaymentReadbackRejected
 from payments.settlement import settle_verified_intent, SettlementRefused
 from provisioning.fulfillment import stage_paid_order, FulfillmentRefused
 from provisioning.reconcile import reconcile_verified_hosting, ReconciliationRefused
+from provisioning.create_attempt import reserve_account_create, CreateReservationRefused
 
 
 class Command(BaseCommand):
@@ -24,12 +25,16 @@ class Command(BaseCommand):
         choice.add_argument("--task-id", type=int)
         parser.add_argument("--apply", action="store_true",
                             help="Apply verified DB changes. Omit for read-only or rollback validation.")
+        parser.add_argument("--reserve-create", action="store_true",
+                            help="With --task-id, reserve ONE local creation attempt; NEVER sends a vendor POST.")
 
     def handle(self, *args, **opts):
         keys = [k for k in ("intent_id", "order_id", "task_id") if opts.get(k) is not None]
         if len(keys) != 1 or opts[keys[0]] < 1:
             raise CommandError("Exactly one positive server-side record ID is required.")
         apply = opts["apply"]
+        if opts.get("reserve_create") and opts.get("task_id") is None:
+            raise CommandError("--reserve-create requires --task-id.")
         try:
             if opts.get("intent_id") is not None:
                 intent_id = opts["intent_id"]
@@ -58,10 +63,20 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(
                     f"{label}: order_id={opts['order_id']}, item_count={len(rows)}"))
             else:
-                verified = reconcile_verified_hosting(opts["task_id"], apply=apply)
-                label = "HOSTING_PROVIDER_CONFIRMED_AND_ACTIVATED" if apply else "ACCOUNT_READ_ONLY_VERIFIED"
-                self.stdout.write(self.style.SUCCESS(
-                    f"{label}: task_id={opts['task_id']}, adapter={verified.adapter}"))
+                if opts.get("reserve_create"):
+                    reserved = reserve_account_create(opts["task_id"], apply=apply)
+                    label = ("CREATE_RESERVED_NO_NETWORK" if apply
+                             else "CREATE_PLAN_DRY_RUN_OK")
+                    self.stdout.write(self.style.SUCCESS(
+                        f"{label}: task_id={reserved.task_id}, "
+                        f"service_id={reserved.service_id}, "
+                        f"remote_request_sent={reserved.remote_request_sent}"))
+                else:
+                    verified = reconcile_verified_hosting(opts["task_id"], apply=apply)
+                    label = "HOSTING_PROVIDER_CONFIRMED_AND_ACTIVATED" if apply else "ACCOUNT_READ_ONLY_VERIFIED"
+                    self.stdout.write(self.style.SUCCESS(
+                        f"{label}: task_id={opts['task_id']}, adapter={verified.adapter}"))
         except (PaymentReadbackRejected, SettlementRefused, FulfillmentRefused,
-                ReconciliationRefused, PaymentIntent.DoesNotExist) as exc:
+                ReconciliationRefused, CreateReservationRefused,
+                PaymentIntent.DoesNotExist) as exc:
             raise CommandError(str(exc)) from None
