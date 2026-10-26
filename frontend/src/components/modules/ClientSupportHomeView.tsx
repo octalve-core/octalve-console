@@ -41,10 +41,11 @@ export function ClientSupportHomeView(){
               <p className="mt-1 text-sm text-slate-500">All requests submitted from your account.</p></div>
             <Link href="/client/support/new" className="inline-flex items-center gap-2 rounded-xl bg-[#0064E0] px-4 py-2.5 text-sm font-medium text-white"><Plus className="h-4 w-4"/>New ticket</Link>
           </div>
-          <div className="mt-5 flex items-center gap-3 rounded-xl border border-slate-200 px-4">
-            <Search className="h-4 w-4 text-slate-400"/>
-            <input aria-label="Search your tickets" value={query} onChange={e=>setQuery(e.target.value)}
-              placeholder="Search requests…" className="h-12 min-w-0 flex-1 text-sm outline-none"/>
+          <div className="mt-5">
+            <TextField label="Search your tickets" type="search" value={query}
+              onChange={event=>setQuery(event.target.value)}
+              startIcon={<Search aria-hidden="true" className="h-4 w-4"/>}
+              placeholder="Search requests…"/>
           </div>
           {error?<p role="alert" className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
           {loading?<p role="status" className="mt-5 text-sm text-slate-500">Opening your tickets…</p>:null}
