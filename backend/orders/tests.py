@@ -7,7 +7,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from billing.models import Invoice
-from catalog.models import ProductCategory, Product, Plan, PlanBillingCycle
+from catalog.models import ProductCategory, Product, Plan, PlanBillingCycle, PublishedCatalogOffer
 from orders.models import Order, OrderItem
 
 
@@ -36,6 +36,11 @@ class HostingCheckoutTests(TestCase):
         }]}
 
     def test_client_can_browse_active_public_hosting_catalog(self):
+        # The customer catalog is publication-gated. A raw active plan
+        # without an approved revision must not be promoted as sellable.
+        PublishedCatalogOffer.objects.create(
+            plan=self.plan, revision=1, snapshot={}
+        )
         response = self.client.get("/api/catalog/plans/")
         self.assertEqual(response.status_code, 200)
         rows = response.data.get("results", []) if isinstance(response.data, dict) else response.data
