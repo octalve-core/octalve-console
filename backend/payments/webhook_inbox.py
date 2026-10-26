@@ -12,6 +12,7 @@ from django.conf import settings
 from django.db import transaction as db_transaction
 from payments.models import PaymentGateway, PaymentIntent, WebhookEvent
 from payments.signatures import verify_webhook_signature
+from payments.sandbox import gateway_can_read, secret_matches_mode
 
 REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{3,119}$")
 
@@ -27,9 +28,8 @@ def accept_signed_event(gateway_code, raw_body, headers):
         raise WebhookRejected("Unapproved webhook gateway.")
     if not isinstance(raw_body, bytes) or not 0 < len(raw_body) <= 65536:
         raise WebhookRejected("Malformed or oversized webhook.")
-    gateway = PaymentGateway.objects.filter(
-        code=gateway_code, status="active", test_mode=False).first()
-    if not gateway:
+    gateway = PaymentGateway.objects.filter(code=gateway_code).first()
+    if not gateway or not gateway_can_read(gateway):
         raise WebhookRejected("Payment provider is unavailable.")
     secret = (gateway.get_secret_key() if gateway_code == "paystack"
               else gateway.get_webhook_secret())
