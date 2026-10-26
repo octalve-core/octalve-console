@@ -6,10 +6,12 @@ import { useEffect, useState } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { api } from "@/lib/api/client";
+import { HostingReadiness } from "../components/HostingReadiness";
 
 type Overview = {
   service_id: number; label:string; domain_name:string|null; service_type:string;
   status:string; active:boolean; usage_status:string; message:string;
+  hosting_account_verified:boolean; website_public_status:string; dns_public_status:string;
   usage:{disk_used_mb:number; disk_limit_mb:number;bandwidth_used_mb:number;bandwidth_limit_mb:number;recorded_at:string}|null;
   capabilities:Record<string,boolean>;
 };
@@ -50,6 +52,7 @@ export function OPanelServiceOverview(){
               </a>
             )}
           </section>
+          <HostingReadiness service={data}/>
           <section className="rounded-2xl border bg-white p-5">
             <h2 className="mb-3 text-lg font-semibold">Recorded resource usage</h2>
             {data.usage?<div className="grid gap-4 md:grid-cols-2 text-sm">
