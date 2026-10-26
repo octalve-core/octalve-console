@@ -14,6 +14,14 @@ function requires(file,tokens){
  const content=fs.readFileSync(path.join(root,file),"utf8");
  for(const token of tokens)if(!content.includes(token))throw Error(file+": missing "+token);
 }
+const activeConfig=fs.readFileSync(path.resolve(__dirname,"../tailwind.config.js"),"utf8");
+const plannedConfig=fs.readFileSync(path.resolve(__dirname,"../tailwind.config.ts"),"utf8");
+for(const token of ["#0064E0","#0052B8","#071425","#64748B","#000A16","#F8FAFC","#E5EBF3"]){
+ if(!activeConfig.includes(token)||!plannedConfig.includes(token))throw Error("Tailwind JS/TS brand token drift: "+token);
+}
+for(const required of ['"bg-console-primary"','"text-console-ink"','"border-console-line"','"min-h-36"']){
+ if(!activeConfig.includes(required)||!plannedConfig.includes(required))throw Error("Unregistered foundation Tailwind safelist token "+required);
+}
 requires("action-styles.ts",["bg-console-primary","hover:bg-console-hover","focus-visible:ring-console-primary","h-12"]);
 requires("TextField.tsx",["useId","htmlFor={controlId}","aria-invalid","aria-describedby","min-h-12"]);
 requires("SelectField.tsx",["useId","htmlFor={controlId}","aria-invalid","options.map","min-h-12"]);
