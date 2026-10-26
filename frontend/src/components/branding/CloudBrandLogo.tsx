@@ -3,15 +3,18 @@ import Image from "next/image";
 import Link from "next/link";
 import {useState} from "react";
 
-/** Upload the approved logo to frontend/public/branding/octalve-cloud-logo.png.
- * The existing Octalve asset is a safe interim image if the new file
- * has not been uploaded yet. Never render a fabricated mark or brand text.
+/** The approved logo is stored in frontend/public/branding/octalve-cloud-logo.png.
+ * Constrain its natural proportions: approximately 30% smaller than the old 190px logo.
+ * Padding belongs to the image container, never the source artwork.
  */
 export function CloudBrandLogo({href="/client"}:{href?:string}){
-  const [src,setSrc]=useState("/branding/octalve-cloud-logo.png");
-  return <Link href={href} aria-label="Octalve Cloud home" className="flex h-16 items-center px-4 focus-visible:outline-2 focus-visible:outline-[#0064E0]">
-    <Image src={src} alt="Octalve Cloud" width={190} height={49} unoptimized priority
-      onError={()=>{if(src!=="/assets/logo/octalve.png")setSrc("/assets/logo/octalve.png");}}
-      className="h-auto max-h-12 w-auto max-w-[190px] object-contain" />
-  </Link>;
+ const [src,setSrc]=useState("/branding/octalve-cloud-logo.png");
+ return <Link href={href} aria-label="Octalve Cloud home"
+    className="flex h-16 w-full min-w-0 items-center justify-start px-9 py-3 focus-visible:outline-2 focus-visible:outline-blue-600">
+   <span className="flex h-full w-full max-w-[140px] items-center justify-start overflow-hidden">
+     <Image src={src} alt="Octalve Cloud" width={140} height={36} unoptimized priority
+       onError={()=>{if(src!=="/assets/logo/octalve.png")setSrc("/assets/logo/octalve.png");}}
+       className="block h-auto max-h-9 w-full object-contain object-left"/>
+   </span>
+ </Link>;
 }
