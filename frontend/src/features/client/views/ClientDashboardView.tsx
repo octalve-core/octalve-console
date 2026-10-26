@@ -29,11 +29,6 @@ export function ClientDashboardView(){
     <div className="space-y-6">
       <ClientHero name={firstName}/>
       <WorkspaceQuickActions role="client"/>
-      {summary.status==="partial"&&<div role="status"
-        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <p>Some account information could not be refreshed. Your existing services and invoices have not been changed.</p>
-        <span className="text-xs font-medium">Account details update automatically.</span>
-      </div>}
       <div aria-busy={waiting}>
         <ResponsiveGrid columns="4">
           <MetricCard label="Services" value={count(summary.services)}

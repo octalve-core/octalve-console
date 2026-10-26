@@ -26,7 +26,7 @@ export function ClientKnowledgeBaseView(){
   return <DashboardShell role="client" title="Knowledge base" description="Guides and assistance for your Octalve services.">
     <DashboardPage eyebrow="Help centre" title="Knowledge base" description="Find clear answers and useful step-by-step guides.">
       <div className="space-y-6">
-        <div className="isolate overflow-visible rounded-[26px] border border-[#11375F] bg-[linear-gradient(110deg,#001426,#06366E)] p-6 text-white shadow-sm sm:p-9">
+        <div className="isolate overflow-visible rounded-[26px] border border-[#123C6F] bg-[#001A36] bg-gradient-to-r from-[#001A36] via-[#062B52] to-[#06427A] p-6 text-white shadow-sm sm:p-9">
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-blue-200"><BookOpen className="h-4 w-4"/> OCTALVE GUIDES</p>
           <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">How can we help you?</h2>
           <p className="mt-2 text-sm leading-6 text-blue-100">Find answers about hosting, DNS, domains, payments and your account.</p>

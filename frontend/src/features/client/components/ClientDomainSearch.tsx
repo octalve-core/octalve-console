@@ -24,7 +24,7 @@ export function ClientDomainSearch(){
     finally{setBusy(false)}
   }
   return <section id="domain-search" aria-label="Find a domain name" className="scroll-mt-24 overflow-hidden rounded-[24px] border border-[#DCE8F7] bg-white shadow-sm">
-    <div className="bg-[linear-gradient(110deg,#001426,#073C7A)] px-5 py-6 text-white sm:px-7">
+    <div className="bg-[#001A36] bg-gradient-to-r from-[#001A36] via-[#062B52] to-[#06427A] px-5 py-6 text-white sm:px-7">
       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-200"><Globe2 className="h-4 w-4"/> Find your domain</div>
       <h2 className="mt-3 text-2xl font-bold tracking-tight">Your next big idea deserves the right name.</h2>
       <p className="mt-2 text-sm text-blue-100">Search domain extensions and see our published prices. Availability is confirmed with an approved registrar before purchase.</p>
