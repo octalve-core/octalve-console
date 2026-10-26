@@ -5,7 +5,7 @@ const read=file=>fs.readFileSync(path.join(root,file),"utf8");
 function must(file,parts){const body=read(file);for(const item of parts)if(!body.includes(item))throw Error(file+": missing "+item);}
 must("components/layout/DashboardShell.tsx",["ConsoleMobileDrawer","DashboardSidebar","DashboardHeader","Skip to main content","id=\"console-main\"","min-h-dvh"]);
 must("components/layout/DashboardSidebar.tsx",["getDashboardNavGroups(role)","ConsoleNavigationGroup","bg-console-sidebar","CloudBrandLogo"]);
-must("features/shell/components/ConsoleNavigationGroup.tsx",["aria-current","getDashboardNavGroups",""]); // verifies below by specific usage?
+must("features/shell/components/ConsoleNavigationGroup.tsx",["aria-current","DashboardNavGroup","onNavigate","item.href"]);
 must("features/shell/components/ConsoleMobileDrawer.tsx",['role="dialog"','aria-modal="true"','event.key==="Escape"','event.key!=="Tab"','document.body.style.overflow']);
 must("features/shell/components/ConsolePageSearch.tsx",["getDashboardNavGroups(role)","Console search results","aria-label=\"Find a Console page\"","event.key===\"Escape\""]);
 must("features/shell/components/ConsoleAccountMenu.tsx",["useAuth","onLogout();","aria-expanded={open}","event.key===\"Escape\""]);
