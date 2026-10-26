@@ -70,7 +70,7 @@ class ServiceSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     is_overdue = serializers.SerializerMethodField()
     
-    credentials = ServiceCredentialSerializer(read_only=True)
+    # Hosting credentials and arbitrary provider config are server-only.
     current_usage = serializers.SerializerMethodField()
     
     class Meta:
@@ -80,8 +80,8 @@ class ServiceSerializer(serializers.ModelSerializer):
             'domain_name', 'label', 'description', 'status', 'status_display',
             'billing_cycle', 'amount', 'currency', 'next_due_date',
             'auto_renew', 'has_ssl', 'has_backup', 'activated_at',
-            'suspended_at', 'credentials', 'current_usage', 'is_overdue',
-            'config', 'created_at'
+            'suspended_at', 'current_usage', 'is_overdue',
+            'created_at'
         ]
         read_only_fields = ['id', 'created_at', 'activated_at', 'suspended_at']
         

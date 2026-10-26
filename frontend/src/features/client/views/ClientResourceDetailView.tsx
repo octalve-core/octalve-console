@@ -48,7 +48,7 @@ function getResourceIcon(resource: ClientResourceKey) {
 function getDetailActions(resource: ClientResourceKey, record: ClientRecord) {
   if (resource === "services") {
     return [
-      { label: "Open control panel", href: "#", variant: "primary" as const },
+      { label: "View hosting status", href: `/client/services/${encodeURIComponent(String(record.id))}/hosting-status`, variant: "primary" as const },
       { label: "Request support", href: "/client/support/new", variant: "outline" as const },
     ];
   }
@@ -88,7 +88,6 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
 
   const [record, setRecord] = useState<ClientRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUsingFallback, setIsUsingFallback] = useState(false);
   const [error, setError] = useState("");
 
   async function loadRecord() {
@@ -100,25 +99,13 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
       const apiRecords = unwrapClientList(response).map((item) => normalizeClientRecord(item, config.key));
       const foundApiRecord = apiRecords.find((item) => item.id === id);
 
-      if (foundApiRecord) {
-        setRecord(foundApiRecord);
-        setIsUsingFallback(false);
-        return;
-      }
-
-      const fallbackRecord =
-        config.fallback.find((item) => item.id === id || item.title === id) ?? config.fallback[0] ?? null;
-
-      setRecord(fallbackRecord);
-      setIsUsingFallback(true);
-      setError("Live API record was not found locally. Showing fallback detail data.");
+      // Never substitute sample hosting/domain/order/invoice data for a missing
+      // live record. A missing API object is not proof of customer ownership.
+      setRecord(foundApiRecord ?? null);
+      if (!foundApiRecord) setError("This record was not returned by the authorized service.");
     } catch {
-      const fallbackRecord =
-        config.fallback.find((item) => item.id === id || item.title === id) ?? config.fallback[0] ?? null;
-
-      setRecord(fallbackRecord);
-      setIsUsingFallback(true);
-      setError("Live API detail is not available yet. Showing safe fallback detail data.");
+      setRecord(null);
+      setError("The authoritative record could not be loaded. Retry or contact support.");
     } finally {
       setIsLoading(false);
     }
@@ -157,15 +144,9 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
         {isLoading ? (
           <LoadingState title="Loading details" description="Fetching your record from the Django API." />
         ) : !record ? (
-          <ErrorState title="Record not found" description="This record could not be found in API or fallback data." />
+          <ErrorState title="Record unavailable" description={error || "The authorized API did not return this record."} />
         ) : (
           <div className="space-y-5">
-            {isUsingFallback ? (
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-                {error}
-              </div>
-            ) : null}
-
             <Card className="overflow-hidden p-0">
               <div className="bg-[#0064E0] p-6 text-white sm:p-8">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -228,16 +209,10 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
               <Card>
                 <h3 className="text-lg font-medium tracking-[-0.03em] text-slate-950">Activity timeline</h3>
                 <div className="mt-5 space-y-4">
-                  {[
-                    "Record loaded into client console",
-                    "API-ready detail page prepared",
-                    "Customer action panel available",
-                  ].map((item) => (
-                    <div key={item} className="flex gap-3">
-                      <span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-[#0064E0]" />
-                      <p className="text-sm leading-6 text-slate-600">{item}</p>
-                    </div>
-                  ))}
+                  <p className="text-sm leading-6 text-slate-600">
+                    The verified activity event feed is not connected to this detail view.
+                    No synthetic payment, provisioning, DNS or hosting activity is displayed.
+                  </p>
                 </div>
               </Card>
 

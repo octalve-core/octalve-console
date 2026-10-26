@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     'payments.apps.PaymentsConfig',
     'wallet.apps.WalletConfig',
     'services.apps.ServicesConfig',
+    'opanel_bridge.apps.OPanelBridgeConfig',
     'domains.apps.DomainsConfig',
     'providers.apps.ProvidersConfig',
     'provisioning.apps.ProvisioningConfig',
@@ -496,3 +497,39 @@ LOGGING = {
         'providers': {'handlers': ['console'], 'level': 'INFO'},
     },
 }
+
+# OPanel confidential-client SSO is DISABLED until audited credentials, a fixed
+# HTTPS callback and independently verified provider bindings are configured.
+OPANEL_ISSUER_ENABLED = env.bool("OPANEL_ISSUER_ENABLED", default=False)
+OPANEL_CLIENT_ID = env("OPANEL_CLIENT_ID", default="octalve-opanel")
+OPANEL_CLIENT_SECRET = env("OPANEL_CLIENT_SECRET", default="")
+OPANEL_CALLBACK_URL = env("OPANEL_CALLBACK_URL", default="")
+
+# Read-only provider account verification: off without an approved test server.
+OPANEL_READBACK_ENABLED = env.bool("OPANEL_READBACK_ENABLED", default=False)
+# Paid hosting pipeline is disabled until approved isolated gateway and
+# provider acceptance. These switches never expose a customer endpoint.
+CLOUD_GATEWAY_READBACK_ENABLED = env.bool("CLOUD_GATEWAY_READBACK_ENABLED", default=False)
+# Gateway test mode is usable only for isolated read-back/hosted-link tests.
+# The financial-settlement and provisioning authorities still reject test_mode.
+CLOUD_GATEWAY_SANDBOX_READBACK_ENABLED = env.bool("CLOUD_GATEWAY_SANDBOX_READBACK_ENABLED", default=False)
+CLOUD_ISOLATED_REVIEW_CONFIRMED = env.bool("CLOUD_ISOLATED_REVIEW_CONFIRMED", default=False)
+
+CLOUD_SETTLEMENT_COMMIT_ENABLED = env.bool("CLOUD_SETTLEMENT_COMMIT_ENABLED", default=False)
+CLOUD_FULFILLMENT_STAGING_ENABLED = env.bool("CLOUD_FULFILLMENT_STAGING_ENABLED", default=False)
+CLOUD_PROVISIONING_WORKER_ENABLED = env.bool("CLOUD_PROVISIONING_WORKER_ENABLED", default=False)
+# Only a durable, offline attempt reservation; no vendor POST or account creation.
+CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED = env.bool("CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED", default=False)
+# Queue only (not delivery) after independently verified hosting activation.
+CLOUD_HOSTING_READY_QUEUE_ENABLED = env.bool("CLOUD_HOSTING_READY_QUEUE_ENABLED", default=False)
+# Hosted payment initiation and signature-authenticated inbox are separate
+# opt-ins. Never enable for real money without isolated browser acceptance.
+CLOUD_HOSTED_CHECKOUT_ENABLED = env.bool("CLOUD_HOSTED_CHECKOUT_ENABLED", default=False)
+CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED = env.bool("CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED", default=False)
+# Separate browser-facing opt-in: never infer enablement from internal CLI.
+CLOUD_HOSTED_CHECKOUT_HTTP_ENABLED = env.bool("CLOUD_HOSTED_CHECKOUT_HTTP_ENABLED", default=False)
+CLOUD_PAYMENT_STATUS_HTTP_ENABLED = env.bool("CLOUD_PAYMENT_STATUS_HTTP_ENABLED", default=False)
+
+CLOUD_PAYMENT_RETURN_URL = env("CLOUD_PAYMENT_RETURN_URL", default="")
+
+

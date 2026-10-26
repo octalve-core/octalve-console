@@ -104,25 +104,32 @@ class ProvisioningTask(models.Model):
         self.save(update_fields=['status', 'started_at', 'executed_by', 'updated_at'])
     
     def mark_completed(self, result_data=None):
-        """Mark task as completed"""
+        """Mark a verified read-only task completed; never grant hosting authority.
+
+        Mutating host actions must go through the future durable settlement and
+        provider-confirmation worker, which has NOT been approved. A queued task
+        or an arbitrary success result cannot activate or unsuspend a service.
+        """
+        if self.action not in ('sync_usage', 'sync_details'):
+            raise ValueError("Provider-changing task completion requires the audited reconciliation worker.")
         self.status = 'completed'
         self.completed_at = timezone.now()
         if result_data:
             self.result_data = result_data
         self.save(update_fields=['status', 'completed_at', 'result_data', 'updated_at'])
-        
-        # Update service status based on action
-        if self.action == 'provision' and self.service.status == 'pending':
-            self.service.activate()
-        elif self.action == 'terminate':
-            self.service.terminate()
-        elif self.action == 'suspend':
-            self.service.suspend()
-        elif self.action == 'unsuspend':
-            self.service.unsuspend()
+
+        # No implicit service state mutation; future accepted workers own it.
     
     def mark_failed(self, error, error_code=None):
-        """Mark task as failed"""
+        """Never blindly retry a potentially applied provider mutation."""
+        if self.action not in ("sync_usage", "sync_details"):
+            self.attempt_count += 1
+            self.last_error = "Provider-changing operation needs manual reconciliation."
+            self.last_error_code = "REMOTE_OUTCOME_UNKNOWN"
+            self.status = "needs_review"
+            self.save(update_fields=["attempt_count", "last_error", "last_error_code",
+                                     "status", "updated_at"])
+            return
         self.attempt_count += 1
         self.last_error = str(error)
         self.last_error_code = error_code
@@ -152,7 +159,9 @@ class ProvisioningTask(models.Model):
     
     def can_retry(self):
         """Check if task can be retried"""
-        return self.attempt_count < self.max_attempts and self.status in ['failed', 'retrying']
+        return (self.action in ("sync_usage", "sync_details")
+                and self.attempt_count < self.max_attempts
+                and self.status in ['failed', 'retrying'])
     
     def is_overdue(self):
         """Check if task is overdue"""
