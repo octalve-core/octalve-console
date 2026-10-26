@@ -38,6 +38,14 @@ function statusClass(status: string) {
   if (["pending", "pending_payment", "unpaid", "draft", "open", "processing"].includes(s)) return "bg-amber-50 text-amber-700";
   return "bg-slate-100 text-slate-600";
 }
+function iconTone(status: string) {
+  const s = status.toLowerCase();
+  if (["paid", "active", "completed", "provisioned", "resolved", "accepted"].includes(s)) return "bg-emerald-100 text-emerald-700";
+  if (["failed", "cancelled", "overdue", "suspended", "declined"].includes(s)) return "bg-rose-100 text-rose-700";
+  if (["pending", "pending_payment", "unpaid", "draft", "processing"].includes(s)) return "bg-amber-100 text-amber-700";
+  if (["open", "in_progress", "waiting_staff"].includes(s)) return "bg-violet-100 text-violet-700";
+  return "bg-[#EAF3FF] text-[#0064E0]";
+}
 function readable(s: string) {
   return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
@@ -97,7 +105,7 @@ export function CloudRecordDirectory({
           <th scope="col" className="w-12 rounded-r-xl px-2 py-3"><span className="sr-only">Options</span></th>
         </tr></thead>
         <tbody>{visible.map(r => <tr key={r.id} className="text-[#24374D]">
-          <td className="rounded-l-xl bg-[#F6F8FB] px-3 py-4"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EAF3FF] text-[#0064E0]">{r.icon || "•"}</span></td>
+          <td className="rounded-l-xl bg-[#F6F8FB] px-3 py-4"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconTone(r.status)}`}>{r.icon || "•"}</span></td>
           {cols.map(c => <td key={c.key} className="truncate bg-[#F6F8FB] px-3 py-4">
             {onOpen ? <button type="button" onClick={() => onOpen(r)} className="max-w-full truncate text-left hover:underline">{c.render(r)}</button> : c.render(r)}
           </td>)}
@@ -106,15 +114,23 @@ export function CloudRecordDirectory({
         </tr>)}</tbody>
       </table>
     </div>
-    <div className="space-y-3 p-3 lg:hidden">{visible.map(r => <button key={r.id} type="button" onClick={() => setSelected(r)}
-      className="flex w-full items-center gap-3 rounded-2xl border border-slate-100 bg-[#F6F8FB] p-4 text-left transition hover:border-blue-200">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF3FF] text-[#0064E0]">{r.icon || "•"}</span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-start justify-between gap-2"><span className="truncate text-sm font-semibold text-[#142A43]">{r.title}</span><span className="shrink-0 text-xs font-semibold text-[#142A43]">{r.amount}</span></span>
-        <span className="mt-1 block truncate text-[11px] font-medium text-[#0064E0]">{r.reference || r.subtitle}</span>{r.subtitle && r.subtitle !== r.title ? <span className="mt-1 block truncate text-[11px] text-slate-500">{r.subtitle}</span> : null}
-        <span className="mt-2 flex items-center justify-between gap-2"><span className="text-[11px] text-slate-400">{r.date}</span><span className={`rounded-full px-2 py-1 text-[10px] font-medium ${statusClass(r.status)}`}>{readable(r.status)}</span></span>
-      </span><MoreVertical size={17} className="shrink-0 text-slate-400"/>
-    </button>)}</div>
+    <div className="space-y-3 p-3 lg:hidden">{visible.map(r => <div key={r.id}
+      className="flex w-full items-stretch rounded-2xl border border-slate-100 bg-[#F6F8FB] text-left transition hover:border-blue-200">
+      <button type="button" onClick={() => onOpen ? onOpen(r) : setSelected(r)}
+        aria-label={`View ${r.title}`} className="flex min-w-0 flex-1 items-center gap-3 p-4 text-left">
+        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconTone(r.status)}`}>{r.icon || "•"}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-2"><span className="truncate text-sm font-bold text-[#142A43]">{r.title}</span>{r.amount ? <span className="shrink-0 text-xs font-bold text-[#142A43]">{r.amount}</span> : null}</span>
+          <span className="mt-1 block truncate text-[11px] font-semibold text-[#0064E0]">{r.reference || r.subtitle}</span>
+          {r.subtitle && r.subtitle !== r.title ? <span className="mt-1 block truncate text-[11px] text-slate-500">{r.subtitle}</span> : null}
+          <span className="mt-2 flex items-center justify-between gap-2"><span className="text-[11px] text-slate-500">{r.date}</span><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(r.status)}`}>{readable(r.status)}</span></span>
+        </span>
+      </button>
+      <button type="button" aria-label={`More actions for ${r.title}`} onClick={() => setSelected(r)}
+        className="flex w-11 shrink-0 items-start justify-center rounded-r-2xl pt-5 text-slate-400 hover:bg-slate-100 hover:text-[#0064E0]">
+        <MoreVertical size={18}/>
+      </button>
+    </div>)}</div>
     {visible.length === 0 && <p className="p-8 text-center text-sm text-slate-500">{emptyMessage}</p>}
     <div className="flex items-center justify-between border-t border-[#EFF2F6] px-4 py-3 text-xs">
       <button type="button" disabled={page <= 1} onClick={() => setPage(v => v - 1)} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 disabled:opacity-30"><ChevronLeft size={14}/>Previous</button>
