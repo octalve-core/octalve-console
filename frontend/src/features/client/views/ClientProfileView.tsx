@@ -57,7 +57,7 @@ export function ClientProfileView() {
           <Card>
             <h3 className="text-lg font-medium tracking-[-0.03em] text-slate-950">Account security</h3>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              For your security, use your account settings to manage your password and sign-in details.
+              Your account and sign-in details help keep your services secure. Contact support if you need assistance.
             </p>
           </Card>
         </div>
