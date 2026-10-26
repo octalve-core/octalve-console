@@ -24,6 +24,9 @@ const config: Config = {
       },
     },
   },
+  // Foundation components are intentionally not mounted before Batch 2.
+  // Preserve only these essential token utilities in the production CSS bundle.
+  safelist: ["bg-console-primary", "text-console-ink", "border-console-line", "min-h-36"],
   plugins: [],
 };
 
