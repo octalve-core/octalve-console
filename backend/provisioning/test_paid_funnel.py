@@ -138,6 +138,33 @@ class PaidHostingFunnelTests(TestCase):
         self.assertEqual(self.getter.call_count, 1)
         self.assertEqual(Transaction.objects.count(), 1)
 
+    @override_settings(CLOUD_GATEWAY_SANDBOX_READBACK_ENABLED=True,
+                       CLOUD_ISOLATED_REVIEW_CONFIRMED=True, DEBUG=True)
+    def test_real_test_gateway_readback_cannot_settle_or_stage_hosting(self):
+        self.gateway.test_mode = True
+        self.gateway.status = "test"
+        self.gateway.save(update_fields=["test_mode", "status"])
+        sandbox_reply = {
+            "status": True, "data": {
+                "id": 987654321, "domain": "test", "status": "success",
+                "reference": self.intent.reference, "currency": "NGN",
+                "amount": 250000,
+            },
+        }
+        with patch.object(PaymentGateway, "get_secret_key",
+                          return_value="sk_test_synthetic_fixture_0123456789abcdef"):
+            with self.assertRaises(SettlementRefused):
+                settle_verified_intent(
+                    self.intent.pk, getter=Mock(return_value=vendor_payment(sandbox_reply)))
+        self.order.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.order.status, "pending_payment")
+        self.assertEqual(self.invoice.status, "unpaid")
+        self.assertFalse(Transaction.objects.exists())
+        with self.assertRaises(FulfillmentRefused):
+            stage_paid_order(self.order.pk)
+        self.assertFalse(Service.objects.exists())
+
     def test_outbox_requires_genuine_payment_evidence_and_does_not_accept_paid_flags(self):
         self.invoice.status = "paid"
         self.invoice.amount_paid = self.invoice.total
