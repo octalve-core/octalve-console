@@ -133,6 +133,9 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
             "verified_at": result.checked_at.isoformat(),
         }
         fresh.save(update_fields=["status", "completed_at", "result_data", "updated_at"])
+        if getattr(settings, "CLOUD_HOSTING_READY_QUEUE_ENABLED", False):
+            from notifications.hosting_ready import queue_hosting_ready
+            queue_hosting_ready(service)
         # For multi-item orders, only close the order after EVERY item is
         # activated by its own independent account verification.
         if not Service.objects.filter(order=order).exclude(status="active").exists():
