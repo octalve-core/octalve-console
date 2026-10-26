@@ -37,7 +37,7 @@ const domainForm=fs.readFileSync(path.join(root,"features/client/components/doma
 if(!domainForm.includes('className="flex h-14 min-w-0 flex-1 items-center gap-3') ||
    !domainForm.includes('className="h-5 w-5 shrink-0') ||
    !domainForm.includes('className="block h-full min-w-0 flex-1') ||
-   /absolute left-|translate-y-1\\/2/.test(domainForm)){
+   domainForm.includes("absolute left-") || domainForm.includes("translate-y-1/2")){
  throw new Error("Domain search icon and text must share an in-flow, vertically centered flex row");
 }
 const welcome=fs.readFileSync(path.join(root,"components/data/WorkspaceWelcomePanel.tsx"),"utf8");
