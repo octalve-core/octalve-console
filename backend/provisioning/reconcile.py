@@ -20,7 +20,7 @@ from opanel_bridge.models import VerifiedHostingBinding
 from opanel_bridge.policy import account_digest
 from opanel_bridge.readback import verify_existing_account, ReadbackRejected, unique_account
 from provisioning.authority import require_verified_settlement, SettlementNotVerified
-from provisioning.fulfillment import _validate_item, FulfillmentRefused
+from provisioning.fulfillment import _validate_item, FulfillmentRefused, planned_hosting_username
 from provisioning.models import ProvisioningTask
 
 
@@ -44,14 +44,22 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
     except (ProvisioningTask.DoesNotExist, ValueError, TypeError):
         raise ReconciliationRefused("Unknown hosting task.") from None
     account = task.payload.get("expected_account") if isinstance(task.payload, dict) else None
+    reservation = task.metadata.get("remote_create") if isinstance(task.metadata, dict) else None
+    reserved = (task.status == "pending_confirmation"
+                and isinstance(reservation, dict)
+                and reservation.get("state") == "reserved_no_network"
+                and isinstance(reservation.get("attempt_id"), str)
+                and len(reservation["attempt_id"]) == 32
+                and reservation.get("username") == account
+                and reservation.get("provider_id") == task.provider_id)
     if (
-        task.action != "provision" or task.status != "queued"
+        task.action != "provision" or not (task.status == "queued" or reserved)
         or not task.lock_key or task.lock_key != f"paid-hosting:order-item:{task.order_item_id}:v1"
         or not task.order_id or not task.order_item_id or not task.provider_id
         or task.service.status != "pending"
         or task.service.provider_identifier or task.service.activated_at
         or task.service.provider_id != task.provider_id
-        or not account or len(account) > 16
+        or account != planned_hosting_username(task.order_item_id)
         or task.payload.get("order_item_id") != task.order_item_id
     ):
         raise ReconciliationRefused("Task is not a pending, uniquely staged hosting account.")
@@ -81,7 +89,7 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
         except (SettlementNotVerified, FulfillmentRefused) as exc:
             raise ReconciliationRefused(str(exc)) from None
         if (
-            fresh.status != "queued" or fresh.action != "provision"
+            fresh.status != task.status or fresh.action != "provision"
             or fresh.lock_key != task.lock_key
             or fresh.payload != task.payload or fresh.metadata != task.metadata
             or order.status != "paid" or order.client_id != service.client_id
