@@ -21,7 +21,7 @@ export function ClientOrderView() {
       const first = items[0];
       setPlanId(first?.id || "");
       setCycleKey(defaultCycle(first)?.key || "");
-    }).catch(() => { if(live) setError("The live catalog is temporarily unavailable. No order has been placed."); })
+    }).catch(() => { if(live) setError("We couldn’t load hosting plans right now. Please try again. No order has been placed."); })
       .finally(() => {if(live) setLoading(false);});
     return () => {live = false;};
   }, []);
@@ -35,10 +35,10 @@ export function ClientOrderView() {
 
   return <DashboardShell role="client" title="Order service" description="Choose an available hosting plan.">
     <DashboardPage eyebrow="Services" title="Choose your hosting plan"
-      description="Only active plans and prices provided by the Octalve Cloud catalog are shown.">
-      {loading ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading available plans...</div> : null}
+      description="Find the right hosting package for your website, with clear pricing and flexible billing.">
+      {loading ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Finding hosting plans for you…</div> : null}
       {error ? <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p> : null}
-      {!loading && !error && plans.length === 0 ? <div className="rounded-2xl border border-[#E5EBF3] bg-white p-6 text-sm text-slate-600">No hosting plans are currently available for purchase.</div> : null}
+      {!loading && !error && plans.length === 0 ? <div className="rounded-2xl border border-[#E5EBF3] bg-white p-6 text-sm text-slate-600">We’re preparing our hosting packages. Please check back soon, or <a href="/client/support/new" className="font-semibold text-[#0064E0] underline">contact our team</a> for help choosing a solution.</div> : null}
       {plans.length > 0 && <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
           {plans.map(plan => {
@@ -72,7 +72,7 @@ export function ClientOrderView() {
             className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#0064E0] px-4 py-3 text-sm font-semibold text-white">
             Continue to checkout <ArrowRight size={17}/>
           </Link>}
-          <p className="mt-3 text-xs leading-5 text-slate-500">Final amounts are confirmed by the server when you place an order. No payment is collected on this page.</p>
+          <p className="mt-3 text-xs leading-5 text-slate-500">Review your order before checkout. You won’t be charged on this page.</p>
         </div>
       </div>}
     </DashboardPage>

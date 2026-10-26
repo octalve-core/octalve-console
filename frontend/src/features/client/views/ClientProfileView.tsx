@@ -18,7 +18,7 @@ export function ClientProfileView() {
       <DashboardPage
         eyebrow="Account"
         title="Account profile"
-        description="Your profile details are provided by the Django authentication API."
+        description="View your account information and keep your contact details up to date."
       >
         <div className="grid gap-5 xl:grid-cols-[1fr_22rem]">
           <Card>
@@ -31,7 +31,7 @@ export function ClientProfileView() {
                 <h2 className="text-2xl font-medium tracking-[-0.04em] text-slate-950">
                   {user?.name ?? user?.full_name ?? "Octalve Client"}
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">{user?.email ?? "client@example.com"}</p>
+                <p className="mt-1 text-sm text-slate-500">{user?.email ?? "Email unavailable"}</p>
               </div>
             </div>
 
@@ -57,7 +57,7 @@ export function ClientProfileView() {
           <Card>
             <h3 className="text-lg font-medium tracking-[-0.03em] text-slate-950">Account security</h3>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Password, email, verification, and security changes will remain connected to the Django auth endpoints.
+              Your account and sign-in details help keep your services secure. Contact support if you need assistance.
             </p>
           </Card>
         </div>

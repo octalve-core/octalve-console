@@ -36,7 +36,8 @@ export function getClientResourceBasePath(resource: ClientResourceKey) {
 export function normalizeClientRecord(item: unknown, resource: ClientResourceKey): ClientRecord {
   const record = item as Record<string, unknown>;
 
-  const id = readClientString(record, ["id", "uuid", "reference", "code"], `${resource}-${Math.random()}`);
+  const id = readClientString(record, ["id", "uuid", "reference", "code"], "");
+  if (!id) throw new Error("Account record is missing its identifier.");
   const title = readClientString(
     record,
     ["name", "title", "domain", "label", "subject", "invoice_number", "order_number", "product"],
@@ -50,10 +51,10 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
   const meta = readClientString(
     record,
     ["status", "type", "cycle", "adapter", "registrar", "priority", "term"],
-    "API record",
+    "—",
   );
   const amount = readClientString(record, ["total", "price", "amount", "balance", "due", "paid"], "");
-  const status = readClientString(record, ["status", "state", "payment_status"], "Active");
+  const status = readClientString(record, ["status", "state", "payment_status"], "Unknown");
   const date = readClientString(record, ["date", "created_at", "updated_at", "dueDate", "expiry", "renews"], "");
 
   return {
@@ -65,6 +66,6 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     status,
     date,
     actionHref: `${getClientResourceBasePath(resource)}/${encodeURIComponent(id)}`,
-    score: resource === "services" || resource === "domains" ? 96 : undefined,
+    score: undefined,
   };
 }

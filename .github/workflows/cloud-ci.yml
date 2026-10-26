@@ -51,6 +51,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: BFF canonical Django paths (regression)
         run: node frontend/scripts/test-cloud-api-path.cjs
+      - name: Customer production copy and truthful account-state regression
+        run: node frontend/scripts/check-production-customer-copy.cjs
       - name: TypeScript
         run: pnpm typecheck:frontend
       - name: Next.js build

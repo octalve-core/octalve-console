@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   BarChart3,
-  Bell,
   BookOpen,
   Boxes,
   ChevronDown,
@@ -18,7 +17,6 @@ import {
   Menu,
   PackageCheck,
   ReceiptText,
-  Search,
   Server,
   Settings,
   Shield,
@@ -188,7 +186,7 @@ export function DashboardShell({
             <div className="min-w-0">
               <p className="text-sm font-medium text-white">Need help?</p>
               <p className="truncate text-xs text-slate-400">
-                24/7 cloud support
+                Support and assistance
               </p>
             </div>
           </div>
@@ -239,30 +237,16 @@ export function DashboardShell({
               <Menu className="h-5 w-5" />
             </button>
 
-            <div className="hidden h-10 min-w-0 max-w-md flex-1 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 shadow-sm md:flex">
-              <Search className="h-4 w-4 shrink-0 text-slate-400" />
-              <input
-                placeholder="Search customers, invoices, domains..."
-                className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-              />
-              <span className="hidden rounded-lg bg-slate-50 px-2 py-1 text-xs text-slate-400 sm:inline">
-                Ctrl K
-              </span>
-            </div>
+            <nav aria-label="Quick navigation" className="hidden min-w-0 flex-1 items-center gap-4 text-sm font-medium text-slate-600 md:flex">
+              {role==="client" ? <>
+                <Link href="/client/services" className="hover:text-[#0064E0]">My services</Link>
+                <Link href="/client/invoices" className="hover:text-[#0064E0]">Invoices</Link>
+                <Link href="/client/support" className="hover:text-[#0064E0]">Support</Link>
+              </> : <Link href={`/${role}`} className="hover:text-[#0064E0]">Dashboard</Link>}
+            </nav>
 
             <div className="ml-auto flex items-center gap-3">
               {actions}
-
-              <button
-                type="button"
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm"
-                aria-label="Notifications"
-              >
-                <Bell className="h-5 w-5" />
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[0.65rem] font-semibold text-white">
-                  3
-                </span>
-              </button>
 
               <div className="hidden items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm sm:flex">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
