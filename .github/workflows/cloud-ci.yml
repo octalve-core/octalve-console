@@ -67,6 +67,8 @@ jobs:
         run: node frontend/scripts/check-console-design-system.cjs --built
       - name: Shared Console shell and auth Tailwind contract (Batch 2)
         run: node frontend/scripts/check-console-shell.cjs --built
+      - name: Client essentials design-system and API authority regression (Batch 3)
+        run: node frontend/scripts/check-client-essentials.cjs --built
 
   django-check:
     runs-on: ubuntu-latest

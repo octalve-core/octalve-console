@@ -1,4 +1,5 @@
-import {BadgeCheck,Info,ShieldCheck} from "lucide-react";
+import {BadgeCheck,Info} from "lucide-react";
+import {StatusBadge} from "@/components/design-system/StatusBadge";
 import type {DomainLookup} from "./domain-types";
 import {formatDomainPrice} from "./domain-types";
 
@@ -9,9 +10,9 @@ export function DomainSearchResult({value}:{value:DomainLookup}){
    <div className="min-w-0">
      <div className="flex flex-wrap items-center gap-2">
        <span className="break-all text-xl font-bold tracking-tight text-[#071425]">{value.domain}</span>
-       <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${verified?"bg-emerald-100 text-emerald-700":"bg-amber-100 text-amber-800"}`}>
+       <StatusBadge tone={verified?"success":"warning"}>
          {verified?"Availability confirmed":"Availability not yet verified"}
-       </span>
+       </StatusBadge>
      </div>
      <p className="mt-2 max-w-2xl text-xs leading-6 text-[#64748B]">{value.message}</p>
    </div>

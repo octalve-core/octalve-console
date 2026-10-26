@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { DashboardPage } from "@/components/layout/DashboardPage";
+import {SectionHeading} from "@/components/design-system/SectionHeading";
+import {ActionLink} from "@/components/design-system/ActionLink";
 import { useAutoSync } from "@/lib/hooks/useAutoSync";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -12,6 +13,7 @@ import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
 import { normalizeClientRecord, unwrapClientList } from "../utils/client-record-normalizer";
 import { ClientRecordList } from "../components/ClientRecordList";
 import { ClientDomainSearch } from "../components/ClientDomainSearch";
+import {ClientEssentialRecords} from "../components/ClientEssentialRecords";
 
 type ClientResourceListViewProps = {
   resource: ClientResourceKey;
@@ -43,37 +45,24 @@ export function ClientResourceListView({ resource }: ClientResourceListViewProps
 
   useAutoSync(loadRecords, resource);
 
+  const essential=resource==="services"||resource==="domains";
+  const actions=config.actionHref?<ActionLink href={config.actionHref} size="md" className="w-full sm:w-auto">
+    <Plus aria-hidden="true" className="h-4 w-4"/>{config.actionLabel??"Create"}
+  </ActionLink>:undefined;
+  const body=<div className="space-y-5">
+    {resource==="domains"&&<ClientDomainSearch/>}
+    {isLoading?<div role="status" className="rounded-xl border border-console-line bg-white p-5 text-sm text-console-muted">Updating your {config.title.toLowerCase()}…</div>
+    :error?<ErrorState description={error}/>
+    :essential?<ClientEssentialRecords resource={resource} records={records} emptyTitle={config.emptyTitle} emptyDescription={config.emptyDescription}/>
+    :<ClientRecordList records={records} resource={resource} emptyTitle={config.emptyTitle} emptyDescription={config.emptyDescription}/>}
+  </div>;
 
-  return (
-    <DashboardShell
-      role="client"
-      title={config.title}
-      description={config.description}
-    >
-      <DashboardPage
-        eyebrow={config.eyebrow}
-        title={config.title}
-        description={config.description}
-        actions={config.actionHref ? (
-          <Button href={config.actionHref}><Plus className="h-4 w-4"/>{config.actionLabel ?? "Create"}</Button>
-        ) : undefined}
-      >
-        <div className="space-y-5">
-          {resource === "domains" && <ClientDomainSearch/>}
-          {isLoading ? (
-            <div role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Updating your {config.title.toLowerCase()}…</div>
-          ) : error ? (
-            <ErrorState description={error} />
-          ) : (
-            <ClientRecordList
-              records={records}
-              resource={resource}
-              emptyTitle={config.emptyTitle}
-              emptyDescription={config.emptyDescription}
-            />
-          )}
-        </div>
-      </DashboardPage>
-    </DashboardShell>
-  );
+  return <DashboardShell role="client" title={config.title} description={config.description}>
+    {essential?<div className="space-y-6">
+      <SectionHeading eyebrow={config.eyebrow} title={config.title} description={config.description} actions={actions}/>
+      {body}
+    </div>:<DashboardPage eyebrow={config.eyebrow} title={config.title} description={config.description} actions={actions}>
+      {body}
+    </DashboardPage>}
+  </DashboardShell>;
 }
