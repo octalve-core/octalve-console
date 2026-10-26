@@ -123,3 +123,19 @@ release_candidate:
 - Manual upload is available as a visible UI path independently of GitHub. Validation is separately feature-gated; customer Publish stays blocked until account-bound remote adapter and versioned release/rollback are accepted.
 - Reference OPanel [Batch 3+4 execution detail](https://github.com/octalve-core/octalve-opanel/blob/docs/independent-foundation-design/docs/OPANEL_BATCH_3_4_STATIC_UPLOAD_AND_CONNECTORS_2026-10-26.md) and Console [Batch3+4 cross-product ledger](CLOUD_BATCH3_4_UPLOAD_DOMAIN_AND_RELEASE_2026-10-26.md).
 - Go-live remains **NOT APPROVED** until isolated Review with authorized external provider, real owned-domain/HTTPS website, proper DNS/registrar and customer-facing operational acceptance, plus Production preflight and owner authorization.
+
+## File Manager and customer truth gates — 26 October, next Review batch
+
+| Gate | Implementation | Release evidence still required |
+|---|---|---|
+| FM-01 | OPanel modular tree/table/breadcrumb/details UI and manually selected **example preview** | Real account-scoped file inventory against an authorized server; do not infer sample paths are real |
+| FM-02 | `GET /api/files/list/` requires current authorized session; verified worker resolver intentionally returns 503 until wired | Independent `files.list` grant from Console and confidential resolver to exact provider/node/account |
+| FM-03 | Server-side relative directory/path, metadata and duplicate checks; synthetic native-worker directory listing tests | Provider-specific enumeration, safe symlink/absolute path isolation, timestamp/source proof, live audit and revocation |
+| FM-04 | Website ZIP inspect and local first-site publication on disposable filesystem | Secure account-scoped remote publish, rollout/rollback, real hostname DNS/TLS/HTTP content proof |
+| CUX-01 | Console status uses fresh provider binding for `hosting_account_verified`, explicitly DNS/site `unverified` | Actual provider proof, domain verification, website readiness measurements |
+| CUX-02 | Generic client detail no longer substitutes arbitrary demo records when live API does not return object | Browser regression for missing/other-owner domains, invoices and hosting services |
+| UI-01 | Separate components, CSS and CI modularity guard rather than monolithic pages | Final Playwright/Next.js CI on exact SHA and deployed 360px/desktop browser review |
+
+See [separate customer flows and execution state](CLOUD_CONSOLE_OPANEL_USER_FLOWS_AND_FILE_MANAGER_2026-10-26.md) and [OPanel File Manager implementation](https://github.com/octalve-core/octalve-opanel/blob/docs/independent-foundation-design/docs/OPANEL_FILE_MANAGER_UI_AND_LIVE_AUTHORITY_2026-10-26.md).
+
+**PRODUCTION REMAINS NO-GO.** Do not check any live/provider/registrar/payment/site gate based on sample folder tree, mock authenticated session, local filesystem worker or CI alone.
