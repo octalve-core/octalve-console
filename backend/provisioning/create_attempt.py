@@ -83,14 +83,10 @@ def reserve_account_create(task_id, *, apply=False):
                     or len(prior["attempt_id"]) != 32
                     or task.status != "pending_confirmation"):
                 raise CreateReservationRefused("Attempt outcome requires manual reconciliation.")
-            # plan_account_creation is for queued tasks only. Temporarily
-            # inspect a fresh in-memory instance; NEVER persist a reset.
-            task_for_plan = task
-            task_for_plan.status = "queued"
             try:
-                plan = _locked_plan(task.pk)
-            finally:
-                task_for_plan.status = "pending_confirmation"
+                plan = plan_account_creation(task.pk, allow_reserved=True)
+            except CreationPlanRefused as exc:
+                raise CreateReservationRefused(str(exc)) from None
             if (prior.get("digest") != _identity_digest(plan)
                     or prior.get("username") != plan.username
                     or prior.get("provider_id") != plan.provider_id):
@@ -127,18 +123,6 @@ def reserve_account_create(task_id, *, apply=False):
         return CreateReservation(task.pk, task.service_id, task.provider_id,
                                  identifier, plan.username,
                                  "reserved_no_network", True)
-
-
-def _locked_plan(task_id):
-    """Strictly re-check immutable order/provider coordinates in one place.
-
-    Repeated reservation of an already reserved task does not requeue or
-    retransmit it. The caller holds the task and provider/service row locks.
-    """
-    # The plan checker rejects non-queued tasks. The caller can only arrive
-    # here from an authenticated existing reservation, and must restore the
-    # in-memory status even when validation fails.
-    return plan_account_creation(task_id)
 
 
 def execute_remote_create(*_args, **_kwargs):
