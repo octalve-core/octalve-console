@@ -4,6 +4,9 @@ import Link from "next/link";
 import {CreditCard,FileText,Loader2,ShieldCheck,AlertCircle} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
+import {Panel} from "@/components/design-system/Panel";
+import {ActionLink} from "@/components/design-system/ActionLink";
+import {StatusBadge} from "@/components/design-system/StatusBadge";
 import {clientApi,type CheckoutOptions} from "@/lib/api/endpoints";
 
 type InvoiceState={id:number;invoice_number?:string;status:string;currency:string;total:string;amount_due:string};
@@ -85,7 +88,7 @@ export function ClientProcessingView(){
   return <DashboardShell role="client" title="Order status" description="Track your invoice and secure payment.">
     <DashboardPage eyebrow="Checkout · Order status" title="Your order progress"
       description="Your order status updates automatically while this page is open.">
-      <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 sm:p-9">
+      <Panel className="mx-auto max-w-3xl p-6 sm:p-9">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0064E0]">
             {paid?<ShieldCheck/>:<FileText/>}
@@ -103,7 +106,7 @@ export function ClientProcessingView(){
         {pending?<p role="status" className="mt-6 flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin"/>Checking the latest invoice status…</p>:null}
         {invoice?<div className="mt-7 grid gap-4 rounded-xl bg-slate-50 p-5 sm:grid-cols-2">
           <div><p className="text-xs text-slate-500">Invoice</p><p className="mt-1 font-medium">{invoice.invoice_number||"—"}</p></div>
-          <div><p className="text-xs text-slate-500">Status</p><p className="mt-1 font-medium capitalize">{invoice.status.replaceAll("_"," ")}</p></div>
+          <div><p className="text-xs text-slate-500">Status</p><StatusBadge tone={paid?"success":invoice.status==="unpaid"?"warning":"neutral"}>{invoice.status.replaceAll("_"," ")}</StatusBadge></div>
           <div><p className="text-xs text-slate-500">Total</p><p className="mt-1 font-medium">{invoice.currency} {invoice.total}</p></div>
           <div><p className="text-xs text-slate-500">Amount due</p><p className="mt-1 font-medium">{invoice.currency} {invoice.amount_due}</p></div>
         </div>:null}
@@ -128,10 +131,10 @@ export function ClientProcessingView(){
         <div className="mt-7 flex flex-wrap gap-3">
           {invoiceId?<a href={`/api/cloud/billing/invoices/${encodeURIComponent(String(invoiceId))}/download_pdf/`}
             className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-[#0064E0]">Download invoice</a>:null}
-          <Link href="/client/orders" className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium">View orders</Link>
-          <Link href="/client/support/new" className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium">Contact support</Link>
+          <ActionLink href="/client/orders" variant="outline">View orders</ActionLink>
+          <ActionLink href="/client/support/new" variant="outline">Contact support</ActionLink>
         </div>
-      </div>
+      </Panel>
     </DashboardPage>
   </DashboardShell>;
 }
