@@ -11,7 +11,8 @@
 ## Batch 1: new additive design system
 - New reusable `frontend/src/components/design-system/` primitives (buttons, fields, panel, header, badge, table, confirmation, empty state, Lucide icons).
 - Strictly typed props, static Tailwind v3 utility maps, 48px default interactive controls, proper accessible labels and descriptions, responsive mobile tables and no additional stylesheet.
-- Do not replace old components automatically or remove CSS before Batches 2–8 have proven page-by-page compatibility. The new component library is a stable contract for future migration.
+- Do not replace old components automatically or remove CSS before Batches 2–8 have proven page-by-page compatibility.
+- **Audited configuration issue:** Legacy `frontend/tailwind.config.js` is currently the active Tailwind configuration and `frontend/tailwind.config.ts` is also present. Batch 1 synchronizes only the new brand tokens/safelist in both; do not delete the active JS file or broaden its content scan until Batch 2 browser/style parity checks. The CI design-system guard detects token drift. Full TypeScript-only config consolidation is a planned later migration gate. The new component library is a stable contract for future migration.
 
 ## Subsequent Batches 2–8
 1. Migrate one page family at a time to thin routes and `features/<domain>/components`, `views`, `hooks`, `types`.
