@@ -89,29 +89,29 @@ export function CloudRecordDirectory({
       </button>
     </div>
     <div className="hidden px-3 pb-2 lg:block">
-      <table className="w-full table-fixed border-separate border-spacing-y-2 text-left text-xs">
-        <thead><tr className="bg-[#F2F4F7] text-slate-500">
+      <table className="w-full table-fixed border-separate border-spacing-y-2 text-left text-xs sm:text-sm">
+        <thead><tr className="bg-[#F2F5F9] text-[#536782]">
           <th className="w-12 rounded-l-xl px-3 py-3 font-medium" scope="col"><span className="sr-only">Icon</span></th>
-          {cols.map(c => <th key={c.key} scope="col" className="px-3 py-3 font-medium">{c.label}</th>)}
+          {cols.map(c => <th key={c.key} scope="col" className="px-3 py-3 font-semibold">{c.label}</th>)}
           <th scope="col" className="w-28 px-3 py-3 font-medium">Status</th>
           <th scope="col" className="w-12 rounded-r-xl px-2 py-3"><span className="sr-only">Options</span></th>
         </tr></thead>
         <tbody>{visible.map(r => <tr key={r.id} className="text-[#24374D]">
-          <td className="rounded-l-xl bg-[#F8F9FB] px-3 py-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EAF3FF] text-[#0064E0]">{r.icon || "•"}</span></td>
-          {cols.map(c => <td key={c.key} className="truncate bg-[#F8F9FB] px-3 py-3">
+          <td className="rounded-l-xl bg-[#F6F8FB] px-3 py-4"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EAF3FF] text-[#0064E0]">{r.icon || "•"}</span></td>
+          {cols.map(c => <td key={c.key} className="truncate bg-[#F6F8FB] px-3 py-4">
             {onOpen ? <button type="button" onClick={() => onOpen(r)} className="max-w-full truncate text-left hover:underline">{c.render(r)}</button> : c.render(r)}
           </td>)}
-          <td className="bg-[#F8F9FB] px-3 py-3"><span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusClass(r.status)}`}>{readable(r.status)}</span></td>
-          <td className="rounded-r-xl bg-[#F8F9FB] px-2 py-3"><button type="button" aria-label={`Actions for ${r.title}`} onClick={() => setSelected(r)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200"><MoreVertical size={17}/></button></td>
+          <td className="bg-[#F6F8FB] px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusClass(r.status)}`}>{readable(r.status)}</span></td>
+          <td className="rounded-r-xl bg-[#F6F8FB] px-2 py-4"><button type="button" aria-label={`Actions for ${r.title}`} onClick={() => setSelected(r)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200"><MoreVertical size={17}/></button></td>
         </tr>)}</tbody>
       </table>
     </div>
-    <div className="space-y-2 p-2 lg:hidden">{visible.map(r => <button key={r.id} type="button" onClick={() => setSelected(r)}
-      className="flex w-full items-center gap-3 rounded-xl bg-[#F8F9FB] p-3 text-left">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EAF3FF] text-[#0064E0]">{r.icon || "•"}</span>
+    <div className="space-y-3 p-3 lg:hidden">{visible.map(r => <button key={r.id} type="button" onClick={() => setSelected(r)}
+      className="flex w-full items-center gap-3 rounded-2xl border border-slate-100 bg-[#F6F8FB] p-4 text-left transition hover:border-blue-200">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF3FF] text-[#0064E0]">{r.icon || "•"}</span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-start justify-between gap-2"><span className="truncate text-xs font-semibold text-[#142A43]">{r.title}</span><span className="shrink-0 text-xs font-semibold text-[#142A43]">{r.amount}</span></span>
-        <span className="mt-1 block truncate text-[11px] text-slate-500">{r.reference || r.subtitle}</span>
+        <span className="flex items-start justify-between gap-2"><span className="truncate text-sm font-semibold text-[#142A43]">{r.title}</span><span className="shrink-0 text-xs font-semibold text-[#142A43]">{r.amount}</span></span>
+        <span className="mt-1 block truncate text-[11px] font-medium text-[#0064E0]">{r.reference || r.subtitle}</span>{r.subtitle && r.subtitle !== r.title ? <span className="mt-1 block truncate text-[11px] text-slate-500">{r.subtitle}</span> : null}
         <span className="mt-2 flex items-center justify-between gap-2"><span className="text-[11px] text-slate-400">{r.date}</span><span className={`rounded-full px-2 py-1 text-[10px] font-medium ${statusClass(r.status)}`}>{readable(r.status)}</span></span>
       </span><MoreVertical size={17} className="shrink-0 text-slate-400"/>
     </button>)}</div>

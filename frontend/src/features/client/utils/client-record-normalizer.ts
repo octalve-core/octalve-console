@@ -40,22 +40,22 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
   if (!id) throw new Error("Account record is missing its identifier.");
   const title = readClientString(
     record,
-    ["name", "title", "domain", "label", "subject", "invoice_number", "order_number", "product"],
+    ["domain_name", "name", "title", "domain", "label", "subject", "invoice_number", "order_number", "product"],
     id,
   );
   const subtitle = readClientString(
     record,
-    ["email", "summary", "description", "package", "product", "department", "client", "customer"],
+    ["product_name", "plan_name", "service_type", "email", "summary", "description", "package", "product", "department", "client", "customer"],
     resource,
   );
   const meta = readClientString(
     record,
-    ["status", "type", "cycle", "adapter", "registrar", "priority", "term"],
+    ["invoice_number", "order_number", "ticket_number", "reference", "domain_name", "type", "cycle", "adapter", "registrar", "priority", "term"],
     "—",
   );
   const amount = readClientString(record, ["total", "price", "amount", "balance", "due", "paid"], "");
   const status = readClientString(record, ["status", "state", "payment_status"], "Unknown");
-  const date = readClientString(record, ["date", "created_at", "updated_at", "dueDate", "expiry", "renews"], "");
+  const date = readClientString(record, ["expiry_date", "expiration_date", "next_due_date", "due_date", "date", "created_at", "updated_at", "dueDate", "expiry", "renews"], "");
 
   return {
     id,

@@ -16,7 +16,14 @@ export function StaffRecordList({records,resource,emptyTitle,emptyDescription}:P
     return {id,title:record.title,subtitle:record.subtitle,reference:record.meta,
       date:record.date,status:record.status,icon:<Icon className="h-4 w-4"/>};
   });
-  return <CloudRecordDirectory label={resource} records={rows}
+  const identity={key:"identity",label:resource==="customers"?"Customer":resource==="orders"?"Order":resource==="provisioning"?"Task":resource==="tickets"?"Subject":"Guide",
+    render:(r:CloudRecord)=><span className="font-bold text-[#142A43]">{r.title}</span>};
+  const context={key:"context",label:resource==="tickets"?"Department":resource==="knowledgeBase"?"Category":"Details",
+    render:(r:CloudRecord)=>r.subtitle||"—"};
+  const updated={key:"updated",label:"Last updated",render:(r:CloudRecord)=>r.date||"—"};
+  const reference={key:"reference",label:"Reference",render:(r:CloudRecord)=><span className="font-semibold text-[#0064E0]">{r.reference||r.id}</span>};
+  const columns=resource==="tickets"?[reference,identity,context,updated]:[identity,context,updated];
+  return <CloudRecordDirectory label={resource} records={rows} columns={columns}
     emptyMessage={`${emptyTitle}. ${emptyDescription}`}
     onOpen={record=>{const href=destinations.get(record.id);if(href)router.push(href);}}/>;
 }

@@ -11,6 +11,7 @@ import { clientResourceConfig } from "../data/client-resource-config";
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
 import { normalizeClientRecord, unwrapClientList } from "../utils/client-record-normalizer";
 import { ClientRecordList } from "../components/ClientRecordList";
+import { ClientDomainSearch } from "../components/ClientDomainSearch";
 
 type ClientResourceListViewProps = {
   resource: ClientResourceKey;
@@ -64,6 +65,7 @@ export function ClientResourceListView({ resource }: ClientResourceListViewProps
 
       >
         <div className="space-y-5">
+          {resource === "domains" && <ClientDomainSearch/>}
           {isLoading ? (
             <div role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Updating your {config.title.toLowerCase()}…</div>
           ) : error ? (

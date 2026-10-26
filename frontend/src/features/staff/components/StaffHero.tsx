@@ -7,7 +7,7 @@ type StaffHeroProps = {
 
 export function StaffHero({ name = "Staff" }: StaffHeroProps) {
   return (
-    <section className="overflow-hidden rounded-[2rem] bg-[#0064E0] p-6 text-white shadow-xl shadow-blue-950/10 sm:p-8">
+    <section className="overflow-hidden rounded-[2rem] bg-[linear-gradient(110deg,#001426_0%,#073C7A_90%)] p-6 text-white shadow-xl shadow-blue-950/10 sm:p-8">
       <div className="relative">
         <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute bottom-0 right-20 h-32 w-32 rounded-full bg-white/10 blur-xl" />

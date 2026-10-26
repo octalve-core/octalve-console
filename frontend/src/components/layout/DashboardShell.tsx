@@ -8,6 +8,7 @@ import {
   BookOpen,
   Boxes,
   ChevronDown,
+  Search,
   CreditCard,
   Globe2,
   LayoutDashboard,
@@ -92,8 +93,16 @@ export function DashboardShell({
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [pageQuery, setPageQuery] = useState("");
 
   const navGroups = useMemo(() => getDashboardNavGroups(role), [role]);
+  const pageMatches = useMemo(() => navGroups.flatMap(group => group.items)
+    .filter(item => pageQuery.trim().length > 1 && item.label.toLowerCase().includes(pageQuery.trim().toLowerCase()))
+    .slice(0, 6), [navGroups, pageQuery]);
+  const settingsHref = role === "admin" ? "/admin/settings" : role === "staff" ? "/staff/security" : "/client/profile";
+  const verifiedRole = user?.role;
+  const accessibleWorkspace = verifiedRole === "admin" ? "/admin" : verifiedRole === "staff" ? "/staff" : "/client";
 
   const displayName =
     user?.name ||
@@ -237,41 +246,50 @@ export function DashboardShell({
               <Menu className="h-5 w-5" />
             </button>
 
-            <nav aria-label="Quick navigation" className="hidden min-w-0 flex-1 items-center gap-4 text-sm font-medium text-slate-600 md:flex">
-              {role==="client" ? <>
-                <Link href="/client/services" className="hover:text-[#0064E0]">My services</Link>
-                <Link href="/client/invoices" className="hover:text-[#0064E0]">Invoices</Link>
-                <Link href="/client/support" className="hover:text-[#0064E0]">Support</Link>
-              </> : <Link href={`/${role}`} className="hover:text-[#0064E0]">Dashboard</Link>}
-            </nav>
+            <div className="relative hidden w-full max-w-md md:block">
+              <label className="flex h-11 items-center gap-3 rounded-xl border border-[#E4EAF3] bg-[#F6F8FB] px-4 text-slate-400 focus-within:border-[#0064E0]">
+                <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sr-only">Find a page</span>
+                <input aria-label="Find a page" value={pageQuery} onChange={event => setPageQuery(event.target.value)}
+                  onKeyDown={event => { if(event.key === "Enter" && pageMatches[0]) {router.push(pageMatches[0].href); setPageQuery("");}}}
+                  placeholder="Find a page..." className="min-w-0 flex-1 bg-transparent text-sm text-[#142A43] outline-none placeholder:text-slate-400" />
+              </label>
+              {pageMatches.length ? <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                {pageMatches.map(item => <Link key={item.href} href={item.href} onClick={() => setPageQuery("")}
+                  className="block rounded-lg px-3 py-2 text-sm font-medium text-[#142A43] hover:bg-[#EAF3FF] hover:text-[#0064E0]">{item.label}</Link>)}
+              </div> : null}
+            </div>
 
             <div className="ml-auto flex items-center gap-3">
               {actions}
 
-              <div className="hidden items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm sm:flex">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
-                  <UserRound className="h-5 w-5" />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-950">
-                    {displayName}
-                  </p>
-                  <p className="text-xs capitalize text-slate-500">{role}</p>
-                </div>
-
-                <ChevronDown className="h-4 w-4 text-slate-400" />
+              <div className="relative">
+                <button type="button" onClick={() => setProfileOpen(value => !value)} aria-haspopup="menu"
+                  aria-expanded={profileOpen} aria-label="Account and workspace menu"
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition hover:border-blue-200 sm:gap-3 sm:px-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF3FF] text-[#0064E0]"><UserRound className="h-5 w-5" /></span>
+                  <span className="hidden min-w-0 text-left sm:block"><span className="block max-w-40 truncate text-xs font-semibold text-slate-950">{displayName}</span>
+                    <span className="block text-[11px] capitalize text-slate-500">{role} workspace</span></span>
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                </button>
+                {profileOpen && <><button type="button" className="fixed inset-0 z-40 cursor-default" onClick={() => setProfileOpen(false)} aria-label="Close account menu"/>
+                  <div role="menu" aria-label="Account actions" className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                    <div className="border-b border-slate-100 px-3 py-3"><p className="truncate text-sm font-semibold text-slate-900">{displayName}</p>
+                      <p className="truncate text-xs text-slate-500">{user?.email || getRoleLabel(role)}</p></div>
+                    <Link role="menuitem" href={settingsHref} onClick={() => setProfileOpen(false)}
+                      className="mt-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                      <Settings className="h-4 w-4 text-[#0064E0]"/> {role==="client"?"Profile and settings":"Settings"}
+                    </Link>
+                    {accessibleWorkspace !== `/${role}` && <Link role="menuitem" href={accessibleWorkspace} onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-700 hover:bg-blue-50">
+                      <Shield className="h-4 w-4 text-[#0064E0]"/> Switch to {verifiedRole} workspace
+                    </Link>}
+                    <button role="menuitem" type="button" disabled={isLoggingOut} onClick={() => {setProfileOpen(false); void handleLogout();}}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50">
+                      <LogOut className="h-4 w-4"/> {isLoggingOut?"Signing out...":"Log out"}
+                    </button>
+                  </div></>}
               </div>
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
-              >
-                <LogOut className="h-4 w-4" />
-                {isLoggingOut ? "Logging out..." : "Logout"}
-              </button>
             </div>
           </div>
         </header>

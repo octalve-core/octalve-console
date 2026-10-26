@@ -39,6 +39,7 @@ urlpatterns = [
     path('api-auth/', include('rest_framework.urls')),
 
     # App routes
+    path('api/storefront/', include('catalog.public_urls')),
     path('api/catalog/', include('catalog.urls')),
     path('api/orders/', include('orders.urls')),
     path('api/billing/', include('billing.urls')),
