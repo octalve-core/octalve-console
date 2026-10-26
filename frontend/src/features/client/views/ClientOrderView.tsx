@@ -25,7 +25,7 @@ export function ClientOrderView() {
       setPlanId(chosen?.id || "");
       setCycleKey(chosen?.cycles.find(c => c.key === requestedCycle)?.key || defaultCycle(chosen)?.key || "");
       if (requestedPlan && !items.some(item => item.id === requestedPlan)) {
-        setError("That plan is no longer available. Select one of the currently published packages below.");
+        setError("That package is no longer available. Please choose a currently published hosting plan.");
       }
     }).catch(() => { if(live) setError("We couldn’t load hosting plans right now. Please try again. No order has been placed."); })
       .finally(() => {if(live) setLoading(false);});

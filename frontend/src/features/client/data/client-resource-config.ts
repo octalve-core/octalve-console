@@ -33,7 +33,7 @@ export const clientResourceConfig: Record<ClientResourceKey, ClientResourceConfi
     key: "domains",
     eyebrow: "Domains",
     title: "Domains",
-    actionHref: "/client/order?tab=domains",
+    actionHref: "/client/domains#domain-search",
     actionLabel: "Find a domain",
     description: "Manage your domains, DNS, nameservers, expiry, and renewal status.",
     searchPlaceholder: "Search domains...",

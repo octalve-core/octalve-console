@@ -1,5 +1,5 @@
 "use client";
-import {useState, type FormEvent} from "react";
+import {useEffect,useState, type FormEvent} from "react";
 import {Globe2,Search,ShieldCheck,AlertCircle} from "lucide-react";
 
 type Lookup={domain:string;availability:string;checkout_enabled:boolean;registrar_connected:boolean;
@@ -9,6 +9,8 @@ export function ClientDomainSearch(){
   const [value,setValue]=useState<Lookup|null>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  useEffect(()=>{const value=new URLSearchParams(window.location.search).get("domain");
+    if(value)setDomain(value.slice(0,253));},[]);
   async function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setBusy(true);setError("");setValue(null);
     const query=domain.trim().toLowerCase().replace(/^https?:\/\//,"").replace(/\/$/,"");
@@ -21,7 +23,7 @@ export function ClientDomainSearch(){
     }catch{setError("Domain search is temporarily unavailable. No registration has been started.");}
     finally{setBusy(false)}
   }
-  return <section aria-label="Find a domain name" className="overflow-hidden rounded-[24px] border border-[#DCE8F7] bg-white shadow-sm">
+  return <section id="domain-search" aria-label="Find a domain name" className="scroll-mt-24 overflow-hidden rounded-[24px] border border-[#DCE8F7] bg-white shadow-sm">
     <div className="bg-[linear-gradient(110deg,#001426,#073C7A)] px-5 py-6 text-white sm:px-7">
       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-200"><Globe2 className="h-4 w-4"/> Find your domain</div>
       <h2 className="mt-3 text-2xl font-bold tracking-tight">Your next big idea deserves the right name.</h2>
