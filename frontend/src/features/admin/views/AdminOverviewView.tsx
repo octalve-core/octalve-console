@@ -11,6 +11,7 @@ import { adminApi } from "@/lib/api/endpoints";
 import { schemaApi } from "@/lib/api/schema-api";
 import { formatNumber } from "@/lib/formatters";
 import { AdminHero } from "../components/AdminHero";
+import {WorkspaceQuickActions} from "@/components/data/WorkspaceQuickActions";
 import { AdminSectionCard } from "../components/AdminSectionCard";
 
 type OverviewCounts = {
@@ -93,6 +94,7 @@ export function AdminOverviewView() {
     >
       <div className="space-y-6">
         <AdminHero name={firstName} />
+        <WorkspaceQuickActions role="admin"/>
 
         {isLoading ? (
           <LoadingState title="Loading admin overview" description="Preparing your overview…" />

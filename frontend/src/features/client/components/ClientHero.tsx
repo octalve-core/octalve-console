@@ -1,5 +1,3 @@
-import { Plus, ShoppingCart, Ticket } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 
 type ClientHeroProps = {
   name?: string;
@@ -24,22 +22,6 @@ export function ClientHero({ name = "Client" }: ClientHeroProps) {
             wallet, and support tickets today.
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Button href="/client/order" variant="soft" className="border border-white/20 bg-white text-[#0064E0] hover:bg-[#E8F2FF]">
-              <ShoppingCart className="h-4 w-4" />
-              Buy service
-            </Button>
-
-            <Button href="/client/support/new" variant="soft" className="border border-white/20 bg-white text-[#0064E0] hover:bg-[#E8F2FF]">
-              <Plus className="h-4 w-4" />
-              Open ticket
-            </Button>
-
-            <Button href="/client/support" variant="soft" className="border border-white/20 bg-white text-[#0064E0] hover:bg-[#E8F2FF]">
-              <Ticket className="h-4 w-4" />
-              View support
-            </Button>
-          </div>
         </div>
       </div>
     </section>

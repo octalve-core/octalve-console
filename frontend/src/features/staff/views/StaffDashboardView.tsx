@@ -7,6 +7,7 @@ import { ResponsiveGrid } from "@/components/data/ResponsiveGrid";
 import { useAuth } from "@/context/AuthContext";
 import { formatNumber } from "@/lib/formatters";
 import { StaffHero } from "../components/StaffHero";
+import {WorkspaceQuickActions} from "@/components/data/WorkspaceQuickActions";
 import { StaffSectionCard } from "../components/StaffSectionCard";
 import { staffResourceConfig } from "../data/staff-resource-config";
 import type { StaffRecord, StaffResourceKey } from "../data/staff-demo-data";
@@ -63,6 +64,7 @@ export function StaffDashboardView() {
     description="Manage customer operations, provisioning, tickets, orders, and knowledge resources.">
     <div className="space-y-6">
       <StaffHero name={firstName}/>
+      <WorkspaceQuickActions role="staff"/>
       <div aria-busy={loading}>
         <ResponsiveGrid columns="4">
           <MetricCard label="Assigned customers" accent="blue" value={show(counts.customers)}
