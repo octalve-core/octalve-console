@@ -20,6 +20,8 @@ from providers.models import Provider
 from provisioning.fulfillment import FulfillmentRefused, stage_paid_order, planned_hosting_username
 from provisioning.reconcile import ReconciliationRefused, reconcile_verified_hosting
 from provisioning.account_creation_plan import plan_account_creation, execute_account_creation, CreationPlanRefused
+from provisioning.create_attempt import reserve_account_create, execute_remote_create, CreateReservationRefused
+from provisioning.models import ProvisioningLog
 from opanel_bridge.models import VerifiedHostingBinding
 from provisioning.models import ProvisioningTask
 from services.models import Service
@@ -190,6 +192,81 @@ class PaidHostingFunnelTests(TestCase):
         self.assertEqual(self.invoice.status, "unpaid")
         self.assertEqual(self.order.status, "pending_payment")
         self.assertFalse(Transaction.objects.exists())
+
+    @override_settings(CLOUD_PROVISIONING_WORKER_ENABLED=True,
+                       CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED=True)
+    def test_durable_attempt_is_single_use_and_never_dispatches_network(self):
+        settle_verified_intent(self.intent.pk, getter=self.getter)
+        service, task = stage_paid_order(self.order.pk)[0]
+        dry = reserve_account_create(task.pk)
+        self.assertFalse(dry.created)
+        self.assertEqual(dry.state, "dry_run")
+        self.assertEqual(ProvisioningLog.objects.filter(task=task).count(), 0)
+        first = reserve_account_create(task.pk, apply=True)
+        second = reserve_account_create(task.pk, apply=True)
+        self.assertTrue(first.created)
+        self.assertFalse(second.created)
+        self.assertEqual(first.attempt_id, second.attempt_id)
+        self.assertEqual(first.username, second.username)
+        self.assertFalse(first.remote_request_sent)
+        task.refresh_from_db()
+        self.assertEqual(task.status, "pending_confirmation")
+        self.assertEqual(task.attempt_count, 1)
+        self.assertEqual(task.metadata["remote_create"]["state"], "reserved_no_network")
+        self.assertEqual(ProvisioningLog.objects.filter(task=task).count(), 1)
+        self.assertFalse(VerifiedHostingBinding.objects.exists())
+        service.refresh_from_db()
+        self.assertEqual(service.status, "pending")
+        with self.assertRaises(CreateReservationRefused):
+            execute_remote_create(task.pk)
+        with self.assertRaises(CreationPlanRefused):
+            plan_account_creation(task.pk)
+
+    @override_settings(CLOUD_PROVISIONING_WORKER_ENABLED=True,
+                       CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED=True)
+    def test_reserved_account_can_only_be_activated_after_exact_provider_readback(self):
+        settle_verified_intent(self.intent.pk, getter=self.getter)
+        service, task = stage_paid_order(self.order.pk)[0]
+        reservation = reserve_account_create(task.pk, apply=True)
+        provider_reply = {
+            "metadata": {"result": 1}, "data": {"acct": [{
+                "user": reservation.username, "domain": service.domain_name,
+                "owner": "resellerops", "suspended": 0,
+            }]}
+        }
+        reply = Mock(status_code=200, headers={}, content=json.dumps(provider_reply).encode())
+        reply.json.return_value = provider_reply
+        with override_settings(OPANEL_READBACK_ENABLED=True):
+            with patch.dict("os.environ", {
+                "CLOUD_INVENTORY_ALLOWED_HOSTS": "whm.synthetic-provider.test"
+            }):
+                with patch.object(Provider, "get_api_key", return_value="provider-test-key"):
+                    reconcile_verified_hosting(
+                        task.pk, getter=Mock(return_value=reply), apply=True)
+        task.refresh_from_db()
+        service.refresh_from_db()
+        self.assertEqual(task.status, "completed")
+        self.assertEqual(service.provider_identifier, reservation.username)
+        self.assertEqual(service.status, "active")
+        self.assertEqual(VerifiedHostingBinding.objects.count(), 1)
+        with self.assertRaises(CreateReservationRefused):
+            reserve_account_create(task.pk, apply=True)
+
+    @override_settings(CLOUD_PROVISIONING_WORKER_ENABLED=True,
+                       CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED=True)
+    def test_mutation_timeout_forces_manual_review_and_prevents_retry(self):
+        settle_verified_intent(self.intent.pk, getter=self.getter)
+        service, task = stage_paid_order(self.order.pk)[0]
+        reserve_account_create(task.pk, apply=True)
+        task.refresh_from_db()
+        task.mark_failed("Simulated network timeout: untrusted secret should never be logged")
+        task.refresh_from_db()
+        self.assertEqual(task.status, "needs_review")
+        self.assertEqual(task.last_error_code, "REMOTE_OUTCOME_UNKNOWN")
+        self.assertNotIn("untrusted secret", task.last_error)
+        self.assertFalse(task.can_retry())
+        with self.assertRaises(CreateReservationRefused):
+            reserve_account_create(task.pk, apply=True)
 
     def test_creation_contract_only_from_settled_hosting_and_no_remote_create(self):
         with self.assertRaises(CreationPlanRefused):
