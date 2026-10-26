@@ -40,6 +40,18 @@ class OPanelIsolationTests(TestCase):
         self.assertNotIn('provider_identifier',response.data)
         self.assertNotIn('credentials',response.data)
 
+    def test_local_active_status_is_not_fresh_provider_proof(self):
+        self.api.force_authenticate(self.owner)
+        response=self.api.get(f'/api/services/opanel/{self.service.pk}/overview/')
+        self.assertEqual(response.status_code,200)
+        # Synthetic service has a provider username but no live binding.
+        self.assertEqual(response.data["status"],"active")
+        self.assertFalse(response.data["active"])
+        self.assertFalse(response.data["hosting_account_verified"])
+        self.assertEqual(response.data["dns_public_status"],"unverified")
+        self.assertEqual(response.data["website_public_status"],"unverified")
+        self.assertFalse(response.data["capabilities"]["files"])
+
     def test_unrelated_customer_cannot_enumerate_service(self):
         self.api.force_authenticate(self.other)
         response=self.api.get(f'/api/services/opanel/{self.service.pk}/overview/')
