@@ -278,3 +278,48 @@ class PlanProviderMapping(models.Model):
     
     def __str__(self):
         return f"{self.plan.name} -> {self.provider_package_name or self.provider_package_id}"
+
+
+# =============================================================
+# A1/A2: Supplier-backed commercial publishing
+# =============================================================
+
+class CatalogOfferDraft(models.Model):
+    """Admin's editable, unpublished quote for an Octalve retail package.
+
+    Editing a draft never changes the currently published plan or invoices.
+    """
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='offer_drafts')
+    provider_package = models.ForeignKey(
+        'providers.ProviderPackage', on_delete=models.PROTECT, related_name='offer_drafts'
+    )
+    plan = models.ForeignKey(Plan, null=True, blank=True, on_delete=models.PROTECT, related_name='offer_drafts')
+    payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, default='draft', choices=[
+        ('draft', 'Draft'), ('published', 'Published'), ('superseded', 'Superseded')
+    ])
+    created_by = models.ForeignKey(
+        'accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_cloud_offers'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+
+class PublishedCatalogOffer(models.Model):
+    """Immutable commercial offer snapshot for audit and checkout provenance."""
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name='published_versions')
+    revision = models.PositiveIntegerField()
+    snapshot = models.JSONField(default=dict)
+    published_by = models.ForeignKey(
+        'accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='published_cloud_offers'
+    )
+    published_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-published_at']
+        unique_together = [('plan', 'revision')]

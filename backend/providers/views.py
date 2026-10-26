@@ -14,7 +14,9 @@ from .serializers import (
     ProviderTestSerializer, ProviderHealthCheckSerializer
 )
 from .registry import ProviderRegistry
+from .inventory import fetch_inventory, InventoryError
 from rbac.decorators import permission_required
+from catalog.permissions import InternalSupplierAuthority
 
 
 class ProviderViewSet(viewsets.ModelViewSet):
@@ -34,10 +36,9 @@ class ProviderViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
             return Provider.objects.all()
-        # Staff can view providers but not sensitive data
-        if user.role == 'staff':
-            return Provider.objects.all()
-        # Clients cannot view providers
+        # Provider records include raw config/metadata and connection endpoints.
+        # Until an explicitly redacted staff health DTO exists, keep these
+        # internal supplier configuration records administrator-only.
         return Provider.objects.none()
     
     def get_serializer_context(self):
@@ -56,6 +57,11 @@ class ProviderViewSet(viewsets.ModelViewSet):
         return super().update(request, *args, **kwargs)
     
     @permission_required('manage_providers')
+    def partial_update(self, request, *args, **kwargs):
+        """PATCH must enforce the same provider-secret authority as PUT."""
+        return super().partial_update(request, *args, **kwargs)
+
+    @permission_required('manage_providers')
     def destroy(self, request, *args, **kwargs):
         """Delete provider (admin only)"""
         return super().destroy(request, *args, **kwargs)
@@ -63,52 +69,61 @@ class ProviderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     @permission_required('manage_providers')
     def test_connection(self, request, pk=None):
-        """
-        Test connection to the provider
-        """
+        """Read-only verified inventory request; never provision a test account."""
         provider = self.get_object()
-        
         try:
-            adapter = ProviderRegistry.get_adapter(provider.id)
-            result = adapter.test_connection()
-            
-            # Update provider health based on test
-            if result.success:
-                provider.update_health(True, result.data.get('message', 'Connection successful'))
-                return Response({
-                    'success': True,
-                    'message': 'Connection test successful',
-                    'data': result.data
-                })
-            else:
-                provider.update_health(False, result.error)
-                return Response({
-                    'success': False,
-                    'error': result.error
-                }, status=status.HTTP_400_BAD_REQUEST)
-                
-        except Exception as e:
-            provider.update_health(False, str(e))
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+            packages = fetch_inventory(provider)
+        except InventoryError as exc:
+            provider.update_health(False, 'Inventory test rejected or unavailable')
+            return Response({'success': False, 'error': str(exc)},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        provider.update_health(True, 'Inventory access verified')
+        return Response({'success': True, 'verified_package_count': len(packages),
+                         'note': 'No supplier or retail records were changed.'})
+
     @action(detail=True, methods=['post'])
     @permission_required('manage_providers')
     def sync_packages(self, request, pk=None):
-        """
-        Sync available packages from the provider
+        """Read-only HTTPS inventory import into private, UNAPPROVED staging.
+
+        DirectAdmin and WHM are supported. A successful inventory sync does
+        not publish customer retail offers or create hosting accounts.
         """
         provider = self.get_object()
-        
-        # This would call provider API to fetch packages
-        # For now, return placeholder
+        try:
+            offers = fetch_inventory(provider)
+        except InventoryError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        now = timezone.now()
+        created = changed = unchanged = 0
+        with transaction.atomic():
+            for offer in offers:
+                identity = {'provider': provider, 'provider_package_id': offer['provider_package_id']}
+                row = ProviderPackage.objects.select_for_update().filter(**identity).first()
+                specs = offer['specs']
+                if row is None:
+                    ProviderPackage.objects.create(
+                        **identity, name=offer['name'], specs=specs, pricing={},
+                        raw_data={'origin': 'adapter_verified', 'adapter': provider.adapter_type},
+                        is_active=False,
+                    )
+                    created += 1
+                else:
+                    was_changed = row.name != offer['name'] or row.specs != specs
+                    row.name, row.specs, row.last_synced_at = offer['name'], specs, now
+                    if was_changed:
+                        row.is_active = False  # Require renewed approval of changed limits.
+                        changed += 1
+                    else:
+                        unchanged += 1
+                    row.save(update_fields=['name', 'specs', 'last_synced_at', 'is_active'])
         return Response({
-            'message': 'Package sync initiated',
-            'provider': provider.name
+            'provider_id': provider.pk, 'staged': len(offers), 'created': created,
+            'changed_needs_review': changed, 'unchanged': unchanged,
+            'retail_published': False,
+            'message': 'Inventory staged. Approve each supplier package, map an Octalve offer and publish retail prices separately.',
         })
-    
+
     @action(detail=True, methods=['get'])
     def health(self, request, pk=None):
         """
@@ -154,48 +169,12 @@ class ProviderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     @permission_required('manage_providers')
     def provision_test(self, request, pk=None):
-        """
-        Test provisioning with provider (for debugging)
-        """
-        provider = self.get_object()
-        serializer = ProviderTestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        try:
-            adapter = ProviderRegistry.get_adapter(provider.id)
-            
-            # This is a test - create a test account
-            test_data = {
-                'username': serializer.validated_data.get('test_username', 'testuser'),
-                'password': serializer.validated_data.get('test_password', 'TestPass123!'),
-                'domain': serializer.validated_data.get('test_domain', 'test.octalve.com'),
-                'package': serializer.validated_data.get('test_package', 'starter'),
-                'email': serializer.validated_data.get('test_email', 'test@octalve.com'),
-                'name': 'Test User'
-            }
-            
-            result = adapter.provision(test_data)
-            
-            if result.success:
-                # Clean up - delete test account
-                adapter.terminate(test_data['username'])
-                
-                return Response({
-                    'success': True,
-                    'message': 'Test provisioning successful',
-                    'data': result.data
-                })
-            else:
-                return Response({
-                    'success': False,
-                    'error': result.error
-                }, status=status.HTTP_400_BAD_REQUEST)
-                
-        except Exception as e:
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        """Do not create/deallocate live provider accounts in an HTTP test."""
+        self.get_object()
+        return Response(
+            {'error': 'Provider provisioning tests require an isolated, audited worker.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
 
 class ProviderPackageViewSet(viewsets.ModelViewSet):
@@ -204,7 +183,7 @@ class ProviderPackageViewSet(viewsets.ModelViewSet):
     """
     
     serializer_class = ProviderPackageSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [InternalSupplierAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['provider', 'is_active']
     search_fields = ['name', 'provider_package_id']
@@ -213,7 +192,7 @@ class ProviderPackageViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role in ['admin', 'staff'] or user.is_superuser:
             return ProviderPackage.objects.all()
-        return ProviderPackage.objects.filter(is_active=True)
+        return ProviderPackage.objects.none()
     
     @action(detail=False, methods=['get'])
     def by_provider(self, request):
@@ -224,7 +203,7 @@ class ProviderPackageViewSet(viewsets.ModelViewSet):
         if not provider_id:
             return Response({'error': 'provider_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        packages = ProviderPackage.objects.filter(provider_id=provider_id, is_active=True)
+        packages = self.get_queryset().filter(provider_id=provider_id, is_active=True)
         serializer = self.get_serializer(packages, many=True)
         return Response(serializer.data)
 

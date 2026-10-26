@@ -12,13 +12,14 @@ from .serializers import (
     PlanProviderMappingSerializer
 )
 from rbac.decorators import permission_required
+from .permissions import CatalogPublicationAuthority, InternalSupplierAuthority
 
 class ProductCategoryViewSet(viewsets.ModelViewSet):
     """ViewSet for product categories"""
     
     queryset = ProductCategory.objects.filter(is_active=True)
     serializer_class = ProductCategorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CatalogPublicationAuthority]
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['sort_order', 'name']
@@ -45,7 +46,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     
     queryset = Product.objects.filter(status='active', is_public=True)
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CatalogPublicationAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['category', 'product_type', 'status']
     search_fields = ['name', 'description']
@@ -80,7 +81,7 @@ class PlanViewSet(viewsets.ModelViewSet):
     
     queryset = Plan.objects.filter(status='active', is_public=True)
     serializer_class = PlanSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CatalogPublicationAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['product', 'status', 'is_popular']
     search_fields = ['name', 'description']
@@ -92,6 +93,19 @@ class PlanViewSet(viewsets.ModelViewSet):
             return Plan.objects.all()
         return Plan.objects.filter(status='active', is_public=True, product__status='active', product__is_public=True, product__category__is_active=True)
     
+    # A2 price authority: retail plans must change through reviewed drafts.
+    def create(self, request, *args, **kwargs):
+        return Response({'error': 'Use the supplier-backed offer draft and publish workflow.'}, status=409)
+
+    def update(self, request, *args, **kwargs):
+        return Response({'error': 'Use a new reviewed offer draft to change pricing.'}, status=409)
+
+    def partial_update(self, request, *args, **kwargs):
+        return Response({'error': 'Use a new reviewed offer draft to change pricing.'}, status=409)
+
+    def destroy(self, request, *args, **kwargs):
+        return Response({'error': 'Retire retail packages through a reviewed lifecycle, not hard deletion.'}, status=409)
+
     # Browsing active public plans is allowed to authenticated client accounts.
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
@@ -102,7 +116,7 @@ class PlanProviderMappingViewSet(viewsets.ModelViewSet):
     
     queryset = PlanProviderMapping.objects.filter(is_active=True)
     serializer_class = PlanProviderMappingSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [InternalSupplierAuthority]
     
     def get_queryset(self):
         """Only staff/admin can see mappings"""

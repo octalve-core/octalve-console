@@ -1,5 +1,7 @@
-import { AdminResourceEditorView } from "@/features/admin/views/AdminResourceEditorView";
+import { redirect } from "next/navigation";
 
-export default function AdminNewProductPage() {
-  return <AdminResourceEditorView resource="products" mode="create" />;
+// Supplier-backed catalog mutations are performed by the reviewed workbench.
+// Do not submit the obsolete generic plan/product fields to Django.
+export default function AdminCatalogCreateRedirect() {
+  redirect("/admin/catalog/workbench");
 }

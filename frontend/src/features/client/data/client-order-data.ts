@@ -5,14 +5,14 @@ export type OrderCycle = {
 };
 export type ClientOrderPlan = {
   id: string; name: string; product: string; description: string;
-  currency: string; features: string[]; popular: boolean; cycles: OrderCycle[];
+  currency: string; features: string[]; popular: boolean; cycles: OrderCycle[]; revision: number | null;
 };
 
 type ApiCycle = {cycle_key: string; label: string; price: string; setup_fee: string; is_active: boolean; is_default: boolean};
 type ApiPlan = {
   id: number; name: string; product_name: string; product_type: string;
   description?: string; currency: string; status: string; is_public: boolean;
-  is_popular: boolean; features: {label: string; value: string}[];
+  is_popular: boolean; published_revision?: number | null; features: {label: string; value: string}[];
   billing_cycles: ApiCycle[];
 };
 
@@ -28,7 +28,7 @@ export async function loadSellablePlans(): Promise<ClientOrderPlan[]> {
   ).map(p => ({
     id: String(p.id), name: p.name, product: p.product_name || "Hosting",
     description: p.description || "", currency: p.currency,
-    popular: p.is_popular,
+    popular: p.is_popular, revision: p.published_revision ?? null,
     features: (p.features || []).map(f => [f.label, f.value].filter(Boolean).join(": ")),
     cycles: (p.billing_cycles || []).filter(c => c.is_active && Number(c.price) > 0)
       .map(c => ({key:c.cycle_key,label:c.label,price:Number(c.price),

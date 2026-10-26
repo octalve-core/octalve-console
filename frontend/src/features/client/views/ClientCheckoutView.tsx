@@ -55,7 +55,8 @@ export function ClientCheckoutView() {
     try {
       const result = await clientApi.createOrder({
         checkout_id: checkoutId,
-        items: [{plan_id:Number(selected.id), cycle_key:cycle.key, quantity:1, domain_name:domain.trim()}],
+        items: [{plan_id:Number(selected.id), offer_revision:selected.revision ?? undefined,
+          cycle_key:cycle.key, quantity:1, domain_name:domain.trim()}],
       });
       const record = result as unknown as Confirmation;
       if (!record.order_number || !record.invoice?.invoice_number || record.invoice.status !== "unpaid") {
