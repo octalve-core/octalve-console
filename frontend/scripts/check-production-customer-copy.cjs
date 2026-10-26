@@ -42,7 +42,13 @@ const cases=[
   ]],
 ];
 for(const filename of ["features/admin/views/AdminOverviewView.tsx","features/staff/views/StaffDashboardView.tsx","features/admin/views/AdminResourceListView.tsx","features/staff/views/StaffResourceListView.tsx","features/admin/workspace/views/AdminWorkspaceView.tsx","features/admin/operations/views/AdminOperationListView.tsx"]) {
-  cases.push([filename,[/Connecting to the Django API/i,/Fetching current console metrics from the API/i,/Math\\.random\\(\\)/,/records=\\{(?:adminDemo|staffDemo)\\./,/value=\\{formatNumber\\((?:adminDemo|staffDemo)\\./]]);
+  cases.push([filename,[
+    /Connecting to the Django API/i,
+    /Fetching current console metrics from the API/i,
+    /Math[.]random[(][)]/,
+    /records=[{](?:adminDemo|staffDemo)[.]/,
+    /value=[{]formatNumber[(](?:adminDemo|staffDemo)[.]/,
+  ]]);
 }
 let failures=0;
 for(const [filename,patterns] of cases){
