@@ -1,5 +1,2 @@
-import { StaffResourceListView } from "@/features/staff/views/StaffResourceListView";
-
-export default function StaffTicketsPage() {
-  return <StaffResourceListView resource="tickets" />;
-}
+import {SupportDeskView} from "@/components/modules/SupportDeskView";
+export default function Page(){return <SupportDeskView role="staff"/>;}

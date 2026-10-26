@@ -37,3 +37,13 @@
 - A new additive `readiness` object distinguishes verified hosting account, eligible OPanel access, unavailable files, unverified DNS, unverified TLS, and unverified public website. The existing v1 `exchange` and `entitlement` contract is deliberately unchanged.
 - Customer hosting status uses Invoice-inspired spacing and Octalve blue with honest resource timestamps, no synthetic online checkmark, and no repeat idle polling. Existing Console permissions, billing/payment authority and real provider credentials are unchanged.
 - **Launch blocks:** actual isolation on Review deployments, provider inventory/account readback, one authorized real service and website publish, DNS/HTTPS public evidence, verified site HTTP body, service expiry/suspension, and cross-repo exact SHA pinned CI. No forced migration, VPS purchase, Production deploy or OPanel merge.
+
+## Batch 4 — help centre, queue routing and staff support operations
+
+- Customer-facing support uses real active department choices, optional topic tags within each department, statusful ticket conversation and honest secure attachment limitations.
+- New SupportRoutingTag records are admin-managed per department. Admin assigns staff membership to a department before its topic(s). Tickets route to the least-busy eligible active staff member, or remain unassigned in the relevant team queue. No unrelated fallback, cross-customer assignment or implied email broadcast.
+- Admin and Staff ticket workspaces use real scoped API records. Staff cannot mutate another assignee's ticket or browse unrelated departments. Admin alone manages assignment and priority; clients cannot forge role/status/internal notes.
+- Support messages and last-message previews exclude internal notes for customers. Ticket related service/order/invoice IDs are verified against the customer.
+- Customer knowledge base loads published client-visible articles from the Django endpoint, with responsive search, topic filters and readable article pages. Admin/Staff can draft/edit with a controlled Markdown formatting toolbar and preview; Staff publication requires explicit Django permission. Raw HTML is never inserted into the customer article view.
+- **New isolated migrations only**: support.0002_routing_tags and knowledge_base.0001_initial, both included in the disposable Review CI ledger. Existing 49-migration baseline retained, with expected total 54 migrations / 99 tables.
+- Notification attempts run after DB commit; external delivery/availability/SLA must be qualified separately. Real-time chat and public unauthenticated support are deferred. No Production migrations or main merge.

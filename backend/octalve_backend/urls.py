@@ -49,6 +49,7 @@ urlpatterns = [
     path('api/provisioning/', include('provisioning.urls')),
     path('api/domains/', include('domains.urls')),
     path('api/support/', include('support.urls')),
+    path('api/knowledge-base/', include('knowledge_base.urls')),
     path('api/audit/', include('audit.urls')),
     path('api/settings/', include('settings_registry.urls')),
     path('api/reports/', include('reports.urls')),

@@ -85,6 +85,10 @@ class SupportTicket(models.Model):
     client = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='support_tickets')
     department = models.ForeignKey(SupportDepartment, on_delete=models.PROTECT, related_name='tickets')
     
+    routing_tag = models.ForeignKey(
+        "support.SupportRoutingTag", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="tickets",
+    )
     # Ticket details
     subject = models.CharField(max_length=500)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
@@ -397,3 +401,19 @@ class TicketSurvey(models.Model):
     def __str__(self):
         return f"{self.ticket.ticket_number} - Rating: {self.rating}"
 
+
+class SupportRoutingTag(models.Model):
+    """Operator-managed support specialization within one department."""
+    department = models.ForeignKey(SupportDepartment, related_name="routing_tags", on_delete=models.PROTECT)
+    slug = models.SlugField(max_length=40)
+    label = models.CharField(max_length=80)
+    is_active = models.BooleanField(default=True)
+    assigned_staff = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, related_name="support_routing_tags",
+        limit_choices_to={"role__in": ["admin", "staff"]},
+    )
+    class Meta:
+        ordering = ["department_id", "label"]
+        constraints = [models.UniqueConstraint(fields=["department","slug"], name="unique_support_routing_tag")]
+    def __str__(self):
+        return f"{self.department.name}: {self.label}"

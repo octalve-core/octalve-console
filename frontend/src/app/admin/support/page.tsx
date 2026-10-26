@@ -1,5 +1,2 @@
-import { AdminOperationListView } from "@/features/admin/operations/views/AdminOperationListView";
-
-export default function AdminSupportPage() {
-  return <AdminOperationListView operation="support" />;
-}
+import {SupportDeskView} from "@/components/modules/SupportDeskView";
+export default function Page(){return <SupportDeskView role="admin"/>;}

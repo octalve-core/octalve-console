@@ -1,5 +1,2 @@
-import { AdminOperationDetailView } from "@/features/admin/operations/views/AdminOperationDetailView";
-
-export default function AdminKnowledgeBaseDetailPage() {
-  return <AdminOperationDetailView operation="knowledge-base" />;
-}
+import {HelpManageView} from "@/components/modules/HelpManageView";
+export default function Page(){return <HelpManageView role="admin" editor/>;}
