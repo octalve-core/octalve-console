@@ -9,6 +9,7 @@ const selectClass="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 
 export function SupportTeamSettingsView(){
   const [departments,setDepartments]=useState<Department[]>([]),[topics,setTopics]=useState<SupportTopic[]>([]),[agents,setAgents]=useState<SupportAgent[]>([]);
   const [current,setCurrent]=useState(""),[name,setName]=useState(""),[slug,setSlug]=useState("");
+  const [departmentName,setDepartmentName]=useState("");
   const [notice,setNotice]=useState(""),[error,setError]=useState(""),[working,setWorking]=useState(false);
   const [loaded,setLoaded]=useState(false);
   async function load(){
@@ -36,6 +37,17 @@ export function SupportTeamSettingsView(){
     }catch{setError("Assignment was refused. Assign the agent to the department first, then the topic.");}
     finally{setWorking(false);}
   }
+  async function createDepartment(e:React.FormEvent<HTMLFormElement>){
+    e.preventDefault();if(working||!departmentName.trim())return;
+    setWorking(true);setError("");setNotice("");
+    try{
+      const saved=await helpApi.createDepartment(departmentName.trim());
+      setDepartmentName("");await load();setCurrent(String(saved.id));
+      setNotice("Department created. Assign team members before enabling specialist tags.");
+    }catch{setError("Couldn't create the department. Check its name or an existing department.");}
+    finally{setWorking(false);}
+  }
+
   async function addTopic(e:React.FormEvent<HTMLFormElement>){
     e.preventDefault();if(!dept||working)return;setWorking(true);setError("");setNotice("");
     try{
@@ -85,6 +97,17 @@ export function SupportTeamSettingsView(){
             </div>
           </section>
           <aside className="h-fit space-y-5 rounded-2xl border border-slate-200 bg-white p-6">
+            <div className="border-b border-slate-100 pb-5">
+              <h2 className="text-base font-medium">New department</h2>
+              <form onSubmit={createDepartment} className="mt-3 space-y-3">
+                <label className="block"><span className="mb-2 block text-sm font-medium">Department name</span>
+                  <input className={selectClass} required maxLength={100} value={departmentName}
+                    onChange={e=>setDepartmentName(e.target.value)} placeholder="Technical Support"/></label>
+                <button type="submit" disabled={working} className="w-full rounded-xl border border-[#0064E0] px-4 py-3 text-sm font-medium text-[#0064E0] disabled:opacity-50">
+                  Add department
+                </button>
+              </form>
+            </div>
             <h2 className="flex items-center gap-2 text-base font-medium"><Plus className="h-5 w-5 text-[#0064E0]"/>Add issue topic</h2>
             <p className="text-sm leading-6 text-slate-600">For example: DNS, Email, SSL, Billing or WordPress. Every topic belongs to an approved support department.</p>
             <form onSubmit={addTopic} className="space-y-4">

@@ -23,6 +23,9 @@ export const helpApi={
   agents:()=>api.get<SupportAgent[]>("/support/agents/"),
   updateDepartment:(id:number,assigned_staff:number[])=>api.patch<Department>(`/support/departments/${id}/`,{assigned_staff}),
   updateTopic:(id:number,assigned_staff:number[])=>api.patch<SupportTopic>(`/support/tags/${id}/`,{assigned_staff}),
+  createDepartment:(name:string)=>api.post<Department>("/support/departments/",{
+    name,auto_assign:true,is_active:true
+  }),
   createTopic:(department:number,label:string,slug:string)=>api.post<SupportTopic>("/support/tags/",{department,label,slug,is_active:true}),
   ticket:(id:string)=>api.get<TicketDetail>(`/support/tickets/${encodeURIComponent(id)}/`),
   reply:(id:string,message:string,is_internal=false)=>api.post(`/support/tickets/${encodeURIComponent(id)}/reply/`,{message,is_internal}),

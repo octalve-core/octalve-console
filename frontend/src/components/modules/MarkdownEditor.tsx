@@ -4,11 +4,8 @@ import {Bold,Italic,Heading2,List,ListOrdered,Link2,Quote,Eye,Code2} from "lucid
 import type {ReactNode} from "react";
 
 function inline(text:string):ReactNode[]{
-  const tokens=text.split(/(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*[^*]+\*\*|\*[^*]+\*|\x60[^\x60]+\x60)/g);
-  // The split contains capture groups: scan with matching expressions instead.
   const pattern=/(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|\x60([^\x60]+)\x60)/g;
   const output:ReactNode[]=[]; let cursor=0,match:RegExpExecArray|null;let key=0;
-  void tokens;
   while((match=pattern.exec(text))!==null){
     if(match.index>cursor)output.push(text.slice(cursor,match.index));
     if(match[2]&&match[3]){

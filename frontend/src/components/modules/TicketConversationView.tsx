@@ -5,13 +5,14 @@ import {useParams} from "next/navigation";
 import {ArrowLeft,Headphones,MessageCircle,Send,ShieldCheck,UserRound,Settings2} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
-import {helpApi,type TicketDetail,type SupportAgent} from "@/lib/api/modules/help-center.api";
+import {helpApi,asList,type TicketDetail,type SupportAgent,type Department,type SupportTopic} from "@/lib/api/modules/help-center.api";
 type Role="admin"|"staff"|"client";
 const stateLabels:Record<string,string>={open:"Open",in_progress:"In progress",waiting_customer:"Waiting for customer",
  waiting_staff:"Waiting for staff",on_hold:"On hold",resolved:"Resolved",closed:"Closed"};
 export function TicketConversationView({role}:{role:Role}){
   const params=useParams<{id:string}>(),id=String(params.id||"");
   const [ticket,setTicket]=useState<TicketDetail|null>(null),[agents,setAgents]=useState<SupportAgent[]>([]);
+  const [departments,setDepartments]=useState<Department[]>([]),[topics,setTopics]=useState<SupportTopic[]>([]);
   const [reply,setReply]=useState(""),[internal,setInternal]=useState(false),[busy,setBusy]=useState(false);
   const [loading,setLoading]=useState(true),[error,setError]=useState(""),[notice,setNotice]=useState("");
   const back=role==="client"?"/client/support":role==="staff"?"/staff/tickets":"/admin/support";
@@ -19,7 +20,9 @@ export function TicketConversationView({role}:{role:Role}){
   useEffect(()=>{let active=true;
     void refresh().catch(()=>{if(active)setError("This ticket is unavailable or you do not have access.");})
       .finally(()=>{if(active)setLoading(false);});
-    if(role==="admin")void helpApi.agents().then(v=>{if(active)setAgents(v);}).catch(()=>{});
+    if(role==="admin")void Promise.all([helpApi.agents(),helpApi.departments(),helpApi.topics()])
+      .then(([people,d,t])=>{if(active){setAgents(people);setDepartments(asList(d));setTopics(asList(t));}})
+      .catch(()=>{});
     return()=>{active=false;};
   },[refresh,role]);
   async function send(e:FormEvent<HTMLFormElement>){
@@ -36,6 +39,16 @@ export function TicketConversationView({role}:{role:Role}){
     catch{setError("This action couldn't be completed. Check permissions and team assignment.");}
     finally{setBusy(false);}
   }
+  const eligibleAgents=agents.filter(agent=>{
+    if(!ticket)return false;
+    const department=departments.find(item=>item.id===ticket.department);
+    if(!department?.assigned_staff.includes(agent.id))return false;
+    if(ticket.routing_tag){
+      const topic=topics.find(item=>item.id===ticket.routing_tag);
+      return Boolean(topic?.assigned_staff.includes(agent.id));
+    }
+    return true;
+  });
   const canReply=ticket&&!["closed","trash"].includes(ticket.status);
   return <DashboardShell role={role} title="Support conversation" description="Secure ticket history and support messages.">
     <DashboardPage eyebrow="Support" title={ticket?.subject||"Support ticket"} description="Follow your conversation and its latest status.">
@@ -96,7 +109,7 @@ export function TicketConversationView({role}:{role:Role}){
               onChange={e=>{const id=Number(e.target.value);if(id)void action("assign",id);}}
               className="mt-4 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm">
               <option value="">Department queue</option>
-              {agents.map(agent=><option key={agent.id} value={agent.id}>{agent.full_name||`Agent #${agent.id}`}</option>)}
+              {eligibleAgents.map(agent=><option key={agent.id} value={agent.id}>{agent.full_name||`Agent #${agent.id}`}</option>)}
             </select>
           </section>:null}
           {ticket?<section className="rounded-2xl border border-slate-200 bg-white p-5">
