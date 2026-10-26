@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/Card";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ErrorState } from "@/components/feedback/ErrorState";
+import {ClientEssentialDetail} from "../components/ClientEssentialDetail";
 import { formatStatus, getStatusTone } from "@/lib/constants/status";
 import { clientResourceConfig } from "../data/client-resource-config";
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
@@ -128,6 +129,8 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
           <div role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Opening your details…</div>
         ) : !record ? (
           <ErrorState title="Record unavailable" description={error || "The authorized API did not return this record."} />
+        ) : (resource==="services"||resource==="domains") ? (
+          <ClientEssentialDetail resource={resource} record={record} actions={actions}/>
         ) : (
           <div className="space-y-5">
             <Card className="overflow-hidden p-0">
