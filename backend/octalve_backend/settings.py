@@ -513,6 +513,8 @@ CLOUD_GATEWAY_READBACK_ENABLED = env.bool("CLOUD_GATEWAY_READBACK_ENABLED", defa
 CLOUD_SETTLEMENT_COMMIT_ENABLED = env.bool("CLOUD_SETTLEMENT_COMMIT_ENABLED", default=False)
 CLOUD_FULFILLMENT_STAGING_ENABLED = env.bool("CLOUD_FULFILLMENT_STAGING_ENABLED", default=False)
 CLOUD_PROVISIONING_WORKER_ENABLED = env.bool("CLOUD_PROVISIONING_WORKER_ENABLED", default=False)
+# Only a durable, offline attempt reservation; no vendor POST or account creation.
+CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED = env.bool("CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED", default=False)
 # Hosted payment initiation and signature-authenticated inbox are separate
 # opt-ins. Never enable for real money without isolated browser acceptance.
 CLOUD_HOSTED_CHECKOUT_ENABLED = env.bool("CLOUD_HOSTED_CHECKOUT_ENABLED", default=False)
