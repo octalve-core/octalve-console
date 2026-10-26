@@ -53,6 +53,10 @@ jobs:
         run: node frontend/scripts/test-cloud-api-path.cjs
       - name: Customer production copy and truthful account-state regression
         run: node frontend/scripts/check-production-customer-copy.cjs
+      - name: Console UI frozen baseline (Batch 0)
+        run: node frontend/scripts/audit-console-ui.cjs --check
+      - name: Typed Console design-system source contract (Batch 1)
+        run: node frontend/scripts/check-console-design-system.cjs
       - name: TypeScript
         run: pnpm typecheck:frontend
       - name: Next.js build
