@@ -57,13 +57,13 @@ export function OPanelAuthorization() {
       description="Continue using your existing Octalve Console account.">
     <DashboardPage eyebrow="Octalve Cloud / OPanel SSO"
       title="Authorize hosting management"
-      description="A separate OPanel session will be created only for the hosting service you own. No second password is required.">
+      description="A separate OPanel session will be created only for the hosting service you own. Use your current Console session to authorize access.">
       <section className="max-w-lg rounded-2xl border bg-white p-6 space-y-4">
         <p className="text-sm text-slate-700">Console will verify the service ownership, status and provider provisioning confirmation before allowing access.</p>
         {!valid && <p role="alert" className="text-sm text-red-700">This OPanel launch request is malformed. Start again from your Console hosting service.</p>}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <button type="button" disabled={!valid || busy} onClick={approve}
-          className="rounded-lg bg-[#0064E0] px-5 py-3 text-white font-semibold disabled:opacity-50">
+          className="rounded-xl bg-[#0064E0] px-5 py-3 text-sm font-medium text-white disabled:opacity-50">
           {busy ? "Authorizing…" : "Continue to OPanel"}
         </button>
         <p><Link className="text-sm text-[#0064E0]" href={`/client/services/${encodeURIComponent(id)}`}>Return to Console service</Link></p>

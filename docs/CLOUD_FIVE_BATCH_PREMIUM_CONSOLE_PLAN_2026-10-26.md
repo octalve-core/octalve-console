@@ -27,3 +27,13 @@
 - Idle list synchronization: no background polling. Load on navigation; recheck on focus after 2 minutes. Only processing status screen uses temporary bounded polling.
 - Octalve blue, softer medium text, minimal cards and mobile-first progression influenced by Namecheap flow and Octalve Vault spacing, without copying their assets or asserting unavailable promotions.
 - **Unqualified gates:** live domain search and resale, gateway collection, signed policies, transactional emails, real hosting provisioning and live website proof. Keep Production unchanged.
+
+
+## Batch 3 — Console boundary coordinated with independent OPanel
+
+- Live OPanel PR #1 remained a draft at `2eb12488fadfeb07636eefad91097294e918ddb0` at the check, with one active OPanel development branch. Do **not** modify or merge the independent OPanel working tree from Console.
+- OPanel Work's native filesystem, preview upload, WordPress eligibility and DNS connector prototypes are tests/contracts only. Without a qualified host, the OPanel capability issuer must continue to grant only `overview`. Do not silently change OPanel API schema.
+- Console's customer hosting-status API uses an exact owner-only lookup; Staff and Admin have their own authorized screens and cannot borrow a customer launch page to enumerate service IDs.
+- A new additive `readiness` object distinguishes verified hosting account, eligible OPanel access, unavailable files, unverified DNS, unverified TLS, and unverified public website. The existing v1 `exchange` and `entitlement` contract is deliberately unchanged.
+- Customer hosting status uses Invoice-inspired spacing and Octalve blue with honest resource timestamps, no synthetic online checkmark, and no repeat idle polling. Existing Console permissions, billing/payment authority and real provider credentials are unchanged.
+- **Launch blocks:** actual isolation on Review deployments, provider inventory/account readback, one authorized real service and website publish, DNS/HTTPS public evidence, verified site HTTP body, service expiry/suspension, and cross-repo exact SHA pinned CI. No forced migration, VPS purchase, Production deploy or OPanel merge.
