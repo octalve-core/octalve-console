@@ -115,3 +115,42 @@ class GatewayReadbackTests(SimpleTestCase):
         with override_settings(CLOUD_GATEWAY_READBACK_ENABLED=False):
             with self.assertRaises(PaymentReadbackRejected):
                 verify_gateway_intent(self.setup_intent(), getter=Mock())
+
+    @override_settings(CLOUD_GATEWAY_SANDBOX_READBACK_ENABLED=True,
+                       CLOUD_ISOLATED_REVIEW_CONFIRMED=True, DEBUG=True)
+    def test_isolated_test_key_can_verify_without_authorizing_settlement(self):
+        import os
+        from unittest.mock import patch
+        intent = self.setup_intent()
+        intent.gateway.test_mode = True
+        intent.gateway.status = "test"
+        intent.gateway.get_secret_key = lambda: "sk_test_fixture_only_0123456789abcdef"
+        sample = self.paystack(domain="test")
+        read = Mock(return_value=sample)
+        with patch.dict(os.environ, {"VERCEL_ENV": "preview"}):
+            payment = verify_gateway_intent(intent, getter=read)
+        self.assertEqual(payment.amount, Decimal("200"))
+        self.assertEqual(read.call_count, 1)
+
+    @override_settings(CLOUD_GATEWAY_SANDBOX_READBACK_ENABLED=True,
+                       CLOUD_ISOLATED_REVIEW_CONFIRMED=True, DEBUG=True)
+    def test_production_environment_cannot_use_test_gateway(self):
+        import os
+        from unittest.mock import patch
+        intent = self.setup_intent()
+        intent.gateway.test_mode = True
+        intent.gateway.status = "test"
+        intent.gateway.get_secret_key = lambda: "sk_test_fixture_only_0123456789abcdef"
+        read = Mock()
+        with patch.dict(os.environ, {"VERCEL_ENV": "production"}):
+            with self.assertRaises(PaymentReadbackRejected):
+                verify_gateway_intent(intent, getter=read)
+        read.assert_not_called()
+
+    def test_test_gateway_is_disabled_without_both_review_flags(self):
+        intent = self.setup_intent()
+        intent.gateway.test_mode = True
+        intent.gateway.status = "test"
+        intent.gateway.get_secret_key = lambda: "sk_test_fixture_only_0123456789abcdef"
+        with self.assertRaises(PaymentReadbackRejected):
+            verify_gateway_intent(intent, getter=Mock())
