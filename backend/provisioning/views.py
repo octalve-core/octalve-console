@@ -71,8 +71,14 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
         serializer = RetryTaskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
+        if task.action not in ('sync_usage', 'sync_details'):
+            return Response(
+                {'error': 'Provider-changing operations require manual reconciliation, not retry.'},
+                status=status.HTTP_409_CONFLICT,
+            )
         if task.status not in ['failed', 'retrying']:
-            return Response({'error': 'Only failed tasks can be retried'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Only failed tasks can be retried'},
+                            status=status.HTTP_400_BAD_REQUEST)
         
         if serializer.validated_data.get('reset_attempts'):
             task.attempt_count = 0
