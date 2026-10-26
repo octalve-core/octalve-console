@@ -1,6 +1,7 @@
 # orders/serializers.py
 
 from decimal import Decimal
+from domains.registrar_quote import HOSTNAME
 from rest_framework import serializers
 from django.conf import settings
 from .models import Order, OrderItem, Coupon, CouponRedemption, Cart
@@ -65,10 +66,16 @@ class CreateOrderItemSerializer(serializers.Serializer):
     plan_id = serializers.IntegerField()
     offer_revision = serializers.IntegerField(required=False, min_value=1)
     cycle_key = serializers.CharField(default='1mo')
-    quantity = serializers.IntegerField(default=1, min_value=1)
-    domain_name = serializers.CharField(required=False, allow_blank=True)
+    quantity = serializers.IntegerField(default=1, min_value=1, max_value=10)
+    domain_name = serializers.CharField(required=False, allow_blank=True, max_length=253)
     item_type = serializers.CharField(default='hosting')
     config = serializers.JSONField(required=False, default=dict)
+
+    def validate_domain_name(self, value):
+        name = value.strip().lower().rstrip(".")
+        if name and (not HOSTNAME.fullmatch(name) or len(name) > 253):
+            raise serializers.ValidationError("Enter a valid domain name or connect one later.")
+        return name
 
 
 class CreateOrderSerializer(serializers.Serializer):

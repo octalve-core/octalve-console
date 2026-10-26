@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useRef } from "react";
 
-/** Refresh read-only GET views only while visible, on focus and each minute.
- * Never use this for checkout, payments, provisioning or other writes.
+/** Lightweight, read-only reconciliation. No recurring requests for idle lists.
+ * Reload on navigation (component mount), or when returning after 2 minutes.
+ * Mutations and payment/hosting execution must never call this hook.
  */
-export function useAutoSync(refresh:(quiet:boolean)=>void|Promise<void>, key:string){
+export function useAutoSync(refresh:(quiet:boolean)=>void|Promise<void>,key:string){
   const latest=useRef(refresh);
   latest.current=refresh;
   useEffect(()=>{
@@ -14,20 +15,18 @@ export function useAutoSync(refresh:(quiet:boolean)=>void|Promise<void>, key:str
     async function run(quiet:boolean){
       if(!mounted||pending||(quiet&&document.visibilityState!=="visible"))return;
       const now=Date.now();
-      if(quiet&&now-last<15000)return;
+      if(quiet&&now-last<120000)return;
       last=now;pending=true;
       try{await latest.current(quiet);}
-      catch{/* Individual screens display their own request failure states. */}
+      catch{/* Each view owns its error state. */}
       finally{pending=false;}
     }
-    const focus=()=>{void run(true);};
-    const visible=()=>{if(document.visibilityState==="visible")void run(true);};
+    const onFocus=()=>{void run(true);};
+    const onVisible=()=>{if(document.visibilityState==="visible")void run(true);};
     void run(false);
-    const interval=window.setInterval(()=>{void run(true);},60000);
-    window.addEventListener("focus",focus);
-    document.addEventListener("visibilitychange",visible);
-    return()=>{mounted=false;window.clearInterval(interval);
-      window.removeEventListener("focus",focus);
-      document.removeEventListener("visibilitychange",visible);};
+    window.addEventListener("focus",onFocus);
+    document.addEventListener("visibilitychange",onVisible);
+    return()=>{mounted=false;window.removeEventListener("focus",onFocus);
+      document.removeEventListener("visibilitychange",onVisible);};
   },[key]);
 }

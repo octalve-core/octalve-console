@@ -1,3 +1,4 @@
+from decimal import Decimal
 # orders/models.py
 
 from django.db import models, transaction
@@ -237,7 +238,7 @@ class Coupon(models.Model):
             models.Index(fields=['is_active', 'starts_at', 'ends_at']),
         ]
     
-    def is_valid(self, client=None, order_amount=None, product_ids=None):
+    def is_valid(self, client=None, order_amount=None, product_ids=None, plan_ids=None):
         """Check if coupon is valid for use"""
         now = timezone.now()
         
@@ -256,6 +257,15 @@ class Coupon(models.Model):
         if self.min_order_amount and order_amount and order_amount < self.min_order_amount:
             return False, f"Minimum order amount of {self.min_order_amount} required"
         
+        if self.applicable_products and (not product_ids or
+                any(str(product) not in {str(p) for p in self.applicable_products}
+                    for product in product_ids)):
+            return False, "Coupon is not valid for this product"
+        if self.applicable_plans and (not plan_ids or
+                any(str(plan) not in {str(p) for p in self.applicable_plans}
+                    for plan in plan_ids)):
+            return False, "Coupon is not valid for this plan"
+
         if client and self.max_uses_per_client:
             from orders.models import CouponRedemption
             client_uses = CouponRedemption.objects.filter(coupon=self, client=client).count()
@@ -267,7 +277,7 @@ class Coupon(models.Model):
     def calculate_discount(self, amount):
         """Calculate discount amount"""
         if self.discount_type == 'percentage':
-            return amount * (self.discount_value / 100)
+            return (amount * (self.discount_value / 100)).quantize(Decimal('0.01'))
         else:
             return min(self.discount_value, amount)
     

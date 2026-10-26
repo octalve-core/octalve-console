@@ -49,6 +49,62 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Order.objects.all()
         return Order.objects.filter(client=user)
     
+    @action(detail=False, methods=['post'], url_path='quote')
+    @transaction.atomic
+    def quote(self, request):
+        """Server-priced, read-only cart review. No order, invoice or gateway write."""
+        from rest_framework.exceptions import ValidationError
+        if getattr(request.user, "role", None) != "client":
+            return Response({"detail": "Customer checkout requires a client account."}, status=403)
+        if not hasattr(request.data, "keys") or (set(request.data.keys()) -
+                {"checkout_id", "items", "coupon_code", "notes"}):
+            raise ValidationError({"detail": "Unexpected checkout fields."})
+        serializer = CreateOrderSerializer(
+            data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        items = serializer.validated_data["items"]
+        if len({item["plan"].currency for item in items}) != 1:
+            raise ValidationError({"items": "A checkout must use one currency."})
+        subtotal = sum(
+            (item["unit_price"] * item["quantity"] for item in items),
+            Decimal("0.00"))
+        coupon = serializer.context.get("coupon")
+        discount = Decimal("0.00")
+        if coupon:
+            approved, message = coupon.is_valid(
+                client=request.user, order_amount=subtotal,
+                product_ids=[i['plan'].product_id for i in items],
+                plan_ids=[i['plan'].pk for i in items])
+            if not approved:
+                raise ValidationError({"coupon_code": message})
+            discount = coupon.calculate_discount(subtotal)
+        total = subtotal - discount
+        supplier_cost = sum(
+            (item.get("supplier_cost", Decimal("0.00")) * item["quantity"]
+             for item in items), Decimal("0.00"))
+        if total <= 0 or total < supplier_cost:
+            raise ValidationError({"coupon_code": "Offer is unavailable at this price."})
+        return Response({
+            "currency": items[0]["plan"].currency,
+            "subtotal": str(subtotal),
+            "discount_total": str(discount),
+            "tax_total": "0.00",
+            "total": str(total),
+            "coupon_code": coupon.code if coupon else None,
+            "items": [{
+                "name": item["plan"].name,
+                "description": item["description"],
+                "domain_name": item.get("domain_name", ""),
+                "quantity": item["quantity"],
+                "unit_price": str(item["unit_price"]),
+                "cycle_key": item["billing_cycle"].cycle_key,
+                "price_revision": (
+                    item["published_catalog_offer"].revision
+                    if item.get("published_catalog_offer") else None),
+            } for item in items],
+            "message": "The final invoice is calculated again when you place the order.",
+        }, headers={"Cache-Control": "private, no-store"})
+
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         """Create a new order from cart"""
@@ -85,13 +141,19 @@ class OrderViewSet(viewsets.ModelViewSet):
         if coupon:
             from rest_framework.exceptions import ValidationError
             coupon = Coupon.objects.select_for_update().get(pk=coupon.pk)
-            is_valid, message = coupon.is_valid(client=request.user, order_amount=subtotal)
+            is_valid, message = coupon.is_valid(
+                client=request.user, order_amount=subtotal,
+                product_ids=[i['plan'].product_id for i in validated_data['items']],
+                plan_ids=[i['plan'].pk for i in validated_data['items']])
             if not is_valid:
                 raise ValidationError({'coupon_code': message})
             discount_total = coupon.calculate_discount(subtotal)
             coupon_discount = discount_total
         
         total = subtotal - discount_total
+        if total <= 0:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'coupon_code': 'Offer is unavailable at this price.'})
         # Price concessions must not silently make a white-label resale loss.
         approved_partner_cost = sum(
             (item.get('supplier_cost', Decimal('0')) * item['quantity']
@@ -101,6 +163,21 @@ class OrderViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import ValidationError
             raise ValidationError({'coupon_code': 'Discount exceeds approved partner resale margin.'})
 
+        # Immutable billing identity from the authenticated database account,
+        # never from a browser-supplied customer name, tax flag or invoice total.
+        customer = request.user
+        billing_contact = {
+            "full_name": customer.full_name or "",
+            "email": customer.email,
+            "phone_number": customer.phone_number or "",
+            "company_name": customer.company_name or "",
+            "address": customer.address or "",
+            "city": customer.city or "",
+            "state": customer.state or "",
+            "country": customer.country or "",
+            "postal_code": customer.postal_code or "",
+            "tax_id": customer.tax_id or "",
+        }
         # Create order
         order = Order.objects.create(
             client=request.user,
@@ -110,7 +187,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             discount_total=discount_total,
             total=total,
             currency=next(iter(currencies)),
-            metadata={'checkout_id': checkout_id},
+            metadata={'checkout_id': checkout_id, 'billing_contact': billing_contact},
             coupon_code=coupon.code if coupon else None,
             coupon_discount=coupon_discount,
             notes=validated_data.get('notes', ''),

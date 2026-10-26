@@ -31,6 +31,14 @@ export type AccountProfile = {
   phone_number: string; company_name: string; address: string;
   city: string; state: string; country: string; postal_code: string; tax_id: string;
 };
+export type CheckoutQuote = {
+  currency: string; subtotal: string; discount_total: string; tax_total:string;
+  total:string; coupon_code:string|null;
+  items: {name:string;description:string;domain_name:string;quantity:number;
+    unit_price:string;cycle_key:string;price_revision:number|null}[];
+  message:string;
+};
+export type CheckoutOptions = {enabled:boolean;gateways:string[];currency:string};
 export type EditableAccountProfile = Omit<AccountProfile,"email"|"email_verified">;
 
 type ListParams = {
@@ -309,10 +317,29 @@ export const clientApi = {
     });
   },
 
+  quoteOrder(payload: {
+    checkout_id:string;
+    items:{plan_id:number;offer_revision?:number;cycle_key:string;quantity:number;domain_name:string}[];
+    coupon_code?:string;
+  }) {
+    return api.post<CheckoutQuote>(apiPaths.client.orders + "quote/", payload);
+  },
+
   createOrder(payload: unknown) {
     return api.post<Order>(apiPaths.client.orders, payload);
   },
 
+  checkoutOptions() {
+    return api.get<CheckoutOptions>("/payments/checkout-options/");
+  },
+  paymentStatus(invoiceId:number) {
+    return api.get<{invoice_id:number;invoice_status:string;amount_due:string;currency:string}>(
+      "/payments/verify/", {params:{invoice_id:invoiceId}});
+  },
+  initializeHostedPayment(invoiceId:number,gateway:"paystack"|"flutterwave") {
+    return api.post<{checkout_url:string;invoice_id:number;status:string}>(
+      "/payments/initialize/",{invoice_id:invoiceId,gateway});
+  },
   wallet() {
     return api.get<WalletBalance>(apiPaths.client.wallet);
   },

@@ -116,6 +116,32 @@ class PaymentInitializeView(APIView):
                         headers={"Cache-Control": "no-store"})
 
 
+class CheckoutOptionsView(APIView):
+    """Read-only feature disclosure, never advertises unapproved payment providers."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        allowed = bool(
+            getattr(settings, "CLOUD_HOSTED_CHECKOUT_HTTP_ENABLED", False)
+            and getattr(settings, "CLOUD_HOSTED_CHECKOUT_ENABLED", False)
+            and getattr(settings, "CLOUD_PAYMENT_STATUS_HTTP_ENABLED", False)
+            and getattr(request.user, "role", None) == "client"
+        )
+        gateways = []
+        if allowed:
+            from .sandbox import gateway_can_read, secret_matches_mode
+            for gateway in PaymentGateway.objects.filter(
+                    code__in=("paystack", "flutterwave")):
+                if (gateway_can_read(gateway)
+                        and secret_matches_mode(gateway, gateway.get_secret_key())):
+                    gateways.append(gateway.code)
+        return Response(
+            {"enabled": bool(gateways), "gateways": gateways,
+             "currency": "NGN"},
+            headers={"Cache-Control": "private, no-store"},
+        )
+
+
 class PaymentVerifyView(APIView):
     """Display only DB-backed paid/pending status; never trust redirect claims."""
     permission_classes = [IsAuthenticated]
