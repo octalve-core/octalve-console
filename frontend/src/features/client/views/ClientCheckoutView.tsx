@@ -2,7 +2,11 @@
 
 import {useEffect,useMemo,useState,type FormEvent} from "react";
 import Link from "next/link";
-import {ArrowLeft,ArrowRight,Check,Globe2,Info,Loader2,ShieldCheck,ShoppingCart} from "lucide-react";
+import {ArrowLeft,ArrowRight,Globe2,Loader2,ShieldCheck} from "lucide-react";
+import {Panel} from "@/components/design-system/Panel";
+import {TextField} from "@/components/design-system/TextField";
+import {CheckoutProgress} from "../components/commerce/CheckoutProgress";
+import {CheckoutQuoteSummary} from "../components/commerce/CheckoutQuoteSummary";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {authApi,clientApi,type AccountProfile,type CheckoutQuote} from "@/lib/api/endpoints";
@@ -13,9 +17,8 @@ type DomainChoice="later"|"existing"|"new";
 type Confirmation={id?:number;order_number?:string;total?:string;currency?:string;
   invoice?:{id:number;invoice_number:string;status:string;amount_due:string}};
 const domainPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/;
-const steps=["Choose plan","Connect domain","Review order","Done"];
-const selectionClass="rounded-xl border px-4 py-4 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0064E0]";
-const actionClass="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0064E0] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#0052B8] disabled:cursor-not-allowed disabled:opacity-50";
+const selectionClass="min-h-24 rounded-xl border px-4 py-4 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary";
+const actionClass="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-console-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-console-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto";
 
 export function ClientCheckoutView(){
   const [plans,setPlans]=useState<ClientOrderPlan[]>([]);
@@ -128,18 +131,12 @@ export function ClientCheckoutView(){
   return <DashboardShell role="client" title="Checkout" description="Configure hosting and review your purchase.">
     <DashboardPage eyebrow="Checkout" title="Set up your hosting"
       description="A guided, secure checkout. Charges and activation are verified separately.">
-      <ol aria-label="Checkout progress" className="mb-6 grid grid-cols-4 gap-2">
-        {steps.map((step,index)=><li key={step} aria-current={index===currentStep?"step":undefined}
-          className={`rounded-xl border p-2 text-center text-[11px] font-medium sm:p-3 sm:text-xs ${index<=currentStep?"border-[#B9D6F8] bg-[#EFF6FF] text-[#0064E0]":"border-slate-200 bg-white text-slate-500"}`}>
-          <span className="mb-1 block">{index<currentStep?<Check className="mx-auto h-4 w-4"/>:String(index+1).padStart(2,"0")}</span>
-          {step}
-        </li>)}
-      </ol>
+      <CheckoutProgress currentStep={currentStep as 0|1|2|3}/>
       {error?<p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
       {loading?<p role="status" className="rounded-2xl bg-white p-6 text-sm text-slate-600">Preparing your selected hosting package…</p>:null}
       {!loading&&(!selected||!cycle)?<Link href="/client/order" className="font-medium text-[#0064E0]">Back to hosting plans</Link>:null}
-      {selected&&cycle&&stage!=="completed"?<div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+      {selected&&cycle&&stage!=="completed"?<div className="grid min-w-0 gap-5 lg:grid-cols-3">
+        <Panel className="min-w-0 lg:col-span-2">
           {stage==="domain"?<>
             <div className="flex items-center gap-3"><Globe2 className="h-5 w-5 text-[#0064E0]"/>
               <h2 className="text-xl font-medium text-slate-950">Connect your domain</h2></div>
@@ -158,10 +155,9 @@ export function ClientCheckoutView(){
               </button>)}
             </div>
             {domainChoice==="existing"?<div className="mt-6">
-              <label htmlFor="existing-domain" className="text-sm font-medium text-slate-800">Your domain name</label>
-              <input id="existing-domain" autoComplete="off" maxLength={253} placeholder="example.com"
-                value={domain} onChange={event=>{setDomain(event.target.value);setQuote(null);}}
-                className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0064E0]"/>
+              <TextField id="existing-domain" label="Your domain name" autoComplete="off"
+                maxLength={253} placeholder="example.com" value={domain}
+                onChange={event=>{setDomain(event.target.value);setQuote(null);}}/>
               <p className="mt-2 text-xs leading-5 text-slate-500">
                 We'll guide you through updating its DNS after hosting is activated. Ownership will be verified before changes.
               </p>
@@ -226,30 +222,10 @@ export function ClientCheckoutView(){
               </button>
             </div>
           </form>}
-        </section>
-        <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 lg:sticky lg:top-24">
-          <div className="flex items-center gap-2"><ShoppingCart className="h-5 w-5 text-[#0064E0]"/>
-            <h2 className="text-base font-medium">Order summary</h2></div>
-          <p className="mt-4 text-sm font-medium text-slate-900">{selected.name}</p>
-          <p className="mt-1 text-xs text-slate-500">{cycle.label}</p>
-          <div className="mt-6 space-y-3 text-sm text-slate-600">
-            <div className="flex justify-between gap-3"><span>Hosting</span><span>{formatPlanAmount(cycle.price,selected.currency)}</span></div>
-            <div className="flex justify-between gap-3"><span>Setup</span><span>{formatPlanAmount(cycle.setupFee,selected.currency)}</span></div>
-            {quote&&Number(quote.discount_total)>0?<div className="flex justify-between gap-3"><span>Promo discount</span><span>-{formatPlanAmount(Number(quote.discount_total),currency)}</span></div>:null}
-            <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-medium text-slate-900"><span>{quote?"Confirmed quote":"Estimated total"}</span><span>{formatPlanAmount(amount,currency)}</span></div>
-          </div>
-          <label htmlFor="checkout-promo" className="mt-7 block text-sm font-medium">Promo code (optional)</label>
-          <div className="mt-2 flex gap-2">
-            <input id="checkout-promo" value={coupon} disabled={stage==="review"}
-              onChange={e=>{setCoupon(e.target.value);setQuote(null);}}
-              maxLength={50} placeholder="Enter code" className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0064E0]"/>
-            {stage==="review"?<button type="button" onClick={()=>{setStage("domain");setQuote(null);setAgreed(false);}}
-              className="text-sm font-medium text-[#0064E0]">Change</button>:null}
-          </div>
-          <div className="mt-5 flex items-start gap-2 rounded-xl bg-[#EFF6FF] p-3 text-xs leading-5 text-[#26476B]">
-            <Info className="mt-0.5 h-4 w-4 shrink-0"/>We calculate final prices on the server. A domain registration is not included.
-          </div>
-        </aside>
+        </Panel>
+        <CheckoutQuoteSummary plan={selected} cycleKey={cycleKey} quote={quote}
+          coupon={coupon} stage={stage} onCouponChange={value=>{setCoupon(value);setQuote(null);}}
+          onChangeRequest={()=>{setStage("domain");setQuote(null);setAgreed(false);}}/>
       </div>:null}
       {stage==="completed"&&confirmation?<div role="status" className="mx-auto max-w-2xl rounded-2xl border border-[#D9E9FA] bg-white p-6 sm:p-9">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-[#0064E0]"><ShieldCheck/></div>
