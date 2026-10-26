@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/Button";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ErrorState } from "@/components/feedback/ErrorState";
-import { LoadingState } from "@/components/feedback/LoadingState";
 import { clientResourceConfig } from "../data/client-resource-config";
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
 import { normalizeClientRecord, unwrapClientList } from "../utils/client-record-normalizer";
@@ -34,7 +33,7 @@ export function ClientResourceListView({ resource }: ClientResourceListViewProps
       setRecords(apiRecords);
     } catch {
       setRecords([]);
-      setError("Unable to retrieve live records. Retry when the service is available.");
+      setError("We couldn’t load your information right now. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -73,7 +72,7 @@ export function ClientResourceListView({ resource }: ClientResourceListViewProps
       >
         <div className="space-y-5">
           {isLoading ? (
-            <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Connecting to the Django API." />
+            <div role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Updating your {config.title.toLowerCase()}…</div>
           ) : error ? (
             <ErrorState description={error} />
           ) : (
