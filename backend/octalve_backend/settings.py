@@ -422,6 +422,11 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
     "http://localhost:3000", "http://127.0.0.1:3000",
 ])
 
+# Octalve Cloud public static website reads only the separately scoped, public
+# storefront feed. Do not grant administrative or payment authority to it.
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS + [
+    "https://octalve.cloud", "https://www.octalve.cloud",
+]))
 CORS_ALLOW_CREDENTIALS = True
 from corsheaders.defaults import default_headers
 CORS_ALLOW_HEADERS = list(default_headers) + ['X-CSRFToken']
