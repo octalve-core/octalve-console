@@ -39,7 +39,7 @@ export function ClientCheckoutView() {
       if (!cycle) {setError("This billing period is unavailable. Return to plan selection.");return;}
       setPlanId(chosen.id);
       setCycleKey(cycle.key);
-    }).catch(() => {if(active)setError("The live catalog could not be loaded. No order was created.");})
+    }).catch(() => {if(active)setError("We couldn’t load your chosen package. Please try again; no order was created.");})
       .finally(() => {if(active)setLoading(false);});
     return () => {active = false;};
   }, []);
@@ -71,9 +71,9 @@ export function ClientCheckoutView() {
     }
   }
 
-  return <DashboardShell role="client" title="Checkout" description="Create a pending invoice for an available plan.">
+  return <DashboardShell role="client" title="Checkout" description="Review your hosting order.">
     <DashboardPage eyebrow="Checkout" title="Review your hosting order"
-      description="Your order and unpaid invoice are created by Octalve Cloud. No payment or provisioning occurs at checkout.">
+      description="Check the details below before placing your order. No payment will be taken at this stage.">
       {loading ? <p role="status" className="rounded-2xl bg-white p-6 text-sm text-slate-500">Loading your selected plan...</p> : null}
       {error ? <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p> : null}
       {!loading && (!selected || !cycle) ? <Link className="text-sm font-semibold text-[#0064E0]" href="/client/order">Choose an available plan</Link> : null}
