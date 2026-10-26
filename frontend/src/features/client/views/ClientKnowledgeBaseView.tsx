@@ -1,7 +1,8 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import Link from "next/link";
-import {BookOpen,Search,LifeBuoy,ArrowRight,FileText} from "lucide-react";
+import {LifeBuoy,ArrowRight,FileText} from "lucide-react";
+import {KnowledgeBaseHero} from "../components/KnowledgeBaseHero";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {helpApi,asList,type HelpArticle} from "@/lib/api/modules/help-center.api";
@@ -26,17 +27,7 @@ export function ClientKnowledgeBaseView(){
   return <DashboardShell role="client" title="Knowledge base" description="Guides and assistance for your Octalve services.">
     <DashboardPage eyebrow="Help centre" title="Knowledge base" description="Find clear answers and useful step-by-step guides.">
       <div className="space-y-6">
-        <div className="isolate overflow-visible rounded-[26px] border border-[#123C6F] bg-[#001A36] bg-gradient-to-r from-[#001A36] via-[#062B52] to-[#06427A] p-6 text-white shadow-sm sm:p-9">
-          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-blue-200"><BookOpen className="h-4 w-4"/> OCTALVE GUIDES</p>
-          <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">How can we help you?</h2>
-          <p className="mt-2 text-sm leading-6 text-blue-100">Find answers about hosting, DNS, domains, payments and your account.</p>
-          <label className="mt-6 flex h-13 min-h-13 w-full max-w-2xl items-center gap-3 rounded-xl bg-white px-4 text-slate-500 shadow-sm">
-            <Search className="h-5 w-5 shrink-0"/>
-            <span className="sr-only">Search support guides</span>
-            <input type="search" value={query} onChange={e=>setQuery(e.target.value)}
-              placeholder="Search questions or keywords" className="w-full min-w-0 bg-transparent py-4 text-sm text-slate-950 outline-none"/>
-          </label>
-        </div>
+        <KnowledgeBaseHero query={query} onQueryChange={setQuery}/>
         <div className="flex flex-wrap gap-2" aria-label="Guide categories">{categories.map(item=><button key={item} type="button"
           aria-pressed={category===item} onClick={()=>setCategory(item)}
           className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition ${category===item?"bg-[#0064E0] text-white":"border border-slate-200 bg-white text-slate-600 hover:bg-blue-50"}`}>{item}</button>)}</div>

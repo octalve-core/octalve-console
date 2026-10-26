@@ -31,10 +31,17 @@ export function ClientDomainSearch(){
  }
  return <section id="domain-search" aria-label="Find and check a domain name"
    className="scroll-mt-24 overflow-hidden rounded-[24px] border border-[#DCE6F2] bg-white shadow-[0_5px_20px_rgba(16,42,78,.045)]">
-   <div className="bg-[#001A36] bg-gradient-to-r from-[#001A36] via-[#062B52] to-[#06427A] px-5 py-6 text-white sm:px-7 sm:py-8">
-     <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-blue-200"><Globe2 className="h-4 w-4"/> Domain search</p>
-     <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">Find a domain that fits your business.</h2>
-     <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">Search your preferred name and compare our published registration rates.</p>
+   <div className="border-b border-slate-200 bg-slate-50 px-5 py-6 text-slate-950 sm:px-7 sm:py-7">
+     <div className="flex items-start gap-3">
+       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+         <Globe2 className="h-5 w-5" aria-hidden="true"/>
+       </span>
+       <div className="min-w-0">
+         <p className="text-xs font-bold uppercase tracking-widest text-blue-700">Domain search</p>
+         <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">Find the right domain for your business.</h2>
+         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Search an extension and review our published registration rates.</p>
+       </div>
+     </div>
    </div>
    <div className="px-5 py-5 sm:px-7 sm:py-6">
      <DomainSearchForm domain={domain} onChange={setDomain} busy={busy} onSubmit={submit}/>
