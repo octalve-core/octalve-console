@@ -26,3 +26,6 @@
 - https://v3.tailwindcss.com/docs/content-configuration
 - https://react.dev/reference/react/useId
 - https://lucide.dev/guide/react/
+
+## Batch 2 migration (26 October 2026)
+Auth form presentation no longer imports the legacy `AuthLayout.module.css`; the unused stylesheet is removed in this approved batch. Original `globals.css` remains frozen. Role navigation, Django access authority and auth API payloads are unchanged. Source and emitted CSS shell guards run in CI. The legacy `PortalShell` compatibility entry point delegates to the new shared `DashboardShell` to avoid divergent layouts.

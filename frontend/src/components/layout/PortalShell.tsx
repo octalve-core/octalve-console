@@ -1,31 +1,8 @@
-﻿"use client";
+import type {ReactNode} from "react";
+import {DashboardShell} from "./DashboardShell";
+import type {DashboardRole} from "@/lib/navigation/dashboard-nav";
 
-import { Sidebar } from "./Sidebar";
-import { Topbar } from "./Topbar";
-import type { ReactNode } from "react";
-import { useState } from "react";
-
-export function PortalShell({
-  area,
-  children
-}: {
-  area: "admin" | "client" | "staff";
-  children: ReactNode;
-}) {
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-  return (
-    <div className="oct-console-shell">
-      <Sidebar
-        area={area}
-        mobileOpen={mobileSidebarOpen}
-        onClose={() => setMobileSidebarOpen(false)}
-      />
-
-      <div className="oct-main-frame">
-        <Topbar area={area} onMenuClick={() => setMobileSidebarOpen(true)} />
-        <div className="oct-page-scroll">{children}</div>
-      </div>
-    </div>
-  );
+/** Compatibility entry point; active role pages share a single TypeScript/Tailwind shell. */
+export function PortalShell({area,children}:{area:DashboardRole;children:ReactNode}){
+ return <DashboardShell role={area} title="Octalve Console">{children}</DashboardShell>;
 }

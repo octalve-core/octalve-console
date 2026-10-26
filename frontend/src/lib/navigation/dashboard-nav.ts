@@ -248,7 +248,7 @@ export const clientNavGroups: DashboardNavGroup[] = [
 
 export const staffNavGroups: DashboardNavGroup[] = [
   {
-    title: "Workspace",
+    title: "Console",
     items: [
       {
         label: "Overview",
