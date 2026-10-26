@@ -25,6 +25,8 @@ from provisioning.vendor_create_contract import compile_account_create
 from dataclasses import replace
 from provisioning.models import ProvisioningLog
 from opanel_bridge.models import VerifiedHostingBinding
+from notifications.models import HostingNotice
+from notifications.hosting_ready import queue_hosting_ready, HostingNoticeRefused
 from provisioning.models import ProvisioningTask
 from services.models import Service
 from opanel_bridge.policy import eligible
@@ -348,6 +350,42 @@ class PaidHostingFunnelTests(TestCase):
         service.refresh_from_db()
         self.assertEqual(service.status, "pending")
         self.assertFalse(VerifiedHostingBinding.objects.exists())
+
+    @override_settings(CLOUD_PROVISIONING_WORKER_ENABLED=True,
+                       OPANEL_READBACK_ENABLED=True,
+                       CLOUD_HOSTING_READY_QUEUE_ENABLED=True,
+                       FRONTEND_URL="https://console.example.test")
+    def test_customer_hosting_email_queued_once_only_after_provider_proof(self):
+        settle_verified_intent(self.intent.pk, getter=self.getter)
+        service, task = stage_paid_order(self.order.pk)[0]
+        with self.assertRaises(HostingNoticeRefused):
+            queue_hosting_ready(service)
+        self.assertFalse(HostingNotice.objects.exists())
+        response = {"metadata": {"result": 1}, "data": {"acct": [{
+            "user": task.payload["expected_account"],
+            "domain": "verified.example.test",
+            "owner": "resellerops", "suspended": 0,
+        }]}}
+        mock_reply = Mock(status_code=200, headers={}, content=json.dumps(response).encode())
+        mock_reply.json.return_value = response
+        with patch.dict("os.environ", {"CLOUD_INVENTORY_ALLOWED_HOSTS": "whm.synthetic-provider.test"}):
+            with patch.object(Provider, "get_api_key", return_value="provider-test-key"):
+                reconcile_verified_hosting(task.pk, getter=Mock(return_value=mock_reply),
+                                           apply=True)
+        notice = HostingNotice.objects.get()
+        self.assertEqual(notice.service_id, service.pk)
+        self.assertEqual(notice.status, "queued")
+        self.assertIn(task.payload["expected_account"], notice.text_body)
+        self.assertIn(f"op{service.pk:x}" if service.pk < 10 else "Optional OPanel technical username:",
+                      notice.text_body)
+        self.assertIn("set your password", notice.text_body)
+        self.assertIn("https://console.example.test/client/services/", notice.text_body)
+        self.assertNotIn("sk_live_", notice.text_body)
+        self.assertNotIn("provider-test-key", notice.text_body)
+        duplicate, created = queue_hosting_ready(Service.objects.get(pk=service.pk))
+        self.assertFalse(created)
+        self.assertEqual(duplicate.pk, notice.pk)
+        self.assertEqual(HostingNotice.objects.count(), 1)
 
     def test_unhealthy_provider_cannot_be_staged(self):
         settle_verified_intent(self.intent.pk, getter=self.getter)
