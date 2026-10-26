@@ -45,7 +45,8 @@ class AccountSelfServiceTests(APITestCase):
         self.other.refresh_from_db()
         self.assertEqual(self.user.role,"client")
         self.assertEqual(self.user.email,"owner@example.invalid")
-        self.assertEqual(self.other.address,"")
+        self.assertIsNone(self.other.address)
+        self.assertIsNone(self.user.address)
 
     def test_email_and_verification_state_cannot_be_self_assigned(self):
         for payload in (
