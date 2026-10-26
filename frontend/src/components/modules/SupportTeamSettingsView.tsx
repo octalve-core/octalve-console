@@ -5,7 +5,7 @@ import {ArrowLeft,Plus,Users,Tag,CheckCircle2} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {helpApi,asList,type Department,type SupportTopic,type SupportAgent} from "@/lib/api/modules/help-center.api";
-const selectClass="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[#0064E0]";
+const selectClass="block h-12 min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-4 py-2 text-base text-slate-950 outline-none focus:border-[#0064E0] focus:ring-2 focus:ring-blue-100";
 export function SupportTeamSettingsView(){
   const [departments,setDepartments]=useState<Department[]>([]),[topics,setTopics]=useState<SupportTopic[]>([]),[agents,setAgents]=useState<SupportAgent[]>([]);
   const [current,setCurrent]=useState(""),[name,setName]=useState(""),[slug,setSlug]=useState("");
@@ -65,8 +65,8 @@ export function SupportTeamSettingsView(){
         {error?<p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
         {notice?<p role="status" className="rounded-xl bg-blue-50 p-4 text-sm text-blue-800">{notice}</p>:null}
         {!loaded?<p role="status" className="rounded-xl bg-white p-6 text-sm text-slate-500">Preparing support teams…</p>:null}
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-          <section className="space-y-5">
+        <div className="grid min-w-0 gap-5 xl:grid-cols-3">
+          <section className="min-w-0 space-y-5 xl:col-span-2">
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <h2 className="flex items-center gap-2 text-lg font-medium"><Users className="h-5 w-5 text-[#0064E0]"/>Department responsibilities</h2>
               <label className="mt-5 block"><span className="mb-2 block text-sm font-medium">Department</span>
@@ -96,7 +96,7 @@ export function SupportTeamSettingsView(){
               </div>)}
             </div>
           </section>
-          <aside className="h-fit space-y-5 rounded-2xl border border-slate-200 bg-white p-6">
+          <aside className="h-fit min-w-0 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 xl:col-span-1">
             <div className="border-b border-slate-100 pb-5">
               <h2 className="text-base font-medium">New department</h2>
               <form onSubmit={createDepartment} className="mt-3 space-y-3">

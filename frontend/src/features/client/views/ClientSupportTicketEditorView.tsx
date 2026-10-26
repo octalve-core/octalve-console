@@ -34,25 +34,25 @@ export function ClientSupportTicketEditorView(){
       router.push(`/client/support/${encodeURIComponent(String(response.id))}`);
     }catch{setError("We couldn't submit your request. Review the details and try again.");setBusy(false);}
   }
-  const input="min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-[#0064E0]";
+  const input="block h-12 min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-4 py-2 text-base text-slate-950 outline-none transition focus:border-[#0064E0] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500";
   return <DashboardShell role="client" title="Get support" description="Speak with the right Octalve Cloud support team.">
     <DashboardPage eyebrow="Help centre" title="Tell us what you need help with"
       description="Your request goes to the appropriate support specialists and stays visible in your account.">
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-8">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-3">
+        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 sm:p-8 xl:col-span-2">
           <Link href="/client/support" className="inline-flex items-center gap-2 text-sm font-medium text-[#0064E0]"><ArrowLeft className="h-4 w-4"/>My support tickets</Link>
           <h2 className="mt-6 text-xl font-medium text-slate-950">New support request</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">Choose the area and issue type. We’ll route your ticket to an eligible team member, or keep it in the team's queue.</p>
           {error?<p role="alert" className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
           <form onSubmit={submit} className="mt-6 space-y-5">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <label><span className="mb-2 block text-sm font-medium">Support department</span>
+            <div className="grid min-w-0 gap-5 md:grid-cols-2">
+              <label className="block min-w-0"><span className="mb-2 block text-sm font-medium text-slate-700">Support department</span>
                 <select required aria-label="Support department" disabled={loading} className={input} value={department}
                   onChange={e=>{setDepartment(e.target.value);setTopic("");}}>
                   <option value="">Choose a department</option>
                   {departments.map(dept=><option key={dept.id} value={String(dept.id)}>{dept.name}</option>)}
                 </select></label>
-              <label><span className="mb-2 block text-sm font-medium">Issue topic</span>
+              <label className="block min-w-0"><span className="mb-2 block text-sm font-medium text-slate-700">Issue topic</span>
                 <select aria-label="Issue topic" className={input} value={topic} disabled={!department||loading}
                   onChange={e=>setTopic(e.target.value)}>
                   <option value="">General question</option>
@@ -72,16 +72,16 @@ export function ClientSupportTicketEditorView(){
             <label className="block"><span className="mb-2 block text-sm font-medium">How can we help?</span>
               <textarea required maxLength={20000} minLength={10} rows={7} value={message} onChange={e=>setMessage(e.target.value)}
                 placeholder="Explain what happened, when it started, and the domain or service affected. Never share your password or card details."
-                className="w-full rounded-xl border border-slate-200 bg-white p-4 text-sm leading-7 outline-none focus-visible:ring-2 focus-visible:ring-[#0064E0]"/></label>
+                className="block min-h-48 w-full min-w-0 resize-y rounded-xl border border-slate-300 bg-white p-4 text-base leading-7 text-slate-950 outline-none transition focus:border-[#0064E0] focus:ring-2 focus:ring-blue-100"/></label>
             <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-5">
               <p className="max-w-sm text-xs leading-5 text-slate-500">Do not include login credentials or sensitive payment details. File attachments are not yet available.</p>
               <button type="submit" disabled={busy||loading||!department||message.trim().length<10}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0064E0] px-5 py-3 text-sm font-medium text-white disabled:opacity-50">
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0064E0] px-5 text-sm font-semibold text-white transition hover:bg-[#0052B8] disabled:opacity-50 sm:w-auto">
                 <Send className="h-4 w-4"/>{busy?"Sending…":"Send request"}</button>
             </div>
           </form>
         </section>
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4 xl:col-span-1">
           <section className="rounded-2xl bg-[#001426] p-6 text-white">
             <LifeBuoy className="h-7 w-7 text-blue-300"/>
             <h3 className="mt-4 text-lg font-medium">We're here to help</h3>

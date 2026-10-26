@@ -34,11 +34,25 @@ for(const filename of wrappers){
 }
 
 const domainForm=fs.readFileSync(path.join(root,"features/client/components/domain-search/DomainSearchForm.tsx"),"utf8");
-if(!domainForm.includes('className="flex h-14 min-w-0 flex-1 items-center gap-3') ||
+if(!domainForm.includes('className="grid min-w-0 gap-3 sm:grid-cols-3') ||
+   !domainForm.includes('className="flex h-14 min-h-14 w-full min-w-0 items-center sm:col-span-2') ||
    !domainForm.includes('className="h-5 w-5 shrink-0') ||
-   !domainForm.includes('className="block h-full min-w-0 flex-1') ||
+   !domainForm.includes('className="block h-12 min-h-12 w-full min-w-0 flex-1') ||
+   !domainForm.includes('htmlFor="client-domain-search"') ||
    domainForm.includes("absolute left-") || domainForm.includes("translate-y-1/2")){
  throw new Error("Domain search icon and text must share an in-flow, vertically centered flex row");
+}
+const supportViews=[
+ ["features/client/views/ClientSupportTicketEditorView.tsx",["xl:grid-cols-3","xl:col-span-2","block h-12 min-h-12","min-h-48","sm:w-auto"]],
+ ["components/modules/TicketConversationView.tsx",["xl:grid-cols-3","xl:col-span-2","min-h-40","block h-12 w-full"]],
+ ["components/modules/SupportTeamSettingsView.tsx",["xl:grid-cols-3","xl:col-span-2","block h-12 min-h-12"]],
+ ["components/modules/SupportDeskView.tsx",["min-h-14","h-10 min-w-0 flex-1"]]
+];
+for(const [filename,utilities] of supportViews){
+ const content=fs.readFileSync(path.join(root,filename),"utf8");
+ if(/xl:grid-cols-\\[/.test(content))throw Error(filename+": unreliable arbitrary desktop grid must not return");
+ for(const utility of utilities)if(!content.includes(utility))
+  throw Error(filename+": missing responsive support form utility "+utility);
 }
 const welcome=fs.readFileSync(path.join(root,"components/data/WorkspaceWelcomePanel.tsx"),"utf8");
 if(!welcome.includes('eyebrow:"Your Octalve Cloud Console"') ||
@@ -65,7 +79,7 @@ if(process.argv.includes("--built")){
  for(const candidate of candidates)scan(path.join(candidate,"static"));
  if(css.length===0)throw new Error("No generated CSS found. Unable to qualify workspace styling.");
  const output=css.map(f=>fs.readFileSync(f,"utf8")).join("\n");
- for(const selector of [".bg-white", ".text-slate-950", ".bg-slate-50"]){
+ for(const selector of [".bg-white", ".text-slate-950", ".bg-slate-50", ".h-12", ".h-14", ".min-h-12", ".min-h-14", ".xl\\:grid-cols-3", ".xl\\:col-span-2"]){
    if(!output.includes(selector))throw new Error(`Tailwind build missing class ${selector}`);
  }
  console.log(`PASS: ${css.length} CSS asset(s) emitted with critical Cloud panel utility classes`);
