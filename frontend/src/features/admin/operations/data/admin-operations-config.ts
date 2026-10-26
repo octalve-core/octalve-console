@@ -2,6 +2,7 @@ import { adminApi } from "@/lib/api/endpoints";
 import { auditApi } from "@/lib/api/modules/audit.api";
 import { reportsApi } from "@/lib/api/modules/reports.api";
 import { supportApi } from "@/lib/api/modules/support.api";
+import { getFallbackData } from "@/lib/config/data-source";
 import { adminOperationsDemo, type AdminOperationKey, type AdminOperationRecord } from "./admin-operations-data";
 
 export type AdminOperationConfig = {
@@ -28,8 +29,8 @@ export const adminOperationConfig: Record<AdminOperationKey, AdminOperationConfi
     createLabel: "New ticket",
     searchPlaceholder: "Search support tickets...",
     emptyTitle: "No tickets found",
-    emptyDescription: "Support tickets from the Django API will appear here.",
-    fallback: adminOperationsDemo.support,
+    emptyDescription: "Support tickets from your account will appear here.",
+    fallback: getFallbackData(adminOperationsDemo.support),
     loader: () => supportApi.tickets(),
   },
   departments: {
@@ -40,7 +41,7 @@ export const adminOperationConfig: Record<AdminOperationKey, AdminOperationConfi
     searchPlaceholder: "Search departments...",
     emptyTitle: "No departments found",
     emptyDescription: "Support departments from the backend will appear here.",
-    fallback: adminOperationsDemo.departments,
+    fallback: getFallbackData(adminOperationsDemo.departments),
     loader: () => supportApi.departments(),
   },
   responses: {
@@ -51,7 +52,7 @@ export const adminOperationConfig: Record<AdminOperationKey, AdminOperationConfi
     searchPlaceholder: "Search responses...",
     emptyTitle: "No responses found",
     emptyDescription: "Predefined responses from the backend will appear here.",
-    fallback: adminOperationsDemo.responses,
+    fallback: getFallbackData(adminOperationsDemo.responses),
     loader: () => supportApi.predefinedResponses(),
   },
   "knowledge-base": {
@@ -64,7 +65,7 @@ export const adminOperationConfig: Record<AdminOperationKey, AdminOperationConfi
     searchPlaceholder: "Search articles...",
     emptyTitle: "No articles found",
     emptyDescription: "Knowledge base articles from the backend will appear here.",
-    fallback: adminOperationsDemo["knowledge-base"],
+    fallback: getFallbackData(adminOperationsDemo["knowledge-base"]),
     loader: () => adminApi.knowledgeBase(),
   },
   "audit-logs": {
@@ -75,7 +76,7 @@ export const adminOperationConfig: Record<AdminOperationKey, AdminOperationConfi
     searchPlaceholder: "Search logs...",
     emptyTitle: "No audit logs found",
     emptyDescription: "Audit records from the backend will appear here.",
-    fallback: adminOperationsDemo["audit-logs"],
+    fallback: getFallbackData(adminOperationsDemo["audit-logs"]),
     loader: () => auditApi.logs(),
   },
   reports: {
@@ -86,7 +87,7 @@ export const adminOperationConfig: Record<AdminOperationKey, AdminOperationConfi
     searchPlaceholder: "Search reports...",
     emptyTitle: "No reports found",
     emptyDescription: "Report definitions from the backend will appear here.",
-    fallback: adminOperationsDemo.reports,
+    fallback: getFallbackData(adminOperationsDemo.reports),
     loader: () => reportsApi.definitions(),
   },
   notifications: {
@@ -99,7 +100,7 @@ export const adminOperationConfig: Record<AdminOperationKey, AdminOperationConfi
     searchPlaceholder: "Search templates...",
     emptyTitle: "No notification templates found",
     emptyDescription: "Notification templates from the backend will appear here.",
-    fallback: adminOperationsDemo.notifications,
+    fallback: getFallbackData(adminOperationsDemo.notifications),
     loader: () => adminApi.notificationTemplates(),
   },
 };

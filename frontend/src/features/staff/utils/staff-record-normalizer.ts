@@ -36,11 +36,12 @@ function getStaffBasePath(resource: StaffResourceKey) {
 export function normalizeStaffRecord(item: unknown, resource: StaffResourceKey): StaffRecord {
   const record = item as Record<string, unknown>;
 
-  const id = readString(record, ["id", "uuid", "reference", "code"], `${resource}-${Math.random()}`);
+  const id = readString(record, ["id", "uuid", "reference", "code"], "");
+  if (!id) throw new Error("A record is missing its unique identifier.");
   const title = readString(record, ["name", "title", "subject", "domain", "email", "product"], id);
   const subtitle = readString(record, ["email", "description", "summary", "customer", "client", "product"], resource);
-  const meta = readString(record, ["department", "category", "type", "priority", "status"], "API record");
-  const status = readString(record, ["status", "state", "level"], "Active");
+  const meta = readString(record, ["department", "category", "type", "priority", "status"], "—");
+  const status = readString(record, ["status", "state", "level"], "Unknown");
   const date = readString(record, ["created_at", "updated_at", "date", "time"], "");
 
   const basePath = getStaffBasePath(resource);

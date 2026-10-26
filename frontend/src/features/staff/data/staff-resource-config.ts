@@ -1,6 +1,7 @@
 import { adminApi } from "@/lib/api/endpoints";
 import { schemaApi } from "@/lib/api/schema-api";
 import { supportApi } from "@/lib/api/modules/support.api";
+import { getFallbackData } from "@/lib/config/data-source";
 import { staffDemo, type StaffRecord, type StaffResourceKey } from "./staff-demo-data";
 
 export type StaffResourceConfig = {
@@ -24,7 +25,7 @@ export const staffResourceConfig: Record<StaffResourceKey, StaffResourceConfig> 
     searchPlaceholder: "Search customers...",
     emptyTitle: "No assigned customers found",
     emptyDescription: "Assigned customers will appear here when the backend returns staff-scoped data.",
-    fallback: staffDemo.customers,
+    fallback: getFallbackData(staffDemo.customers),
     loader: () => adminApi.customers(),
   },
   orders: {
@@ -35,7 +36,7 @@ export const staffResourceConfig: Record<StaffResourceKey, StaffResourceConfig> 
     searchPlaceholder: "Search orders...",
     emptyTitle: "No orders found",
     emptyDescription: "Orders assigned to staff will appear here.",
-    fallback: staffDemo.orders,
+    fallback: getFallbackData(staffDemo.orders),
     loader: () => schemaApi.orders.orders(),
   },
   provisioning: {
@@ -46,7 +47,7 @@ export const staffResourceConfig: Record<StaffResourceKey, StaffResourceConfig> 
     searchPlaceholder: "Search provisioning tasks...",
     emptyTitle: "No provisioning tasks found",
     emptyDescription: "Provisioning tasks will appear here when available.",
-    fallback: staffDemo.provisioning,
+    fallback: getFallbackData(staffDemo.provisioning),
     loader: () => schemaApi.provisioning.tasks(),
   },
   tickets: {
@@ -57,7 +58,7 @@ export const staffResourceConfig: Record<StaffResourceKey, StaffResourceConfig> 
     searchPlaceholder: "Search tickets...",
     emptyTitle: "No tickets found",
     emptyDescription: "Assigned support tickets will appear here.",
-    fallback: staffDemo.tickets,
+    fallback: getFallbackData(staffDemo.tickets),
     loader: () => supportApi.tickets(),
   },
   knowledgeBase: {
@@ -68,7 +69,7 @@ export const staffResourceConfig: Record<StaffResourceKey, StaffResourceConfig> 
     searchPlaceholder: "Search knowledge base articles...",
     emptyTitle: "No articles found",
     emptyDescription: "Knowledge base articles will appear here.",
-    fallback: staffDemo.knowledgeBase,
+    fallback: getFallbackData(staffDemo.knowledgeBase),
     loader: () => adminApi.knowledgeBase(),
   },
 };
