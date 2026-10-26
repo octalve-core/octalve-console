@@ -46,7 +46,7 @@ export function ForgotPasswordPageClient() {
       sideTitle="Recover your account securely."
       sideDescription="Request a secure password reset link for your Octalve Console account without exposing account information."
     >
-      <form method="post" onSubmit={handleSubmit} className="auth-form-stack">
+      <form method="post" onSubmit={handleSubmit} className="grid gap-4 sm:gap-[18px]">
         <AuthInput
           label="Email address"
           name="email"
@@ -67,7 +67,7 @@ export function ForgotPasswordPageClient() {
 
         <ApiFormError message={error} />
 
-        <div className="auth-submit-zone">
+        <div className="pt-2">
           <AuthButton disabled={isSubmitting}>
           {isSubmitting ? (
             <span className="inline-flex items-center gap-2">
@@ -80,13 +80,13 @@ export function ForgotPasswordPageClient() {
         </AuthButton>
         </div>
 
-        <p className="auth-helper-text">
+        <p className="mb-2 mt-4 text-center text-sm leading-6 text-slate-500">
           Remember your password?
         </p>
 
         <Link
           href="/login"
-          className="auth-secondary-link auth-form-footer-gap"
+          className="mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-console-primary hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to login

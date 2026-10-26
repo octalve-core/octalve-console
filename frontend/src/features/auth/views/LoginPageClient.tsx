@@ -138,9 +138,9 @@ export function LoginPageClient() {
       title="Welcome back"
       description="Sign in to continue to Octalve Console."
       sideTitle="Manage your cloud services securely."
-      sideDescription="Access your Octalve Cloud workspace for hosting, domains, billing, orders, support, and service management."
+      sideDescription="Access your Octalve Console to manage hosting, domains, billing, orders, support, and services."
     >
-      <form method="post" onSubmit={handleSubmit} className="auth-form-stack">
+      <form method="post" onSubmit={handleSubmit} className="grid gap-4 sm:gap-[18px]">
         <AuthInput
           label="Email address"
           name="email"
@@ -165,7 +165,7 @@ export function LoginPageClient() {
           onChange={(event) => updateField("password", event.target.value)}
         />
 
-        <div className="auth-inline-row">
+        <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center sm:gap-4">
           <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-slate-600">
             <input
               type="checkbox"
@@ -183,7 +183,7 @@ export function LoginPageClient() {
 
         <ApiFormError message={error} fieldErrors={fieldErrors} />
 
-        <div className="auth-submit-zone">
+        <div className="pt-2">
           <AuthButton disabled={isSubmitting}>
           {isSubmitting ? (
             <span className="inline-flex items-center gap-2">
@@ -196,13 +196,13 @@ export function LoginPageClient() {
         </AuthButton>
         </div>
 
-        <p className="auth-helper-text">
+        <p className="mb-2 mt-4 text-center text-sm leading-6 text-slate-500">
           Don&apos;t have an account?
         </p>
 
         <Link
           href="/signup"
-          className="auth-secondary-link auth-form-footer-gap"
+          className="mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-console-primary hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary"
         >
           Create account
         </Link>
