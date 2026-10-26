@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type {ReactNode} from "react";
 import {cn} from "@/lib/utils";
-import {actionBase,actionSizes,actionVariants,type ActionSize,type ActionVariant} from "./ActionButton";
+import {actionBase,actionSizes,actionVariants,type ActionSize,type ActionVariant} from "./action-styles";
 export type ActionLinkProps={
  href:string;children:ReactNode;variant?:ActionVariant;size?:ActionSize;
  className?:string;external?:boolean;ariaLabel?:string;
