@@ -50,7 +50,7 @@ const supportViews=[
 ];
 for(const [filename,utilities] of supportViews){
  const content=fs.readFileSync(path.join(root,filename),"utf8");
- if(/xl:grid-cols-\\[/.test(content))throw Error(filename+": unreliable arbitrary desktop grid must not return");
+ if(content.includes("xl:grid-cols-["))throw Error(filename+": unreliable arbitrary desktop grid must not return");
  for(const utility of utilities)if(!content.includes(utility))
   throw Error(filename+": missing responsive support form utility "+utility);
 }
