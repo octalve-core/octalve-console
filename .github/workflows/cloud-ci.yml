@@ -57,6 +57,8 @@ jobs:
         run: pnpm typecheck:frontend
       - name: Next.js build
         run: pnpm build:frontend
+      - name: Workspace contrast and emitted Tailwind CSS regression
+        run: node frontend/scripts/check-contrast-safe-cloud-panels.cjs --built
 
   django-check:
     runs-on: ubuntu-latest
