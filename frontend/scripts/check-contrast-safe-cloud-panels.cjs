@@ -11,7 +11,7 @@ const paths=[
   ["components/data/WorkspaceWelcomePanel.tsx",["bg-white","text-slate-950"]],
   ["features/client/components/ClientDomainSearch.tsx",["bg-slate-50","text-slate-950"]],
   ["features/client/components/KnowledgeBaseHero.tsx",["bg-white","text-slate-950"]],
-  ["components/branding/CloudBrandLogo.tsx",["max-w-[140px]","px-9"]]
+  ["components/branding/CloudBrandLogo.tsx",["max-w-[133px]","px-14"]]
 ];
 for(const [filename,tokens] of paths){
  const content=fs.readFileSync(path.join(root,filename),"utf8");
