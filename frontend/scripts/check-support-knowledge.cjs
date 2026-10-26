@@ -1,6 +1,11 @@
 "use strict";
 const fs=require("node:fs"),path=require("node:path");
 const root=path.resolve(__dirname,"../src");
+for(const configPath of ["../tailwind.config.js","../tailwind.config.ts"]){
+ const config=fs.readFileSync(path.resolve(__dirname,configPath),"utf8");
+ if(!config.includes("./src/features/support/**/*.{js,ts,jsx,tsx,mdx}"))
+  throw Error("Batch 5 support Tailwind content path is not scanned by "+configPath);
+}
 const read=file=>fs.readFileSync(path.join(root,file),"utf8");
 function required(file,items){
  const text=read(file);

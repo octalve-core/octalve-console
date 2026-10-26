@@ -18,3 +18,6 @@ Scope: **Frontend-only** role-aware ticket and knowledge UI componentization. Ex
 
 ## Release gates
 Review the exact `review/cloud` commit with Next/TypeScript production build, Batch 0–5 source and emitted Tailwind contracts, existing Django support routing and knowledge-base suite, security and disposable PostgreSQL acceptance. Merge only with qualified PR head. Verify both Console/API production aliases at merge SHA and manually inspect authenticated 320/360/390/768/1024/1440px layouts. Never send real customer messages as part of visual acceptance.
+
+## Tailwind scan qualification
+The active legacy `frontend/tailwind.config.js` did not scan new `src/features/support` components; generated CSS omitted `min-h-48`. This batch adds a **narrow support-only** content glob to both JS and TS Tailwind configurations, verified in source and compiled CSS CI. Other feature directories are deliberately not broadened here; a future styling parity audit must address the dual-config consolidation and remaining feature globs.
