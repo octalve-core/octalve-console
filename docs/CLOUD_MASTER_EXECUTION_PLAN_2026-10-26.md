@@ -51,6 +51,14 @@
 
 **Hosting truth:** paid ≠ remotely provisioned; provider create response ≠ independently verified account; verified account ≠ website live. Only a fresh exact username/domain/reseller/active readback can bind the account, and OPanel access must be revoked on suspension, expiration, invalid proof, wrong tenant or Console unavailability.
 
+### Approved authentication expansion — 26 October 2026
+
+**The customer now has two planned OPanel entry paths**, without duplicating Console financial identity. (1) Preferred Console-to-OPanel one-time PKCE SSO remains unchanged. (2) Separately gated independent OPanel **technical login** is enrolled/rotated only by the current customer after an authorized SSO session; password is salted/hashed in OPanel's own database; every direct login still requires real-time Console service, owner and provider-binding proof. This is distinct from the vendor's hosting server username/password and the WordPress administrator.
+
+A paid invoice alone cannot send hosting credentials. After **actual vendor account verification**, Console can queue an idempotent hosting-ready email with the real server account username, future OPanel technical username and a secure Console access/setup path. **Never email a reusable plaintext password**, and do not claim queued means delivered. See [credential/integration handoff](CLOUD_TECHNICAL_LOGIN_HOSTING_READY_AND_INTEGRATIONS_2026-10-26.md). Both optional technical login and email queue/delivery remain default disabled until distributed throttling, MFA/recovery, authenticated sender and real-provider acceptance.
+
+OPanel's **Integrations** module is provider-neutral: WordPress/Softaculous (requires proved PHP/DB/installer), Cloudflare (verified DNS zone control) and GitHub (selected repo, immutable static build, account-scoped publish). Planned integration cards **do not** mean live provider operations. Node/Next.js SSR must be disabled on incompatible static/PHP-only plans.
+
 ## 2. Target end-to-end customer journey — Namecheap-class outcome, independent execution
 
 ```mermaid
