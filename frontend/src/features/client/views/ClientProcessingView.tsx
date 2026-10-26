@@ -41,8 +41,8 @@ export function ClientProcessingView(){
   },[]);
 
   useEffect(()=>{
-    const id=invoiceId;
-    if(id===null)return;
+    if(invoiceId===null)return;
+    const id:number=Number(invoiceId);
     let active=true;
     let fetching=false;
     let attempts=0;
