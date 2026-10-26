@@ -15,7 +15,7 @@ export function SupportDeskView({role}:{role:Role}){
   const [tickets,setTickets]=useState<TicketDetail[]>([]);
   const [loading,setLoading]=useState(true),[error,setError]=useState(""),[query,setQuery]=useState(""),[filter,setFilter]=useState("active");
   useEffect(()=>{let active=true;supportApi.tickets().then(result=>{if(active)setTickets(asList(result as unknown as TicketDetail[]|{results:TicketDetail[]}));})
-    .catch(()=>{if(active)setError("Tickets could not be loaded. Please reopen your workspace.");})
+    .catch(()=>{if(active)setError("We couldn't load the support queue. Refresh the page and try again.");})
     .finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[]);
   const shown=useMemo(()=>tickets.filter(t=>(filter==="all"||(
     filter==="active"?open.has(t.status):filter===t.status))&&
