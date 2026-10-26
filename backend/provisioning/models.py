@@ -121,7 +121,15 @@ class ProvisioningTask(models.Model):
         # No implicit service state mutation; future accepted workers own it.
     
     def mark_failed(self, error, error_code=None):
-        """Mark task as failed"""
+        """Never blindly retry a potentially applied provider mutation."""
+        if self.action not in ("sync_usage", "sync_details"):
+            self.attempt_count += 1
+            self.last_error = "Provider-changing operation needs manual reconciliation."
+            self.last_error_code = "REMOTE_OUTCOME_UNKNOWN"
+            self.status = "needs_review"
+            self.save(update_fields=["attempt_count", "last_error", "last_error_code",
+                                     "status", "updated_at"])
+            return
         self.attempt_count += 1
         self.last_error = str(error)
         self.last_error_code = error_code
@@ -151,7 +159,9 @@ class ProvisioningTask(models.Model):
     
     def can_retry(self):
         """Check if task can be retried"""
-        return self.attempt_count < self.max_attempts and self.status in ['failed', 'retrying']
+        return (self.action in ("sync_usage", "sync_details")
+                and self.attempt_count < self.max_attempts
+                and self.status in ['failed', 'retrying'])
     
     def is_overdue(self):
         """Check if task is overdue"""
