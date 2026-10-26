@@ -2,14 +2,14 @@ import {Cloud, ShieldCheck, Headphones, type LucideIcon} from "lucide-react";
 type Audience = "client" | "staff" | "admin";
 type Content = {eyebrow:string; description:string; icon:LucideIcon};
 const copy:Record<Audience,Content> = {
- client: {eyebrow:"Your Octalve Cloud workspace",description:"Manage your services, domains, invoices, wallet and support in one place.",icon:Cloud},
+ client: {eyebrow:"Your Octalve Cloud Console",description:"Manage your services, domains, invoices, wallet and support in one place.",icon:Cloud},
  admin: {eyebrow:"Your Octalve Cloud administration",description:"Keep track of customers, hosting services, invoices, domains and provisioning.",icon:ShieldCheck},
- staff: {eyebrow:"Your Octalve Cloud workspace",description:"Follow customer requests, orders, support cases and provisioning.",icon:Headphones},
+ staff: {eyebrow:"Your Octalve Cloud Console",description:"Follow customer requests, orders, support cases and provisioning.",icon:Headphones},
 };
 /** Deliberately light/legible independent of legacy CSS background rules. */
 export function WorkspaceWelcomePanel({name,audience}:{name:string;audience:Audience}){
  const data=copy[audience],Icon=data.icon;
- return <section aria-label="Workspace welcome" className="relative overflow-hidden rounded-2xl border border-slate-200 border-t-4 border-t-blue-600 bg-white px-6 py-6 text-slate-950 shadow-sm sm:px-8 sm:py-8">
+ return <section aria-label="Console welcome" className="relative overflow-hidden rounded-2xl border border-slate-200 border-t-4 border-t-blue-600 bg-white px-6 py-6 text-slate-950 shadow-sm sm:px-8 sm:py-8">
   <div className="relative flex items-start justify-between gap-5">
    <div className="min-w-0 max-w-3xl">
     <p className="text-xs font-bold uppercase tracking-widest text-blue-700">{data.eyebrow}</p>

@@ -25,12 +25,12 @@ export function DashboardHeader({role,onMenuClick,onLogout,loggingOut}:{
    <div className="relative hidden min-w-0 w-full max-w-md sm:block">
      <label className="relative block">
        <Search className="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-slate-400"/>
-       <input type="search" aria-label="Find a workspace page" placeholder="Find a page"
+       <input type="search" aria-label="Find a Console page" placeholder="Find a page"
          value={query} onChange={e=>setQuery(e.target.value)}
          onKeyDown={e=>{if(e.key==="Escape")setQuery("");if(e.key==="Enter"&&found[0]){router.push(found[0].href);setQuery("");}}}
          className="h-10 w-full rounded-lg border border-slate-200 bg-[#F6F8FB] pl-10 pr-4 text-sm text-[#142A43] outline-none focus:border-[#0064E0]"/>
      </label>
-     {found.length>0&&<div role="navigation" aria-label="Workspace search results" className="absolute inset-x-0 top-11 z-50 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+     {found.length>0&&<div role="navigation" aria-label="Console search results" className="absolute inset-x-0 top-11 z-50 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
        {found.map(x=><Link key={x.href} href={x.href} onClick={()=>setQuery("")}
          className="block rounded-lg px-3 py-2 text-xs font-semibold text-[#142A43] hover:bg-[#EAF3FF]">{x.label}</Link>)}
      </div>}
@@ -48,7 +48,7 @@ export function DashboardHeader({role,onMenuClick,onLogout,loggingOut}:{
        {open&&<>
          <button className="fixed inset-0 z-40 cursor-default" type="button" aria-label="Close account menu" onClick={()=>setOpen(false)}/>
          <div role="menu" className="absolute right-0 top-12 z-50 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-           <p className="border-b border-slate-100 px-3 py-2 text-xs text-slate-500">{role==="client"?"Client workspace":role==="admin"?"Admin workspace":"Staff workspace"}</p>
+           <p className="border-b border-slate-100 px-3 py-2 text-xs text-slate-500">{role==="client"?"Client Console":role==="admin"?"Admin Console":"Staff Console"}</p>
            <Link role="menuitem" href={settings} onClick={()=>setOpen(false)}
              className="mt-1 flex items-center gap-2 rounded-lg px-3 py-3 text-sm hover:bg-slate-50"><Settings className="h-4 w-4"/>Profile and settings</Link>
            <button role="menuitem" type="button" disabled={loggingOut} onClick={()=>{setOpen(false);onLogout();}}

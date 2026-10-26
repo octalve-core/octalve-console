@@ -10,6 +10,7 @@ const root=path.resolve(__dirname,"../src");
 const paths=[
   ["components/data/WorkspaceWelcomePanel.tsx",["bg-white","text-slate-950"]],
   ["features/client/components/ClientDomainSearch.tsx",["bg-slate-50","text-slate-950"]],
+  ["features/client/components/domain-search/DomainSearchForm.tsx",["items-center","gap-3","focus-within:border-[#0064E0]"]],
   ["features/client/components/KnowledgeBaseHero.tsx",["bg-white","text-slate-950"]],
   ["components/branding/CloudBrandLogo.tsx",["max-w-[133px]","px-14"]]
 ];
@@ -30,6 +31,24 @@ for(const filename of wrappers){
  const text=fs.readFileSync(path.join(root,filename),"utf8");
  if(!text.includes("WorkspaceWelcomePanel"))
   throw new Error(`${filename}: shared workspace hero missing`);
+}
+
+const domainForm=fs.readFileSync(path.join(root,"features/client/components/domain-search/DomainSearchForm.tsx"),"utf8");
+if(!domainForm.includes('className="flex h-14 min-w-0 flex-1 items-center gap-3') ||
+   !domainForm.includes('className="h-5 w-5 shrink-0') ||
+   !domainForm.includes('className="block h-full min-w-0 flex-1') ||
+   domainForm.includes("absolute left-") || domainForm.includes("translate-y-1/2")){
+ throw new Error("Domain search icon and text must share an in-flow, vertically centered flex row");
+}
+const welcome=fs.readFileSync(path.join(root,"components/data/WorkspaceWelcomePanel.tsx"),"utf8");
+if(!welcome.includes('eyebrow:"Your Octalve Cloud Console"') ||
+   /eyebrow:"[^"]*workspace"/i.test(welcome) ||
+   !welcome.includes('aria-label="Console welcome"')){
+ throw new Error("Welcome copy must identify Octalve Console, not Workspace");
+}
+const header=fs.readFileSync(path.join(root,"components/layout/DashboardHeader.tsx"),"utf8");
+if(/(?:Client|Admin|Staff) workspace|Workspace search results|Find a workspace page/i.test(header)){
+ throw new Error("Dashboard navigation must consistently use Console terminology");
 }
 if(process.argv.includes("--built")){
  const staticDir=path.resolve(__dirname,"../../.next");
