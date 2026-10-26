@@ -8,6 +8,7 @@ import {ResponsiveGrid} from "@/components/data/ResponsiveGrid";
 import {useAuth} from "@/context/AuthContext";
 import {formatCurrency,formatNumber} from "@/lib/formatters";
 import {ClientHero} from "../components/ClientHero";
+import {WorkspaceQuickActions} from "@/components/data/WorkspaceQuickActions";
 import {ClientSectionCard} from "../components/ClientSectionCard";
 import {useClientSummary} from "../hooks/useClientSummary";
 import {useAutoSync} from "@/lib/hooks/useAutoSync";
@@ -27,6 +28,7 @@ export function ClientDashboardView(){
     description="Manage hosting, domains, billing and support.">
     <div className="space-y-6">
       <ClientHero name={firstName}/>
+      <WorkspaceQuickActions role="client"/>
       {summary.status==="partial"&&<div role="status"
         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         <p>Some account information could not be refreshed. Your existing services and invoices have not been changed.</p>
