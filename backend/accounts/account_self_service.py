@@ -56,7 +56,8 @@ class OwnProfileSerializer(serializers.ModelSerializer):
         return obj.email_verified_at is not None
 
     def validate(self, attrs):
-        disallowed = set(self.initial_data) - set(self.fields)
+        writable = set(self.fields) - {"email", "email_verified"}
+        disallowed = set(self.initial_data) - writable
         if disallowed:
             raise serializers.ValidationError("Only contact and billing details can be changed.")
         for key, value in attrs.items():

@@ -47,6 +47,22 @@ class AccountSelfServiceTests(APITestCase):
         self.assertEqual(self.user.email,"owner@example.invalid")
         self.assertEqual(self.other.address,"")
 
+    def test_email_and_verification_state_cannot_be_self_assigned(self):
+        for payload in (
+            {"email":"other@example.invalid"},
+            {"email_verified":True},
+            {"email_verified_at":"2026-10-26T12:00:00Z"},
+            {"is_staff":True},
+            {"tax_exempt":True},
+        ):
+            response=self.client.patch("/api/auth/profile/",payload,format="json")
+            self.assertEqual(response.status_code,400,(payload,response.data))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email,"owner@example.invalid")
+        self.assertFalse(self.user.is_staff)
+        self.assertFalse(self.user.tax_exempt)
+        self.assertIsNone(self.user.email_verified_at)
+
     def test_unauthenticated_profile_is_rejected(self):
         self.client.force_authenticate(user=None)
         self.assertIn(self.client.get("/api/auth/profile/").status_code,(401,403))
