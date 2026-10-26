@@ -52,8 +52,8 @@ export function TicketConversationView({role}:{role:Role}){
   const canReply=ticket&&!["closed","trash"].includes(ticket.status);
   return <DashboardShell role={role} title="Support conversation" description="Secure ticket history and support messages.">
     <DashboardPage eyebrow="Support" title={ticket?.subject||"Support ticket"} description="Follow your conversation and its latest status.">
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-3">
+        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7 xl:col-span-2">
           <Link href={back} className="inline-flex items-center gap-2 text-sm font-medium text-[#0064E0]"><ArrowLeft className="h-4 w-4"/>Back to tickets</Link>
           {loading?<p role="status" className="mt-5 text-sm text-slate-500">Opening conversation…</p>:null}
           {error?<p role="alert" className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
@@ -85,7 +85,7 @@ export function TicketConversationView({role}:{role:Role}){
               <label htmlFor="ticket-reply" className="mb-2 block text-sm font-medium">Write a reply</label>
               <textarea id="ticket-reply" required maxLength={20000} rows={5} value={reply}
                 onChange={e=>setReply(e.target.value)} placeholder="Write a helpful response…"
-                className="w-full rounded-xl border border-slate-200 p-4 text-sm leading-7 outline-none focus-visible:ring-2 focus-visible:ring-[#0064E0]"/>
+                className="block min-h-40 w-full min-w-0 resize-y rounded-xl border border-slate-300 bg-white p-4 text-base leading-7 text-slate-950 outline-none focus:border-[#0064E0] focus:ring-2 focus:ring-blue-100"/>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                 {role!=="client"?<label className="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={internal} onChange={e=>setInternal(e.target.checked)} className="accent-[#0064E0]"/>Internal note (hidden from customer)</label>:<span className="text-xs text-slate-500">Your reply is visible to authorized support staff.</span>}
                 <button type="submit" disabled={busy||!reply.trim()} className="inline-flex items-center gap-2 rounded-xl bg-[#0064E0] px-5 py-3 text-sm font-medium text-white disabled:opacity-50"><Send className="h-4 w-4"/>{busy?"Sending…":"Send reply"}</button>
@@ -93,7 +93,7 @@ export function TicketConversationView({role}:{role:Role}){
             </form>:<p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">This ticket is closed. Reopen it to continue the conversation.</p>}
           </div>:null}
         </section>
-        <aside className="h-fit space-y-4">
+        <aside className="h-fit min-w-0 space-y-4 xl:col-span-1">
           <section className="rounded-2xl border border-slate-200 bg-white p-5">
             <h3 className="flex items-center gap-2 font-medium"><ShieldCheck className="h-4 w-4 text-[#0064E0]"/>Ticket details</h3>
             {ticket?<dl className="mt-4 space-y-3 text-sm">
@@ -107,7 +107,7 @@ export function TicketConversationView({role}:{role:Role}){
             <p className="mt-2 text-xs leading-5 text-slate-500">Only eligible department specialists can be assigned.</p>
             <select aria-label="Assign support specialist" value={ticket.assigned_to||""}
               onChange={e=>{const id=Number(e.target.value);if(id)void action("assign",id);}}
-              className="mt-4 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm">
+              className="mt-4 block h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base text-slate-950 focus:border-[#0064E0] focus:outline-none focus:ring-2 focus:ring-blue-100">
               <option value="">Department queue</option>
               {eligibleAgents.map(agent=><option key={agent.id} value={agent.id}>{agent.full_name||`Agent #${agent.id}`}</option>)}
             </select>
