@@ -11,7 +11,7 @@ const open=new Set(["open","in_progress","waiting_staff","on_hold"]);
 export function SupportDeskView({role}:{role:Role}){
   const [tickets,setTickets]=useState<TicketDetail[]>([]);
   const [loading,setLoading]=useState(true),[error,setError]=useState(""),[query,setQuery]=useState(""),[filter,setFilter]=useState("active");
-  useEffect(()=>{let active=true;supportApi.tickets().then(result=>{if(active)setTickets(asList(result as TicketDetail[]|{results:TicketDetail[]}));})
+  useEffect(()=>{let active=true;supportApi.tickets().then(result=>{if(active)setTickets(asList(result as unknown as TicketDetail[]|{results:TicketDetail[]}));})
     .catch(()=>{if(active)setError("Tickets could not be loaded. Please reopen your workspace.");})
     .finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[]);
   const shown=useMemo(()=>tickets.filter(t=>(filter==="all"||(

@@ -29,7 +29,7 @@ export function ClientSupportTicketEditorView(){
         department_id:Number(department),
         routing_tag_id:topic?Number(topic):null,
         subject:subject.trim(),message:message.trim(),priority
-      }) as TicketDetail;
+      }) as unknown as TicketDetail;
       if(!response.id||!response.ticket_number)throw Error("Ticket not confirmed");
       router.push(`/client/support/${encodeURIComponent(String(response.id))}`);
     }catch{setError("We couldn't submit your request. Review the details and try again.");setBusy(false);}
