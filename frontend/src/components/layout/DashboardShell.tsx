@@ -1,307 +1,38 @@
 "use client";
+import {useState,type ReactNode} from "react";
+import {usePathname,useRouter} from "next/navigation";
+import {useAuth} from "@/context/AuthContext";
+import {DashboardHeader} from "@/components/layout/DashboardHeader";
+import {DashboardSidebar} from "@/components/layout/DashboardSidebar";
+import type {DashboardRole} from "@/lib/navigation/dashboard-nav";
 
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
-import {
-  BarChart3,
-  BookOpen,
-  Boxes,
-  ChevronDown,
-  Search,
-  CreditCard,
-  Globe2,
-  LayoutDashboard,
-  LifeBuoy,
-  ListChecks,
-  LogOut,
-  Menu,
-  PackageCheck,
-  ReceiptText,
-  Server,
-  Settings,
-  Shield,
-  ShoppingCart,
-  Ticket,
-  UserRound,
-  Users,
-  WalletCards,
-  X,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/context/AuthContext";
-import {
-  getDashboardNavGroups,
-  type DashboardNavIcon,
-  type DashboardRole,
-} from "@/lib/navigation/dashboard-nav";
-
-type DashboardShellProps = {
-  role: DashboardRole;
-  title: string;
-  description?: string;
-  actions?: ReactNode;
-  children: ReactNode;
-};
-
-const iconMap: Record<DashboardNavIcon, LucideIcon> = {
-  layoutDashboard: LayoutDashboard,
-  users: Users,
-  boxes: Boxes,
-  listChecks: ListChecks,
-  receiptText: ReceiptText,
-  creditCard: CreditCard,
-  globe2: Globe2,
-  server: Server,
-  zap: Zap,
-  lifeBuoy: LifeBuoy,
-  bookOpen: BookOpen,
-  settings: Settings,
-  shield: Shield,
-  barChart3: BarChart3,
-  walletCards: WalletCards,
-  shoppingCart: ShoppingCart,
-  userRound: UserRound,
-  ticket: Ticket,
-  packageCheck: PackageCheck,
-};
-
-function getRoleLabel(role: DashboardRole) {
-  if (role === "admin") return "Admin Console";
-  if (role === "staff") return "Staff Workspace";
-  return "Client Console";
-}
-
-function getRoleName(role: DashboardRole) {
-  if (role === "admin") return "Octalve Admin";
-  if (role === "staff") return "Octalve Staff";
-  return "Octalve Client";
-}
-
-export function DashboardShell({
-  role,
-  title,
-  description,
-  actions,
-  children,
-}: DashboardShellProps) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { user, logout } = useAuth();
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [pageQuery, setPageQuery] = useState("");
-
-  const navGroups = useMemo(() => getDashboardNavGroups(role), [role]);
-  const pageMatches = useMemo(() => navGroups.flatMap(group => group.items)
-    .filter(item => pageQuery.trim().length > 1 && item.label.toLowerCase().includes(pageQuery.trim().toLowerCase()))
-    .slice(0, 6), [navGroups, pageQuery]);
-  const settingsHref = role === "admin" ? "/admin/settings" : role === "staff" ? "/staff/security" : "/client/profile";
-  const verifiedRole = user?.role;
-  const accessibleWorkspace = verifiedRole === "admin" ? "/admin" : verifiedRole === "staff" ? "/staff" : "/client";
-
-  const displayName =
-    user?.name ||
-    user?.full_name ||
-    getRoleName(role);
-
-  async function handleLogout() {
-    setIsLoggingOut(true);
-
-    try {
-      await logout();
-      router.replace("/login");
-    } finally {
-      setIsLoggingOut(false);
-    }
-  }
-
-  const sidebar = (
-    <aside className="flex h-full flex-col bg-[#000A16] text-white">
-      <div className="flex items-center justify-between px-5 py-5">
-        <Link href={`/${role}`} className="flex items-center gap-3">
-          <div className="grid h-11 w-11 grid-cols-2 gap-1 rounded-2xl bg-white p-2 shadow-soft">
-            <span className="rounded-full bg-[#0064E0]" />
-            <span className="rounded-full bg-[#E61525]" />
-            <span className="rounded-full bg-[#FC7E24]" />
-            <span className="rounded-full bg-[#29BE3E]" />
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold tracking-[-0.03em] text-white">
-              Octalve Console
-            </p>
-            <p className="text-xs text-slate-400">Cloud business OS</p>
-          </div>
-        </Link>
-
-        <button
-          type="button"
-          onClick={() => setSidebarOpen(false)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 text-slate-300 lg:hidden"
-          aria-label="Close sidebar"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-
-      <div className="flex-1 space-y-7 overflow-y-auto px-4 pb-6">
-        {navGroups.map((group) => (
-          <div key={group.title}>
-            <p className="px-3 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              {group.title}
-            </p>
-
-            <div className="mt-3 space-y-1">
-              {group.items.map((item) => {
-                const Icon = iconMap[item.icon];
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== `/${role}` && pathname.startsWith(item.href));
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setSidebarOpen(false)}
-                    className={cn(
-                      "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition",
-                      isActive
-                        ? "bg-[#0064E0] text-white"
-                        : "text-slate-300 hover:bg-white/8 hover:text-white",
-                    )}
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="border-t border-white/10 p-4">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white">
-              <LifeBuoy className="h-5 w-5" />
-            </div>
-
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white">Need help?</p>
-              <p className="truncate text-xs text-slate-400">
-                Support and assistance
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <LogOut className="h-4 w-4" />
-          {isLoggingOut ? "Logging out..." : "Logout"}
-        </button>
-      </div>
-    </aside>
-  );
-
-  return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#142A43]">
-      <div className="fixed inset-y-0 left-0 z-40 hidden w-[17.5rem] lg:block">
-        {sidebar}
-      </div>
-
-      {sidebarOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 bg-slate-950/50"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Close sidebar overlay"
-          />
-          <div className="relative h-full w-[17.5rem] max-w-[86vw]">
-            {sidebar}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="lg:pl-[17.5rem]">
-        <header className="sticky top-0 z-30 border-b border-[#E7EDF5] bg-white/95 backdrop-blur-xl">
-          <div className="flex min-h-[68px] items-center gap-3 px-4 sm:px-6 lg:px-6">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm lg:hidden"
-              aria-label="Open sidebar"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-
-            <div className="relative hidden w-full max-w-md md:block">
-              <label className="flex h-11 items-center gap-3 rounded-xl border border-[#E4EAF3] bg-[#F6F8FB] px-4 text-slate-400 focus-within:border-[#0064E0]">
-                <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="sr-only">Find a page</span>
-                <input aria-label="Find a page" value={pageQuery} onChange={event => setPageQuery(event.target.value)}
-                  onKeyDown={event => { if(event.key === "Enter" && pageMatches[0]) {router.push(pageMatches[0].href); setPageQuery("");}}}
-                  placeholder="Find a page..." className="min-w-0 flex-1 bg-transparent text-sm text-[#142A43] outline-none placeholder:text-slate-400" />
-              </label>
-              {pageMatches.length ? <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-                {pageMatches.map(item => <Link key={item.href} href={item.href} onClick={() => setPageQuery("")}
-                  className="block rounded-lg px-3 py-2 text-sm font-medium text-[#142A43] hover:bg-[#EAF3FF] hover:text-[#0064E0]">{item.label}</Link>)}
-              </div> : null}
-            </div>
-
-            <div className="ml-auto flex items-center gap-3">
-              {actions}
-
-              <div className="relative">
-                <button type="button" onClick={() => setProfileOpen(value => !value)} aria-haspopup="menu"
-                  aria-expanded={profileOpen} aria-label="Account and workspace menu"
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition hover:border-blue-200 sm:gap-3 sm:px-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF3FF] text-[#0064E0]"><UserRound className="h-5 w-5" /></span>
-                  <span className="hidden min-w-0 text-left sm:block"><span className="block max-w-40 truncate text-xs font-semibold text-slate-950">{displayName}</span>
-                    <span className="block text-[11px] capitalize text-slate-500">{role} workspace</span></span>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                </button>
-                {profileOpen && <><button type="button" className="fixed inset-0 z-40 cursor-default" onClick={() => setProfileOpen(false)} aria-label="Close account menu"/>
-                  <div role="menu" aria-label="Account actions" className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
-                    <div className="border-b border-slate-100 px-3 py-3"><p className="truncate text-sm font-semibold text-slate-900">{displayName}</p>
-                      <p className="truncate text-xs text-slate-500">{user?.email || getRoleLabel(role)}</p></div>
-                    <Link role="menuitem" href={settingsHref} onClick={() => setProfileOpen(false)}
-                      className="mt-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                      <Settings className="h-4 w-4 text-[#0064E0]"/> {role==="client"?"Profile and settings":"Settings"}
-                    </Link>
-                    {accessibleWorkspace !== `/${role}` && <Link role="menuitem" href={accessibleWorkspace} onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-700 hover:bg-blue-50">
-                      <Shield className="h-4 w-4 text-[#0064E0]"/> Switch to {verifiedRole} workspace
-                    </Link>}
-                    <button role="menuitem" type="button" disabled={isLoggingOut} onClick={() => {setProfileOpen(false); void handleLogout();}}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50">
-                      <LogOut className="h-4 w-4"/> {isLoggingOut?"Signing out...":"Log out"}
-                    </button>
-                  </div></>}
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <main className="px-4 py-5 sm:px-6 lg:px-6">
-          <span className="sr-only">
-            {getRoleLabel(role)} {title} {description ?? ""}
-          </span>
-
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+type Props={role:DashboardRole;title:string;description?:string;actions?:ReactNode;children:ReactNode};
+/** Structural workspace shell. Each section lives in its own TypeScript/Tailwind component. */
+export function DashboardShell({role,title,description,actions,children}:Props){
+ const pathname=usePathname(),router=useRouter();
+ const {logout}=useAuth();
+ const [sidebarOpen,setSidebarOpen]=useState(false),[loggingOut,setLoggingOut]=useState(false);
+ async function handleLogout(){
+   setLoggingOut(true);
+   try{await logout();router.replace("/login");}finally{setLoggingOut(false);}
+ }
+ const side=<DashboardSidebar role={role} pathname={pathname}
+   onClose={()=>setSidebarOpen(false)} onLogout={()=>{void handleLogout();}} loggingOut={loggingOut}/>;
+ return <div className="min-h-screen bg-[#F8FAFC] text-[#142A43]">
+   <div className="fixed inset-y-0 left-0 z-40 hidden w-[17.5rem] lg:block">{side}</div>
+   {sidebarOpen&&<div className="fixed inset-0 z-50 lg:hidden">
+     <button type="button" onClick={()=>setSidebarOpen(false)}
+       aria-label="Close navigation overlay" className="absolute inset-0 bg-slate-950/60"/>
+     <div className="relative h-full w-[17.5rem] max-w-[86vw]">{side}</div>
+   </div>}
+   <div className="lg:pl-[17.5rem]">
+     <DashboardHeader role={role} onMenuClick={()=>setSidebarOpen(true)}
+       onLogout={()=>{void handleLogout();}} loggingOut={loggingOut}/>
+     <main className="min-w-0 px-4 py-5 sm:px-6">
+       <span className="sr-only">{role} {title} {description??""}</span>
+       {actions&&<div className="mb-4 flex flex-wrap justify-end gap-2">{actions}</div>}
+       {children}
+     </main>
+   </div>
+ </div>;
 }
