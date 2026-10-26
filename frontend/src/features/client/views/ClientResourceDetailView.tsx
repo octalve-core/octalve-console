@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -22,7 +21,6 @@ import { Card } from "@/components/ui/Card";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ErrorState } from "@/components/feedback/ErrorState";
-import { LoadingState } from "@/components/feedback/LoadingState";
 import { formatStatus, getStatusTone } from "@/lib/constants/status";
 import { clientResourceConfig } from "../data/client-resource-config";
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
@@ -54,17 +52,11 @@ function getDetailActions(resource: ClientResourceKey, record: ClientRecord) {
   }
 
   if (resource === "domains") {
-    return [
-      { label: "Manage DNS", href: "#", variant: "primary" as const },
-      { label: "Renew domain", href: "/client/invoices", variant: "outline" as const },
-    ];
+    return [{ label: "Get domain support", href: "/client/support/new", variant: "outline" as const }];
   }
 
   if (resource === "invoices") {
-    return [
-      { label: "Pay invoice", href: "/client/order/checkout", variant: "primary" as const },
-      { label: "Download PDF", href: "#", variant: "outline" as const },
-    ];
+    return [{ label: "Back to invoices", href: "/client/invoices", variant: "outline" as const }];
   }
 
   if (resource === "orders") {
@@ -102,10 +94,10 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
       // Never substitute sample hosting/domain/order/invoice data for a missing
       // live record. A missing API object is not proof of customer ownership.
       setRecord(foundApiRecord ?? null);
-      if (!foundApiRecord) setError("This record was not returned by the authorized service.");
+      if (!foundApiRecord) setError("We could not find this item in your account.");
     } catch {
       setRecord(null);
-      setError("The authoritative record could not be loaded. Retry or contact support.");
+      setError("We couldn’t load these details right now. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -142,7 +134,7 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
         }
       >
         {isLoading ? (
-          <LoadingState title="Loading details" description="Fetching your record from the Django API." />
+          <div role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Opening your details…</div>
         ) : !record ? (
           <ErrorState title="Record unavailable" description={error || "The authorized API did not return this record."} />
         ) : (
@@ -172,7 +164,7 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <Server className="h-4 w-4" />
-                    Meta
+                    Details
                   </div>
                   <p className="mt-2 text-sm font-medium text-slate-950">{record.meta}</p>
                 </div>
@@ -228,12 +220,6 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
               </Card>
             </div>
 
-            <p className="text-center text-xs text-slate-400">
-              API-ready client detail route:{" "}
-              <Link href={record.actionHref} className="text-[#0064E0]">
-                {record.actionHref}
-              </Link>
-            </p>
           </div>
         )}
       </DashboardPage>
