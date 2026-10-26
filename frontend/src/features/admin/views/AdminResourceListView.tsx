@@ -135,6 +135,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
             <ErrorState description={error} />
           ) : (
             <AdminRecordList
+              resource={resource}
               records={records}
               emptyTitle={config.emptyTitle}
               emptyDescription={config.emptyDescription}

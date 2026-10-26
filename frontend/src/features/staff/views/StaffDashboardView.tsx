@@ -65,15 +65,15 @@ export function StaffDashboardView() {
       <StaffHero name={firstName}/>
       <div aria-busy={loading}>
         <ResponsiveGrid columns="4">
-          <MetricCard label="Assigned customers" value={show(counts.customers)}
+          <MetricCard label="Assigned customers" accent="blue" value={show(counts.customers)}
             description="Accounts needing support" icon={<Users className="h-5 w-5"/>}/>
-          <MetricCard label="Orders" value={show(counts.orders)}
+          <MetricCard label="Orders" accent="orange" value={show(counts.orders)}
             description="Orders needing action" icon={<ShoppingCart className="h-5 w-5"/>}/>
-          <MetricCard label="Provisioning tasks" value={show(counts.provisioning)}
+          <MetricCard label="Provisioning tasks" accent="purple" value={show(counts.provisioning)}
             description="Automation queue" icon={<Zap className="h-5 w-5"/>}/>
-          <MetricCard label="Tickets" value={show(counts.tickets)}
+          <MetricCard label="Tickets" accent="rose" value={show(counts.tickets)}
             description="Support workload" icon={<LifeBuoy className="h-5 w-5"/>}/>
-          <MetricCard label="Knowledge articles" value={show(counts.knowledgeBase)}
+          <MetricCard label="Knowledge articles" accent="green" value={show(counts.knowledgeBase)}
             description="Internal support guides" icon={<BookOpen className="h-5 w-5"/>}/>
         </ResponsiveGrid>
       </div>

@@ -99,37 +99,37 @@ export function AdminOverviewView() {
         ) : (
           <ResponsiveGrid columns="4">
             <MetricCard
-              label="Customers"
+              label="Customers" accent="blue"
               value={counts.customers === null ? "—" : formatNumber(counts.customers)}
               description="Registered client accounts"
               icon={<Users className="h-5 w-5" />}
             />
             <MetricCard
-              label="Active services"
+              label="Active services" accent="green"
               value={counts.services === null ? "—" : formatNumber(counts.services)}
               description="Hosting and cloud services"
               icon={<PackageCheck className="h-5 w-5" />}
             />
             <MetricCard
-              label="Invoices"
+              label="Invoices" accent="orange"
               value={counts.invoices === null ? "—" : formatNumber(counts.invoices)}
               description="Billing records"
               icon={<ReceiptText className="h-5 w-5" />}
             />
             <MetricCard
-              label="Domains"
+              label="Domains" accent="purple"
               value={counts.domains === null ? "—" : formatNumber(counts.domains)}
               description="Registered domains"
               icon={<Globe2 className="h-5 w-5" />}
             />
             <MetricCard
-              label="Providers"
+              label="Providers" accent="rose"
               value={counts.providers === null ? "—" : formatNumber(counts.providers)}
               description="Server and registrar adapters"
               icon={<Server className="h-5 w-5" />}
             />
             <MetricCard
-              label="Transactions"
+              label="Transactions" accent="blue"
               value={counts.transactions === null ? "—" : formatNumber(counts.transactions)}
               description="Payment activity"
               icon={<CreditCard className="h-5 w-5" />}
