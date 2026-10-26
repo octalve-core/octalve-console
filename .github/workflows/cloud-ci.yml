@@ -63,6 +63,8 @@ jobs:
         run: pnpm build:frontend
       - name: Workspace contrast and emitted Tailwind CSS regression
         run: node frontend/scripts/check-contrast-safe-cloud-panels.cjs --built
+      - name: Console design system emitted Tailwind regression
+        run: node frontend/scripts/check-console-design-system.cjs --built
 
   django-check:
     runs-on: ubuntu-latest
