@@ -18,9 +18,15 @@ export function ClientOrderView() {
     loadSellablePlans().then(items => {
       if (!live) return;
       setPlans(items);
-      const first = items[0];
-      setPlanId(first?.id || "");
-      setCycleKey(defaultCycle(first)?.key || "");
+      const params = new URLSearchParams(window.location.search);
+      const requestedPlan = params.get("plan") || "";
+      const requestedCycle = params.get("cycle") || "";
+      const chosen = items.find(item => item.id === requestedPlan) || items[0];
+      setPlanId(chosen?.id || "");
+      setCycleKey(chosen?.cycles.find(c => c.key === requestedCycle)?.key || defaultCycle(chosen)?.key || "");
+      if (requestedPlan && !items.some(item => item.id === requestedPlan)) {
+        setError("That plan is no longer available. Select one of the currently published packages below.");
+      }
     }).catch(() => { if(live) setError("We couldn’t load hosting plans right now. Please try again. No order has been placed."); })
       .finally(() => {if(live) setLoading(false);});
     return () => {live = false;};
