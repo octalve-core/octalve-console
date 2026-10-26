@@ -12,6 +12,7 @@ from urllib.parse import quote
 
 import requests
 from django.conf import settings
+from .sandbox import gateway_can_read, secret_matches_mode
 
 
 class PaymentReadbackRejected(ValueError):
@@ -54,8 +55,8 @@ def verify_gateway_intent(intent, *, getter=None):
         raise PaymentReadbackRejected("Unknown server-issued payment intent.")
     gateway, invoice = intent.gateway, intent.invoice
     order = invoice.order
-    if (gateway.code not in ("paystack", "flutterwave") or gateway.status != "active"
-            or gateway.test_mode or intent.status not in ("pending", "processing")
+    if (not gateway_can_read(gateway)
+            or intent.status not in ("pending", "processing")
             or intent.is_expired() or invoice.status not in ("unpaid", "partially_paid")
             or not order or order.status != "pending_payment"
             or invoice.client_id != intent.client_id or order.client_id != intent.client_id
@@ -67,10 +68,8 @@ def verify_gateway_intent(intent, *, getter=None):
     if not isinstance(ref, str) or not REFERENCE.fullmatch(ref):
         raise PaymentReadbackRejected("Gateway payment reference is invalid.")
     secret = gateway.get_secret_key()
-    if not isinstance(secret, str) or len(secret) < 16:
-        raise PaymentReadbackRejected("Gateway credential is not configured.")
-    if secret.startswith(("sk_test_", "FLWSECK_TEST")):
-        raise PaymentReadbackRejected("Test-mode gateway credentials are not valid for settlement.")
+    if not secret_matches_mode(gateway, secret):
+        raise PaymentReadbackRejected("Gateway credential does not match approved execution mode.")
     if gateway.code == "paystack":
         url = "https://api.paystack.co/transaction/verify/" + quote(ref, safe="")
         query = None
@@ -102,7 +101,7 @@ def verify_gateway_intent(intent, *, getter=None):
         if gateway.code == "paystack":
             if packet.get("status") is not True or data.get("status") != "success":
                 raise PaymentReadbackRejected("Paystack did not confirm settlement.")
-            if data.get("domain") == "test" or data.get("reference") != ref:
+            if (data.get("domain") == "test") != bool(gateway.test_mode) or data.get("reference") != ref:
                 raise PaymentReadbackRejected("Paystack verified another transaction.")
             # Paystack returns amounts in integer minor units (kobo for NGN).
             minor = data.get("amount")
