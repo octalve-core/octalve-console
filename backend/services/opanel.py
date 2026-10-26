@@ -16,6 +16,7 @@ from opanel_bridge.policy import enabled, eligible
 
 
 def opanel_overview(service):
+    provider_confirmed = bool(eligible(service.client_id, service.pk))
     latest = ServiceUsage.objects.filter(service=service).first()
     usage = None if latest is None else {
         'disk_used_mb': latest.disk_used_mb,
@@ -30,9 +31,12 @@ def opanel_overview(service):
         'domain_name': service.domain_name,
         'service_type': service.service_type,
         'status': service.status,
-        'active': service.status == 'active' and bool(service.provider_identifier),
+        'active': provider_confirmed,
         'usage': usage,
         'usage_status': 'snapshot' if usage else 'unavailable',
+        'hosting_account_verified': provider_confirmed,
+        'website_public_status': 'unverified',
+        'dns_public_status': 'unverified',
         'capabilities': {
             'overview': True,
             'files': False,
