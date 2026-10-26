@@ -1,12 +1,14 @@
 "use client";
 
 import {useEffect,useState} from "react";
-import {WalletCards,RefreshCcw} from "lucide-react";
+import {RefreshCcw} from "lucide-react";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {DashboardShell} from "@/components/layout/DashboardShell";
-import {MetricCard} from "@/components/data/MetricCard";
+import {Panel} from "@/components/design-system/Panel";
+import {ActionButton} from "@/components/design-system/ActionButton";
+import {ActionLink} from "@/components/design-system/ActionLink";
+import {WalletBalanceCard} from "../components/commerce/WalletBalanceCard";
 import {clientApi} from "@/lib/api/endpoints";
-import {formatCurrency} from "@/lib/formatters";
 
 export function ClientWalletView(){
   const [balance,setBalance]=useState<number|null>(null);
@@ -32,23 +34,19 @@ export function ClientWalletView(){
         {status==="unavailable"&&<div role="alert"
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p>We couldn’t confirm your wallet balance right now. Please try again.</p>
-          <button type="button" onClick={()=>setRevision(x=>x+1)}
-            className="rounded-lg border border-amber-300 bg-white px-3 py-2 font-semibold">
-            <RefreshCcw className="mr-2 inline h-4 w-4"/>Refresh
-          </button>
+          <ActionButton type="button" size="sm" variant="outline" onClick={()=>setRevision(x=>x+1)}
+            leadingIcon={<RefreshCcw aria-hidden="true" className="h-4 w-4"/>}>Refresh</ActionButton>
         </div>}
-        <MetricCard label="Available balance"
-          value={status==="loading"?"…":balance===null?"—":formatCurrency(balance)}
-          description="Verified wallet credit" icon={<WalletCards className="h-5 w-5"/>}/>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 className="text-base font-semibold">Wallet activity</h2>
-          <p className="mt-2 text-sm text-slate-600">
+        <WalletBalanceCard balance={balance} status={status}/>
+        <Panel>
+          <h2 className="text-lg font-semibold text-console-ink">Wallet activity</h2>
+          <p className="mt-3 text-sm leading-6 text-console-muted">
             Your payment history will appear here when available. For current invoices, visit your billing page.
           </p>
-          <a href="/client/invoices" className="mt-4 inline-flex text-sm font-semibold text-[#0064E0]">
+          <ActionLink href="/client/invoices" variant="outline" className="mt-5 w-full sm:w-auto">
             View invoices
-          </a>
-        </section>
+          </ActionLink>
+        </Panel>
       </div>
     </DashboardPage>
   </DashboardShell>;
