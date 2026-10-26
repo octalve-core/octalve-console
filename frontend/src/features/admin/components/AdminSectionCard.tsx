@@ -27,6 +27,7 @@ export function AdminSectionCard({ title, description, href, records }: AdminSec
       </div>
 
       <div className="mt-5 space-y-3">
+        {records.length === 0 ? <p className="rounded-xl border border-slate-100 p-4 text-sm text-slate-500">Open this section to review your current records.</p> : null}
         {records.slice(0, 3).map((record) => (
           <Link
             href={record.actionHref}

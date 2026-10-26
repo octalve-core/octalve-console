@@ -39,7 +39,8 @@ function readString(item: Record<string, unknown>, keys: string[], fallback = "�
 function normalizeRecord(item: unknown, configKey: AdminResourceKey): AdminRecord {
   const record = item as Record<string, unknown>;
 
-  const id = readString(record, ["id", "uuid", "reference", "code"], `${configKey}-${Math.random()}`);
+  const id = readString(record, ["id", "uuid", "reference", "code"], "");
+  if (!id) throw new Error("A record is missing its unique identifier.");
   const title = readString(record, ["name", "title", "domain", "display_name", "customer", "client", "email"], id);
   const subtitle = readString(
     record,
@@ -49,10 +50,10 @@ function normalizeRecord(item: unknown, configKey: AdminResourceKey): AdminRecor
   const meta = readString(
     record,
     ["status", "type", "cycle", "adapter", "registrar", "provider", "department"],
-    "API record",
+    "—",
   );
   const amount = readString(record, ["total", "price", "amount", "balance", "credited"], "");
-  const status = readString(record, ["status", "state", "payment_status"], "Active");
+  const status = readString(record, ["status", "state", "payment_status"], "Unknown");
   const date = readString(record, ["date", "created_at", "updated_at", "dueDate", "expiry"], "");
 
   const routeMap: Record<AdminResourceKey, string> = {
@@ -97,7 +98,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
       setRecords(apiRecords);
     } catch {
       setRecords([]);
-      setError("Unable to retrieve live records. Retry when the service is available.");
+      setError("We couldn’t load your records. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +137,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
       >
         <div className="space-y-5">
           {isLoading ? (
-            <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Connecting to the Django API." />
+            <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Preparing your records…" />
           ) : error ? (
             <ErrorState description={error} />
           ) : (

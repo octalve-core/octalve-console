@@ -9,5 +9,5 @@ export function getFallbackData<T>(records: T[]): T[] {
 }
 
 export function getApiOnlyNotice() {
-  return "API-only mode is active. No custom/demo fallback data is being shown.";
+  return "Information is currently unavailable. Please try again.";
 }

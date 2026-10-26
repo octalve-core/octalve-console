@@ -34,7 +34,7 @@ export function StaffResourceListView({ resource }: StaffResourceListViewProps) 
       setRecords(apiRecords);
     } catch {
       setRecords([]);
-      setError("Unable to retrieve live records. Retry when the service is available.");
+      setError("We couldn’t load your records. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +65,7 @@ export function StaffResourceListView({ resource }: StaffResourceListViewProps) 
       >
         <div className="space-y-5">
           {isLoading ? (
-            <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Connecting to the Django API." />
+            <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Preparing your records…" />
           ) : error ? (
             <ErrorState description={error} />
           ) : (

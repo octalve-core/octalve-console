@@ -42,11 +42,12 @@ function readString(item: Record<string, unknown>, keys: string[], fallback = "�
 function normalizeRecord(item: unknown, operation: AdminOperationKey): AdminOperationRecord {
   const record = item as Record<string, unknown>;
 
-  const id = readString(record, ["id", "uuid", "reference", "code"], `${operation}-${Math.random()}`);
+  const id = readString(record, ["id", "uuid", "reference", "code"], "");
+  if (!id) throw new Error("A record is missing its unique identifier.");
   const title = readString(record, ["title", "name", "subject", "template_name", "action", "event"], id);
   const subtitle = readString(record, ["description", "summary", "content", "department", "message", "email"], operation);
-  const meta = readString(record, ["category", "type", "priority", "level", "status"], "API record");
-  const status = readString(record, ["status", "state", "level"], "Active");
+  const meta = readString(record, ["category", "type", "priority", "level", "status"], "—");
+  const status = readString(record, ["status", "state", "level"], "Unknown");
   const date = readString(record, ["created_at", "updated_at", "date", "time"], "");
 
   const baseMap: Record<AdminOperationKey, string> = {
@@ -94,12 +95,12 @@ export function AdminOperationListView({ operation }: AdminOperationListViewProp
         setIsUsingFallback(false);
       } else {
         setRecords(config.fallback);
-        setIsUsingFallback(true);
+        setIsUsingFallback(config.fallback.length > 0);
       }
     } catch {
       setRecords(config.fallback);
-      setIsUsingFallback(true);
-      setError("Live API data is not available yet. Showing safe demo records for layout continuity.");
+      setIsUsingFallback(config.fallback.length > 0);
+      setError("We couldn’t load your records. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -163,12 +164,12 @@ export function AdminOperationListView({ operation }: AdminOperationListViewProp
 
           {isUsingFallback ? (
             <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-              {error || "Showing fallback records until the backend returns live data."}
+              {error || "Showing sample records for preview."}
             </div>
           ) : null}
 
           {isLoading ? (
-            <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Connecting to the Django API." />
+            <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Preparing your records…" />
           ) : filteredRecords.length === 0 ? (
             <EmptyState title={config.emptyTitle} description={config.emptyDescription} />
           ) : (

@@ -41,12 +41,13 @@ function readString(item: Record<string, unknown>, keys: string[], fallback = "�
 function normalizeRecord(item: unknown, config: typeof adminWorkspaceConfig[AdminWorkspaceKey]): AdminWorkspaceRecord {
   const record = item as Record<string, unknown>;
 
-  const id = readString(record, ["id", "uuid", "reference", "code"], `${config.key}-${Math.random()}`);
+  const id = readString(record, ["id", "uuid", "reference", "code"], "");
+  if (!id) throw new Error("A record is missing its unique identifier.");
   const title = readString(record, ["name", "title", "domain", "label", "subject", "client", "customer"], id);
   const subtitle = readString(record, ["email", "summary", "description", "product", "package", "type"], config.title);
-  const meta = readString(record, ["status", "adapter", "gateway", "provider", "category", "cycle"], "API record");
+  const meta = readString(record, ["status", "adapter", "gateway", "provider", "category", "cycle"], "—");
   const amount = readString(record, ["total", "price", "amount", "balance", "credited"], "");
-  const status = readString(record, ["status", "state", "payment_status"], "Active");
+  const status = readString(record, ["status", "state", "payment_status"], "Unknown");
   const date = readString(record, ["date", "created_at", "updated_at", "renews", "expiry"], "");
 
   return {
@@ -84,12 +85,12 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
         setIsUsingFallback(false);
       } else {
         setRecords(config.fallback);
-        setIsUsingFallback(true);
+        setIsUsingFallback(config.fallback.length > 0);
       }
     } catch {
       setRecords(config.fallback);
-      setIsUsingFallback(true);
-      setError("Live API data is not available yet. Showing safe fallback records.");
+      setIsUsingFallback(config.fallback.length > 0);
+      setError("We couldn’t load your records. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -169,12 +170,12 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
 
           {isUsingFallback ? (
             <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-              {error || "Showing fallback records until the backend returns live data."}
+              {error || "Showing preview records."}
             </div>
           ) : null}
 
           {isLoading ? (
-            <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Connecting to the Django API." />
+            <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Preparing your records…" />
           ) : filteredRecords.length === 0 ? (
             <EmptyState title={config.emptyTitle} description={config.emptyDescription} />
           ) : (
