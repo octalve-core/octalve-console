@@ -85,6 +85,10 @@ class SupportTicket(models.Model):
     client = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='support_tickets')
     department = models.ForeignKey(SupportDepartment, on_delete=models.PROTECT, related_name='tickets')
     
+    routing_tag = models.ForeignKey(
+        "support.SupportRoutingTag", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="tickets",
+    )
     # Ticket details
     subject = models.CharField(max_length=500)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
@@ -131,16 +135,9 @@ class SupportTicket(models.Model):
         super().save(*args, **kwargs)
     
     def generate_ticket_number(self):
-        """Generate unique ticket number: TKT-2024-00001"""
-        prefix = f"TKT-{timezone.now().strftime('%Y')}-"
-        last_ticket = SupportTicket.objects.filter(ticket_number__startswith=prefix).order_by('-ticket_number').first()
-        if last_ticket:
-            last_num = int(last_ticket.ticket_number.split('-')[-1])
-            new_num = last_num + 1
-        else:
-            new_num = 1
-        return f"{prefix}{new_num:05d}"
-    
+        """Collision-resistant ticket reference; independent of concurrent writers."""
+        return f"TKT-{timezone.now():%Y}-{uuid.uuid4().hex[:10].upper()}"
+
     def get_last_message(self):
         """Get the last message in the ticket"""
         return self.messages.order_by('-created_at').first()
@@ -397,3 +394,19 @@ class TicketSurvey(models.Model):
     def __str__(self):
         return f"{self.ticket.ticket_number} - Rating: {self.rating}"
 
+
+class SupportRoutingTag(models.Model):
+    """Operator-managed support specialization within one department."""
+    department = models.ForeignKey(SupportDepartment, related_name="routing_tags", on_delete=models.PROTECT)
+    slug = models.SlugField(max_length=40)
+    label = models.CharField(max_length=80)
+    is_active = models.BooleanField(default=True)
+    assigned_staff = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, related_name="support_routing_tags",
+        limit_choices_to={"role__in": ["admin", "staff"]},
+    )
+    class Meta:
+        ordering = ["department_id", "label"]
+        constraints = [models.UniqueConstraint(fields=["department","slug"], name="unique_support_routing_tag")]
+    def __str__(self):
+        return f"{self.department.name}: {self.label}"

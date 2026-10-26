@@ -1,5 +1,2 @@
-import { ClientResourceDetailView } from "@/features/client/views/ClientResourceDetailView";
-
-export default function ClientSupportTicketDetailPage() {
-  return <ClientResourceDetailView resource="support" />;
-}
+import {TicketConversationView} from "@/components/modules/TicketConversationView";
+export default function Page(){return <TicketConversationView role="client"/>;}

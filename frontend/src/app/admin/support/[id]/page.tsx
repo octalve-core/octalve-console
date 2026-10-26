@@ -1,5 +1,2 @@
-import { AdminOperationDetailView } from "@/features/admin/operations/views/AdminOperationDetailView";
-
-export default function AdminSupportTicketDetailPage() {
-  return <AdminOperationDetailView operation="support" />;
-}
+import {TicketConversationView} from "@/components/modules/TicketConversationView";
+export default function Page(){return <TicketConversationView role="admin"/>;}

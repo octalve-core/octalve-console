@@ -93,3 +93,36 @@ class OPanelIsolationTests(TestCase):
         self.assertEqual(self.api.post(
             f'/api/services/services/{self.service.pk}/update_credentials/',
             {'password': 'attempt-exposed'}, format='json').status_code, 403)
+
+    def test_customer_readiness_never_claims_public_dns_tls_or_website(self):
+        self.api.force_authenticate(self.owner)
+        response=self.api.get(f'/api/services/opanel/{self.service.pk}/overview/')
+        self.assertEqual(response.status_code,200,response.data)
+        self.assertEqual(response.data["readiness"]["hosting_account"],"pending")
+        self.assertEqual(response.data["readiness"]["panel_access"],"unavailable")
+        self.assertEqual(response.data["readiness"]["public_https"],"unverified")
+        self.assertEqual(response.data["readiness"]["domain_dns"],"unverified")
+        self.assertEqual(response.data["readiness"]["public_website"],"unverified")
+        self.assertFalse(response.data["capabilities"]["files"])
+        self.assertFalse(response.data["capabilities"]["panel_sso"])
+        self.assertIn("no-store",response["Cache-Control"])
+        self.assertNotIn("provider_identifier",str(response.data))
+
+    def test_staff_admin_and_other_clients_cannot_use_customer_hosting_status(self):
+        accounts=get_user_model()
+        staff=accounts.objects.create_user(email="staff-b3@example.invalid",
+            username="staffb3",password="StrongTestPassword123!",role="staff")
+        admin=accounts.objects.create_user(email="admin-b3@example.invalid",
+            username="adminb3",password="StrongTestPassword123!",role="admin")
+        for user in (self.other,staff,admin):
+            with self.subTest(role=user.role):
+                self.api.force_authenticate(user)
+                response=self.api.get(f'/api/services/opanel/{self.service.pk}/overview/')
+                self.assertEqual(response.status_code,404,response.data)
+
+    def test_disabled_owner_does_not_receive_customer_hosting_status(self):
+        self.owner.is_active=False
+        self.owner.save(update_fields=["is_active"])
+        self.api.force_authenticate(self.owner)
+        result=self.api.get(f'/api/services/opanel/{self.service.pk}/overview/')
+        self.assertEqual(result.status_code,404)

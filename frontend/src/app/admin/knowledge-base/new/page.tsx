@@ -1,5 +1,2 @@
-import { AdminOperationEditorView } from "@/features/admin/operations/views/AdminOperationEditorView";
-
-export default function AdminNewKnowledgeBasePage() {
-  return <AdminOperationEditorView operation="knowledge-base" />;
-}
+import {HelpManageView} from "@/components/modules/HelpManageView";
+export default function Page(){return <HelpManageView role="admin" editor newArticle/>;}

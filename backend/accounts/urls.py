@@ -13,7 +13,17 @@ from .views import (
     AdminCustomerDetailView,
 )
 
+from .account_self_service import (
+    OwnProfileView, PasswordRecoveryRequestView,
+    EmailVerificationRequestView, EmailVerificationConfirmView,
+)
+
 urlpatterns = [
+    path('profile/', OwnProfileView.as_view(), name='self-service-profile'),
+    path('email/verification/request/', EmailVerificationRequestView.as_view(), name='self-service-email-verify-request'),
+    path('email/verification/confirm/', EmailVerificationConfirmView.as_view(), name='self-service-email-verify-confirm'),
+    # Registered ahead of Djoser to ensure approved SMTP delivery, not file-based success.
+    path('users/reset_password/', PasswordRecoveryRequestView.as_view(), name='self-service-reset-password'),
     # Custom JWT endpoints
     path('jwt/create/', CustomTokenObtainPairView.as_view(), name='jwt-create'),
     path('jwt/refresh/', CustomTokenRefreshView.as_view(), name='jwt-refresh'),

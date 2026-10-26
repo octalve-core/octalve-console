@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, RefreshCcw } from "lucide-react";
+import { useState } from "react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { DashboardPage } from "@/components/layout/DashboardPage";
+import { useAutoSync } from "@/lib/hooks/useAutoSync";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -87,9 +88,9 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function loadRecords() {
+  async function loadRecords(quiet = false) {
     setError("");
-    setIsLoading(true);
+    if (!quiet) setIsLoading(true);
 
     try {
       const response = await config.loader();
@@ -104,10 +105,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
     }
   }
 
-  useEffect(() => {
-    loadRecords();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resource]);
+  useAutoSync(loadRecords, resource);
 
 
   return (
@@ -128,12 +126,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
         eyebrow={config.eyebrow}
         title={config.title}
         description={config.description}
-        actions={
-          <Button type="button" variant="outline" onClick={loadRecords}>
-            <RefreshCcw className="h-4 w-4" />
-            Refresh
-          </Button>
-        }
+
       >
         <div className="space-y-5">
           {isLoading ? (

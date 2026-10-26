@@ -1,5 +1,2 @@
-import { AdminOperationEditorView } from "@/features/admin/operations/views/AdminOperationEditorView";
-
-export default function AdminNewSupportTicketPage() {
-  return <AdminOperationEditorView operation="support" />;
-}
+import {redirect} from "next/navigation";
+export default function Page(){redirect("/admin/support");}

@@ -31,6 +31,7 @@ const ALLOWED_AUTH_PATHS = new Set([
   "auth/users/me", "auth/me",
   "auth/users/reset_password", "auth/users/reset_password_confirm",
   "auth/users/set_password", "auth/customers",
+"auth/profile", "auth/email/verification/request", "auth/email/verification/confirm",
 ]);
 
 function error(status: number, detail: string) {

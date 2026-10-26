@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 from .models import (
-    SupportDepartment, SupportTicket, TicketMessage,
+    SupportDepartment, SupportTicket, TicketMessage, SupportRoutingTag,
     PredefinedResponse, TicketEscalationRule, TicketAttachment, TicketSurvey
 )
 
@@ -21,8 +21,50 @@ class SupportDepartmentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'slug', 'created_at']
     
+    def validate_assigned_staff(self, people):
+        if any(not person.is_active or person.role not in ("staff","admin") for person in people):
+            raise serializers.ValidationError("Staff must be active and authorized.")
+        return people
+
+    def to_representation(self, obj):
+        data=super().to_representation(obj)
+        request=self.context.get("request")
+        if request and request.user.role=="client":
+            for key in ("email","assigned_staff","staff_count","auto_close_days",
+                        "notify_new_ticket","notify_new_reply","auto_assign"):
+                data.pop(key,None)
+        return data
+
     def get_staff_count(self, obj):
         return obj.assigned_staff.count()
+
+
+class SupportRoutingTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportRoutingTag
+        fields = ["id", "department", "slug", "label", "is_active", "assigned_staff"]
+        read_only_fields = ["id"]
+
+    def to_representation(self, obj):
+        data=super().to_representation(obj)
+        request=self.context.get("request")
+        if request and request.user.role=="client":
+            data.pop("assigned_staff",None)
+        return data
+
+    def validate_assigned_staff(self, value):
+        if any(not user.is_active or user.role not in ("staff","admin") for user in value):
+            raise serializers.ValidationError("All assigned specialists must be active staff.")
+        return value
+
+    def validate(self, attrs):
+        dept = attrs.get("department", getattr(self.instance,"department",None))
+        people = attrs.get("assigned_staff")
+        if people is not None and dept is not None:
+            eligible = set(dept.assigned_staff.values_list("pk",flat=True))
+            if any(user.pk not in eligible for user in people):
+                raise serializers.ValidationError({"assigned_staff":"Staff must belong to the department."})
+        return attrs
 
 
 class TicketMessageSerializer(serializers.ModelSerializer):
@@ -31,6 +73,14 @@ class TicketMessageSerializer(serializers.ModelSerializer):
     sender_name_display = serializers.CharField(source='sender.full_name', read_only=True)
     sender_email = serializers.EmailField(source='sender.email', read_only=True)
     
+    def to_representation(self, instance):
+        data=super().to_representation(instance)
+        request=self.context.get("request")
+        if request and request.user.role=="client":
+            for key in ("sender","sender_email","attachments"):
+                data.pop(key,None)
+        return data
+
     class Meta:
         model = TicketMessage
         fields = [
@@ -61,14 +111,25 @@ class SupportTicketSerializer(serializers.ModelSerializer):
     is_overdue = serializers.SerializerMethodField()
     has_unread = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
-    messages = TicketMessageSerializer(many=True, read_only=True)
-    attachments = TicketAttachmentSerializer(many=True, read_only=True)
+    messages = serializers.SerializerMethodField()
+
+    def get_messages(self, ticket):
+        user = self.context["request"].user
+        rows = ticket.messages.all()
+        if user.role == "client":
+            rows = rows.filter(is_internal=False)
+        return TicketMessageSerializer(rows, many=True,context=self.context).data
+    attachments = serializers.SerializerMethodField()
+
+    def get_attachments(self, ticket):
+        # Explicitly unavailable until a private, account-authorized file service exists.
+        return []
     
     class Meta:
         model = SupportTicket
         fields = [
             'id', 'ticket_number', 'client', 'client_name', 'client_email',
-            'department', 'department_name', 'subject', 'priority', 'priority_display',
+            'department', 'department_name', 'routing_tag', 'subject', 'priority', 'priority_display',
             'status', 'status_display', 'assigned_to', 'assigned_to_name',
             'service', 'order', 'invoice', 'last_reply_at', 'last_reply_by',
             'closed_at', 'resolved_at', 'satisfaction_rating', 'satisfaction_comment',
@@ -87,7 +148,11 @@ class SupportTicketSerializer(serializers.ModelSerializer):
         return False
     
     def get_last_message(self, obj):
-        last_msg = obj.get_last_message()
+        user=self.context['request'].user
+        messages=obj.messages.all()
+        if user.role=='client':
+            messages=messages.filter(is_internal=False)
+        last_msg=messages.order_by('-created_at').first()
         if last_msg:
             return {
                 'message': last_msg.message[:100],
@@ -100,15 +165,24 @@ class SupportTicketSerializer(serializers.ModelSerializer):
 class CreateTicketSerializer(serializers.Serializer):
     """Serializer for creating a new ticket"""
     
-    department_id = serializers.IntegerField()
+    department_id = serializers.IntegerField(min_value=1)
+    routing_tag_id = serializers.IntegerField(required=False,allow_null=True,min_value=1)
     subject = serializers.CharField(max_length=500)
-    message = serializers.CharField()
+    message = serializers.CharField(max_length=20000)
     priority = serializers.ChoiceField(choices=['low', 'medium', 'high', 'urgent'], default='medium')
     service_id = serializers.IntegerField(required=False, allow_null=True)
     order_id = serializers.IntegerField(required=False, allow_null=True)
     invoice_id = serializers.IntegerField(required=False, allow_null=True)
-    attachments = serializers.ListField(child=serializers.FileField(), required=False)
-    
+    def validate(self, attrs):
+        if self.initial_data.get("attachments"):
+            raise serializers.ValidationError({"attachments":"Attachments are not enabled yet."})
+        tag_id = attrs.get("routing_tag_id")
+        if tag_id is not None and not SupportRoutingTag.objects.filter(
+            id=tag_id,department_id=attrs["department_id"],is_active=True
+        ).exists():
+            raise serializers.ValidationError({"routing_tag_id":"Choose a valid support topic."})
+        return attrs
+
     def validate_department_id(self, value):
         from .models import SupportDepartment
         try:
@@ -121,9 +195,9 @@ class CreateTicketSerializer(serializers.Serializer):
 class ReplyTicketSerializer(serializers.Serializer):
     """Serializer for replying to a ticket"""
     
-    message = serializers.CharField()
+    message = serializers.CharField(max_length=20000)
     is_internal = serializers.BooleanField(default=False)
-    attachments = serializers.ListField(child=serializers.FileField(), required=False)
+    # Private attachment storage is not enabled yet.
 
 
 class TicketActionSerializer(serializers.Serializer):

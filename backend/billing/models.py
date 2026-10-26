@@ -101,7 +101,11 @@ class Invoice(models.Model):
             discount_total=order.discount_total,
             total=order.total,
             due_date=timezone.now() + timezone.timedelta(days=7),
-            notes=order.notes
+            notes=order.notes,
+            metadata={"billing_contact": (
+                dict(order.metadata.get("billing_contact", {}))
+                if isinstance(order.metadata, dict) else {}
+            )},
         )
         
         # Copy order items to invoice items

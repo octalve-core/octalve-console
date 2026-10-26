@@ -3,7 +3,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
-    SupportDepartment, SupportTicket, TicketMessage,
+    SupportDepartment, SupportTicket, TicketMessage, SupportRoutingTag,
     PredefinedResponse, TicketEscalationRule, TicketAttachment, TicketSurvey
 )
 
@@ -75,3 +75,10 @@ class TicketSurveyAdmin(admin.ModelAdmin):
     list_filter = ['rating', 'would_recommend']
     readonly_fields = ['submitted_at']
 
+
+@admin.register(SupportRoutingTag)
+class SupportRoutingTagAdmin(admin.ModelAdmin):
+    list_display = ["label","slug","department","is_active"]
+    list_filter = ["department","is_active"]
+    search_fields = ["label","slug"]
+    filter_horizontal = ["assigned_staff"]
