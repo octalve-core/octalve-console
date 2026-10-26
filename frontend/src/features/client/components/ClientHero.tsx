@@ -13,13 +13,13 @@ export function ClientHero({ name = "Client" }: ClientHeroProps) {
         <div className="absolute bottom-0 right-20 h-32 w-32 rounded-full bg-[#0064E0]/5 blur-xl" />
 
         <div className="relative max-w-3xl">
-          <p className="text-sm font-medium text-slate-500">Good morning,</p>
+          <p className="text-sm font-medium text-slate-500">Your Octalve Cloud account</p>
 
           <h2 className="mt-3 text-2xl font-semibold tracking-[-0.035em] sm:text-3xl">
             Welcome {name} 👋
           </h2>
 
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
             Here is what is happening with your hosting services, invoices, domains,
             wallet, and support tickets today.
           </p>
