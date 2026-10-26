@@ -184,7 +184,7 @@ export function AdminPremiumTable<T>({
           </span>
         </div>
 
-        <div className="premium-table-scroll">
+        <div className="hidden lg:block"><div className="premium-table-scroll">
           <table className="premium-table">
             <thead>
               <tr>
@@ -272,6 +272,27 @@ export function AdminPremiumTable<T>({
               <p>{emptyDescription}</p>
             </div>
           ) : null}
+        </div></div>
+        <div className="space-y-3 px-3 pb-4 lg:hidden" aria-label={title+" mobile records"}>
+          {visibleRows.map(row=>{
+            const key=rowKey(row);
+            return <article key={key} className="rounded-2xl border border-slate-100 bg-[#F7F9FC] p-4 shadow-[0_2px_8px_rgba(5,25,48,.025)]">
+              <div className="space-y-3">
+                {columns.map((column,index)=><div key={column.label} className={index===0?"border-b border-slate-200 pb-3":"flex items-start justify-between gap-4"}>
+                  <span className={index===0?"block text-[10px] font-bold uppercase tracking-wider text-slate-400":"max-w-[40%] shrink-0 text-xs font-medium text-slate-500"}>{column.label}</span>
+                  <div className={index===0?"mt-1 text-sm font-bold text-[#142A43]":"min-w-0 text-right text-sm font-semibold text-[#142A43]"}>{column.render(row)}</div>
+                </div>)}
+              </div>
+              {(primaryAction||rowActions.length>0)&&<div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
+                {primaryAction&&<Link href={primaryAction.href(row)} className="rounded-xl bg-[#0064E0] px-4 py-2.5 text-xs font-semibold text-white">{primaryAction.label}</Link>}
+                {rowActions.map(action=>action.href?
+                  <Link key={action.label} href={action.href(row)} className={`rounded-xl border px-3 py-2.5 text-xs font-semibold ${action.tone==="danger"?"border-rose-200 bg-rose-50 text-rose-700":"border-slate-200 bg-white text-slate-700"}`}>{action.label}</Link>:
+                  <button key={action.label} type="button" onClick={()=>action.onClick?.(row)}
+                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold ${action.tone==="danger"?"border-rose-200 bg-rose-50 text-rose-700":"border-slate-200 bg-white text-slate-700"}`}>{action.label}</button>)}
+              </div>}
+            </article>;
+          })}
+          {visibleRows.length===0&&<p className="rounded-xl bg-slate-50 p-7 text-center text-sm text-slate-500">{emptyTitle}. {emptyDescription}</p>}
         </div>
       </div>
     </section>
