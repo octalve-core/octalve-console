@@ -1,180 +1,57 @@
 "use client";
-
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
-  BarChart3,
-  BookOpen,
-  Boxes,
-  CreditCard,
-  Globe2,
-  LayoutDashboard,
-  LifeBuoy,
-  ListChecks,
-  PackageCheck,
-  ReceiptText,
-  Server,
-  Settings,
-  Shield,
-  ShoppingCart,
-  Ticket,
-  UserRound,
-  Users,
-  WalletCards,
-  X,
-  Zap,
-  type LucideIcon,
+ BarChart3,BookOpen,Boxes,CreditCard,Globe2,LayoutDashboard,LifeBuoy,ListChecks,
+ LogOut,PackageCheck,ReceiptText,Server,Settings,Shield,ShoppingCart,Ticket,
+ UserRound,Users,WalletCards,X,Zap,type LucideIcon
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import {
-  getDashboardHome,
-  getDashboardNavGroups,
-  type DashboardNavIcon,
-  type DashboardRole,
-} from "@/lib/navigation/dashboard-nav";
+import {cn} from "@/lib/utils";
+import {CloudBrandLogo} from "@/components/branding/CloudBrandLogo";
+import {getDashboardNavGroups,type DashboardNavIcon,type DashboardRole} from "@/lib/navigation/dashboard-nav";
 
-type DashboardSidebarProps = {
-  role: DashboardRole;
-  isOpen?: boolean;
-  onClose?: () => void;
+const icons:Record<DashboardNavIcon,LucideIcon>={
+ layoutDashboard:LayoutDashboard,users:Users,boxes:Boxes,listChecks:ListChecks,
+ receiptText:ReceiptText,creditCard:CreditCard,globe2:Globe2,server:Server,zap:Zap,
+ lifeBuoy:LifeBuoy,bookOpen:BookOpen,settings:Settings,shield:Shield,
+ barChart3:BarChart3,walletCards:WalletCards,shoppingCart:ShoppingCart,
+ userRound:UserRound,ticket:Ticket,packageCheck:PackageCheck
 };
-
-const iconMap: Record<DashboardNavIcon, LucideIcon> = {
-  layoutDashboard: LayoutDashboard,
-  users: Users,
-  boxes: Boxes,
-  listChecks: ListChecks,
-  receiptText: ReceiptText,
-  creditCard: CreditCard,
-  globe2: Globe2,
-  server: Server,
-  zap: Zap,
-  lifeBuoy: LifeBuoy,
-  bookOpen: BookOpen,
-  settings: Settings,
-  shield: Shield,
-  barChart3: BarChart3,
-  walletCards: WalletCards,
-  shoppingCart: ShoppingCart,
-  userRound: UserRound,
-  ticket: Ticket,
-  packageCheck: PackageCheck,
-};
-
-function isActivePath(pathname: string, href: string) {
-  if (href === "/admin" || href === "/client" || href === "/staff") {
-    return pathname === href;
-  }
-
-  return pathname === href || pathname.startsWith(href + "/");
-}
-
-export function DashboardSidebar({ role, isOpen = false, onClose }: DashboardSidebarProps) {
-  const pathname = usePathname();
-  const groups = getDashboardNavGroups(role);
-
-  return (
-    <>
-      <div
-        className={cn(
-          "fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm transition lg:hidden",
-          isOpen ? "opacity-100" : "pointer-events-none opacity-0",
-        )}
-        onClick={onClose}
-      />
-
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[19rem] flex-col overflow-hidden border-r border-white/10 bg-[#00172F] text-white shadow-2xl shadow-slate-950/20 transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-        )}
-      >
-        <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-[#0064E0]/25 to-transparent" />
-        <div className="relative flex h-20 items-center justify-between px-5">
-          <Link href={getDashboardHome(role)} className="flex items-center gap-3">
-            <span className="grid h-11 w-11 grid-cols-2 gap-1 rounded-2xl bg-white p-2 shadow-sm">
-              <span className="rounded-full bg-[#0064E0]" />
-              <span className="rounded-full bg-[#E61525]" />
-              <span className="rounded-full bg-[#29BE3E]" />
-              <span className="rounded-full bg-[#FC7E24]" />
-            </span>
-
-            <span>
-              <span className="block text-sm font-semibold text-white">Octalve Console</span>
-              <span className="block text-xs text-slate-400">Cloud business OS</span>
-            </span>
-          </Link>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/10 hover:text-white lg:hidden"
-            aria-label="Close menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <nav className="relative flex-1 space-y-6 overflow-y-auto px-4 py-5">
-          {groups.map((group) => (
-            <div key={group.title}>
-              <p className="px-3 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                {group.title}
-              </p>
-
-              <div className="mt-2 space-y-1">
-                {group.items.map((item) => {
-                  const Icon = iconMap[item.icon];
-                  const active = isActivePath(pathname, item.href);
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={onClose}
-                      className={cn(
-                        "group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition",
-                        active
-                          ? "bg-[#0064E0] text-white shadow-lg shadow-blue-950/25"
-                          : "text-slate-300 hover:bg-white/10 hover:text-white",
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          "h-4 w-4 shrink-0",
-                          active ? "text-white" : "text-slate-500 group-hover:text-white",
-                        )}
-                      />
-
-                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-
-                      {item.badge ? (
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-[0.65rem]",
-                            active ? "bg-white/20 text-white" : "bg-white/10 text-slate-300",
-                          )}
-                        >
-                          {item.badge}
-                        </span>
-                      ) : null}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
-
-        <div className="relative p-4">
-          <div className="rounded-[1.4rem] border border-white/10 bg-white/10 p-4 backdrop-blur">
-            <p className="text-sm font-medium text-white">Need help?</p>
-            <p className="mt-1 text-xs leading-5 text-slate-400">
-              24/7 cloud support for billing, services, domains and provisioning.
-            </p>
-          </div>
-        </div>
-      </aside>
-    </>
-  );
+export function DashboardSidebar({role,pathname,onClose,onLogout,loggingOut}:{
+ role:DashboardRole;pathname:string;onClose:()=>void;
+ onLogout:()=>void;loggingOut:boolean;
+}){
+ const navGroups=getDashboardNavGroups(role);
+ const support=role==="admin"?"/admin/support":role==="staff"?"/staff/tickets":"/client/support";
+ return <aside className="flex h-full min-h-0 flex-col bg-[#000A16] text-white">
+   <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white pr-2">
+     <CloudBrandLogo href={`/${role}`}/>
+     <button type="button" aria-label="Close sidebar" onClick={onClose}
+       className="rounded-xl p-2 text-[#142A43] hover:bg-slate-100 lg:hidden"><X className="h-5 w-5"/></button>
+   </div>
+   <nav aria-label={role+" workspace navigation"} className="min-h-0 flex-1 space-y-7 overflow-y-auto px-3 py-5">
+     {navGroups.map(group=><div key={group.title}>
+       <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{group.title}</p>
+       <div className="space-y-1">{group.items.map(item=>{
+         const Icon=icons[item.icon];
+         const active=pathname===item.href||(item.href!==`/${role}`&&pathname.startsWith(item.href+"/"));
+         return <Link key={item.href} href={item.href} onClick={onClose}
+           aria-current={active?"page":undefined}
+           className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition",
+             active?"bg-[#0064E0] text-white":"text-slate-300 hover:bg-white/10 hover:text-white")}>
+           <Icon className="h-5 w-5 shrink-0"/><span className="truncate">{item.label}</span>
+         </Link>;
+       })}</div>
+     </div>)}
+   </nav>
+   <div className="shrink-0 border-t border-white/10 px-3 py-4">
+     <Link href={support} onClick={onClose} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 text-xs font-medium text-slate-300 hover:bg-white/10">
+       <span className="rounded-xl bg-white/10 p-2 text-white"><LifeBuoy className="h-5 w-5"/></span>
+       <span><strong className="block text-sm text-white">Need help?</strong>Support and assistance</span>
+     </Link>
+     <button type="button" onClick={onLogout} disabled={loggingOut}
+       className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-white/10 disabled:opacity-60">
+       <LogOut className="h-4 w-4"/>{loggingOut?"Signing out…":"Log out"}
+     </button>
+   </div>
+ </aside>;
 }

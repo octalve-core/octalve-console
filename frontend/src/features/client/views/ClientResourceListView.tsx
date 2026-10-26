@@ -49,20 +49,14 @@ export function ClientResourceListView({ resource }: ClientResourceListViewProps
       role="client"
       title={config.title}
       description={config.description}
-      actions={
-        config.actionHref ? (
-          <Button href={config.actionHref}>
-            <Plus className="h-4 w-4" />
-            {config.actionLabel ?? "Create"}
-          </Button>
-        ) : null
-      }
     >
       <DashboardPage
         eyebrow={config.eyebrow}
         title={config.title}
         description={config.description}
-
+        actions={config.actionHref ? (
+          <Button href={config.actionHref}><Plus className="h-4 w-4"/>{config.actionLabel ?? "Create"}</Button>
+        ) : undefined}
       >
         <div className="space-y-5">
           {resource === "domains" && <ClientDomainSearch/>}

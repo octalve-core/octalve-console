@@ -5,7 +5,7 @@ type ClientHeroProps = {
 
 export function ClientHero({ name = "Client" }: ClientHeroProps) {
   return (
-    <section className="overflow-hidden rounded-[26px] border border-[#153A69] bg-[linear-gradient(112deg,#00172E_0%,#062D5D_65%,#0064E0_150%)] p-6 text-white shadow-[0_18px_40px_rgba(0,22,54,.09)] sm:p-7">
+    <section className="overflow-hidden rounded-[26px] border border-[#123C6F] bg-[#001A36] bg-gradient-to-r from-[#001A36] via-[#062B52] to-[#06427A] p-6 text-white shadow-[0_18px_40px_rgba(0,22,54,.09)] sm:p-7">
       <div className="relative">
         <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-[#0064E0]/5 blur-2xl" />
         <div className="absolute bottom-0 right-20 h-32 w-32 rounded-full bg-[#0064E0]/5 blur-xl" />
