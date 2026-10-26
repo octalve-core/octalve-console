@@ -33,7 +33,7 @@ export function ClientProcessingView(){
   },[]);
 
   const reload=useCallback(async(id:number)=>{
-    const data=await clientApi.invoice(String(id)) as InvoiceState;
+    const data=await clientApi.invoice(String(id)) as unknown as InvoiceState;
     if(!data||typeof data.status!=="string"||typeof data.amount_due!=="string")
       throw Error("Invoice response unavailable");
     setInvoice(data);setError("");setPending(false);
@@ -41,7 +41,8 @@ export function ClientProcessingView(){
   },[]);
 
   useEffect(()=>{
-    if(invoiceId===null)return;
+    const id=invoiceId;
+    if(id===null)return;
     let active=true;
     let fetching=false;
     let attempts=0;
@@ -51,7 +52,7 @@ export function ClientProcessingView(){
          doneStates.includes(status))return;
       fetching=true;attempts++;
       try{
-        const record=await reload(invoiceId);
+        const record=await reload(id);
         if(active)status=record.status;
       }catch{
         if(active){setError("We couldn't confirm the latest invoice status. Your order has not been changed.");setPending(false);}

@@ -66,7 +66,7 @@ export function ClientCheckoutView(){
   const selectedDomain=domainChoice==="existing"?normalizedDomain:"";
   const validDomain=domainChoice==="later"||
     (domainChoice==="existing"&&domainPattern.test(normalizedDomain));
-  const canReview=!!selected&&!!cycle&&!!checkoutId&&validDomain&&!working&&domainChoice!=="new";
+  const canReview=!!selected&&!!cycle&&!!checkoutId&&validDomain&&!working;
   const amount=quote?Number(quote.total):(cycle?.price||0)+(cycle?.setupFee||0);
   const currency=quote?.currency||selected?.currency||"NGN";
   const checkoutPayload=()=>({
@@ -93,7 +93,7 @@ export function ClientCheckoutView(){
     if(!quote||!agreed||working||!canReview||confirmation)return;
     setWorking(true);setError("");
     try{
-      const result=await clientApi.createOrder(checkoutPayload()) as Confirmation;
+      const result=await clientApi.createOrder(checkoutPayload()) as unknown as Confirmation;
       if(!result.order_number||!result.invoice?.id||!result.invoice.invoice_number){
         setError("Your order needs confirmation. Check Orders before retrying with the same checkout reference.");
         return;
