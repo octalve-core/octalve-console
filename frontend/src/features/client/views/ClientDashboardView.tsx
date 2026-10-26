@@ -1,7 +1,7 @@
 "use client";
 
 import {useMemo} from "react";
-import {CreditCard,Globe2,PackageCheck,Ticket,WalletCards,RefreshCcw} from "lucide-react";
+import {CreditCard,Globe2,PackageCheck,Ticket,WalletCards} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {MetricCard} from "@/components/data/MetricCard";
 import {ResponsiveGrid} from "@/components/data/ResponsiveGrid";
@@ -10,10 +10,12 @@ import {formatCurrency,formatNumber} from "@/lib/formatters";
 import {ClientHero} from "../components/ClientHero";
 import {ClientSectionCard} from "../components/ClientSectionCard";
 import {useClientSummary} from "../hooks/useClientSummary";
+import {useAutoSync} from "@/lib/hooks/useAutoSync";
 
 export function ClientDashboardView(){
   const {user}=useAuth();
   const {summary,refresh}=useClientSummary();
+  useAutoSync(quiet=>{if(quiet)refresh();}, "client-overview");
   const firstName=useMemo(()=>{
     const name=user?.name||user?.full_name||"there";
     return name.trim().split(/\s+/)[0]||"there";
@@ -28,8 +30,7 @@ export function ClientDashboardView(){
       {summary.status==="partial"&&<div role="status"
         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         <p>Some account information could not be refreshed. Your existing services and invoices have not been changed.</p>
-        <button type="button" className="rounded-lg border border-amber-300 bg-white px-3 py-2 font-semibold"
-          onClick={refresh}><RefreshCcw className="mr-2 inline h-4 w-4"/>Try again</button>
+        <span className="text-xs font-medium">Account details update automatically.</span>
       </div>}
       <div aria-busy={waiting}>
         <ResponsiveGrid columns="4">

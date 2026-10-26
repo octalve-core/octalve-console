@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import { clientApi } from "@/lib/api/endpoints";
+import { authApi, clientApi, type AccountProfile } from "@/lib/api/endpoints";
 import { loadSellablePlans, defaultCycle, formatPlanAmount, type ClientOrderPlan } from "../data/client-order-data";
 
 type Confirmation = {
@@ -15,6 +15,7 @@ type Confirmation = {
 
 export function ClientCheckoutView() {
   const [plans, setPlans] = useState<ClientOrderPlan[]>([]);
+  const [account, setAccount] = useState<AccountProfile|null>(null);
   const [planId, setPlanId] = useState("");
   const [cycleKey, setCycleKey] = useState("");
   const [domain, setDomain] = useState("");
@@ -30,6 +31,7 @@ export function ClientCheckoutView() {
     const requestedPlan = qs.get("plan") || "";
     const requestedCycle = qs.get("cycle") || "";
     setCheckoutId(crypto.randomUUID());
+    authApi.profile().then(value=>{if(active)setAccount(value);}).catch(()=>{});
     loadSellablePlans().then(items => {
       if (!active) return;
       setPlans(items);
@@ -93,6 +95,18 @@ export function ClientCheckoutView() {
           <input id="checkout-domain" value={domain} onChange={e=>setDomain(e.target.value)} maxLength={255}
             placeholder="example.com" className="mt-2 h-11 w-full rounded-xl border border-[#E5EBF3] px-4 text-sm focus:border-[#0064E0] focus:outline-none"/>
           <p className="mt-2 text-xs leading-5 text-slate-500">You can provide a domain later. Domain registration is not included in this hosting order.</p>
+          <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-slate-900">Your billing details</h3>
+              <Link href="/client/profile" className="text-sm font-semibold text-[#0064E0]">Edit details</Link>
+            </div>
+            {account?<div className="mt-3 text-sm leading-6 text-slate-600">
+              <p className="font-medium text-slate-900">{account.full_name||"Name not saved"}</p>
+              <p>{account.email}</p>
+              <p>{account.phone_number||"Telephone not saved"}</p>
+              <p>{[account.address,account.city,account.state,account.postal_code,account.country].filter(Boolean).join(", ")||"Billing address not saved"}</p>
+            </div>:<p className="mt-3 text-sm text-slate-600">Save your contact and billing details in My account to reuse them during checkout.</p>}
+          </section>
           <div className="mt-6 flex gap-3 rounded-xl bg-[#EFF6FF] p-4 text-sm leading-6 text-[#26476B]">
             <ShieldCheck className="mt-1 h-5 w-5 shrink-0 text-[#0064E0]"/>
             An unpaid invoice will be issued. Payment collection, verification and service activation are separate steps.

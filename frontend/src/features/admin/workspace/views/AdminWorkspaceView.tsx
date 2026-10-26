@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Plus, RefreshCcw, Search } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowRight, Plus, Search } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DashboardPage } from "@/components/layout/DashboardPage";
+import { useAutoSync } from "@/lib/hooks/useAutoSync";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -72,9 +73,9 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
   const [isUsingFallback, setIsUsingFallback] = useState(false);
   const [error, setError] = useState("");
 
-  async function loadRecords() {
+  async function loadRecords(quiet = false) {
     setError("");
-    setIsLoading(true);
+    if (!quiet) setIsLoading(true);
 
     try {
       const response = await config.loader();
@@ -96,10 +97,7 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
     }
   }
 
-  useEffect(() => {
-    loadRecords();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspace]);
+  useAutoSync(loadRecords, workspace);
 
   const filteredRecords = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -132,12 +130,7 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
         eyebrow={config.eyebrow}
         title={config.title}
         description={config.description}
-        actions={
-          <Button type="button" variant="outline" onClick={loadRecords}>
-            <RefreshCcw className="h-4 w-4" />
-            Refresh
-          </Button>
-        }
+
       >
         <div className="space-y-5">
           <Card className="overflow-hidden p-0">

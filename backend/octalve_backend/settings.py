@@ -251,6 +251,9 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 # an authorized test/transactional provider, not ephemeral disk delivery.
 EMAIL_BACKEND = env.str('EMAIL_BACKEND', default='django.core.mail.backends.filebased.EmailBackend')
 EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
+# Explicitly gated until a trusted transactional email sender is configured.
+DEFAULT_FROM_EMAIL = env.str('DEFAULT_FROM_EMAIL', default='')
+CLOUD_ACCOUNT_EMAIL_ENABLED = env.bool('CLOUD_ACCOUNT_EMAIL_ENABLED', default=False)
 
 
 # Djoser Settings - Updated for frontend URLs

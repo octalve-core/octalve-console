@@ -26,6 +26,13 @@ import type {
   WalletBalance,
 } from "./types";
 
+export type AccountProfile = {
+  email: string; email_verified: boolean; full_name: string;
+  phone_number: string; company_name: string; address: string;
+  city: string; state: string; country: string; postal_code: string; tax_id: string;
+};
+export type EditableAccountProfile = Omit<AccountProfile,"email"|"email_verified">;
+
 type ListParams = {
   search?: string;
   status?: string;
@@ -98,6 +105,16 @@ export const apiPaths = {
 };
 
 export const authApi = {
+  profile() { return api.get<AccountProfile>("/auth/profile/"); },
+  saveProfile(details: Partial<EditableAccountProfile>) {
+    return api.patch<AccountProfile>("/auth/profile/", details);
+  },
+  requestEmailVerification() {
+    return api.post<{detail?:string;email_verified?:boolean}>("/auth/email/verification/request/", {});
+  },
+  confirmEmailVerification(token:string) {
+    return api.post<{email_verified:boolean}>("/auth/email/verification/confirm/",{token},{skipAuth:true});
+  },
   login(payload: LoginPayload) {
     return api.post<AuthSession>(apiPaths.auth.login, payload, {
       skipAuth: true,
