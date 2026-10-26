@@ -292,3 +292,25 @@ class CheckoutAndWebhookTests(TestCase):
         self.assertEqual(api.get(
             f"/api/payments/verify/?invoice_id={self.invoice.pk}").status_code, 503)
         self.assertFalse(Transaction.objects.exists())
+
+    @override_settings(CLOUD_GATEWAY_SANDBOX_READBACK_ENABLED=True,
+                       CLOUD_ISOLATED_REVIEW_CONFIRMED=True, DEBUG=True)
+    def test_review_only_test_gateway_link_never_marks_invoice_paid(self):
+        import os
+        self.paystack.test_mode = True
+        self.paystack.status = "test"
+        self.paystack.save(update_fields=["test_mode", "status"])
+        def make_link(_url, **kw):
+            self.assertTrue(kw["headers"]["Authorization"].startswith("Bearer sk_test_"))
+            return self.paystack_reply(kw["json"]["reference"])
+        with patch.dict(os.environ, {"VERCEL_ENV": "preview"}):
+            with patch.object(PaymentGateway, "get_secret_key",
+                              return_value="sk_test_synthetic_fixtures_only_0123456789"):
+                intent, created = reserve_hosted_checkout(
+                    self.invoice.pk, "paystack", poster=Mock(side_effect=make_link))
+        self.assertTrue(created)
+        self.assertEqual(intent.gateway_id, self.paystack.pk)
+        self.assertEqual(intent.status, "pending")
+        self.assertEqual(self.invoice.status, "unpaid")
+        self.assertFalse(Transaction.objects.exists())
+        self.assertFalse(Service.objects.exists())
