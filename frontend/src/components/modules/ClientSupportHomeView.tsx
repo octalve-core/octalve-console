@@ -1,10 +1,12 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import Link from "next/link";
-import {ArrowRight,BookOpen,Headphones,LifeBuoy,Plus,Search} from "lucide-react";
+import {ArrowRight,BookOpen,Headphones,Plus,Search} from "lucide-react";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {clientApi} from "@/lib/api/endpoints";
+import {SupportTicketCards} from "@/features/support/components/SupportTicketCards";
+import {TextField} from "@/components/design-system/TextField";
 import {asList,type TicketDetail} from "@/lib/api/modules/help-center.api";
 export function ClientSupportHomeView(){
   const [tickets,setTickets]=useState<TicketDetail[]>([]),[query,setQuery]=useState("");
@@ -46,23 +48,10 @@ export function ClientSupportHomeView(){
           </div>
           {error?<p role="alert" className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
           {loading?<p role="status" className="mt-5 text-sm text-slate-500">Opening your tickets…</p>:null}
-          {!loading&&!error&&results.length===0?<div className="py-12 text-center">
-            <LifeBuoy className="mx-auto h-9 w-9 text-[#0064E0]"/>
-            <h3 className="mt-3 text-base font-medium">No support requests yet</h3>
-            <p className="mt-2 text-sm text-slate-500">Your submitted tickets and replies will appear here.</p>
-          </div>:null}
-          <div className="mt-5 divide-y divide-slate-100">
-            {results.map(ticket=><Link key={ticket.id} href={`/client/support/${ticket.id}`}
-              className="group flex flex-wrap items-center justify-between gap-3 py-4 hover:text-[#0064E0]">
-              <div><p className="text-[11px] font-medium text-[#0064E0]">{ticket.ticket_number}</p>
-                <h3 className="mt-1 text-sm font-medium text-slate-900">{ticket.subject}</h3>
-                <p className="mt-1 text-xs text-slate-500">{ticket.department_name}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs capitalize text-[#0064E0]">{ticket.status.replaceAll("_"," ")}</span>
-                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-[#0064E0]"/>
-              </div>
-            </Link>)}
+          <div className="mt-5">
+            {!loading&&!error?<SupportTicketCards role="client" tickets={results}
+              emptyTitle="No support requests yet"
+              emptyDescription="Your submitted tickets and replies will appear here."/>:null}
           </div>
         </section>
       </div>

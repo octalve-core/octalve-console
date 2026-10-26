@@ -1,11 +1,13 @@
 "use client";
-import {useEffect,useMemo,useState,type FormEvent} from "react";
+import {useEffect,useState,type FormEvent} from "react";
 import {useRouter} from "next/navigation";
 import Link from "next/link";
-import {ArrowLeft,BookOpen,LifeBuoy,Send,ShieldCheck} from "lucide-react";
+import {ArrowLeft,BookOpen,LifeBuoy,ShieldCheck} from "lucide-react";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {clientApi} from "@/lib/api/endpoints";
+import {SupportRequestFields} from "@/features/support/components/SupportRequestFields";
+import {Panel} from "@/components/design-system/Panel";
 import {helpApi,asList,type Department,type SupportTopic,type TicketDetail} from "@/lib/api/modules/help-center.api";
 export function ClientSupportTicketEditorView(){
   const router=useRouter();
@@ -21,7 +23,6 @@ export function ClientSupportTicketEditorView(){
     }).catch(()=>{if(active)setError("Support categories aren't available. Please try again later.");})
     .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};},[]);
-  const relevant=useMemo(()=>topics.filter(item=>String(item.department)===department),[topics,department]);
   async function submit(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(busy||!department)return;setBusy(true);setError("");
     try{
@@ -34,53 +35,26 @@ export function ClientSupportTicketEditorView(){
       router.push(`/client/support/${encodeURIComponent(String(response.id))}`);
     }catch{setError("We couldn't submit your request. Review the details and try again.");setBusy(false);}
   }
-  const input="block h-12 min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-4 py-2 text-base text-slate-950 outline-none transition focus:border-[#0064E0] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500";
   return <DashboardShell role="client" title="Get support" description="Speak with the right Octalve Cloud support team.">
     <DashboardPage eyebrow="Help centre" title="Tell us what you need help with"
       description="Your request goes to the appropriate support specialists and stays visible in your account.">
       <div className="grid min-w-0 gap-5 xl:grid-cols-3">
-        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 sm:p-8 xl:col-span-2">
+        <Panel className="min-w-0 p-5 sm:p-8 xl:col-span-2">
           <Link href="/client/support" className="inline-flex items-center gap-2 text-sm font-medium text-[#0064E0]"><ArrowLeft className="h-4 w-4"/>My support tickets</Link>
           <h2 className="mt-6 text-xl font-medium text-slate-950">New support request</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">Choose the area and issue type. We’ll route your ticket to an eligible team member, or keep it in the team's queue.</p>
           {error?<p role="alert" className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
-          <form onSubmit={submit} className="mt-6 space-y-5">
-            <div className="grid min-w-0 gap-5 md:grid-cols-2">
-              <label className="block min-w-0"><span className="mb-2 block text-sm font-medium text-slate-700">Support department</span>
-                <select required aria-label="Support department" disabled={loading} className={input} value={department}
-                  onChange={e=>{setDepartment(e.target.value);setTopic("");}}>
-                  <option value="">Choose a department</option>
-                  {departments.map(dept=><option key={dept.id} value={String(dept.id)}>{dept.name}</option>)}
-                </select></label>
-              <label className="block min-w-0"><span className="mb-2 block text-sm font-medium text-slate-700">Issue topic</span>
-                <select aria-label="Issue topic" className={input} value={topic} disabled={!department||loading}
-                  onChange={e=>setTopic(e.target.value)}>
-                  <option value="">General question</option>
-                  {relevant.map(item=><option key={item.id} value={String(item.id)}>{item.label}</option>)}
-                </select></label>
-            </div>
-            <label className="block"><span className="mb-2 block text-sm font-medium">Subject</span>
-              <input required maxLength={500} value={subject} onChange={e=>setSubject(e.target.value)}
-                placeholder="Briefly describe the issue" className={input}/></label>
-            <label className="block"><span className="mb-2 block text-sm font-medium">Priority</span>
-              <select className={input} value={priority} onChange={e=>setPriority(e.target.value)}>
-                <option value="low">Low — General question</option>
-                <option value="medium">Normal — Needs attention</option>
-                <option value="high">High — Service disruption</option>
-                <option value="urgent">Urgent — Critical service issue</option>
-              </select></label>
-            <label className="block"><span className="mb-2 block text-sm font-medium">How can we help?</span>
-              <textarea required maxLength={20000} minLength={10} rows={7} value={message} onChange={e=>setMessage(e.target.value)}
-                placeholder="Explain what happened, when it started, and the domain or service affected. Never share your password or card details."
-                className="block min-h-48 w-full min-w-0 resize-y rounded-xl border border-slate-300 bg-white p-4 text-base leading-7 text-slate-950 outline-none transition focus:border-[#0064E0] focus:ring-2 focus:ring-blue-100"/></label>
-            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-5">
-              <p className="max-w-sm text-xs leading-5 text-slate-500">Do not include login credentials or sensitive payment details. File attachments are not yet available.</p>
-              <button type="submit" disabled={busy||loading||!department||message.trim().length<10}
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0064E0] px-5 text-sm font-semibold text-white transition hover:bg-[#0052B8] disabled:opacity-50 sm:w-auto">
-                <Send className="h-4 w-4"/>{busy?"Sending…":"Send request"}</button>
-            </div>
-          </form>
-        </section>
+          <SupportRequestFields values={{department,topic,subject,message,priority}}
+            departments={departments} topics={topics} loading={loading} busy={busy}
+            onChange={(key,value)=>{
+              if(key==="department")setDepartment(value);
+              else if(key==="topic")setTopic(value);
+              else if(key==="subject")setSubject(value);
+              else if(key==="message")setMessage(value);
+              else setPriority(value);
+            }}
+            onSubmit={submit}/>
+        </Panel>
         <aside className="min-w-0 space-y-4 xl:col-span-1">
           <section className="rounded-2xl bg-[#001426] p-6 text-white">
             <LifeBuoy className="h-7 w-7 text-blue-300"/>

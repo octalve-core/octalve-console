@@ -1,8 +1,9 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import Link from "next/link";
-import {LifeBuoy,ArrowRight,FileText} from "lucide-react";
+import {LifeBuoy,FileText} from "lucide-react";
 import {KnowledgeBaseHero} from "../components/KnowledgeBaseHero";
+import {HelpArticleCards} from "@/features/support/components/HelpArticleCards";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {helpApi,asList,type HelpArticle} from "@/lib/api/modules/help-center.api";
@@ -39,14 +40,7 @@ export function ClientKnowledgeBaseView(){
           <p className="mt-2 text-sm text-slate-500">You can still reach our team through a private support ticket.</p>
           <Link href="/client/support/new" className="mt-5 inline-flex rounded-xl bg-[#0064E0] px-5 py-3 text-sm font-semibold text-white">Contact support</Link>
         </div>}
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{results.map(article=><Link key={article.id}
-          href={`/client/knowledge-base/${encodeURIComponent(article.slug)}`}
-          className="group flex min-h-52 flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_6px_20px_rgba(0,20,45,.025)] transition hover:border-blue-200 hover:shadow-md">
-          <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#0064E0]"><FileText className="h-4 w-4"/>{article.category}</span>
-          <h3 className="mt-4 text-lg font-bold tracking-tight text-slate-950">{article.title}</h3>
-          <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{article.summary}</p>
-          <span className="mt-auto flex items-center gap-2 pt-5 text-sm font-bold text-[#0064E0]">Read guide <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1"/></span>
-        </Link>)}</div>
+        {!loading&&!error?<HelpArticleCards articles={results} baseHref="/client/knowledge-base"/>:null}
         <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6">
           <div className="flex items-start gap-3"><span className="rounded-xl bg-[#EAF3FF] p-3 text-[#0064E0]"><LifeBuoy className="h-5 w-5"/></span>
             <div><h3 className="text-base font-bold text-slate-950">Need a hand?</h3>
