@@ -35,16 +35,16 @@ export function ClientDashboardView(){
       <div aria-busy={waiting}>
         <ResponsiveGrid columns="4">
           <MetricCard label="Services" value={count(summary.services)}
-            description="Your hosting and cloud services" icon={<PackageCheck className="h-5 w-5"/>}/>
+            accent="blue" description="Your hosting and cloud services" icon={<PackageCheck className="h-5 w-5"/>}/>
           <MetricCard label="Unpaid invoices" value={count(summary.invoices)}
-            description="Invoices awaiting payment" icon={<CreditCard className="h-5 w-5"/>}/>
+            accent="orange" description="Invoices awaiting payment" icon={<CreditCard className="h-5 w-5"/>}/>
           <MetricCard label="Domains" value={count(summary.domains)}
-            description="Your domain names" icon={<Globe2 className="h-5 w-5"/>}/>
-          <MetricCard label="Wallet balance" value={balance}
+            accent="purple" description="Your domain names" icon={<Globe2 className="h-5 w-5"/>}/>
+          <MetricCard label="Wallet balance" value={balance} accent="green"
             description={summary.wallet===null&&!waiting?"Balance temporarily unavailable":"Available account credit"}
             icon={<WalletCards className="h-5 w-5"/>}/>
           <MetricCard label="Support tickets" value={count(summary.tickets)}
-            description="Your support requests" icon={<Ticket className="h-5 w-5"/>}/>
+            accent="rose" description="Your support requests" icon={<Ticket className="h-5 w-5"/>}/>
         </ResponsiveGrid>
       </div>
       <div className="grid gap-5 xl:grid-cols-2">
