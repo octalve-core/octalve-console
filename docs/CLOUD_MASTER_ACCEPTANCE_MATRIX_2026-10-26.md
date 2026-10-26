@@ -19,7 +19,7 @@
 |---|---|---|---|---|---|
 | I-01 | Unique Review database, separate OPanel DB and session store, no Production credentials | Code/docs only; missing branch-scoped API secret reported | Operator verifies target identities/backup/branch env without exposing secrets | Infra | 0 |
 | I-02 | API/frontend/OPanel Review deployments all EXACT approved SHAs | CI green; no current-head browser deployment evidence | deployment IDs, SHA, URL, health and all relevant runtime configs recorded | Infra | 0 |
-| I-03 | OPanel contract re-pin from old Console SHA | Current OPanel workflow pins `a594d15…`, Console PR#14 now differs | candidate SHA pinned and complete contract CI rerun | Both | 0 |
+| I-03 | OPanel contract re-pin from old Console SHA | Exact candidate Console SHA re-pinned and contract CI passing at 26 Oct code check; re-pin after next Console changes | candidate SHA pinned and complete contract CI rerun | Both | 0 |
 | I-04 | No extra Vercel builds due to unrelated PR commits | Wildcard phase builds suppressed in existing vercel.json | Explicit deployment window, build count/quota check, no bypass merge | Infra | 0 |
 | C-01 | Published vendor-backed retail hosting plan, cost floor, markup/discount, cycle, supplier package | CODE+CI PR #13 | actual test supplier plan and price map validated | Console | 1 |
 | C-02 | Exactly one order and unpaid invoice for an idempotent checkout | CODE+CI | real Review browser duplicate checkout/foreign-user tests | Console | 2 |
@@ -36,9 +36,9 @@
 | S-01 | Single-use Console → independent OPanel SSO | CODE+CI; older cross-repo contract pin | two deployed product browser end-to-end, PKCE replay/referrer/callback tests | Both | 3 |
 | S-02 | Session expires/revokes on suspension/expiry/ownership change | CODE+CI | real cross-tenant tests, revoked binding, credential rotation, Console outage | Both | 3 |
 | S-03 | OPanel management capability per operation (not overview wildcard) | Management boundary CODE+CI; grant only `overview` | durable audit, policy and vendor account authorization for each op; no browser provider keys | OPanel | 3 |
-| W-01 | Own-domain DNS points to test provider account | NOT BUILT end-to-end | authoritative DNS A/AAAA/NS resolution and account IP confirmation | Both | 3 |
-| W-02 | Safe static website upload/publish to correct document root | NOT BUILT; native file.list prototype | real file upload with path traversal/symlink/ZIP size checks, atomic publish and HTTP response | OPanel | 3 |
-| W-03 | WordPress install with separate scoped database and admin | NOT BUILT | actual provider-supported installer/test install, correct WordPress admin and HTTPS | OPanel | 3 |
+| W-01 | Own-domain DNS points to test provider account | OPanel DNS/zone connection checklist and deny-by-default record preview CODE+CI; no live zone | authoritative DNS A/AAAA/NS resolution and account IP confirmation | Both | 3 |
+| W-02 | Safe static website upload/publish to correct document root | ZIP upload UI + entitled inspection API + disposable native first-publication CODE+CI; real provider publish absent | real file upload with path traversal/symlink/ZIP size checks, atomic publish and HTTP response | OPanel | 3 |
+| W-03 | WordPress install with separate scoped database and admin | Runtime/installer preflight CODE+CI; actual installation NOT BUILT | actual provider-supported installer/test install, correct WordPress admin and HTTPS | OPanel | 3 |
 | W-04 | SSL issuance, renewal and HTTPS works | NOT BUILT end-to-end | trusted public certificate on test domain, redirect/certificate-expiry monitor | OPanel | 3 |
 | M-01 | Order, payment, hosting-ready and site-live emails | NOT BUILT/verified end-to-end | idempotent delivery + bounce/retry/audit, no plaintext account password | Console | 2–3 |
 | M-02 | Renewal/suspension/grace period/missed payment | Existing states only; lifecycle not qualified | timed clock tests, provider suspension/reversal, customer notices, support path | Console | 5 |
@@ -50,8 +50,8 @@
 
 | ID | Behavior | Current state | External gate |
 |---|---|---|---|
-| D-01 | Live registrar availability, TLD conditions and actual currency price | NOT BUILT; Console search deliberately 503 | authorized registrar sandbox, no fabricated availability |
-| D-02 | Supplier cost vs customer price, retail margin, promo/discount approval, renewal prices | Pricing model foundation only | validated TLD registration/renewal costs and markup ledger |
+| D-01 | Live registrar availability, TLD conditions and actual currency price | Supplier-quote validity/expiry contract CODE+CI; real registrar search still 503 | authorized registrar sandbox, no fabricated availability |
+| D-02 | Supplier cost vs customer price, retail margin, promo/discount approval, renewal prices | Supplier-cost/retail discount guard CODE+CI; no live registrar price yet | validated TLD registration/renewal costs and markup ledger |
 | D-03 | Registrar-confirmed registration and verified contact | NOT BUILT | registrar result ID, expiration/ownership/ICANN-specific verification |
 | D-04 | Nameserver setup and DNS zone authority | NOT BUILT | authoritative registrar/hosting DNS separate ownership checks |
 | D-05 | Renewal, transfer EPP, domain expiry and failed registration exception | NOT BUILT | TLD policy/sandbox transitions and protected EPP handling |
@@ -115,3 +115,11 @@ release_candidate:
 ```
 
 **Cross-reference:** [Master plan](CLOUD_MASTER_EXECUTION_PLAN_2026-10-26.md), [Production runbook](CLOUD_PRODUCTION_RELEASE_RUNBOOK_2026-10-26.md), and earlier `CLOUD_RELEASE_AUDIT_AND_RECOVERY_2026-10-26.md`.
+## Batch 3/4 evidence addendum — 26 October 2026
+
+- OPanel native first-publication, static ZIP inspection, wrong-service, zip-slip/symlink/bomb checks, mobile upload and separated workspace components: **CODE+CI ONLY**. No real provider account received a customer file and no public site was brought online.
+- OPanel WordPress/Softaculous, GitHub selected repository and Cloudflare zone: **eligibility/preflight CODE+CI**. No app token, provider installer, registrar, DNS mutation, deployment or external website proof.
+- Console domain registrar quoting: **immutable supplier-rate/freshness and margin contract CODE+CI**. The real domain availability/purchase endpoints remain fail-closed until authorized registrar API and fulfillment exist.
+- Manual upload is available as a visible UI path independently of GitHub. Validation is separately feature-gated; customer Publish stays blocked until account-bound remote adapter and versioned release/rollback are accepted.
+- Reference OPanel [Batch 3+4 execution detail](https://github.com/octalve-core/octalve-opanel/blob/docs/independent-foundation-design/docs/OPANEL_BATCH_3_4_STATIC_UPLOAD_AND_CONNECTORS_2026-10-26.md) and Console [Batch3+4 cross-product ledger](CLOUD_BATCH3_4_UPLOAD_DOMAIN_AND_RELEASE_2026-10-26.md).
+- Go-live remains **NOT APPROVED** until isolated Review with authorized external provider, real owned-domain/HTTPS website, proper DNS/registrar and customer-facing operational acceptance, plus Production preflight and owner authorization.
