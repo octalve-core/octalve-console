@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from billing.models import Invoice
 from payments.models import PaymentGateway, PaymentIntent
+from payments.sandbox import gateway_can_read, secret_matches_mode
 
 REFERENCE = re.compile(r"^OC[A-Z0-9]{30}$")
 ALLOWED_CHECKOUT = {"paystack": "checkout.paystack.com",
@@ -63,9 +64,8 @@ def _checkout_url(value, gateway):
 def _post_checkout(intent, *, poster=None):
     gateway = intent.gateway
     secret = gateway.get_secret_key()
-    if (gateway.code not in ALLOWED_CHECKOUT or gateway.status != "active"
-            or gateway.test_mode or not isinstance(secret, str) or len(secret) < 16
-            or secret.startswith(("sk_test_", "FLWSECK_TEST"))):
+    if (gateway.code not in ALLOWED_CHECKOUT or not gateway_can_read(gateway)
+            or not secret_matches_mode(gateway, secret)):
         raise CheckoutRefused("Authorized live gateway is unavailable.")
     invoice = intent.invoice
     email = invoice.client.email
@@ -149,9 +149,8 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None):
                 or invoice.amount_due != invoice.total or invoice.total <= 0
                 or invoice.total != invoice.order.total or invoice.currency != "NGN"):
             raise CheckoutRefused("Invoice is not eligible for hosted payment.")
-        gateway = PaymentGateway.objects.filter(
-            code=gateway_code, status="active", test_mode=False).first()
-        if not gateway:
+        gateway = PaymentGateway.objects.filter(code=gateway_code).first()
+        if not gateway or not gateway_can_read(gateway):
             raise CheckoutRefused("Approved payment provider unavailable.")
         _return_url()
         active = list(PaymentIntent.objects.select_for_update().filter(invoice=invoice))
