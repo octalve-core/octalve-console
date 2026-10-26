@@ -42,11 +42,17 @@ if(!domainForm.includes('className="grid min-w-0 gap-3 sm:grid-cols-3') ||
    domainForm.includes("absolute left-") || domainForm.includes("translate-y-1/2")){
  throw new Error("Domain search icon and text must share an in-flow, vertically centered flex row");
 }
+// Batch 5 extracted the forms into typed Tailwind sections. Keep enforcing
+// responsive layout and 48px controls at their actual component boundaries.
 const supportViews=[
- ["features/client/views/ClientSupportTicketEditorView.tsx",["xl:grid-cols-3","xl:col-span-2","block h-12 min-h-12","min-h-48","sm:w-auto"]],
- ["components/modules/TicketConversationView.tsx",["xl:grid-cols-3","xl:col-span-2","min-h-40","block h-12 w-full"]],
- ["components/modules/SupportTeamSettingsView.tsx",["xl:grid-cols-3","xl:col-span-2","block h-12 min-h-12"]],
- ["components/modules/SupportDeskView.tsx",["min-h-14","h-10 min-w-0 flex-1"]]
+ ["features/client/views/ClientSupportTicketEditorView.tsx",["xl:grid-cols-3","xl:col-span-2","SupportRequestFields"]],
+ ["features/support/components/SupportRequestFields.tsx",["SelectField","TextField","TextAreaField","min-h-48","sm:w-auto"]],
+ ["components/modules/TicketConversationView.tsx",["xl:grid-cols-3","xl:col-span-2","TicketReplyComposer","TicketContextPanels"]],
+ ["features/support/components/TicketReplyComposer.tsx",["TextAreaField","min-h-40","sm:w-auto"]],
+ ["components/modules/SupportTeamSettingsView.tsx",["xl:grid-cols-3","xl:col-span-2","SupportRoutingCreateForms","SelectField"]],
+ ["components/modules/SupportDeskView.tsx",["SupportTicketCards","TextField"]],
+ ["components/design-system/TextField.tsx",["h-12 min-h-12","focus-within:border-console-primary"]],
+ ["components/design-system/SelectField.tsx",["h-12 min-h-12","focus:border-console-primary"]]
 ];
 for(const [filename,utilities] of supportViews){
  const content=fs.readFileSync(path.join(root,filename),"utf8");

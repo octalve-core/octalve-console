@@ -1,11 +1,13 @@
 "use client";
 import {useEffect,useState} from "react";
 import Link from "next/link";
-import {ArrowLeft,Plus,Users,Tag,CheckCircle2} from "lucide-react";
+import {ArrowLeft,Users,Tag} from "lucide-react";
+import {Panel} from "@/components/design-system/Panel";
+import {SelectField} from "@/components/design-system/SelectField";
+import {SupportRoutingCreateForms} from "@/features/support/components/SupportRoutingCreateForms";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {helpApi,asList,type Department,type SupportTopic,type SupportAgent} from "@/lib/api/modules/help-center.api";
-const selectClass="block h-12 min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-4 py-2 text-base text-slate-950 outline-none focus:border-[#0064E0] focus:ring-2 focus:ring-blue-100";
 export function SupportTeamSettingsView(){
   const [departments,setDepartments]=useState<Department[]>([]),[topics,setTopics]=useState<SupportTopic[]>([]),[agents,setAgents]=useState<SupportAgent[]>([]);
   const [current,setCurrent]=useState(""),[name,setName]=useState(""),[slug,setSlug]=useState("");
@@ -67,13 +69,14 @@ export function SupportTeamSettingsView(){
         {!loaded?<p role="status" className="rounded-xl bg-white p-6 text-sm text-slate-500">Preparing support teams…</p>:null}
         <div className="grid min-w-0 gap-5 xl:grid-cols-3">
           <section className="min-w-0 space-y-5 xl:col-span-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <Panel>
               <h2 className="flex items-center gap-2 text-lg font-medium"><Users className="h-5 w-5 text-[#0064E0]"/>Department responsibilities</h2>
-              <label className="mt-5 block"><span className="mb-2 block text-sm font-medium">Department</span>
-                <select className={selectClass} value={current} onChange={e=>setCurrent(e.target.value)}>
-                  {!departments.length?<option value="">No departments configured</option>:null}
-                  {departments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
-                </select></label>
+              <div className="mt-5">
+                <SelectField label="Department" value={current} disabled={working}
+                  options={departments.length?departments.map(item=>({value:String(item.id),label:item.name})):
+                    [{value:"",label:"No departments configured"}]}
+                  onChange={e=>setCurrent(e.target.value)}/>
+              </div>
               {dept?<div className="mt-5 grid gap-3 sm:grid-cols-2">{agents.map(agent=>
                 <label key={agent.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-4">
                   <input type="checkbox" disabled={working} checked={dept.assigned_staff.includes(agent.id)}
@@ -81,8 +84,8 @@ export function SupportTeamSettingsView(){
                   <span className="text-sm font-medium">{agent.full_name||`Agent ${agent.id}`}</span>
                 </label>)}</div>:null}
               <p className="mt-4 text-xs leading-5 text-slate-500">Unassigned customer tickets remain in this department's queue. Membership alone does not grant access to unrelated assigned tickets.</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            </Panel>
+            <Panel>
               <h2 className="flex items-center gap-2 text-lg font-medium"><Tag className="h-5 w-5 text-[#0064E0]"/>Topic specialists</h2>
               {activeTopics.map(topic=><div key={topic.id} className="mt-5 rounded-xl border border-slate-200 p-4">
                 <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium">{topic.label}</h3>
@@ -94,34 +97,13 @@ export function SupportTeamSettingsView(){
                     {agent.full_name||`Agent ${agent.id}`}
                   </label>)}</div>
               </div>)}
-            </div>
+            </Panel>
           </section>
-          <aside className="h-fit min-w-0 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 xl:col-span-1">
-            <div className="border-b border-slate-100 pb-5">
-              <h2 className="text-base font-medium">New department</h2>
-              <form onSubmit={createDepartment} className="mt-3 space-y-3">
-                <label className="block"><span className="mb-2 block text-sm font-medium">Department name</span>
-                  <input className={selectClass} required maxLength={100} value={departmentName}
-                    onChange={e=>setDepartmentName(e.target.value)} placeholder="Technical Support"/></label>
-                <button type="submit" disabled={working} className="w-full rounded-xl border border-[#0064E0] px-4 py-3 text-sm font-medium text-[#0064E0] disabled:opacity-50">
-                  Add department
-                </button>
-              </form>
-            </div>
-            <h2 className="flex items-center gap-2 text-base font-medium"><Plus className="h-5 w-5 text-[#0064E0]"/>Add issue topic</h2>
-            <p className="text-sm leading-6 text-slate-600">For example: DNS, Email, SSL, Billing or WordPress. Every topic belongs to an approved support department.</p>
-            <form onSubmit={addTopic} className="space-y-4">
-              <label className="block"><span className="mb-2 block text-sm font-medium">Topic label</span>
-                <input className={selectClass} required maxLength={80} value={name} onChange={e=>setName(e.target.value)} placeholder="DNS support"/></label>
-              <label className="block"><span className="mb-2 block text-sm font-medium">Short code</span>
-                <input className={selectClass} required maxLength={40} value={slug} onChange={e=>setSlug(e.target.value)} placeholder="dns"/></label>
-              <button type="submit" disabled={!dept||working} className="w-full rounded-xl bg-[#0064E0] px-5 py-3 text-sm font-medium text-white disabled:opacity-50">Create topic</button>
-            </form>
-            <div className="flex items-start gap-2 rounded-xl bg-blue-50 p-4 text-xs leading-5 text-blue-900">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0"/>
-              First assign a team member to a department, then to one or more topics. The routing engine selects the least busy eligible member.
-            </div>
-          </aside>
+          <SupportRoutingCreateForms
+            departmentName={departmentName} name={name} slug={slug}
+            working={working} hasDepartment={Boolean(dept)}
+            onDepartmentNameChange={setDepartmentName} onNameChange={setName} onSlugChange={setSlug}
+            onCreateDepartment={createDepartment} onCreateTopic={addTopic}/>
         </div>
       </div>
     </DashboardPage>
