@@ -80,6 +80,19 @@ class SupportRoutingTests(TestCase):
         self.api.force_authenticate(user=self.stranger)
         self.assertEqual(self.api.get(f"/api/support/tickets/{pk}/").status_code,404)
 
+    def test_revoking_department_or_skill_removes_access_despite_old_assignment(self):
+        result=self.create(tag=self.dns.pk)
+        self.assertEqual(result.status_code,201,result.data)
+        tid=result.data["id"]
+        self.api.force_authenticate(self.dns_agent)
+        self.assertEqual(self.api.get(f"/api/support/tickets/{tid}/").status_code,200)
+        self.dns.assigned_staff.remove(self.dns_agent)
+        self.assertEqual(self.api.get(f"/api/support/tickets/{tid}/").status_code,404)
+        self.dns.assigned_staff.add(self.dns_agent)
+        self.assertEqual(self.api.get(f"/api/support/tickets/{tid}/").status_code,200)
+        self.dept.assigned_staff.remove(self.dns_agent)
+        self.assertEqual(self.api.get(f"/api/support/tickets/{tid}/").status_code,404)
+
     def test_staff_isolation_and_admin_assignment_eligibility(self):
         r=self.create(tag=self.dns.pk)
         pk=r.data["id"]

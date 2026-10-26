@@ -45,5 +45,9 @@
 - Admin and Staff ticket workspaces use real scoped API records. Staff cannot mutate another assignee's ticket or browse unrelated departments. Admin alone manages assignment and priority; clients cannot forge role/status/internal notes.
 - Support messages and last-message previews exclude internal notes for customers. Ticket related service/order/invoice IDs are verified against the customer.
 - Customer knowledge base loads published client-visible articles from the Django endpoint, with responsive search, topic filters and readable article pages. Admin/Staff can draft/edit with a controlled Markdown formatting toolbar and preview; Staff publication requires explicit Django permission. Raw HTML is never inserted into the customer article view.
-- **New isolated migrations only**: support.0002_routing_tags and knowledge_base.0001_initial, both included in the disposable Review CI ledger. Existing 49-migration baseline retained, with expected total 54 migrations / 99 tables.
+- **New isolated migrations only**: support.0002_routing_tags and knowledge_base.0001_initial, both included in the disposable Review CI ledger. Existing 49-migration baseline retained, with expected total 54 migrations / 100 tables.
 - Notification attempts run after DB commit; external delivery/availability/SLA must be qualified separately. Real-time chat and public unauthenticated support are deferred. No Production migrations or main merge.
+
+## Batch 5 isolated authorization preflight
+- A removed department/tag membership revokes Staff ticket access even when an old assigned_to FK still points to that Staff record. The customer reply notification chooses only presently eligible recipients.
+- Read-only source qualification is not equal to browser E2E or authorized Production database migration readiness. The CI database is synthetic and never substitutes for verified Octalve Cloud Production Neon identity.

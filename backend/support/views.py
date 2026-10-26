@@ -93,10 +93,15 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         if user.role == 'admin' or user.is_superuser:
             return SupportTicket.objects.all()
         if user.role == 'staff':
+            # Current department AND topic membership gates every staff read,
+            # even if a stale ticket.assignment still points at this agent.
+            # A removed skill or department must revoke access immediately.
             return SupportTicket.objects.filter(
-                Q(assigned_to=user) |
-                Q(assigned_to__isnull=True,department__assigned_staff=user,routing_tag__isnull=True) |
-                Q(assigned_to__isnull=True,department__assigned_staff=user,routing_tag__assigned_staff=user)
+                department__assigned_staff=user,
+            ).filter(
+                Q(routing_tag__isnull=True) | Q(routing_tag__assigned_staff=user)
+            ).filter(
+                Q(assigned_to=user) | Q(assigned_to__isnull=True)
             ).distinct()
         return SupportTicket.objects.filter(client=user)
     
@@ -198,7 +203,7 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         if not message.is_internal:
             recipient_ids=[]
             if sender_role=="client":
-                if ticket.assigned_to_id:
+                if ticket.assigned_to_id and eligible_staff(ticket).filter(pk=ticket.assigned_to_id).exists():
                     recipient_ids=[ticket.assigned_to_id]
                 else:
                     recipient_ids=list(eligible_staff(ticket).values_list("pk",flat=True)[:20])
