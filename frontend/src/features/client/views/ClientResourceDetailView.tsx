@@ -1,7 +1,8 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useAutoSync } from "@/lib/hooks/useAutoSync";
 import {
   ArrowLeft,
   CalendarDays,
@@ -10,7 +11,6 @@ import {
   Globe2,
   Headphones,
   PackageCheck,
-  RefreshCcw,
   Server,
   ShieldCheck,
   ShoppingCart,
@@ -82,9 +82,9 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function loadRecord() {
+  async function loadRecord(quiet = false) {
     setError("");
-    setIsLoading(true);
+    if (!quiet) setIsLoading(true);
 
     try {
       const response = await config.loader();
@@ -103,10 +103,7 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
     }
   }
 
-  useEffect(() => {
-    loadRecord();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resource, id]);
+  useAutoSync(loadRecord, `${resource}:${id}`);
 
   const actions = record ? getDetailActions(resource, record) : [];
 
@@ -126,12 +123,6 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
         eyebrow={config.eyebrow}
         title={record?.title ?? config.title}
         description={record?.subtitle ?? config.description}
-        actions={
-          <Button type="button" variant="outline" onClick={loadRecord}>
-            <RefreshCcw className="h-4 w-4" />
-            Refresh
-          </Button>
-        }
       >
         {isLoading ? (
           <div role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Opening your details…</div>
