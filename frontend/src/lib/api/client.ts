@@ -182,6 +182,9 @@ async function request<T>(
           : JSON.stringify(body ?? {}),
     credentials: "same-origin",
     cache: "no-store",
+    // Bound read-only requests so a stalled service cannot leave screens loading forever.
+    // Do not auto-retry writes or timeout an ambiguous order/payment mutation.
+    signal: method === "GET" ? AbortSignal.timeout(12000) : undefined,
   });
 
   const payload = await parseResponse(response);
