@@ -21,6 +21,8 @@ from provisioning.fulfillment import FulfillmentRefused, stage_paid_order, plann
 from provisioning.reconcile import ReconciliationRefused, reconcile_verified_hosting
 from provisioning.account_creation_plan import plan_account_creation, execute_account_creation, CreationPlanRefused
 from provisioning.create_attempt import reserve_account_create, execute_remote_create, CreateReservationRefused
+from provisioning.vendor_create_contract import compile_account_create
+from dataclasses import replace
 from provisioning.models import ProvisioningLog
 from opanel_bridge.models import VerifiedHostingBinding
 from provisioning.models import ProvisioningTask
@@ -267,6 +269,35 @@ class PaidHostingFunnelTests(TestCase):
         self.assertFalse(task.can_retry())
         with self.assertRaises(CreateReservationRefused):
             reserve_account_create(task.pk, apply=True)
+
+    def test_vendor_account_create_contract_compiles_without_network_or_secrets_in_logs(self):
+        settle_verified_intent(self.intent.pk, getter=self.getter)
+        service, task = stage_paid_order(self.order.pk)[0]
+        plan = plan_account_creation(task.pk)
+        whm = compile_account_create(plan)
+        self.assertEqual(whm.method, "GET")
+        self.assertEqual(whm.path, "/json-api/createacct")
+        self.assertEqual(whm.query["username"], task.payload["expected_account"])
+        self.assertEqual(whm.query["plan"], "verified_starter")
+        self.assertEqual(whm.query["owner"], "resellerops")
+        self.assertEqual(whm.query["showpass"], "n")
+        self.assertNotIn("password", str(whm.query))
+        self.assertNotIn("api_key", repr(whm))
+        secret = "StrongSyntheticPassword_fixtures_123456789"
+        da = compile_account_create(replace(plan, adapter_type="DirectAdminAdapter"),
+                                    make_password=lambda: secret)
+        self.assertEqual(da.method, "POST")
+        self.assertEqual(da.path, "/CMD_API_ACCOUNT_USER")
+        self.assertEqual(da.form["username"], whm.query["username"])
+        self.assertEqual(da.form["package"], whm.query["plan"])
+        self.assertEqual(da.form["passwd2"], secret)
+        self.assertEqual(da.form["notify"], "no")
+        self.assertNotIn(secret, repr(da))
+        with self.assertRaises(CreationPlanRefused):
+            compile_account_create(replace(plan, username="INVALID.USER"))
+        with self.assertRaises(CreationPlanRefused):
+            compile_account_create(replace(plan, adapter_type="DirectAdminAdapter"),
+                                   make_password=lambda: "weak")
 
     def test_creation_contract_only_from_settled_hosting_and_no_remote_create(self):
         with self.assertRaises(CreationPlanRefused):
