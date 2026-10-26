@@ -1,5 +1,3 @@
-import { ArrowUpRight, Plus, Zap } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 
 type AdminHeroProps = {
   name?: string;
@@ -13,8 +11,8 @@ export function AdminHero({ name = "Admin" }: AdminHeroProps) {
         <div className="absolute bottom-0 right-20 h-32 w-32 rounded-full bg-white/10 blur-xl" />
 
         <div className="relative max-w-3xl">
-          <p className="text-sm font-medium text-white/85">Good morning,</p>
-          <h2 className="mt-3 text-4xl font-medium tracking-[-0.06em] sm:text-5xl">
+          <p className="text-sm font-medium text-white/85">YOUR OCTALVE CLOUD WORKSPACE</p>
+          <h2 className="mt-3 text-2xl font-bold tracking-[-0.04em] sm:text-3xl">
             Welcome {name} 👋
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
@@ -22,22 +20,6 @@ export function AdminHero({ name = "Admin" }: AdminHeroProps) {
             domains, providers, and provisioning today.
           </p>
 
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Button href="/admin/orders/new" variant="soft" className="bg-white/15 text-white hover:bg-white/20">
-              <Plus className="h-4 w-4" />
-              Create order
-            </Button>
-
-            <Button href="/admin/provisioning" variant="soft" className="bg-white/15 text-white hover:bg-white/20">
-              <Zap className="h-4 w-4" />
-              Check queue
-            </Button>
-
-            <Button href="/admin/reports" variant="soft" className="bg-white/15 text-white hover:bg-white/20">
-              <ArrowUpRight className="h-4 w-4" />
-              View reports
-            </Button>
-          </div>
         </div>
       </div>
     </section>
