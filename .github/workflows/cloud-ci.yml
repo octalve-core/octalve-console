@@ -93,7 +93,7 @@ jobs:
         run: python scripts/security_release_check.py
       - name: Real Django API and isolated database regression
         working-directory: backend
-        run: python manage.py test accounts.tests orders.tests orders.test_premium_checkout support.test_routing knowledge_base.tests tests.test_biz01_authority catalog.tests catalog.test_offer_workflows provisioning.test_authority provisioning.test_completion_authority provisioning.test_paid_funnel notifications.test_hosting_ready domains.test_registrar_quote payments.test_readback payments.test_checkout_webhooks services.test_opanel opanel_bridge.tests opanel_bridge.test_readback --verbosity=2
+        run: python manage.py test accounts.tests accounts.test_account_self_service orders.tests orders.test_premium_checkout support.test_routing knowledge_base.tests tests.test_biz01_authority catalog.tests catalog.test_offer_workflows provisioning.test_authority provisioning.test_completion_authority provisioning.test_paid_funnel notifications.test_hosting_ready domains.test_registrar_quote payments.test_readback payments.test_checkout_webhooks services.test_opanel opanel_bridge.tests opanel_bridge.test_readback --verbosity=2
       - name: BIZ-01 financial write authority regression
         working-directory: backend
         run: python manage.py test tests.test_biz01_authority --verbosity=2
