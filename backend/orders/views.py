@@ -288,12 +288,23 @@ class OrderViewSet(viewsets.ModelViewSet):
         return ip
 
 
+class CouponWriteAuthority(BasePermission):
+    """Only administrators may create, modify, or remove promotion rules."""
+
+    def has_permission(self, request, view):
+        if view.action in ("create", "update", "partial_update", "destroy"):
+            user = request.user
+            return bool(user and user.is_authenticated and
+                        (user.is_superuser or user.role == "admin"))
+        return True
+
+
 class CouponViewSet(viewsets.ModelViewSet):
     """ViewSet for coupons (admin only)"""
     
     queryset = Coupon.objects.all()
     serializer_class = CouponSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CouponWriteAuthority]
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['code', 'name']
     ordering = ['-created_at']

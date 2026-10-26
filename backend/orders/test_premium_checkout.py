@@ -113,6 +113,20 @@ class PremiumCheckoutTests(TestCase):
         self.assertEqual(changed.status_code,201,changed.data)
         self.assertEqual(Invoice.objects.get().total,Decimal("2800.00"))
 
+    def test_customer_cannot_change_promotion_discount(self):
+        code=Coupon.objects.create(
+            code="READONLYB2",name="Protected promo",discount_type="fixed",
+            discount_value=Decimal("100.00"),max_uses=10,
+            starts_at=timezone.now()-timedelta(days=1),
+            ends_at=timezone.now()+timedelta(days=7),is_active=True,
+        )
+        response=self.client.patch(
+            f"/api/orders/coupons/{code.pk}/",
+            {"discount_value":"2900.00"},format="json")
+        self.assertEqual(response.status_code,403,response.data)
+        code.refresh_from_db()
+        self.assertEqual(code.discount_value,Decimal("100.00"))
+
     def test_coupon_not_valid_for_other_plan(self):
         Coupon.objects.create(
             code="NOTYOURS",name="Restricted",discount_type="fixed",

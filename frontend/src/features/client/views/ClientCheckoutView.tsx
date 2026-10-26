@@ -39,14 +39,9 @@ export function ClientCheckoutView(){
     const query=new URLSearchParams(window.location.search);
     const requestedPlan=query.get("plan")||"";
     const requestedCycle=query.get("cycle")||"";
-    try{
-      const key="octalve-cloud-active-hosting-checkout";
-      let persisted=sessionStorage.getItem(key);
-      if(!persisted||!/^[-0-9a-f]{36}$/i.test(persisted)){
-        persisted=crypto.randomUUID();sessionStorage.setItem(key,persisted);
-      }
-      setCheckoutId(persisted);
-    }catch{setCheckoutId(crypto.randomUUID());}
+    // The stable checkout key is resolved against the exact cart selection
+    // before requesting a quote. Do not bind a new cart to an older key.
+    setCheckoutId(crypto.randomUUID());
     void authApi.profile().then(data=>{if(active)setAccount(data);}).catch(()=>{});
     void loadSellablePlans().then(items=>{
       if(!active)return;
@@ -69,18 +64,41 @@ export function ClientCheckoutView(){
   const canReview=!!selected&&!!cycle&&!!checkoutId&&validDomain&&!working;
   const amount=quote?Number(quote.total):(cycle?.price||0)+(cycle?.setupFee||0);
   const currency=quote?.currency||selected?.currency||"NGN";
-  const checkoutPayload=()=>({
-    checkout_id:checkoutId,
+  const checkoutPayload=(key=checkoutId)=>({
+    checkout_id:key,
     items:[{plan_id:Number(selected?.id),offer_revision:selected?.revision??undefined,
       cycle_key:cycleKey,quantity:1,domain_name:selectedDomain}],
     ...(coupon.trim()?{coupon_code:coupon.trim().toUpperCase()}:{})
   });
 
+  function checkoutKeyForSelection(){
+    const fingerprint=JSON.stringify([
+      planId,cycleKey,domainChoice,selectedDomain,coupon.trim().toUpperCase()
+    ]);
+    const storageKey="octalve-cloud-active-hosting-checkout";
+    try{
+      const raw=sessionStorage.getItem(storageKey);
+      const previous=raw?JSON.parse(raw) as {fingerprint?:string;id?:string}:null;
+      if(previous?.fingerprint===fingerprint&&previous.id&&
+        /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(previous.id)){
+        setCheckoutId(previous.id);
+        return previous.id;
+      }
+      const id=crypto.randomUUID();
+      sessionStorage.setItem(storageKey,JSON.stringify({fingerprint,id}));
+      setCheckoutId(id);
+      return id;
+    }catch{
+      const id=crypto.randomUUID();setCheckoutId(id);return id;
+    }
+  }
+
   async function review(){
     if(!canReview)return;
     setWorking(true);setError("");setQuote(null);
     try{
-      const result=await clientApi.quoteOrder(checkoutPayload());
+      const stableKey=checkoutKeyForSelection();
+      const result=await clientApi.quoteOrder(checkoutPayload(stableKey));
       if(!result.items?.length||!Number.isFinite(Number(result.total))||
          result.currency!==selected?.currency||Number(result.total)<=0)throw Error("Invalid quote");
       setQuote(result);setStage("review");
