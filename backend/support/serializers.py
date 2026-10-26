@@ -73,6 +73,14 @@ class TicketMessageSerializer(serializers.ModelSerializer):
     sender_name_display = serializers.CharField(source='sender.full_name', read_only=True)
     sender_email = serializers.EmailField(source='sender.email', read_only=True)
     
+    def to_representation(self, instance):
+        data=super().to_representation(instance)
+        request=self.context.get("request")
+        if request and request.user.role=="client":
+            for key in ("sender","sender_email","attachments"):
+                data.pop(key,None)
+        return data
+
     class Meta:
         model = TicketMessage
         fields = [
@@ -110,8 +118,12 @@ class SupportTicketSerializer(serializers.ModelSerializer):
         rows = ticket.messages.all()
         if user.role == "client":
             rows = rows.filter(is_internal=False)
-        return TicketMessageSerializer(rows, many=True).data
-    attachments = TicketAttachmentSerializer(many=True, read_only=True)
+        return TicketMessageSerializer(rows, many=True,context=self.context).data
+    attachments = serializers.SerializerMethodField()
+
+    def get_attachments(self, ticket):
+        # Explicitly unavailable until a private, account-authorized file service exists.
+        return []
     
     class Meta:
         model = SupportTicket

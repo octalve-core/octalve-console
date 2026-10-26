@@ -135,16 +135,9 @@ class SupportTicket(models.Model):
         super().save(*args, **kwargs)
     
     def generate_ticket_number(self):
-        """Generate unique ticket number: TKT-2024-00001"""
-        prefix = f"TKT-{timezone.now().strftime('%Y')}-"
-        last_ticket = SupportTicket.objects.filter(ticket_number__startswith=prefix).order_by('-ticket_number').first()
-        if last_ticket:
-            last_num = int(last_ticket.ticket_number.split('-')[-1])
-            new_num = last_num + 1
-        else:
-            new_num = 1
-        return f"{prefix}{new_num:05d}"
-    
+        """Collision-resistant ticket reference; independent of concurrent writers."""
+        return f"TKT-{timezone.now():%Y}-{uuid.uuid4().hex[:10].upper()}"
+
     def get_last_message(self):
         """Get the last message in the ticket"""
         return self.messages.order_by('-created_at').first()

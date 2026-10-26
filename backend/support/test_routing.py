@@ -38,6 +38,12 @@ class SupportRoutingTests(TestCase):
         if tag is not None:payload["routing_tag_id"]=tag
         return self.api.post("/api/support/tickets/",payload,format="json")
 
+    def test_ticket_reference_is_unique_without_shared_sequence_counter(self):
+        references=[SupportTicket(client=self.customer,department=self.dept,
+            subject="test",priority="medium").generate_ticket_number() for _ in range(100)]
+        self.assertEqual(len(references),len(set(references)))
+        self.assertTrue(all(len(ref)<=20 for ref in references))
+
     def test_specialist_topic_routes_to_eligible_agent(self):
         r=self.create(tag=self.dns.pk)
         self.assertEqual(r.status_code,201,r.data)

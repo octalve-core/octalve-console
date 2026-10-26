@@ -268,18 +268,15 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         else:
             return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Add internal note
-        reason = serializer.validated_data.get('reason', '')
-        if reason:
-            TicketMessage.objects.create(
-                ticket=ticket,
-                sender=request.user,
-                sender_role='admin' if request.user.role == 'admin' else 'staff',
-                sender_name=request.user.full_name,
-                message=f"Action: {action}. Reason: {reason}",
-                is_internal=True
-            )
-        
+        # Keep an immutable conversation record for every sensitive action.
+        reason = serializer.validated_data.get("reason", "")
+        TicketMessage.objects.create(
+            ticket=ticket,sender=request.user,
+            sender_role=request.user.role if request.user.role in ("admin","staff","client") else "system",
+            sender_name=request.user.full_name,
+            message=f"Action: {action}. {reason}"[:1000],
+            is_internal=True,
+        )
         return Response({'message': message})
     
     # @action(detail=True, methods=['post'])
