@@ -69,6 +69,8 @@ jobs:
         run: node frontend/scripts/check-console-shell.cjs --built
       - name: Client essentials design-system and API authority regression (Batch 3)
         run: node frontend/scripts/check-client-essentials.cjs --built
+      - name: Client commerce and payment authority UI regression (Batch 4)
+        run: node frontend/scripts/check-client-commerce.cjs --built
 
   django-check:
     runs-on: ubuntu-latest
