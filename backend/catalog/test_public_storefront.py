@@ -25,6 +25,29 @@ class PublicStorefrontTests(TestCase):
         self.plan.is_public=False
         self.plan.save(update_fields=["is_public"])
         self.assertEqual(self.api.get("/api/storefront/plans/").data["plans"],[])
+    def test_active_unpublished_plans_hidden_from_customer_catalog(self):
+        customer = get_user_model().objects.create_user(
+            username="testcustomer", email="testcustomer@example.invalid", password="test-pass")
+        self.api.force_authenticate(user=customer)
+        first = self.api.get("/api/catalog/plans/")
+        self.assertEqual(first.status_code, 200)
+        first_data = first.data.get("results", first.data) if isinstance(first.data, dict) else first.data
+        self.assertFalse(any(item["id"] == self.plan.pk for item in first_data))
+        PublishedCatalogOffer.objects.create(plan=self.plan, revision=1, snapshot={})
+        second = self.api.get("/api/catalog/plans/")
+        second_data = second.data.get("results", second.data) if isinstance(second.data, dict) else second.data
+        self.assertTrue(any(item["id"] == self.plan.pk for item in second_data))
+        self.api.force_authenticate(user=None)
+
+    def test_longest_tld_suffix_wins(self):
+        TLDPricing.objects.create(tld=".ng",register_price=16000,renewal_price=17000,transfer_price=16000)
+        TLDPricing.objects.create(tld=".com.ng",register_price=9000,renewal_price=10000,transfer_price=9000)
+        result = self.api.get("/api/storefront/domains/lookup/?domain=school.com.ng")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.data["tld"], ".com.ng")
+        self.assertEqual(result.data["registration_price"], "9000.00")
+        self.assertEqual(result.data["availability"], "unverified")
+
     def test_domain_lookup_never_invents_availability(self):
         TLDPricing.objects.create(tld=".com",register_price=20000,renewal_price=25000,transfer_price=20000)
         data=self.api.get("/api/storefront/domains/lookup/?domain=example.com").data

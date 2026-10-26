@@ -426,6 +426,7 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
 # storefront feed. Do not grant administrative or payment authority to it.
 CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS + [
     "https://octalve.cloud", "https://www.octalve.cloud",
+    "https://cloud.octalve.com", "https://www.cloud.octalve.com",
 ]))
 CORS_ALLOW_CREDENTIALS = True
 from corsheaders.defaults import default_headers

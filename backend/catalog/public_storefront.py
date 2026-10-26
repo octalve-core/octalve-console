@@ -75,10 +75,9 @@ class PublicDomainLookup(APIView):
             raise ValidationError({"domain": "Enter a valid domain name."})
         # Longest suffix wins (.com.ng over .ng). No supplier is connected,
         # so this endpoint must never claim an available/registered result.
-        price = next((p for p in TLDPricing.objects.filter(status="active")
-                      if domain.endswith(p.tld.lower()) and
-                      domain != p.tld.lower().lstrip(".") and
-                      domain.endswith("." + p.tld.lower().lstrip("."))), None)
+        supported = [p for p in TLDPricing.objects.filter(status="active")
+                     if domain.endswith("." + p.tld.lstrip(".").lower())]
+        price = max(supported, key=lambda p: len(p.tld), default=None)
         return Response({
             "domain": domain, "availability": "unverified",
             "registrar_connected": False, "checkout_enabled": False,

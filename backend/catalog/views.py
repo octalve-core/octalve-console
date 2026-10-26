@@ -72,6 +72,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         """Get all plans for a product"""
         product = self.get_object()
         plans = Plan.objects.filter(product=product, status='active')
+        if not (request.user.role == 'admin' or request.user.is_superuser):
+            plans = plans.filter(is_public=True, published_versions__isnull=False).distinct()
         serializer = PlanSerializer(plans, many=True)
         return Response(serializer.data)
 
@@ -91,7 +93,7 @@ class PlanViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
             return Plan.objects.all()
-        return Plan.objects.filter(status='active', is_public=True, product__status='active', product__is_public=True, product__category__is_active=True)
+        return Plan.objects.filter(status='active', is_public=True, published_versions__isnull=False, product__status='active', product__is_public=True, product__category__is_active=True).distinct()
     
     # A2 price authority: retail plans must change through reviewed drafts.
     def create(self, request, *args, **kwargs):
