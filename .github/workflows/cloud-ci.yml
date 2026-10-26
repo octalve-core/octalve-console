@@ -65,6 +65,8 @@ jobs:
         run: node frontend/scripts/check-contrast-safe-cloud-panels.cjs --built
       - name: Console design system emitted Tailwind regression
         run: node frontend/scripts/check-console-design-system.cjs --built
+      - name: Shared Console shell and auth Tailwind contract (Batch 2)
+        run: node frontend/scripts/check-console-shell.cjs --built
 
   django-check:
     runs-on: ubuntu-latest

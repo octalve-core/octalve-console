@@ -9,9 +9,7 @@
     "lines": 8526,
     "bytes": 155849
   },
-  "otherCss": [
-    "frontend/src/features/auth/components/AuthLayout.module.css"
-  ],
+  "otherCss": [],
   "routeCounts": {
     "client": 23,
     "staff": 10,
@@ -134,5 +132,13 @@
     "frontend/src/app/staff/security/page.tsx",
     "frontend/src/app/staff/tickets/[id]/page.tsx",
     "frontend/src/app/staff/tickets/page.tsx"
+  ],
+  "migrations": [
+    {
+      "batch": 2,
+      "action": "retire-unused-auth-css-module",
+      "path": "frontend/src/features/auth/components/AuthLayout.module.css",
+      "reason": "AuthLayout and all four auth form views migrated to typed Tailwind utilities, including auth form spacing and field controls; no remaining imports or class consumers."
+    }
   ]
 }
