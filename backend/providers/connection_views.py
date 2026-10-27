@@ -2,6 +2,7 @@
 import re
 from django.conf import settings
 from django.db import transaction
+from django.db.utils import OperationalError, ProgrammingError
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -67,7 +68,10 @@ def connection_schemas(request):
 @throttle_classes([VaultMutationThrottle])
 def connections(request):
     if request.method=="GET":
-        rows=list(IntegrationConnection.objects.order_by("-created_at","pk")[:51])
+        try:
+            rows=list(IntegrationConnection.objects.order_by("-created_at","pk")[:51])
+        except (OperationalError, ProgrammingError):
+            return Response({"detail":"Connection registry is not available yet."},status=503)
         return Response({"results":[safe_connection(x) for x in rows[:50]],
                          "truncated":len(rows)>50,"execution_enabled":False})
     require_write_authority(request)
@@ -99,6 +103,8 @@ def connection_detail(request, connection_id):
         row=IntegrationConnection.objects.get(pk=connection_id)
     except IntegrationConnection.DoesNotExist:
         return Response({"detail":"Connection not found."},status=404)
+    except (OperationalError, ProgrammingError):
+        return Response({"detail":"Connection registry is not available yet."},status=503)
     return Response(safe_connection(row),headers={"Cache-Control":"no-store"})
 
 @api_view(["POST"])

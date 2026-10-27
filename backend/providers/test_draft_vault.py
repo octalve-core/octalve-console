@@ -109,6 +109,14 @@ class DraftVaultTests(APITestCase):
         self.assertEqual(event.action,"draft_created")
         self.assertNotIn("TEST-SYNTHETIC-API-KEY-123",str(event.__dict__))
 
+    def test_registry_missing_tables_fails_with_service_unavailable(self):
+        from django.db.utils import OperationalError
+        with patch("providers.connection_views.IntegrationConnection.objects.order_by",
+                   side_effect=OperationalError("missing test table")):
+            result=self.client.get("/api/providers/connections/")
+        self.assertEqual(result.status_code,503)
+        self.assertNotIn("test table",str(result.data))
+
     def test_wrong_encryption_key_does_not_fall_back_to_legacy(self):
         with override_settings(CLOUD_PROVIDER_VAULT_KEY="bad-base64"):
             self.assertEqual(self.client.post("/api/providers/connections/",self.payload,format="json").status_code,503)
