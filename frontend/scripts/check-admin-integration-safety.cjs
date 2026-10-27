@@ -12,7 +12,7 @@ for(const token of ["schemaApi.payments.gateways()","role=\"admin\"","state.load
 for(const legacy of ["secret_key","webhook_secret","public_key","<form","type=\"password\"","localStorage"])
  if(payments.includes(legacy)||page.includes(legacy))
   throw Error("Paystack record overview must not collect, store or expose credentials: "+legacy);
-const fields=read("features/admin/data/admin-editor-config.ts");
+const fields=read("features/admin/data/editor-config/gateways.ts")+read("features/admin/data/editor-config/providers.ts");
 for(const name of ["secret_key","webhook_secret","api_key","secret"]){
  const expression=new RegExp("name: \\\""+name+"\\\"[^\\n]*type: \\\"password\\\"");
  if(!expression.test(fields))throw Error("Sensitive admin editor field must be password-masked: "+name);
@@ -21,6 +21,9 @@ const editorFields=read("features/admin/components/AdminEditorFields.tsx");
 if(!editorFields.includes('autoComplete={field.type==="password"?"new-password":undefined}'))
  throw Error("Sensitive Admin inputs lack password autocomplete control");
 const editor=read("features/admin/views/AdminResourceEditorView.tsx");
+const form=read("features/admin/components/AdminResourceEditorForm.tsx");
+if(!editor.includes("AdminResourceEditorForm")||!form.includes("AdminEditorFields")||/Field validation ready|Django serializer|Record ID:|Resource:/.test(editor+form))
+ throw Error("Admin editor must use a dedicated presentational form without internal implementation copy");
 for(const token of ["setSourceRecord(foundApiRecord)","findExactAdminRecord(authorizedRows, activeId)","sourceRecord?.id !== activeId",
  'setError("This record is not available in your authorized account.',"effectiveMode === \"edit\" && (!sourceRecord || sourceRecord.id !== activeId)",
  "saveAdminResourceRecord(resource, effectiveMode, payload"])

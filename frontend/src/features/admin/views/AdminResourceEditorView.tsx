@@ -1,18 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Loader2, Save, ShieldCheck } from "lucide-react";
-import {AdminEditorFields} from "../components/AdminEditorFields";
+import {ArrowLeft} from "lucide-react";
+import {AdminResourceEditorForm} from "../components/AdminResourceEditorForm";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
-import { ApiFormError } from "@/components/feedback/ApiFormError";
-import { cn } from "@/lib/utils";
 import {
   parseApiValidationError,
   type ApiFieldErrors,
@@ -104,7 +100,6 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
   const [values, setValues] = useState<Record<string, string>>(() => buildInitialState(editorConfig.fields));
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>({});
 
@@ -189,7 +184,6 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
       return;
     }
     setError("");
-    setNotice("");
     setFieldErrors({});
     setIsSubmitting(true);
 
@@ -246,87 +240,11 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
         ) : effectiveMode === "edit" && (!sourceRecord || sourceRecord.id !== activeId) ? (
           <ErrorState title="Record unavailable" description={error || "The requested record could not be verified."} />
         ) : (
-          <div className="grid gap-5 xl:grid-cols-[1fr_22rem]">
-            <Card>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid gap-5 md:grid-cols-2">
-                  <AdminEditorFields fields={editorConfig.fields} values={values}
-                    fieldErrors={fieldErrors} onChange={updateField}/>
-                </div>
-
-                {notice ? (
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
-                    {notice}
-                  </div>
-                ) : null}
-
-                <ApiFormError message={error} fieldErrors={fieldErrors} />
-
-                <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-                  <Button href={editorConfig.listHref} variant="outline">
-                    Cancel
-                  </Button>
-
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4" />
-                        Save record
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Card>
-
-            <div className="space-y-5">
-              <Card>
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
-                  <ShieldCheck className="h-6 w-6" />
-                </div>
-
-                <h3 className="mt-5 text-lg font-medium tracking-[-0.03em] text-slate-950">
-                  Field validation ready
-                </h3>
-
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Django serializer errors now appear under each matching field, while general API errors remain visible above the form actions.
-                </p>
-
-                <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-xs leading-6 text-slate-500">
-                  <p>
-                    <span className="font-medium text-slate-700">Resource:</span> {resource}
-                  </p>
-                  <p>
-                    <span className="font-medium text-slate-700">Mode:</span> {effectiveMode}
-                  </p>
-                  <p className={cn(!activeId && effectiveMode === "edit" && "text-red-600")}>
-                    <span className="font-medium text-slate-700">Record ID:</span>{" "}
-                    {activeId || sourceRecord?.id || "New record"}
-                  </p>
-                </div>
-              </Card>
-
-              <Card>
-                <h3 className="text-lg font-medium tracking-[-0.03em] text-slate-950">Navigation</h3>
-                <div className="mt-4 grid gap-3">
-                  <Link href={editorConfig.listHref} className="rounded-2xl border border-slate-200 p-4 text-sm font-medium text-slate-700 transition hover:border-[#0064E0]/30 hover:bg-slate-50">
-                    View all {listConfig.title.toLowerCase()}
-                  </Link>
-
-                  {editorConfig.newHref ? (
-                    <Link href={editorConfig.newHref} className="rounded-2xl border border-slate-200 p-4 text-sm font-medium text-slate-700 transition hover:border-[#0064E0]/30 hover:bg-slate-50">
-                      Create another record
-                    </Link>
-                  ) : null}
-                </div>
-              </Card>
-            </div>
+          <div className="mx-auto w-full max-w-4xl">
+            <AdminResourceEditorForm fields={editorConfig.fields} values={values}
+              fieldErrors={fieldErrors} error={error} onChange={updateField}
+              onSubmit={handleSubmit} isSubmitting={isSubmitting}
+              backHref={editorConfig.listHref}/>
           </div>
         )}
       </DashboardPage>
