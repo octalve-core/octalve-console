@@ -99,6 +99,8 @@ jobs:
         run: node frontend/scripts/check-batch9-client-foundation.cjs --built
       - name: Batch 10 owned Services, usage and renewal authority contract
         run: node frontend/scripts/check-batch10-service-authority.cjs
+      - name: Batch 11 domain management, registrar readiness and ownership contract
+        run: node frontend/scripts/check-batch11-domain-contract.cjs
 
   django-check:
     runs-on: ubuntu-latest

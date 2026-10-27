@@ -43,6 +43,17 @@ export type ServiceRenewalStatus = {
   service_id:number;state:"invoice_ready"|"request_assistance"|"unavailable";
   invoice_id:number|null;auto_renew:boolean;next_due_date:string;
 };
+export type DomainRenewalStatus = {
+  domain_id:number;state:"invoice_ready"|"request_assistance"|"unavailable";
+  invoice_id:number|null;auto_renew:boolean;registration_date:string;
+  expiry_date:string;next_due_date:string;
+};
+export type DomainTransferReadiness = {
+  domain:string;tld:string|null;supported:boolean;registrar_connected:boolean;
+  transfer_eligible:boolean|null;checkout_enabled:boolean;
+  state:"registrar_verification_required";
+  indicative_price:string|null;currency:string|null;message:string;
+};
 export type EditableAccountProfile = Omit<AccountProfile,"email"|"email_verified">;
 
 type ListParams = {
@@ -267,6 +278,14 @@ export const clientApi = {
 
   domain(id: string) {
     return api.get<Domain>(byId(apiPaths.client.domains, id));
+  },
+  domainRenewalStatus(id:string) {
+    return api.get<DomainRenewalStatus>(
+      byId(apiPaths.client.domains,id)+"renewal-status/");
+  },
+  domainTransferReadiness(domain:string) {
+    return api.get<DomainTransferReadiness>(
+      apiPaths.client.domains+"transfer-readiness/",{params:{domain}});
   },
 
   domainDnsRecords(id: string) {

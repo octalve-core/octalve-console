@@ -15,7 +15,7 @@ import { clientResourceConfig } from "../data/client-resource-config";
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
 import { normalizeClientRecord, unwrapClientList } from "../utils/client-record-normalizer";
 import { ClientRecordList } from "../components/ClientRecordList";
-import { ClientDomainSearch } from "../components/ClientDomainSearch";
+
 import {ClientEssentialRecords} from "../components/ClientEssentialRecords";
 import {BillingRecordDirectory} from "../components/commerce/BillingRecordDirectory";
 
@@ -78,7 +78,7 @@ export function ClientResourceListView({ resource }: ClientResourceListViewProps
     onClick={()=>{void loadRecords(false);}}>Try again</ActionButton>;
   const recovery=issue?.signIn?<ActionLink href="/login" size="sm" variant="outline">Sign in</ActionLink>:retry;
   const body=<div className="space-y-5">
-    {resource==="domains"&&<ClientDomainSearch/>}
+
     {isLoading?<LoadingState title={`Loading your ${config.title.toLowerCase()}`} description="Checking your latest account records."/>:
      error&&(!records.length||issue?.signIn)?<ErrorState title={issue?.title} description={issue?.description??error} action={recovery}/>:
      <>

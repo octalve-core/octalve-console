@@ -1,5 +1,5 @@
-import { ClientResourceDetailView } from "@/features/client/views/ClientResourceDetailView";
+import {ClientDomainManagementView} from "@/features/client/views/ClientDomainManagementView";
 
-export default function ClientDomainDetailPage() {
-  return <ClientResourceDetailView resource="domains" />;
+export default function ClientDomainDetailPage(){
+  return <ClientDomainManagementView mode="overview"/>;
 }

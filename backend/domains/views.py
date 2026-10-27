@@ -23,6 +23,7 @@ from billing.models import Invoice, InvoiceItem
 from orders.models import Order, OrderItem
 from providers.registry import ProviderRegistry
 from rbac.decorators import permission_required
+from .registrar_quote import HOSTNAME
 import re
 
 
@@ -81,6 +82,63 @@ class DomainViewSet(viewsets.ModelViewSet):
     def delete_dns_record(self, request, pk=None):
         self.get_object()
         return _requires_approved_provider('DNS record deletion')
+
+    @action(detail=False, methods=['get'], url_path='transfer-readiness')
+    def transfer_readiness(self, request):
+        """Check syntax/pricing visibility without collecting EPP or claiming eligibility.
+
+        A live registrar is necessary for transfer locks, registrant approval,
+        authority, exact charges and external execution.
+        """
+        if getattr(request.user, 'role', '') != 'client' or not request.user.is_active:
+            return Response({'detail': 'Unavailable.'}, status=404)
+        name = request.query_params.get('domain', '')
+        if not isinstance(name, str):
+            return Response({'domain': ['Enter a domain name.']}, status=400)
+        domain = name.strip().lower().rstrip('.')
+        if not HOSTNAME.fullmatch(domain):
+            return Response({'domain': ['Enter a valid domain name.']}, status=400)
+        prices = [
+            p for p in TLDPricing.objects.filter(status='active')
+            if domain.endswith('.' + p.tld.lstrip('.').lower())
+        ]
+        price = max(prices, key=lambda p: len(p.tld), default=None)
+        return Response({
+            'domain': domain, 'tld': price.tld if price else None,
+            'supported': bool(price), 'registrar_connected': False,
+            'transfer_eligible': None, 'checkout_enabled': False,
+            'state': 'registrar_verification_required',
+            'indicative_price': str(price.transfer_price) if price else None,
+            'currency': 'NGN' if price else None,
+            'message': 'Transfer eligibility, authorization, and final pricing '
+                       'must be confirmed by a connected registrar.',
+        }, headers={'Cache-Control': 'private, no-store'})
+
+    @action(detail=True, methods=['get'], url_path='renewal-status')
+    def renewal_status(self, request, pk=None):
+        """Only return a confirmed existing domain-renewal invoice; never mutate."""
+        if getattr(request.user, 'role', '') != 'client' or not request.user.is_active:
+            return Response({'detail': 'Unavailable.'}, status=404)
+        domain = get_object_or_404(Domain, pk=pk, client_id=request.user.pk)
+        invoice = None
+        if domain.status in ('active', 'expired'):
+            invoice = (Invoice.objects.filter(
+                client_id=request.user.pk,
+                status__in=('unpaid', 'partially_paid', 'overdue'),
+                metadata__type='domain_renewal', metadata__domain_id=domain.pk,
+            ).order_by('-created_at', '-pk').first())
+        return Response({
+            'domain_id': domain.pk,
+            'state': 'invoice_ready' if invoice else (
+                'request_assistance' if domain.status in ('active', 'expired')
+                else 'unavailable'
+            ),
+            'invoice_id': invoice.pk if invoice else None,
+            'auto_renew': domain.auto_renew,
+            'registration_date': domain.registration_date.isoformat(),
+            'expiry_date': domain.expiry_date.isoformat(),
+            'next_due_date': domain.next_due_date.isoformat(),
+        }, headers={'Cache-Control': 'private, no-store'})
 
     @action(detail=True, methods=['post'])
     def renew(self, request, pk=None):
