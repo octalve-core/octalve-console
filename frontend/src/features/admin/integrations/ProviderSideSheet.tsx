@@ -4,7 +4,8 @@ import {X} from "lucide-react";
 import type {Integration} from "./catalog";
 import {ProviderLogo} from "./ProviderLogo";
 import {ProviderRequirements} from "./ProviderRequirements";
-export function ProviderSideSheet({item,onClose}:{item:Integration;onClose:()=>void}){
+import type {DraftConnection} from "./connection-readback";
+export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean}){
  const element=useRef<HTMLDialogElement>(null);
  useEffect(()=>{const dialog=element.current;if(dialog&&!dialog.open)dialog.showModal();return ()=>{if(dialog?.open)dialog.close();};},[item.slug]);
  return <dialog ref={element} onClose={onClose} aria-labelledby="integration-sheet-title"
@@ -23,10 +24,19 @@ export function ProviderSideSheet({item,onClose}:{item:Integration;onClose:()=>v
    <p className="text-sm font-semibold">Prepare your connection</p>
    <p className="mt-1 text-xs leading-5 text-slate-700">Review what you need and follow the official setup guide. Secure credential entry is not yet available on this screen.</p>
   </div>
+  {drafts.length?<section aria-label="Saved connection drafts" className="space-y-3">
+   <h3 className="text-sm font-semibold">Your saved drafts</h3>
+   {drafts.map(c=><div key={c.id} className="rounded-xl border border-console-line bg-slate-50 p-3">
+    <p className="text-sm font-medium">{c.label}</p>
+    <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} configuration · Credential version {c.credential_version} · {c.state==="draft"?"Unverified draft":"Revoked"}</p>
+   </div>)}
+   <p className="text-xs text-console-muted">Saved encrypted credentials are not a verified connection. No supplier activity is enabled.</p>
+  </section>:null}
+  {draftSchemaAvailable?<p className="rounded-xl border border-console-line bg-slate-50 p-3 text-xs text-console-muted">A restricted draft-storage schema exists for this provider. Credential submission remains unavailable until the security approval gate.</p>:null}
   <ProviderRequirements item={item}/>
  </div>
  <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-console-line px-5 py-4 sm:px-6">
-  <span className="text-xs text-console-muted">No credentials configured</span>
+  <span className="text-xs text-console-muted">Supplier execution disabled</span>
   <button type="button" onClick={()=>element.current?.close()} className="min-h-11 rounded-xl bg-console-primary px-5 py-2 text-sm font-semibold text-white">Done</button>
  </footer>
  </div></dialog>;

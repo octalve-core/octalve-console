@@ -85,6 +85,8 @@ jobs:
         run: node frontend/scripts/check-batch8-shared-migration.cjs --built
       - name: Prepare 123-route responsive browser acceptance manifest
         run: node frontend/scripts/browser-parity-qualification.cjs --plan frontend/.next/batch8-browser-qa.json
+      - name: Admin B1 draft connection readback and authority guard
+        run: node frontend/scripts/check-admin-b1-draft-readback.cjs
       - name: Admin navigation and safe Integration Store contract
         run: node frontend/scripts/check-admin-a2-integration-store.cjs
       - name: Admin Settings route and truthful management link contract
