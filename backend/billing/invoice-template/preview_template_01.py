@@ -7,6 +7,7 @@ All entities, prices and addresses are fictional; the preview is NOT billable.
 """
 from argparse import ArgumentParser
 from decimal import Decimal
+from dataclasses import replace
 from importlib import import_module
 from pathlib import Path
 import sys
@@ -57,8 +58,19 @@ def sample():
 def main():
     parser = ArgumentParser(description="Offline Octalve invoice visual QA fixture.")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--long", action="store_true", help="Render a multipage fixture.")
     args = parser.parse_args()
-    output = import_module(TEMPLATE_REGISTRY["template_01"]).render(sample())
+    document = sample()
+    if args.long:
+        lines = tuple(InvoiceLine(
+            f"Example hosting line {n:03d} - annual term (synthetic)",
+            "1", Decimal("500.00"), Decimal("500.00"))
+            for n in range(65))
+        subtotal = sum((line.subtotal for line in lines), Decimal("0.00"))
+        document = replace(
+            document, lines=lines, subtotal=subtotal,
+            tax_total=Decimal("0.00"), total=subtotal, amount_due=subtotal)
+    output = import_module(TEMPLATE_REGISTRY["template_01"]).render(document)
     if not output.startswith(b"%PDF-"):
         raise ValueError("Renderer did not return PDF")
     args.output.parent.mkdir(parents=True, exist_ok=True)
