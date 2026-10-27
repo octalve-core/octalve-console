@@ -32,6 +32,7 @@ export default function ClientSettingsPage(){
           </p>
         </Panel>
       </div>
+      <div className="mt-5"><ClientNoticePreferences/></div>
     </DashboardPage>
   </DashboardShell>;
 }
