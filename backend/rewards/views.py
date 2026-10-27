@@ -166,13 +166,22 @@ class AdminAffiliateReview(APIView):
         return Response({"id":account.pk,"status":account.status})
 
 def _verified_invoice(invoice):
-    if invoice.status!="paid" or invoice.currency!="NGN" or invoice.total<=0:
+    # Status flags alone are not settlement authority.
+    if (invoice.status!="paid" or invoice.currency!="NGN" or
+        invoice.total<=0 or invoice.amount_paid<invoice.total or
+        invoice.amount_due>0):
         return False
-    return Transaction.objects.filter(
+    transactions=Transaction.objects.filter(
         invoice=invoice,client_id=invoice.client_id,transaction_type="payment",
         status="successful",webhook_verified=True,currency="NGN",
         gateway__status="active",gateway__test_mode=False,
-    ).exists()
+    )
+    settled=transactions.aggregate(v=Sum("amount"))["v"] or Decimal("0")
+    # A refund/chargeback invalidates eligibility pending reconciliation.
+    refunded=Transaction.objects.filter(
+        invoice=invoice,status__in=("successful","refunded"),
+        transaction_type="refund").exists()
+    return settled>=invoice.total and not refunded
 
 class AdminGrantPurchasePoints(APIView):
     """One grant per paid invoice, admin manual release only, no user-supplied points."""
