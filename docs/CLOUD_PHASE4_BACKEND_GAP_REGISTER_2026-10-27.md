@@ -62,3 +62,16 @@ For each key create: (1) current routes/models/tests and existing capabilities, 
 Prioritize P4-SEC-02 / P4-BIZ-03 / P4-INF-02 / P4-DOM-01 / P4-OPA-01 as release-affecting contract audits; plan Admin extras separately by actual commercial importance. This register is not permission to create speculative money movement, migrations or provisioning.
 
 Standards: [OWASP ASVS 5](https://asvs.owasp.org/), [OWASP Authorization](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html), [OWASP REST Security](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html), [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html).
+
+## Local Production migration procedure recovered from 26 October 2026
+
+The effective consolidated migration runner was created for the **user's own Windows workstation**, not committed to this repository: `Octalve-Cloud-Production-Migrate-Fixed-2026-10-26.ps1` (replaced an earlier unfixed edition). At the last confirmed owner execution on 26 October, Production Neon was reported as **54 applied Django migrations and 100 public tables**.
+
+When **and only when** the current Git commit introduces real Django migration files and the operator has independently verified actual Production Neon target identity, backup/recovery and migration ledger:
+```powershell
+$env:FRONTEND_URL = "https://console.cloud.octalve.com"
+.\Octalve-Cloud-Production-Migrate-Fixed-2026-10-26.ps1
+# After the script explicitly confirms PREFLIGHT PASSED, for an approved pending migration:
+.\Octalve-Cloud-Production-Migrate-Fixed-2026-10-26.ps1 -Apply
+```
+Do **not** run an old initial-schema script from `scripts/` for this already-initialized Production database. Do not paste Neon passwords or connection strings into tickets/chat. The local corrected file itself is not versioned here; preserve it in the owner's trusted local environment and verify its checks before reuse. **The frontend-only Phase 1 PR #36 introduces no Django migration and requires no PowerShell migration run.**

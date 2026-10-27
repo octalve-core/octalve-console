@@ -37,3 +37,9 @@ The findings above are a targeted code audit, **not** certification of all 123 r
 - [OWASP ASVS 5.0.0](https://asvs.owasp.org/) and [WCAG 2.2](https://www.w3.org/TR/WCAG22/): acceptance baselines for security and keyboard/visual behavior.
 
 Release decision: changes remain on an isolated Review PR until exact-head CI succeeds. Live role-correct browser acceptance and final CSS removal are independently unqualified.
+
+## Phase 1 follow-on — cross-role list envelope truthfulness
+- Admin Resource, Admin Operations and Admin Workspace list views now reuse the fail-closed authorized list parser rather than independently returning [] for invalid HTTP response envelopes.
+- Client and Staff record list normalizers now reject malformed arrays/envelopes and invalid item types rather than displaying false “no records” states.
+- Node regression checks empty authorized lists as valid but rejects null, missing results, non-array results and invalid array items for all three roles.
+- This is a data-truthfulness UI guard; it does not replace Django tenant authorization or authenticate any browser session.

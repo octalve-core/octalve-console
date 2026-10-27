@@ -1,4 +1,5 @@
 "use client";
+import { unwrapAdminList } from "../../utils/admin-record-normalizer";
 
 import {useState} from "react";
 import { DashboardPage } from "@/components/layout/DashboardPage";
@@ -14,15 +15,6 @@ import { adminWorkspaceConfig, type AdminWorkspaceKey, type AdminWorkspaceRecord
 type AdminWorkspaceViewProps = {
   workspace: AdminWorkspaceKey;
 };
-
-function unwrapList(value: unknown) {
-  const data = value as { results?: unknown[] } | unknown[];
-
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.results)) return data.results;
-
-  return [];
-}
 
 function readString(item: Record<string, unknown>, keys: string[], fallback = "—") {
   for (const key of keys) {
@@ -80,7 +72,7 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
 
     try {
       const response = await config.loader();
-      const apiRecords = unwrapList(response).map((item) => normalizeRecord(item, config));
+      const apiRecords = unwrapAdminList(response).map((item) => normalizeRecord(item, config));
 
       setRecords(apiRecords);
     } catch {
