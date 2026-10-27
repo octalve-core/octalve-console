@@ -119,6 +119,34 @@ class RewardsBatch13Tests(APITestCase):
         self.assertEqual(self.client.post(endpoint,{"invoice_id":self.invoice.pk},format="json").status_code,409)
         self.assertEqual(PointEntry.objects.count(),0)
 
+    def test_refund_reversal_requires_verified_provider_evidence_and_is_unique(self):
+        RewardPolicy.objects.create(is_active=True,points_per_ngn=1000)
+        self.invoice.mark_paid()
+        gateway=PaymentGateway.objects.create(code="paystack",name="Live fixture",
+            status="active",test_mode=False)
+        Transaction.objects.create(client=self.owner,invoice=self.invoice,
+            gateway=gateway,reference="confirmed-bonus",amount=Decimal("12000.00"),
+            net_amount=Decimal("12000.00"),currency="NGN",status="successful",
+            webhook_verified=True,transaction_type="payment")
+        self.client.force_authenticate(user=self.admin)
+        self.assertEqual(self.client.post("/api/rewards/admin/purchases/award/",{
+            "invoice_id":self.invoice.pk},format="json").status_code,201)
+        reverse="/api/rewards/admin/purchases/reverse/"
+        self.assertEqual(self.client.post(reverse,{"invoice_id":self.invoice.pk},
+            format="json").status_code,409)
+        Transaction.objects.create(client=self.owner,invoice=self.invoice,
+            gateway=gateway,reference="confirmed-refund",amount=Decimal("12000.00"),
+            net_amount=Decimal("12000.00"),currency="NGN",status="successful",
+            webhook_verified=True,transaction_type="refund")
+        first=self.client.post(reverse,{"invoice_id":self.invoice.pk},format="json")
+        self.assertEqual(first.status_code,201,first.data)
+        again=self.client.post(reverse,{"invoice_id":self.invoice.pk},format="json")
+        self.assertEqual(again.status_code,200,again.data)
+        self.assertTrue(again.data["already_recorded"])
+        self.assertEqual(PointEntry.objects.filter(user=self.owner).count(),2)
+        self.assertEqual(sum(PointEntry.objects.filter(user=self.owner).
+            values_list("points_delta",flat=True)),0)
+
     def test_recognition_is_private_positive_and_customer_dismissible(self):
         self.client.force_authenticate(user=self.admin)
         r=self.client.post("/api/rewards/admin/recognitions/",{
