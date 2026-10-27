@@ -15,7 +15,7 @@ ensure("features/client/components/ClientOverviewMetrics.tsx",[
 ]);
 ensure("features/client/views/ClientResourceListView.tsx",[
  "config.loader()","unwrapClientList(response)","normalizeClientRecord(item, config.key)",
- "setRecords([])","ClientEssentialRecords","resource===\"services\"||resource===\"domains\"","ClientDomainSearch"
+ "setRecords([])","ClientEssentialRecords","resource===\"services\"||resource===\"domains\"","ClientEssentialRecords"
 ]);
 ensure("features/client/components/ClientEssentialRecords.tsx",[
  "CloudRecordDirectory","onOpen={openDetails}","verified.actionHref","records.map(record=>",
