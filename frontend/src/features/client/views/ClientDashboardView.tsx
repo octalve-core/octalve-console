@@ -24,6 +24,7 @@ export function ClientDashboardView(){
     description="Manage hosting, domains, billing and support.">
     <div className="space-y-6">
       <ClientHero name={firstName}/>
+      <ClientLoginAlerts/>
       <ClientOverviewActions/>
       <ClientOverviewMetrics summary={summary}/>
       <div className="grid gap-5 xl:grid-cols-2">
