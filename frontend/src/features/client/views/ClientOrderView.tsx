@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {useSearchParams} from "next/navigation";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { loadSellablePlans, defaultCycle, type ClientOrderPlan } from "../data/client-order-data";
@@ -8,6 +9,7 @@ import {HostingPlanCards} from "../components/commerce/HostingPlanCards";
 import {HostingOrderSummary} from "../components/commerce/HostingOrderSummary";
 
 export function ClientOrderView() {
+  const searchParams=useSearchParams();
   const [plans, setPlans] = useState<ClientOrderPlan[]>([]);
   const [categorySlug, setCategorySlug] = useState("");
   const [planId, setPlanId] = useState("");
@@ -19,7 +21,7 @@ export function ClientOrderView() {
     loadSellablePlans().then(items => {
       if (!live) return;
       setPlans(items);
-      const params = new URLSearchParams(window.location.search);
+      const params = searchParams;
       const requestedPlan = params.get("plan") || "";
       const selectedCategory = params.get("category") || "";
       setCategorySlug(selectedCategory);
@@ -34,7 +36,7 @@ export function ClientOrderView() {
     }).catch(() => { if(live) setError("We couldn’t load hosting plans right now. Please try again. No order has been placed."); })
       .finally(() => {if(live) setLoading(false);});
     return () => {live = false;};
-  }, []);
+  }, [searchParams]);
 
   const visiblePlans = categorySlug ? plans.filter(p => p.categorySlug === categorySlug) : plans;
   const selected = visiblePlans.find(p => p.id === planId);
