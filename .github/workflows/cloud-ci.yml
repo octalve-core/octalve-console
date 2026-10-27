@@ -93,6 +93,8 @@ jobs:
         run: node --experimental-strip-types frontend/scripts/check-phase1-admin-authority.cjs
       - name: Phase 1 and 2 client data recovery and Tailwind accessibility
         run: node frontend/scripts/check-phase12-client-recovery.cjs --built
+      - name: Phase 3 Console-to-Django route and tenant contract guard
+        run: node frontend/scripts/check-phase3-django-route-contract.cjs
 
   django-check:
     runs-on: ubuntu-latest
