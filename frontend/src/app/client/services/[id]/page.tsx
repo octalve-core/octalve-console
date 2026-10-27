@@ -1,5 +1,6 @@
-import { ClientResourceDetailView } from "@/features/client/views/ClientResourceDetailView";
+import {ClientServiceDetailView} from "@/features/client/views/ClientServiceDetailView";
 
-export default function ClientServiceDetailPage() {
-  return <ClientResourceDetailView resource="services" />;
+/** Exact owner-authorized GET. Never search a paginated list for a detail ID. */
+export default function ClientServiceDetailPage(){
+  return <ClientServiceDetailView/>;
 }
