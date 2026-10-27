@@ -472,6 +472,10 @@ export const adminApi = {
     return api.post<{points:number;already_recorded:boolean}>(
       "/rewards/admin/purchases/award/",{invoice_id});
   },
+  reversePurchasePoints(invoice_id:number){
+    return api.post<{id:number;already_recorded:boolean}>(
+      "/rewards/admin/purchases/reverse/",{invoice_id});
+  },
   recognizeCustomer(client_id:number,title:string,message:string){
     return api.post<{id:number;published:boolean}>(
       "/rewards/admin/recognitions/",{client_id,title,message});
