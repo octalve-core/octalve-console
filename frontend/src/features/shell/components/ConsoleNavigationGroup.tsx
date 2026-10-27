@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import {cn} from "@/lib/utils";
 import type {DashboardNavGroup,DashboardNavIcon,DashboardRole} from "@/lib/navigation/dashboard-nav";
+import {useLocale} from "@/lib/i18n/LocaleProvider";
+import {translateNavigationLabel} from "@/lib/i18n/dictionary";
 
 const icons:Record<DashboardNavIcon,LucideIcon>={
  layoutDashboard:LayoutDashboard,users:Users,boxes:Boxes,listChecks:ListChecks,
@@ -20,8 +22,9 @@ const icons:Record<DashboardNavIcon,LucideIcon>={
 export function ConsoleNavigationGroup({group,role,pathname,onNavigate}:{
  group:DashboardNavGroup;role:DashboardRole;pathname:string;onNavigate:()=>void;
 }){
+ const {locale}=useLocale();
  return <div>
-  <h2 className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{group.title}</h2>
+  <h2 className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{translateNavigationLabel(group.title,locale)}</h2>
   <ul className="space-y-1">
    {group.items.map(item=>{
     const Icon=icons[item.icon];
@@ -39,7 +42,7 @@ export function ConsoleNavigationGroup({group,role,pathname,onNavigate}:{
        active?"bg-console-primary text-white":"text-slate-300 hover:bg-white/10 hover:text-white"
       )}>
       <Icon aria-hidden="true" className="h-5 w-5 shrink-0"/>
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      <span className="min-w-0 flex-1 truncate">{translateNavigationLabel(item.label,locale)}</span>
       {item.badge?<span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px]">{item.badge}</span>:null}
      </Link>
     </li>;
