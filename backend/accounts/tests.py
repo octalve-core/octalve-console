@@ -149,6 +149,52 @@ class CloudAccountApiTests(APITestCase):
             self.assertIsInstance(records, list)
             self.assertEqual(records, [], response.data)
 
+    def test_owned_service_and_domain_lists_return_real_records_only(self):
+        """Real populated serializers must respect tenant isolation, not just empty lists."""
+        from datetime import timedelta
+        from decimal import Decimal
+        from django.utils import timezone
+        from services.models import Service
+        from domains.models import Domain
+
+        signed_up = self.register()
+        self.assertEqual(signed_up.status_code, status.HTTP_201_CREATED)
+        owner = get_user_model().objects.get(email=self.email)
+        stranger = get_user_model().objects.create_user(
+            email="tenant-isolation-other@example.invalid",
+            username="tenant_isolation_other", password="TestPass-Synthetic-2026!",
+        )
+        future = timezone.now() + timedelta(days=365)
+        for user, suffix in ((owner, "owned"), (stranger, "foreign")):
+            Service.objects.create(
+                client=user, label=f"Service {suffix}", product_id=1,
+                plan_id=1, billing_cycle="1mo", amount=Decimal("100.00"),
+                next_due_date=future, domain_name=f"{suffix}.example.invalid",
+            )
+            Domain.objects.create(
+                client=user, domain_name=f"{suffix}.example.invalid",
+                tld=".invalid", expiry_date=future, next_due_date=future,
+                epp_code="sensitive-test-authorization-code",
+            )
+        self.client.credentials(
+            HTTP_AUTHORIZATION="Bearer " + signed_up.data["access"]
+        )
+        for url, expected_name, forbidden_name in (
+            ("/api/services/services/", "Service owned", "Service foreign"),
+            ("/api/domains/domains/", "owned.example.invalid", "foreign.example.invalid"),
+        ):
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+            records = response.data.get("results") if isinstance(response.data, dict) else response.data
+            self.assertEqual(len(records), 1, response.data)
+            self.assertNotIn("provider_identifier", records[0])
+            self.assertNotIn("epp_code", records[0])
+            self.assertNotIn("epp_code_encrypted", records[0])
+            self.assertNotIn("dnssec_key", records[0])
+            serialized = str(records)
+            self.assertIn(expected_name, serialized)
+            self.assertNotIn(forbidden_name, serialized)
+
     def test_client_cannot_create_service_or_provisioning_task(self):
         response = self.register()
         self.client.credentials(HTTP_AUTHORIZATION="Bearer " + response.data["access"])
