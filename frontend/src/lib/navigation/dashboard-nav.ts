@@ -23,7 +23,9 @@ export type DashboardNavIcon =
   | "ticket"
   | "packageCheck"
   | "bell"
-  | "usersRound";
+  | "usersRound"
+  | "gift"
+  | "award";
 
 export type DashboardNavItem = {
   label: string;
@@ -154,6 +156,12 @@ export const adminNavGroups: DashboardNavGroup[] = [
         description: "Help articles",
       },
       {
+        label: "Rewards",
+        href: routes.admin.rewards,
+        icon: "award",
+        description: "Recognition and affiliate programme KPIs",
+      },
+      {
         label: "Reports",
         href: routes.admin.reports,
         icon: "barChart3",
@@ -193,6 +201,8 @@ export const clientNavGroups: DashboardNavGroup[] = [
       {label: "Purchases", href: routes.client.purchases, icon: "shoppingCart",
         description: "Orders and invoices"},
       {label: "Wallet", href: routes.client.wallet, icon: "walletCards"},
+      {label: "Rewards", href: routes.client.rewards, icon: "gift",
+        description: "Your points, referrals and appreciation"},
       {label: "Notifications", href: routes.client.notifications, icon: "bell",
         description: "Invoice and domain reminders"},
     ],
