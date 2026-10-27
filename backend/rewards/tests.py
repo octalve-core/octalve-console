@@ -78,7 +78,7 @@ class RewardsBatch13Tests(APITestCase):
         self.client.force_authenticate(user=self.admin)
         url="/api/rewards/admin/purchases/award/"
         self.assertEqual(self.client.post(url,{"invoice_id":self.invoice.pk},format="json").status_code,409)
-        self.invoice.status="paid";self.invoice.amount_paid=self.invoice.total;self.invoice.save(update_fields=["status","amount_paid"])
+        self.invoice.mark_paid()
         self.assertEqual(self.client.post(url,{"invoice_id":self.invoice.pk},format="json").status_code,409)
         gateway=PaymentGateway.objects.create(code="paystack",name="Test Fixture",status="active",test_mode=False)
         txn=Transaction.objects.create(
@@ -99,9 +99,7 @@ class RewardsBatch13Tests(APITestCase):
 
     def test_underpayment_and_refund_block_reward_even_if_invoice_paid(self):
         RewardPolicy.objects.create(is_active=True,points_per_ngn=1000)
-        self.invoice.status="paid"
-        self.invoice.amount_paid=self.invoice.total
-        self.invoice.save(update_fields=["status","amount_paid"])
+        self.invoice.mark_paid()
         gateway=PaymentGateway.objects.create(code="paystack",name="Gateway",
             status="active",test_mode=False)
         txn=Transaction.objects.create(
