@@ -565,6 +565,14 @@ export const adminApi = {
       "/billing/quotes/", {params});
   },
 
+  // Preview only; never authorizes invoice issuance or automatic renewal.
+  renewalPreview(days=30) {
+    return api.get<{
+      results:{id:string;label:string;description:string;status:string;date:string}[];
+      count:number;truncated:boolean;preview_only:true;billing_enabled:false;
+    }>("/billing/invoices/renewal-preview/", {params:{days}});
+  },
+
   invoices(params?: ListParams) {
     return api.get<PaginatedResponse<Invoice> | Invoice[]>(
       apiPaths.admin.invoices,

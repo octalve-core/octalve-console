@@ -1,0 +1,18 @@
+"use strict";
+const fs=require("node:fs"),path=require("node:path"),assert=require("node:assert/strict");
+const root=path.resolve(__dirname,"..");
+const read=p=>fs.readFileSync(path.join(root,p),"utf8");
+const view=read("../backend/billing/views.py"),tests=read("../backend/billing/tests.py");
+const cfg=read("src/features/admin/workspace/data/admin-workspace-config.ts");
+const api=read("src/lib/api/endpoints.ts");
+assert.ok(view.includes('url_path="renewal-preview"'));
+assert.ok(view.includes('self._require_admin(request)'));
+assert.ok(view.includes('[:51]')&&view.includes('candidates[:50]'));
+assert.ok(view.includes('"billing_enabled": False')&&view.includes('"preview_only": True'));
+assert.ok(view.includes('"existing_open_invoice"')&&view.includes('"renewal_not_authorized"'));
+assert.ok(!view.slice(view.indexOf('def renewal_preview'),view.indexOf('def get_queryset')).includes('.objects.create('));
+assert.ok(cfg.includes("loader: () => adminApi.renewalPreview()"));
+assert.ok(api.includes('"/billing/invoices/renewal-preview/"'));
+assert.ok(tests.includes("test_renewal_preview_is_admin_only_and_read_only"));
+assert.ok(tests.includes("test_renewal_preview_blocks_opt_out_and_existing_open_invoice"));
+console.log("PASS: Batch 17 renewal preview is bounded, owner-protected, read-only and cannot charge.");
