@@ -1,12 +1,16 @@
 import type { StaffRecord, StaffResourceKey } from "../data/staff-demo-data";
 
-export function unwrapStaffList(value: unknown) {
-  const data = value as { results?: unknown[] } | unknown[];
-
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.results)) return data.results;
-
-  return [];
+export function unwrapStaffList(value: unknown): Record<string, unknown>[] {
+  const rows = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && "results" in value
+      ? (value as { results: unknown }).results
+      : null;
+  // A malformed API response must not masquerade as an empty customer/staff account.
+  if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== "object" || Array.isArray(row))) {
+    throw new Error("Invalid authorized API list response.");
+  }
+  return rows as Record<string, unknown>[];
 }
 
 function readString(item: Record<string, unknown>, keys: string[], fallback = "—") {

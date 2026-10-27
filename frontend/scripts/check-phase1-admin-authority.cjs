@@ -11,6 +11,22 @@ const read = p => fs.readFileSync(path.join(root, p), "utf8");
 (async () => {
   const normalizer = await import(pathToFileURL(path.join(root, "features/admin/utils/admin-record-normalizer.ts")).href);
   const { unwrapAdminList, getAdminRecordId, findExactAdminRecord, normalizeAdminRecord } = normalizer;
+  const staff = await import(pathToFileURL(path.join(root, "features/staff/utils/staff-record-normalizer.ts")).href);
+  const client = await import(pathToFileURL(path.join(root, "features/client/utils/client-record-normalizer.ts")).href);
+  for (const unwrap of [staff.unwrapStaffList, client.unwrapClientList]) {
+    assert.deepEqual(unwrap([{id: 1}]), [{id: 1}]);
+    assert.deepEqual(unwrap({results: []}), []);
+    for (const invalid of [undefined, null, {}, {results:null}, {results:"incorrect"}, [null], [[]]]) {
+      assert.throws(() => unwrap(invalid), /Invalid authorized API list response/);
+    }
+  }
+  for (const file of ["features/admin/views/AdminResourceListView.tsx",
+    "features/admin/operations/views/AdminOperationListView.tsx",
+    "features/admin/workspace/views/AdminWorkspaceView.tsx"]) {
+    const contents = read(file);
+    assert.match(contents, /unwrapAdminList\(response\)\.map/);
+    assert.doesNotMatch(contents, /function unwrapList\(/);
+  }
   const records = [{ id: 42, name: "Actual account", status: "pending" }];
   assert.deepEqual(unwrapAdminList(records), records);
   assert.deepEqual(unwrapAdminList({results: records}), records);
@@ -43,5 +59,5 @@ const read = p => fs.readFileSync(path.join(root, p), "utf8");
   assert.doesNotMatch(mapper, /payload\.currency \|\| "NGN"/);
   assert.doesNotMatch(mapper, /payload\.display_name \|\| payload\.name/);
   assert.match(mapper, /\.\.\.\(cleanString\(payload\.fulfillment_model\)/);
-  console.log("PASS: exact identities, malformed API rejection, write-only secrets and changed-field PATCH guards");
+  console.log("PASS: exact identities, malformed API rejection across all Console roles, write-only secrets and changed-field PATCH guards");
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,4 +1,5 @@
 "use client";
+import { unwrapAdminList } from "../utils/admin-record-normalizer";
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
@@ -15,15 +16,6 @@ import type { AdminRecord } from "../data/admin-demo-data";
 type AdminResourceListViewProps = {
   resource: AdminResourceKey;
 };
-
-function unwrapList(value: unknown) {
-  const data = value as { results?: unknown[] } | unknown[];
-
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.results)) return data.results;
-
-  return [];
-}
 
 function readString(item: Record<string, unknown>, keys: string[], fallback = "—") {
   for (const key of keys) {
@@ -94,7 +86,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
 
     try {
       const response = await config.loader();
-      const apiRecords = unwrapList(response).map((item) => normalizeRecord(item, config.key));
+      const apiRecords = unwrapAdminList(response).map((item) => normalizeRecord(item, config.key));
 
       setRecords(apiRecords);
     } catch {
