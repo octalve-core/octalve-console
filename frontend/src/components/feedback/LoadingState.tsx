@@ -13,17 +13,15 @@ export function LoadingState({
   className,
 }: LoadingStateProps) {
   return (
-    <div
+    <section role="status" aria-live="polite" aria-busy="true"
       className={cn(
-        "flex min-h-[18rem] flex-col items-center justify-center rounded-[1.5rem] border border-slate-200 bg-white p-8 text-center shadow-sm",
+        "flex min-h-44 min-w-0 flex-col items-center justify-center rounded-2xl border border-console-line bg-white px-5 py-8 text-center sm:px-8",
         className,
       )}
     >
-      <Loader2 className="h-7 w-7 animate-spin text-[#0064E0]" />
-      <h3 className="mt-5 text-base font-medium text-slate-950">{title}</h3>
-      <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-        {description}
-      </p>
-    </div>
+      <Loader2 className="h-6 w-6 animate-spin text-console-primary" aria-hidden="true" />
+      <h3 className="mt-4 text-base font-semibold text-console-ink">{title}</h3>
+      <p className="mt-2 max-w-md text-sm leading-6 text-console-muted">{description}</p>
+    </section>
   );
 }

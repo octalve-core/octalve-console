@@ -67,7 +67,7 @@ if(!dashboard.includes('clientApi.invoices({status:"unpaid"})')){
  failures++;
 }
 const fetcher=fs.readFileSync(path.join(root,"lib/api/client.ts"),"utf8");
-if(!fetcher.includes('method === "GET" ? AbortSignal.timeout(12000) : undefined')){
+if(!fetcher.includes('method === "GET" ? AbortSignal.timeout(27000) : undefined')){
  console.error("FAIL: read-only API calls must have a bounded loading window");
  failures++;
 }

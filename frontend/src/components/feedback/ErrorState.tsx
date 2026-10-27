@@ -9,6 +9,7 @@ type ErrorStateProps = {
   className?: string;
 };
 
+/** Accessible neutral error state: no full-width alarming panel for recoverable failures. */
 export function ErrorState({
   title = "Something went wrong",
   description = "We could not complete this request. Please try again.",
@@ -16,22 +17,18 @@ export function ErrorState({
   className,
 }: ErrorStateProps) {
   return (
-    <div
+    <section role="alert" aria-live="polite"
       className={cn(
-        "flex min-h-[18rem] flex-col items-center justify-center rounded-[1.5rem] border border-red-100 bg-red-50/70 p-8 text-center",
+        "flex min-h-44 min-w-0 flex-col items-center justify-center rounded-2xl border border-console-line bg-white px-5 py-8 text-center sm:px-8",
         className,
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-red-600 shadow-sm">
-        <AlertCircle className="h-6 w-6" />
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-amber-700 ring-1 ring-slate-200">
+        <AlertCircle className="h-5 w-5" aria-hidden="true" />
       </div>
-
-      <h3 className="mt-5 text-base font-medium text-red-950">{title}</h3>
-      <p className="mt-2 max-w-sm text-sm leading-6 text-red-700">
-        {description}
-      </p>
-
-      {action ? <div className="mt-5">{action}</div> : null}
-    </div>
+      <h3 className="mt-4 text-base font-semibold text-console-ink">{title}</h3>
+      <p className="mt-2 max-w-md text-sm leading-6 text-console-muted">{description}</p>
+      {action ? <div className="mt-5 flex flex-wrap justify-center gap-2">{action}</div> : null}
+    </section>
   );
 }

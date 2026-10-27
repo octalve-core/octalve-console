@@ -131,6 +131,24 @@ class CloudAccountApiTests(APITestCase):
         )
         self.assertEqual(valid.status_code, status.HTTP_200_OK, valid.data)
 
+    def test_authenticated_customer_service_and_domain_lists_are_readable(self):
+        """A newly registered customer receives genuine empty lists, not an API error."""
+        signed_up = self.register()
+        self.assertEqual(signed_up.status_code, status.HTTP_201_CREATED)
+        for endpoint in ("/api/services/services/", "/api/domains/domains/"):
+            self.client.credentials()
+            forbidden = self.client.get(endpoint)
+            self.assertIn(forbidden.status_code, (401, 403), forbidden.data)
+            self.client.credentials(
+                HTTP_AUTHORIZATION="Bearer " + signed_up.data["access"]
+            )
+            response = self.client.get(endpoint)
+            self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+            payload = response.data
+            records = payload.get("results") if isinstance(payload, dict) else payload
+            self.assertIsInstance(records, list)
+            self.assertEqual(records, [], response.data)
+
     def test_client_cannot_create_service_or_provisioning_task(self):
         response = self.register()
         self.client.credentials(HTTP_AUTHORIZATION="Bearer " + response.data["access"])
