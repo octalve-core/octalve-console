@@ -93,7 +93,7 @@ export function ClientServiceDetailView(){
           </Panel>
           <div className="grid gap-5 xl:grid-cols-2">
             <Panel>
-              <h2 className="text-lg font-semibold text-console-ink">Recorded usage</h2>
+              <h2 id="usage" className="scroll-mt-24 text-lg font-semibold text-console-ink">Recorded usage</h2>
               <p className="mt-2 text-xs leading-5 text-console-muted">
                 Usage is based on the latest stored provider snapshot, not a live server reading.
               </p>
