@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
+from django.db.models import OuterRef, Prefetch, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from .models import (
@@ -47,12 +48,20 @@ class ServiceViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
+        plan_name = Plan.objects.filter(pk=OuterRef('plan_id')).values('name')[:1]
+        queryset = Service.objects.annotate(
+            plan_name=Subquery(plan_name)
+        ).prefetch_related(Prefetch(
+            'usage_history',
+            queryset=ServiceUsage.objects.order_by('-recorded_at')[:1],
+            to_attr='latest_usage_prefetch',
+        ))
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
-            return Service.objects.all()
+            return queryset
         if user.role == 'staff':
-            return Service.objects.all()
-        return Service.objects.filter(client=user)
+            return queryset
+        return queryset.filter(client=user)
     
     @action(detail=True, methods=['get'])
     def credentials(self, request, pk=None):
@@ -82,6 +91,31 @@ class ServiceViewSet(viewsets.ModelViewSet):
         serializer = ServiceUsageSerializer(usage, many=True)
         return Response(serializer.data)
     
+    @action(detail=True, methods=['get'], url_path='renewal-status')
+    def renewal_status(self, request, pk=None):
+        """Read only. Never create payment instructions, invoices or extensions."""
+        if getattr(request.user, 'role', None) != 'client' or not request.user.is_active:
+            return Response({'detail': 'Service unavailable.'}, status=404)
+        service = get_object_or_404(Service, pk=pk, client_id=request.user.pk)
+        if service.status not in ('active', 'suspended', 'cancellation_requested'):
+            return Response({
+                'service_id': service.pk, 'state': 'unavailable',
+                'invoice_id': None, 'auto_renew': service.auto_renew,
+                'next_due_date': service.next_due_date.isoformat(),
+            }, headers={'Cache-Control': 'private, no-store'})
+        invoice = (Invoice.objects.filter(
+            client_id=request.user.pk,
+            metadata__type='renewal', metadata__service_id=service.pk,
+            status__in=('unpaid', 'partially_paid', 'overdue')
+        ).order_by('-created_at', '-pk').first())
+        return Response({
+            'service_id': service.pk,
+            'state': 'invoice_ready' if invoice else 'request_assistance',
+            'invoice_id': invoice.pk if invoice else None,
+            'auto_renew': service.auto_renew,
+            'next_due_date': service.next_due_date.isoformat(),
+        }, headers={'Cache-Control': 'private, no-store'})
+
     @action(detail=True, methods=['get'])
     def actions(self, request, pk=None):
         """Get service action logs"""

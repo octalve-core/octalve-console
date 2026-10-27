@@ -39,6 +39,10 @@ export type CheckoutQuote = {
   message:string;
 };
 export type CheckoutOptions = {enabled:boolean;gateways:string[];currency:string};
+export type ServiceRenewalStatus = {
+  service_id:number;state:"invoice_ready"|"request_assistance"|"unavailable";
+  invoice_id:number|null;auto_renew:boolean;next_due_date:string;
+};
 export type EditableAccountProfile = Omit<AccountProfile,"email"|"email_verified">;
 
 type ListParams = {
@@ -231,6 +235,9 @@ export const clientApi = {
 
   service(id: string) {
     return api.get<Service>(byId(apiPaths.client.services, id));
+  },
+  serviceRenewalStatus(id: string) {
+    return api.get<ServiceRenewalStatus>(byId(apiPaths.client.services, id)+"renewal-status/");
   },
 
   serviceAction(

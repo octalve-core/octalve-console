@@ -1,4 +1,5 @@
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
+import {normalizeServiceSnapshot} from "./service-contract.ts";
 
 export function unwrapClientList(value: unknown): Record<string, unknown>[] {
   const rows = Array.isArray(value)
@@ -71,5 +72,6 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     date,
     actionHref: `${getClientResourceBasePath(resource)}/${encodeURIComponent(id)}`,
     score: undefined,
+    service: resource === "services" ? normalizeServiceSnapshot(record) : undefined,
   };
 }

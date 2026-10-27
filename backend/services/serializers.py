@@ -68,6 +68,7 @@ class ServiceSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.full_name', read_only=True)
     client_email = serializers.EmailField(source='client.email', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    plan_name = serializers.CharField(read_only=True, allow_null=True)
     is_overdue = serializers.SerializerMethodField()
     
     # Hosting credentials and arbitrary provider config are server-only.
@@ -77,7 +78,7 @@ class ServiceSerializer(serializers.ModelSerializer):
         model = Service
         fields = [
             'id', 'client', 'client_name', 'client_email', 'service_type',
-            'domain_name', 'label', 'description', 'status', 'status_display',
+            'domain_name', 'label', 'plan_name', 'description', 'status', 'status_display',
             'billing_cycle', 'amount', 'currency', 'next_due_date',
             'auto_renew', 'has_ssl', 'has_backup', 'activated_at',
             'suspended_at', 'current_usage', 'is_overdue',
@@ -87,7 +88,10 @@ class ServiceSerializer(serializers.ModelSerializer):
         
     
     def get_current_usage(self, obj):
-        latest_usage = obj.usage_history.first()
+        snapshots = getattr(obj, 'latest_usage_prefetch', None)
+        latest_usage = (
+            snapshots[0] if snapshots else None
+        ) if snapshots is not None else obj.usage_history.first()
         if latest_usage:
             return ServiceUsageSerializer(latest_usage).data
         return None
