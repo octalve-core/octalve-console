@@ -183,65 +183,24 @@ export const clientNavGroups: DashboardNavGroup[] = [
   {
     title: "Account",
     items: [
-      {
-        label: "Overview",
-        href: routes.client.root,
-        icon: "layoutDashboard",
-        description: "Client dashboard",
-      },
-      {
-        label: "Services",
-        href: routes.client.services,
-        icon: "packageCheck",
-        description: "Hosting services",
-      },
-      {
-        label: "Domains",
-        href: routes.client.domains,
-        icon: "globe2",
-        description: "Domains and DNS",
-      },
-      {
-        label: "Invoices",
-        href: routes.client.invoices,
-        icon: "receiptText",
-        description: "Billing records",
-      },
-      {
-        label: "Orders",
-        href: routes.client.orders,
-        icon: "shoppingCart",
-        description: "Order history",
-      },
-      {
-        label: "Wallet",
-        href: routes.client.wallet,
-        icon: "walletCards",
-        description: "Balance and funding",
-      },
+      {label: "Overview", href: routes.client.root, icon: "layoutDashboard"},
+      {label: "Services", href: routes.client.services, icon: "packageCheck",
+        description: "My services and published offers"},
+      {label: "Domains", href: routes.client.domains, icon: "globe2",
+        description: "My domains and registration"},
+      {label: "Purchases", href: routes.client.purchases, icon: "shoppingCart",
+        description: "Orders and invoices"},
+      {label: "Wallet", href: routes.client.wallet, icon: "walletCards"},
     ],
   },
   {
     title: "Help",
     items: [
-      {
-        label: "Support",
-        href: routes.client.support,
-        icon: "lifeBuoy",
-        description: "Open and track tickets",
-      },
-      {
-        label: "Knowledge Base",
-        href: routes.client.knowledgeBase,
-        icon: "bookOpen",
-        description: "Guides and articles",
-      },
-      {
-        label: "Profile",
-        href: routes.client.profile,
-        icon: "userRound",
-        description: "Account details",
-      },
+      {label: "Support", href: routes.client.support, icon: "lifeBuoy"},
+      {label: "Knowledge Base", href: routes.client.knowledgeBase, icon: "bookOpen"},
+      {label: "Profile", href: routes.client.profile, icon: "userRound"},
+      {label: "Settings", href: routes.client.settings, icon: "settings",
+        description: "Account preferences and language"},
     ],
   },
 ];
