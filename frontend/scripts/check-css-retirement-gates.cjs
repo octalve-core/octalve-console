@@ -26,7 +26,7 @@ function routes(folder){
   return count+(e.isDirectory()?routes(p):e.name==="page.tsx"?1:0);
  },0);
 }
-const expected=[["admin",83],["client",32],["staff",10]];
+const expected=[["admin",84],["client",33],["staff",10]];
 let total=0;
 for(const [role,count] of expected){
  const actual=routes(path.join(src,"app",role));if(actual!==count)throw Error(role+" route regression: expected "+count+" got "+actual);
@@ -47,5 +47,5 @@ if(process.argv.includes("--built")){
  for(const rule of [".bg-console-primary",".text-console-ink",".border-console-line",".page-container"])
   if(!built.includes(rule))throw Error("Missing required pre-retirement styling in compiled output: "+rule);
 }
-console.log("PASS: Batch 8 foundation: one TS Tailwind config; 132 routes; 8,526-line CSS safely retained.");
+console.log("PASS: Batch 8 foundation: one TS Tailwind config; 134 routes; 8,526-line CSS safely retained.");
 console.log("NOT QUALIFIED: Removing globals.css remains blocked pending zero legacy consumers and authenticated browser parity.");
