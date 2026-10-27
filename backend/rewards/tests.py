@@ -78,7 +78,7 @@ class RewardsBatch13Tests(APITestCase):
         self.client.force_authenticate(user=self.admin)
         url="/api/rewards/admin/purchases/award/"
         self.assertEqual(self.client.post(url,{"invoice_id":self.invoice.pk},format="json").status_code,409)
-        self.invoice.status="paid";self.invoice.save(update_fields=["status"])
+        self.invoice.status="paid";self.invoice.amount_paid=self.invoice.total;self.invoice.save(update_fields=["status","amount_paid"])
         self.assertEqual(self.client.post(url,{"invoice_id":self.invoice.pk},format="json").status_code,409)
         gateway=PaymentGateway.objects.create(code="paystack",name="Test Fixture",status="active",test_mode=False)
         txn=Transaction.objects.create(
@@ -96,6 +96,30 @@ class RewardsBatch13Tests(APITestCase):
         self.assertEqual(PointEntry.objects.filter(user=self.owner).count(),1)
         self.assertEqual(self.invoice.status,"paid")
         self.assertEqual(Transaction.objects.get(pk=txn.pk).status,"successful")
+
+    def test_underpayment_and_refund_block_reward_even_if_invoice_paid(self):
+        RewardPolicy.objects.create(is_active=True,points_per_ngn=1000)
+        self.invoice.status="paid"
+        self.invoice.amount_paid=self.invoice.total
+        self.invoice.save(update_fields=["status","amount_paid"])
+        gateway=PaymentGateway.objects.create(code="paystack",name="Gateway",
+            status="active",test_mode=False)
+        txn=Transaction.objects.create(
+            client=self.owner,invoice=self.invoice,gateway=gateway,
+            reference="underpaid-verification",amount=Decimal("100.00"),
+            net_amount=Decimal("100.00"),currency="NGN",
+            status="successful",webhook_verified=True,transaction_type="payment")
+        self.client.force_authenticate(user=self.admin)
+        endpoint="/api/rewards/admin/purchases/award/"
+        self.assertEqual(self.client.post(endpoint,{"invoice_id":self.invoice.pk},format="json").status_code,409)
+        txn.amount=self.invoice.total
+        txn.save(update_fields=["amount"])
+        Transaction.objects.create(client=self.owner,invoice=self.invoice,
+            gateway=gateway,reference="refunded-settlement",
+            amount=Decimal("100.00"),net_amount=Decimal("100.00"),
+            currency="NGN",status="successful",transaction_type="refund")
+        self.assertEqual(self.client.post(endpoint,{"invoice_id":self.invoice.pk},format="json").status_code,409)
+        self.assertEqual(PointEntry.objects.count(),0)
 
     def test_recognition_is_private_positive_and_customer_dismissible(self):
         self.client.force_authenticate(user=self.admin)
