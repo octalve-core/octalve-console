@@ -70,7 +70,7 @@ function countPages(dir){
   return total+(item.isDirectory()?countPages(p):item.name==="page.tsx"?1:0);
  },0);
 }
-if(countPages(path.join(root,"app/admin"))!==84)throw Error("Admin 84-route audit drift");
+if(countPages(path.join(root,"app/admin"))!==85)throw Error("Admin 85-route audit drift");
 if(process.argv.includes("--built")){
  const css=[],folder=path.resolve(__dirname,"../.next/static");
  function scan(dir){if(!fs.existsSync(dir))return;
@@ -83,4 +83,4 @@ if(process.argv.includes("--built")){
  for(const token of [".bg-console-primary",".text-console-ink",".border-console-line",".min-h-48"])
   if(!compiled.includes(token))throw Error("Tailwind token missing: "+token);
 }
-console.log("PASS: Batch 7 Admin source and compiled Tailwind, 84 routes and backend authority");
+console.log("PASS: Batch 7 Admin source and compiled Tailwind, 85 routes and backend authority");

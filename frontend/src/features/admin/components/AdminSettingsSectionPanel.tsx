@@ -18,6 +18,7 @@ export const adminSettingsManagementLinks: Partial<Record<AdminSettingsKey,Reado
   {label:"View notification templates",href:"/admin/settings/notifications",description:"Review existing message templates; delivery is separate."},
  ],
  providers: [
+  {label:"Browse Integration Store",href:"/admin/integrations",description:"Review vendor-specific requirements and official connection guides."},
   {label:"Hosting provider records",href:"/admin/servers",description:"DirectAdmin and WHM supplier connections and inventory."},
   {label:"Payment gateway records",href:"/admin/gateways",description:"Paystack and other recorded payment gateways."},
   {label:"Domain records",href:"/admin/billing/domains",description:"Recorded domains; registrar execution is not connected."},

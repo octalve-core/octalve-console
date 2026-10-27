@@ -24,7 +24,7 @@ const routes=walk(root).sort().map(file=>{
   status:"pending",testedAt:null,evidence:null};
 });
 const counts=Object.fromEntries(["admin","client","staff","public"].map(role=>[role,routes.filter(x=>x.role===role).length]));
-if(routes.length!==134||counts.admin!==84||counts.client!==33||counts.staff!==10||counts.public!==7)
+if(routes.length!==135||counts.admin!==85||counts.client!==33||counts.staff!==10||counts.public!==7)
  throw Error("Route coverage inventory has changed; review all missing/added pages before qualification");
 const plan={schemaVersion:1,release:"Batch 8 browser acceptance",
  baseUrl:"https://console.cloud.octalve.com",viewports,roles:counts,

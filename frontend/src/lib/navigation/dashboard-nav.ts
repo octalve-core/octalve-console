@@ -68,10 +68,10 @@ export const adminNavGroups: DashboardNavGroup[] = [
     title: "Commerce",
     items: [
       {
-        label: "Category",
+        label: "Catalogue",
         href: routes.admin.category,
         icon: "packageCheck",
-        description: "Category for the products"
+        description: "Categories and approved retail offers"
       },
       {
         label: "Products",
@@ -125,6 +125,12 @@ export const adminNavGroups: DashboardNavGroup[] = [
         href: routes.admin.gateways,
         icon: "creditCard",
         description: "Payment providers",
+      },
+      {
+        label: "Integrations",
+        href: routes.admin.integrations,
+        icon: "zap",
+        description: "Explore provider connection requirements",
       },
       {
         label: "Providers",

@@ -101,7 +101,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "providers",
     title: "Providers",
-    description: "Review hosting suppliers, payment gateways, domain records and approved retail offers.",
+    description: "Explore vendor integrations and review the connected management areas.",
     href: "/admin/settings/providers",
     icon: PlugZap,
     status: "Needs setup",

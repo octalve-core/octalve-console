@@ -89,7 +89,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
           <ErrorState title="Record unavailable" description={error || "This record could not be found."}/>
         ) : (
           <AdminRecordDetailPanel record={record}
-            actions={[{href:editHref,label:"Edit record",variant:"primary"},
+            actions={[...(resource==="providers"?[]:[{href:editHref,label:"Edit record",variant:"primary" as const}]),
               {href:editorConfig.listHref,label:"Back to records",variant:"outline"}]}/>
         )}
       </DashboardPage>
