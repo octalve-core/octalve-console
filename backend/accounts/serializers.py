@@ -77,10 +77,18 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
                 if referral_code:
                     try:
                         referrer = User.objects.get(referral_code=referral_code)
-                        # Add your referral-credit logic here
-                        logger.info(
-                            f"User {user.email} linked to referrer {referrer.email}"
-                        )
+                        # Attribution is immutable and user-submitted only.
+                        # No third-party cookie or commission is granted at signup.
+                        from django.conf import settings
+                        if getattr(settings,"REWARDS_API_ENABLED",False) and referrer.pk!=user.pk:
+                            from rewards.models import AffiliateAccount,ReferralAttribution
+                            if AffiliateAccount.objects.filter(
+                                user=referrer,status__in=("pending","approved")
+                            ).exists():
+                                ReferralAttribution.objects.create(
+                                    referrer=referrer,referred_user=user,
+                                    code_at_signup=referral_code
+                                )
                     except User.DoesNotExist:
                         logger.error(
                             f"Referral code {referral_code} disappeared for {user.email}"
