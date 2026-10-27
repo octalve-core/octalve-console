@@ -21,7 +21,7 @@ const editorFields=read("features/admin/components/AdminEditorFields.tsx");
 if(!editorFields.includes('autoComplete={field.type==="password"?"new-password":undefined}'))
  throw Error("Sensitive Admin inputs lack password autocomplete control");
 const editor=read("features/admin/views/AdminResourceEditorView.tsx");
-for(const token of ["setSourceRecord(foundApiRecord ?? null)","sourceRecord?.id !== activeId",
+for(const token of ["setSourceRecord(foundApiRecord)","findExactAdminRecord(authorizedRows, activeId)","sourceRecord?.id !== activeId",
  'setError("This record is not available in your authorized account.',"effectiveMode === \"edit\" && (!sourceRecord || sourceRecord.id !== activeId)",
  "saveAdminResourceRecord(resource, effectiveMode, payload"])
  if(!editor.includes(token))throw Error("Authorized API edit gate missing: "+token);

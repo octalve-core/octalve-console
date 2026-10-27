@@ -1,13 +1,41 @@
 import type { AdminResourceKey } from "../data/admin-resource-config";
 import type { AdminRecord } from "../data/admin-demo-data";
 
-export function unwrapAdminList(value: unknown) {
-  const data = value as { results?: unknown[] } | unknown[];
+export function unwrapAdminList(value: unknown): Record<string, unknown>[] {
+  const rows = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && "results" in value
+      ? (value as { results: unknown }).results
+      : null;
 
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.results)) return data.results;
+  // An unexpected response is a load failure, never an empty authorized collection.
+  if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== "object" || Array.isArray(row))) {
+    throw new Error("Invalid authorized API list response.");
+  }
+  return rows as Record<string, unknown>[];
+}
 
-  return [];
+export function getAdminRecordId(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid API record.");
+  }
+  const record = value as Record<string, unknown>;
+  for (const key of ["id", "uuid", "reference", "code"]) {
+    const id = record[key];
+    if ((typeof id === "string" && id.trim()) ||
+        (typeof id === "number" && Number.isFinite(id))) {
+      return String(id).trim();
+    }
+  }
+  // Never invent a link or use a random ID for an unauthorized / malformed record.
+  throw new Error("API record has no stable identifier.");
+}
+
+export function findExactAdminRecord(rows: Record<string, unknown>[], id: string) {
+  if (!id) return null;
+  const matches = rows.filter(row => getAdminRecordId(row) === id);
+  if (matches.length > 1) throw new Error("Ambiguous API record identifier.");
+  return matches[0] ?? null;
 }
 
 export function readAdminString(item: Record<string, unknown>, keys: string[], fallback = "—") {
@@ -41,7 +69,7 @@ export function getAdminResourceBasePath(configKey: AdminResourceKey) {
 export function normalizeAdminRecord(item: unknown, configKey: AdminResourceKey): AdminRecord {
   const record = item as Record<string, unknown>;
 
-  const id = readAdminString(record, ["id", "uuid", "reference", "code"], `${configKey}-${Math.random()}`);
+  const id = getAdminRecordId(record);
   const title = readAdminString(record, ["name", "title", "domain", "display_name", "customer", "client", "email"], id);
   const subtitle = readAdminString(
     record,
@@ -54,7 +82,7 @@ export function normalizeAdminRecord(item: unknown, configKey: AdminResourceKey)
     "API record",
   );
   const amount = readAdminString(record, ["total", "price", "amount", "balance", "credited"], "");
-  const status = readAdminString(record, ["status", "state", "payment_status"], "Active");
+  const status = readAdminString(record, ["status", "state", "payment_status"], "Unknown");
   const date = readAdminString(record, ["date", "created_at", "updated_at", "dueDate", "expiry"], "");
 
   return {

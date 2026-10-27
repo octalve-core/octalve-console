@@ -21,7 +21,7 @@ import { adminResourceConfig, type AdminResourceKey } from "../data/admin-resour
 import { adminEditorConfig, type AdminEditorField } from "../data/admin-editor-config";
 import type { AdminRecord } from "../data/admin-demo-data";
 import { saveAdminResourceRecord, type AdminSaveMode } from "../data/admin-resource-actions";
-import { normalizeAdminRecord, unwrapAdminList } from "../utils/admin-record-normalizer";
+import { findExactAdminRecord, normalizeAdminRecord, unwrapAdminList } from "../utils/admin-record-normalizer";
 
 type AdminResourceEditorViewProps = {
   resource: AdminResourceKey;
@@ -38,43 +38,29 @@ function getParamValue(value: string | string[] | undefined) {
   return value ?? "";
 }
 
-function getInitialValue(field: AdminEditorField, record?: AdminRecord | null) {
+/**
+ * Prefill only the exact field returned by Django, never a synthesized display
+ * title, status, amount or category. Secrets are always write-only.
+ */
+function getInitialValue(field: AdminEditorField, record?: Record<string, unknown> | null) {
   if (!record) {
-    if (field.name === "status") return field.options?.[0]?.value ?? "Active";
+    if (field.name === "status") return field.options?.[0]?.value ?? "";
     if (field.name === "currency") return "NGN";
     if (field.name === "priority") return "normal";
     return "";
   }
-
-  const map: Record<string, string | undefined> = {
-    id: record.id,
-    name: record.title,
-    title: record.title,
-    domain: record.title,
-    display_name: record.title,
-    customer: record.title,
-    client: record.title,
-    email: record.subtitle.includes("@") ? record.subtitle : "",
-    product: record.subtitle,
-    category: record.meta,
-    adapter: record.meta,
-    adapter_type: record.meta,
-    description: record.meta,
-    summary: record.subtitle,
-    total: record.amount?.replace(/[^\d.]/g, ""),
-    price: record.amount?.replace(/[^\d.]/g, ""),
-    amount: record.amount?.replace(/[^\d.]/g, ""),
-    balance: record.amount?.replace(/[^\d.]/g, ""),
-    date: "",
-    dueDate: "",
-    expiry: "",
-    status: record.status,
-  };
-
-  return map[field.name] ?? "";
+  if (field.type === "password") return "";
+  const key = field.name === "dueDate" ? "due_date" : field.name;
+  const raw = key === "fulfillment_model" &&
+    record.config && typeof record.config === "object" && !Array.isArray(record.config)
+    ? (record.config as Record<string, unknown>).fulfillment_model
+    : record[key];
+  return (typeof raw === "string" || (typeof raw === "number" && Number.isFinite(raw)))
+    ? String(raw)
+    : "";
 }
 
-function buildInitialState(fields: AdminEditorField[], record?: AdminRecord | null) {
+function buildInitialState(fields: AdminEditorField[], record?: Record<string, unknown> | null) {
   return fields.reduce<Record<string, string>>((acc, field) => {
     acc[field.name] = getInitialValue(field, record);
     return acc;
@@ -94,10 +80,7 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
   const params = useParams();
 
   const routeId = decodeURIComponent(getParamValue(params.id));
-  const [queryState, setQueryState] = useState<QueryState>({
-    mode: "",
-    id: "",
-  });
+  const [queryState, setQueryState] = useState<QueryState | null>(null);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -110,15 +93,16 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
     });
   }, []);
 
-  const effectiveMode: AdminSaveMode = queryState.mode === "edit" ? "edit" : mode;
-  const activeId = routeId || queryState.id;
+  const effectiveMode: AdminSaveMode = queryState?.mode === "edit" ? "edit" : mode;
+  const activeId = routeId || queryState?.id || "";
 
   const listConfig = adminResourceConfig[resource];
   const editorConfig = adminEditorConfig[resource];
 
   const [sourceRecord, setSourceRecord] = useState<AdminRecord | null>(null);
+  const [touchedFields, setTouchedFields] = useState<string[]>([]);
   const [values, setValues] = useState<Record<string, string>>(() => buildInitialState(editorConfig.fields));
-  const [isLoading, setIsLoading] = useState(effectiveMode === "edit");
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -128,7 +112,7 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
 
   const editDescription = useMemo(() => {
     if (effectiveMode === "edit") {
-      return `Update ${sourceRecord?.title ?? "this record"} while keeping the backend API contract intact.`;
+      return `Update ${sourceRecord?.title ?? "this record"} using the latest available details.`;
     }
 
     return editorConfig.description;
@@ -138,8 +122,12 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
     let active = true;
 
     async function loadEditableRecord() {
+      if (queryState === null) return;
+      setSourceRecord(null);
+      setTouchedFields([]);
       if (effectiveMode !== "edit") {
         setValues(buildInitialState(editorConfig.fields));
+        setError("");
         setIsLoading(false);
         return;
       }
@@ -155,13 +143,14 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
 
       try {
         const response = await listConfig.loader();
-        const apiRecords = unwrapAdminList(response).map((item) => normalizeAdminRecord(item, listConfig.key));
-        const foundApiRecord = apiRecords.find((item) => item.id === activeId);
+        const authorizedRows = unwrapAdminList(response);
+        const exactRecord = findExactAdminRecord(authorizedRows, activeId);
+        const foundApiRecord = exactRecord ? normalizeAdminRecord(exactRecord, listConfig.key) : null;
 
         if (!active) return;
 
-        setSourceRecord(foundApiRecord ?? null);
-        setValues(buildInitialState(editorConfig.fields, foundApiRecord ?? null));
+        setSourceRecord(foundApiRecord);
+        setValues(buildInitialState(editorConfig.fields, exactRecord));
 
         if (!foundApiRecord) {
           setError("This record is not available in your authorized account. Editing has been disabled.");
@@ -182,12 +171,21 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
     return () => {
       active = false;
     };
-  }, [activeId, effectiveMode, editorConfig.fields, listConfig]);
+  }, [activeId, effectiveMode, editorConfig.fields, listConfig, queryState]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting || queryState === null || isLoading) return;
     if (effectiveMode === "edit" && (!activeId || sourceRecord?.id !== activeId)) {
       setError("This record could not be verified. Return to the list and select a valid record.");
+      return;
+    }
+    const submittedValues = effectiveMode === "edit"
+      ? Object.fromEntries(Object.entries(values).filter(([key]) => touchedFields.includes(key)))
+      : values;
+    const payload = buildPayload(submittedValues);
+    if (Object.keys(payload).length === 0) {
+      setError("Make a change before saving.");
       return;
     }
     setError("");
@@ -196,19 +194,13 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
     setIsSubmitting(true);
 
     try {
-      const payload = buildPayload(values);
-
+      // PATCH only explicitly changed fields; never replay hidden, inferred or stale values.
       await saveAdminResourceRecord(resource, effectiveMode, payload, activeId || sourceRecord?.id);
-
-      setNotice("Saved successfully. The backend accepted the submitted payload.");
-
-      setTimeout(() => {
-        router.push(editorConfig.listHref);
-      }, 900);
+      router.push(editorConfig.listHref);
     } catch (err) {
       const parsedError = parseApiValidationError(
         err,
-        "The API could not save this record yet. Check the backend endpoint or schema mapping.",
+        "We couldn’t save this record. Please review the details and try again.",
       );
 
       setError(parsedError.message);
@@ -220,6 +212,7 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
 
   function updateField(name: string, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
+    setTouchedFields((current) => current.includes(name) ? current : [...current, name]);
 
     if (fieldErrors[name]) {
       setFieldErrors((current) => {
@@ -248,7 +241,7 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
         title={pageTitle}
         description={editDescription}
       >
-        {isLoading ? (
+        {(queryState === null || isLoading) ? (
           <LoadingState title="Preparing editor" description="Loading record details for editing." />
         ) : effectiveMode === "edit" && (!sourceRecord || sourceRecord.id !== activeId) ? (
           <ErrorState title="Record unavailable" description={error || "The requested record could not be verified."} />
