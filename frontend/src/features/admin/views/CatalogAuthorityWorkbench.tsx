@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api/client";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { DashboardPage } from "@/components/layout/DashboardPage";
+import {AdminCatalogIntro} from "../components/AdminCatalogIntro";
 
 type Category = { id: number; name: string };
 type Product = { id: number; name: string; product_type: string; category: number; status: string };
@@ -149,13 +150,10 @@ export function CatalogAuthorityWorkbench() {
     <DashboardPage eyebrow="Catalog / A1+A2" title="Providers and retail offers"
       description="Provider capacity and wholesale costs stay internal; customer prices are published only after administrator review.">
       <div className="space-y-6">
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Inventory sync is read-only and requires a verified HTTPS provider hostname on the server allowlist.
-          This workspace does not sell domains or SSL, collect payments, or provision hosting accounts.
-        </div>
+        <AdminCatalogIntro/>
         <div className="flex flex-wrap items-center gap-3">
           <Link href="/admin/servers/new" className={actionClasses}>Add provider connection</Link>
-          <Link href="/admin/servers" className="text-sm font-medium text-[#0064E0]">View providers</Link>
+          <Link href="/admin/servers" className="text-sm font-medium text-console-primary">View providers</Link>
           <button type="button" onClick={()=>void execute(async()=>{await refresh();return true;},"Catalog refreshed.")} disabled={busy} className="rounded-xl border px-4 py-2 text-sm">Refresh records</button>
         </div>
         {loading&&<p role="status">Loading live catalog...</p>}
