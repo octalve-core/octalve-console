@@ -72,6 +72,11 @@ export function SignupPageClient() {
         email: values.email,
         phone: values.phone,
         password: values.password,
+        // Explicit link attribution only: no tracking cookie or background profile.
+        referral_code: typeof window!=="undefined"&&/^[A-Z0-9]{10}$/.test(
+          new URLSearchParams(window.location.search).get("ref")||"")
+          ? new URLSearchParams(window.location.search).get("ref")||""
+          : undefined,
       });
 
       router.replace(getRoleDashboard(session.user.role));
