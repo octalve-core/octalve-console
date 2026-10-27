@@ -49,7 +49,7 @@ class DomainSerializer(serializers.ModelSerializer):
             'status', 'status_display', 'registration_type', 'registrar',
             'registration_date', 'expiry_date', 'next_due_date', 'auto_renew',
             'dnssec_enabled', 'days_until_expiry', 'is_expiring_soon',
-            'nameservers', 'dns_records', 'metadata', 'created_at'
+            'nameservers', 'dns_records', 'created_at'
         ]
         read_only_fields = ['id', 'created_at', 'days_until_expiry', 'is_expiring_soon']
     
