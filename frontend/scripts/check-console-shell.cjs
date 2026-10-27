@@ -3,15 +3,16 @@ const fs=require("node:fs"),path=require("node:path");
 const root=path.resolve(__dirname,"../src");
 const read=file=>fs.readFileSync(path.join(root,file),"utf8");
 function must(file,parts){const body=read(file);for(const item of parts)if(!body.includes(item))throw Error(file+": missing "+item);}
-must("components/layout/DashboardShell.tsx",["ConsoleMobileDrawer","DashboardSidebar","DashboardHeader","Skip to main content","id=\"console-main\"","min-h-dvh"]);
+must("components/layout/DashboardShell.tsx",["ConsoleMobileDrawer","DashboardSidebar","DashboardHeader","href=\"#console-main\"","m.skip","id=\"console-main\"","min-h-dvh"]);
 must("components/layout/DashboardSidebar.tsx",["getDashboardNavGroups(role)","ConsoleNavigationGroup","bg-console-sidebar","CloudBrandLogo"]);
 must("features/shell/components/ConsoleNavigationGroup.tsx",["aria-current","DashboardNavGroup","onNavigate","item.href"]);
 must("features/shell/components/ConsoleMobileDrawer.tsx",['role="dialog"','aria-modal="true"','event.key==="Escape"','event.key!=="Tab"','document.body.style.overflow']);
-must("features/shell/components/ConsolePageSearch.tsx",["getDashboardNavGroups(role)","Console search results","aria-label=\"Find a Console page\"","event.key===\"Escape\""]);
+must("features/shell/components/ConsolePageSearch.tsx",["getDashboardNavGroups(role)","m.searchResults","aria-label={m.searchLabel}","translateNavigationLabel(page.label,locale)","event.key===\"Escape\""]);
 must("features/shell/components/ConsoleAccountMenu.tsx",["useAuth","onLogout();","aria-expanded={open}","event.key===\"Escape\""]);
 must("features/auth/components/AuthLayout.tsx",["AuthBrandPanel","AuthBrandLogo","bg-console-canvas","authFieldIcons"]);
 must("features/auth/components/AuthFormControls.tsx",["AuthPasswordInput","AuthInput","AuthButton","useId","aria-invalid","aria-describedby","Show password"]);
 must("components/layout/RoleGuard.tsx",["useAuth","allowed.includes(user.role)","router.replace"]);
+must("lib/i18n/dictionary.ts",["skip: \"Skip to main content\"","skip: \"Aller au contenu principal\"","searchResults: \"Console search results\"","searchResults: \"Résultats de la recherche\""]);
 for(const file of ["LoginPageClient.tsx","SignupPageClient.tsx","ForgotPasswordPageClient.tsx","ResetPasswordConfirmPageClient.tsx"]){
  const body=read("features/auth/views/"+file);
  if(/className="auth-(?:form|terms|inline|secondary|submit|helper)/.test(body))throw Error(file+": legacy auth form classes still required");
