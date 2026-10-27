@@ -41,7 +41,7 @@ requireParts("features/admin/settings/views/AdminSettingsHubView.tsx",[
 requireParts("features/admin/settings/views/AdminSettingsSectionView.tsx",[
  "AdminSettingsSectionPanel","getAdminSettingsItem"]);
 requireParts("features/admin/components/AdminSettingsSectionPanel.tsx",[
- "not verified or saved settings values","/admin/servers"]);
+ "It does not display live values or confirm that services are enabled.","/admin/servers"]);
 requireParts("features/admin/views/CatalogAuthorityWorkbench.tsx",[
  "AdminCatalogIntro","api.get(\"/catalog/offer-drafts/\")",
  "async function saveDraft()","async function approveSupplierPackage()",
