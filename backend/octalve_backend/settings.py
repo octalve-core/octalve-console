@@ -41,6 +41,8 @@ environ.Env.read_env(BASE_DIR / '.env')
 DEBUG = env.bool('DEBUG', False)
 # Off in Production until the consolidated migration and release qualification pass.
 REWARDS_API_ENABLED = env.bool('REWARDS_API_ENABLED', False)
+# Batch 14 pilot: no French UI activation until the full role/route translation gate.
+CLOUD_MULTILINGUAL_ENABLED = env.bool('CLOUD_MULTILINGUAL_ENABLED', False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
