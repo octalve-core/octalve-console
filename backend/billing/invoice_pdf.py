@@ -25,6 +25,14 @@ TEMPLATE_REGISTRY = {
 }
 DEFAULT_TEMPLATE_ID = "template_01"
 
+def default_template_id():
+    """One server-approved default for new issuance, never an HTTP field."""
+    configured = getattr(settings, "OCTALVE_INVOICE_TEMPLATE_ID", DEFAULT_TEMPLATE_ID)
+    if not isinstance(configured, str) or configured not in TEMPLATE_REGISTRY:
+        raise ValueError("Unsupported default invoice template configuration")
+    return configured
+
+
 
 def _clean(value, limit=500):
     return "".join(c for c in str(value or "")[:limit] if 32 <= ord(c) <= 126)
