@@ -93,6 +93,7 @@ class Invoice(models.Model):
     @classmethod
     def create_from_order(cls, order):
         """Create invoice from an order"""
+        from .invoice_pdf import default_template_id
         invoice = cls.objects.create(
             order=order,
             client=order.client,
@@ -105,7 +106,7 @@ class Invoice(models.Model):
             metadata={"billing_contact": (
                 dict(order.metadata.get("billing_contact", {}))
                 if isinstance(order.metadata, dict) else {}
-            )},
+            ), "invoice_template_id": default_template_id()},
         )
         
         # Copy order items to invoice items
@@ -130,13 +131,15 @@ class Invoice(models.Model):
     def create_renewal_invoice(cls, service):
         """Create renewal invoice for a service"""
         from services.models import Service
+        from .invoice_pdf import default_template_id
         
         invoice = cls.objects.create(
             client=service.client,
             subtotal=service.amount,
             total=service.amount,
             due_date=timezone.now() + timezone.timedelta(days=7),
-            metadata={'type': 'renewal', 'service_id': service.id}
+            metadata={'type': 'renewal', 'service_id': service.id,
+                      'invoice_template_id': default_template_id()}
         )
         
         InvoiceItem.objects.create(
