@@ -4,7 +4,7 @@ import {ClientServicesNavigation,ClientDomainsNavigation} from "@/features/shell
 import {
  BarChart3,BookOpen,Boxes,CreditCard,Globe2,LayoutDashboard,LifeBuoy,ListChecks,
  PackageCheck,ReceiptText,Server,Settings,Shield,ShoppingCart,Ticket,UserRound,Users,Bell,UsersRound,
- WalletCards,Zap,type LucideIcon
+ WalletCards,Zap,Gift,Award,type LucideIcon
 } from "lucide-react";
 import {cn} from "@/lib/utils";
 import type {DashboardNavGroup,DashboardNavIcon,DashboardRole} from "@/lib/navigation/dashboard-nav";
@@ -14,7 +14,7 @@ const icons:Record<DashboardNavIcon,LucideIcon>={
  receiptText:ReceiptText,creditCard:CreditCard,globe2:Globe2,server:Server,
  zap:Zap,lifeBuoy:LifeBuoy,bookOpen:BookOpen,settings:Settings,shield:Shield,
  barChart3:BarChart3,walletCards:WalletCards,shoppingCart:ShoppingCart,
- userRound:UserRound,ticket:Ticket,packageCheck:PackageCheck,bell:Bell,usersRound:UsersRound
+ userRound:UserRound,ticket:Ticket,packageCheck:PackageCheck,bell:Bell,usersRound:UsersRound,gift:Gift,award:Award
 };
 
 export function ConsoleNavigationGroup({group,role,pathname,onNavigate}:{
