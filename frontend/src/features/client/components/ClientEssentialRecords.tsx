@@ -43,6 +43,16 @@ export function ClientEssentialRecords({resource,records,emptyTitle,emptyDescrip
     label={resource==="domains"?"Domains":"Services"}
     records={rows}
     onOpen={openDetails}
+    actions={resource==="services"?[
+      {label:"Manage service",onSelect:openDetails},
+      {label:"View usage",onSelect:row=>router.push(
+        `/client/services/${encodeURIComponent(row.id)}#usage`)},
+      {label:"Renewal options",onSelect:row=>router.push(
+        `/client/services/${encodeURIComponent(row.id)}#renewal`)},
+      {label:"Check hosting readiness",available:row=>row.category==="hosting",
+        onSelect:row=>router.push(
+          `/client/services/${encodeURIComponent(row.id)}/hosting-status`)},
+    ]:[]}
     emptyMessage={records.length===0?emptyTitle+" — "+emptyDescription:"No matching records. Try another filter."}
     columns={[
       {key:"name",label:resource==="domains"?"Domain name":"Service",
