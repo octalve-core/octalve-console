@@ -18,7 +18,7 @@ class IntegrationConnection(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["adapter_key", "state"])]
+        indexes = [models.Index(fields=["adapter_key", "state"], name="integration_adapter_state_idx")]
 
 class IntegrationCredentialVersion(models.Model):
     connection = models.ForeignKey(IntegrationConnection, on_delete=models.PROTECT, related_name="credential_versions")
@@ -40,4 +40,4 @@ class IntegrationConnectionEvent(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["connection", "-created_at"])]
+        indexes = [models.Index(fields=["connection", "-created_at"], name="integration_event_recent_idx")]
