@@ -68,3 +68,12 @@ This is the front-end-only final migration phase. Django API, authentication, RB
 - Authenticated role-correct browser verification across 123 routes and six breakpoints.
 - Remaining legacy CSS consumers in specialized forms, checkout and domain UI, plus visual styling parity. The legacy stylesheet remains protected.
 - Real staff/workspace creation endpoint contracts, full payments gateway secret handling and provider sandbox acceptance require separate backend verification after the frontend qualification, never inferred from mock form input.
+
+## Continuation — Admin workspace integration inventory (27 October 2026)
+
+- Audited 14 `AdminWorkspaceConfig` sections: two currently use real list loaders (`billing-services`, `transactions`), one is a navigation-only Billing home, and **11 others** use an explicit `emptyLoader` placeholder.
+- The Billing home now links to existing actual API-backed Invoices, Transactions, Services, Domains, Gateways and Support pages. It no longer displays a fake empty Billing modules API response.
+- The 11 unconnected workspaces now display an honest unavailability section and relevant connected-navigation link. They do not call an empty stub and pretend no server records were found. No sample records or success messages were introduced.
+- Existing live `adminApi.services()` and `schemaApi.payments.transactions()` list loaders and their presentation remain intact.
+- A CI guard keeps the explicit 12-place inventory, active-lists, navigation, Tailwind output and service-authority separation stable.
+- Backend work needed later: verified API list/create/update contracts for Quotes, Batch Billing, Print Queue, Invoice Designer, Staff, Blacklist, CMS, Currency, Download Manager, Mass Mailer and Service Queue. These are **not** completed by frontend-only changes.

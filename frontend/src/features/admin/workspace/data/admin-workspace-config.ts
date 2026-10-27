@@ -58,6 +58,7 @@ export type AdminWorkspaceConfig = {
   emptyDescription: string;
   fallback: AdminWorkspaceRecord[];
   loader: () => Promise<unknown>;
+  availability?: "api" | "navigation" | "unconnected";
   editorFields?: Array<{
     name: string;
     label: string;
@@ -77,7 +78,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     key: "billing",
     eyebrow: "Billing",
     title: "Billing center",
-    description: "Control invoices, services, domains, transactions, quotes, print queue, and batch billing.",
+    description: "Review billing activity, invoices, transactions and service records.",
     icon: ReceiptText,
     listHref: "/admin/billing",
     searchPlaceholder: "Search billing modules...",
@@ -85,6 +86,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "The frontend is in API-only mode. Billing modules will appear when the backend returns them.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "navigation",
   },
   "billing-services": {
     key: "billing-services",
@@ -147,6 +149,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "Quotes from the backend will appear here.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
     editorFields: [
       { name: "client", label: "Client", type: "text", placeholder: "Client name", required: true },
       { name: "title", label: "Quote title", type: "text", placeholder: "Quote title", required: true },
@@ -167,6 +170,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "Scheduled billing batches will appear here when the backend supports them.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
   },
   "print-queue": {
     key: "print-queue",
@@ -180,6 +184,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "Queued invoice and receipt PDFs will appear here when the backend supports them.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
   },
   "invoice-designer": {
     key: "invoice-designer",
@@ -193,6 +198,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "Invoice templates will appear here when the backend supports them.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
   },
   staff: {
     key: "staff",
@@ -208,6 +214,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "Staff records from the backend will appear here.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
     editorFields: [
       { name: "name", label: "Full name", type: "text", placeholder: "Full name", required: true },
       { name: "email", label: "Email", type: "text", placeholder: "staff@example.com", required: true },
@@ -228,6 +235,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "Blacklist rules will appear here when the backend supports them.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
   },
   cms: {
     key: "cms",
@@ -241,6 +249,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "CMS records will appear here when the backend supports them.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
   },
   currency: {
     key: "currency",
@@ -254,6 +263,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "Currency records will appear here when the backend supports them.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
   },
   "download-manager": {
     key: "download-manager",
@@ -267,6 +277,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "Download records will appear here when the backend supports them.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
   },
   "mass-mailer": {
     key: "mass-mailer",
@@ -280,6 +291,7 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "Mail campaigns will appear here when the backend supports them.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
   },
   "service-queue": {
     key: "service-queue",
@@ -293,5 +305,6 @@ export const adminWorkspaceConfig: Record<AdminWorkspaceKey, AdminWorkspaceConfi
     emptyDescription: "Service queue records will appear here when the backend supports them.",
     fallback: noFallbackRecords,
     loader: emptyLoader,
+    availability: "unconnected",
   },
 };

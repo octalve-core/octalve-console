@@ -6,6 +6,7 @@ import { useAutoSync } from "@/lib/hooks/useAutoSync";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import {Panel} from "@/components/design-system/Panel";
 import {AdminGenericDirectory} from "../../components/AdminGenericDirectory";
+import {AdminWorkspaceConnectionStatus} from "../components/AdminWorkspaceConnectionStatus";
 import {ErrorState} from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { adminWorkspaceConfig, type AdminWorkspaceKey, type AdminWorkspaceRecord } from "../data/admin-workspace-config";
@@ -68,6 +69,12 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
   const [error, setError] = useState("");
 
   async function loadRecords(quiet = false) {
+    if (config.availability && config.availability !== "api") {
+      setRecords([]);
+      setError("");
+      setIsLoading(false);
+      return;
+    }
     setError("");
     if (!quiet) setIsLoading(true);
 
@@ -101,7 +108,9 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
             </div>
           </div>
         </Panel>
-        {isLoading?<LoadingState title={"Loading "+config.title.toLowerCase()} description="Updating records…"/>:
+        {config.availability && config.availability !== "api" ?
+         <AdminWorkspaceConnectionStatus workspace={workspace} title={config.title}/>:
+         isLoading?<LoadingState title={"Loading "+config.title.toLowerCase()} description="Updating records…"/>:
          error?<ErrorState description={error}/>:
          <AdminGenericDirectory label={config.title} records={records}
           allowDetails={["billing-services","transactions","quotes","staff"].includes(workspace)}
