@@ -19,7 +19,7 @@ ensure("features/client/views/ClientResourceListView.tsx",[
 ]);
 ensure("features/client/components/ClientEssentialRecords.tsx",[
  "CloudRecordDirectory","onOpen={openDetails}","verified.actionHref","records.map(record=>",
- "rows={rows}","columns={[","resource===\"domains\""
+ "records={rows}","columns={[","resource===\"domains\""
 ]);
 ensure("features/client/views/ClientResourceDetailView.tsx",[
  "config.loader()","setRecord(foundApiRecord ?? null)","if (!foundApiRecord)","ClientEssentialDetail"
