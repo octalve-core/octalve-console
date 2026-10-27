@@ -7,12 +7,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from .invoice_pdf import (
-    DEFAULT_TEMPLATE_ID, LOGO_FILE, MAX_ITEMS, TEMPLATE_REGISTRY,
+    DEFAULT_TEMPLATE_ID, LOGO_FILE, MAX_ITEMS, TEMPLATE_REGISTRY, default_template_id,
     _document, _logo, render_invoice_pdf,
 )
 from .models import Invoice, InvoiceItem, Quote
@@ -105,6 +105,19 @@ class BillingDocumentAuthorityTests(APITestCase):
         self.assertTrue(callable(renderer.render))
         self.assertTrue(renderer.__file__.replace(chr(92), "/").endswith(
             "/billing/invoice-template/template_01.py"))
+
+    @override_settings(OCTALVE_INVOICE_TEMPLATE_ID="arbitrary.module")
+    def test_server_default_rejects_unknown_template(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported default invoice template"):
+            default_template_id()
+
+    def test_new_invoice_pins_reviewed_template_id(self):
+        from orders.models import Order
+        order = Order.objects.create(
+            client=self.owner, currency="NGN",
+            status="pending_payment", total=Decimal("150.00"))
+        invoice = Invoice.create_from_order(order)
+        self.assertEqual(invoice.metadata["invoice_template_id"], "template_01")
 
     def test_disallows_arbitrary_renderer_path_in_invoice_metadata(self):
         self.invoice.metadata = {"invoice_template_id": "../../unsafe_import"}
