@@ -1,6 +1,7 @@
 """Isolated RFC6238 enrollment, one-use codes and denied provider writes."""
 from unittest.mock import patch
 from cryptography.fernet import Fernet
+AUDIT_KEY=Fernet.generate_key().decode()
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import override_settings
@@ -13,7 +14,7 @@ STEP_KEY=Fernet.generate_key().decode()
 PASSWORD="CI-Test-Vault-Stepup-Password-1245"
 NOW=1800000000
 @override_settings(CLOUD_PROVIDER_VAULT_KEY=VAULT_KEY,CLOUD_PROVIDER_STEPUP_KEY=STEP_KEY,
-                   CLOUD_PROVIDER_VAULT_KEY_ID="v1",CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True,
+                   CLOUD_PROVIDER_AUDIT_KEY=AUDIT_KEY,CLOUD_PROVIDER_VAULT_KEY_ID="v1",CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True,
                    CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED=True)
 class ProviderStepupTests(APITestCase):
     def setUp(self):

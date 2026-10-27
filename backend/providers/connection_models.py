@@ -2,6 +2,7 @@
 import uuid
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 class IntegrationConnection(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -11,6 +12,8 @@ class IntegrationConnection(models.Model):
     public_settings = models.JSONField(default=dict)
     state = models.CharField(max_length=12, choices=[("draft", "Draft"), ("revoked", "Revoked")], default="draft")
     current_version = models.PositiveIntegerField(default=1)
+    audit_sequence = models.PositiveIntegerField(default=0)
+    audit_head = models.CharField(max_length=64,default='',blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
                                   related_name="integration_connections_created")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -33,14 +36,26 @@ class IntegrationCredentialVersion(models.Model):
 
 class IntegrationConnectionEvent(models.Model):
     connection = models.ForeignKey(IntegrationConnection, on_delete=models.PROTECT, related_name="security_events")
-    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
     action = models.CharField(max_length=32)
     version = models.PositiveIntegerField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    sequence = models.PositiveIntegerField(default=0)
+    previous_mac = models.CharField(max_length=64,blank=True,default="")
+    event_mac = models.CharField(max_length=64,blank=True,default="")
+    created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["connection", "-created_at"], name="integration_event_recent_idx")]
+
+    def save(self,*args,**kwargs):
+        if self.pk is not None and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("Provider security events cannot be modified.")
+        return super().save(*args,**kwargs)
+
+    def delete(self,*args,**kwargs):
+        raise ValueError("Provider security events cannot be deleted.")
+
 
 class ProviderVaultAuthenticator(models.Model):
     """Encrypted vault-only authenticator; no password reset or silent bypass."""
