@@ -71,7 +71,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
         <ActionLink href={editorConfig.listHref} variant="outline">
           <ArrowLeft className="h-4 w-4" />
           Back
-        </Button>
+        </ActionLink>
       }
     >
       <DashboardPage
