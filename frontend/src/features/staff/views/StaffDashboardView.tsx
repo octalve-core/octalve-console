@@ -23,7 +23,7 @@ function countResults(value: unknown): number | null {
 }
 export function StaffDashboardView() {
   const { user } = useAuth();
-  const [counts,setCounts] = useState<SummaryCounts>(initialCounts);
+  const [counts,setCounts] = useState<StaffSummaryCounts>(initialCounts);
   const [tickets,setTickets] = useState<StaffRecord[]>([]);
   const [tasks,setTasks] = useState<StaffRecord[]>([]);
   const [loading,setLoading] = useState(true);
