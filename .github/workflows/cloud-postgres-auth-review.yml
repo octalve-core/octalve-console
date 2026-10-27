@@ -91,8 +91,8 @@ jobs:
                   assert cur.fetchone()[0] == 12, 'Blacklist history must contain 12 migrations'
                   cur.execute("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname='public' ORDER BY tablename")
                   tables = {r[0] for r in cur.fetchall()}
-                  assert len(tables) == 100, '97 foundation tables plus routing tag, staff membership and knowledge article'
-                  assert {'catalog_catalogofferdraft', 'catalog_publishedcatalogoffer', 'opanel_bridge_verifiedhostingbinding', 'opanel_bridge_opanellaunchgrant', 'notifications_hostingnotice', 'support_supportroutingtag', 'support_supportroutingtag_assigned_staff', 'knowledge_base_knowledgearticle'}.issubset(tables)
+                  assert len(tables) == 107, '100 prior tables plus 7 rewards and attribution ledger tables'
+                  assert {'catalog_catalogofferdraft', 'catalog_publishedcatalogoffer', 'opanel_bridge_verifiedhostingbinding', 'opanel_bridge_opanellaunchgrant', 'notifications_hostingnotice', 'support_supportroutingtag', 'support_supportroutingtag_assigned_staff', 'knowledge_base_knowledgearticle', 'rewards_rewardpolicy', 'rewards_rewardtier', 'rewards_pointentry', 'rewards_affiliateaccount', 'rewards_referralattribution', 'rewards_commissionentry', 'rewards_clientrecognition'}.issubset(tables)
                   assert {'token_blacklist_outstandingtoken', 'token_blacklist_blacklistedtoken', 'accounts_customuser', 'accounts_auththrottlebucket'}.issubset(tables)
                   cur.execute("""
                       SELECT conname, pg_get_constraintdef(oid)
