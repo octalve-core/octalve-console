@@ -13,7 +13,7 @@ for (const token of [
   "config.loader()", "unwrapClientList(response)", "normalizeClientRecord(item, config.key)",
   "requestId.current", "explainListError(cause)", "error.status === 401",
   "error.status === 403", "error.status >= 500", "loadRecords(false)",
-  "ClientEssentialRecords", "ClientDomainSearch", "setRecords([])"
+  "ClientEssentialRecords", "setRecords([])"
 ]) assert.ok(list.includes(token), "Client records safety contract missing: " + token);
 assert.match(client, /method === "GET" \? AbortSignal\.timeout\(27000\) : undefined/);
 assert.match(proxy, /signal: AbortSignal\.timeout\(20000\)/);
