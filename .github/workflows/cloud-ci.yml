@@ -107,6 +107,8 @@ jobs:
         run: node frontend/scripts/check-batch13-rewards.cjs
       - name: Batch 14 language, BFF owner-scope and formatting contract
         run: node --experimental-strip-types frontend/scripts/check-batch14-internationalization.cjs
+      - name: Batch 15 signed evidence rejection and browser qualification boundary
+        run: node frontend/scripts/check-batch15-browser-gates.cjs
 
   django-check:
     runs-on: ubuntu-latest

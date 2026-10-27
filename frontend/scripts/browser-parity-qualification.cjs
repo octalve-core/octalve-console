@@ -38,23 +38,19 @@ if(process.argv.includes("--plan")){
  fs.writeFileSync(full,JSON.stringify(plan,null,2)+"\n");
 }
 if(process.argv.includes("--verify")){
- const at=process.argv.indexOf("--verify"),location=process.argv[at+1];
- if(!location||!fs.existsSync(path.resolve(location)))throw Error("Browser evidence file required. Static CI is insufficient.");
- const signed=JSON.parse(fs.readFileSync(path.resolve(location),"utf8"));
- const results=new Map((signed.routes??[]).map(r=>[r.route,r]));
- const bad=[];
- for(const expected of routes){
-  const actual=results.get(expected.route);
-  if(!actual||actual.status!=="passed"||typeof actual.evidence!=="string"||actual.evidence.length<10||
-     !actual.testedAt||!actual.checks||
-     !viewports.every(width=>actual.viewports?.includes(width))||
-     !requiredChecks.every(check=>actual.checks[check]===true)||
-     (expected.fixtureIdsNeeded.length&&!actual.fixtureVerified)){
-   bad.push(expected.route);
-  }
- }
- if(bad.length)throw Error("Browser parity NOT qualified: "+bad.length+" routes lack complete signed evidence. Examples: "+bad.slice(0,8).join(", "));
- console.log("PASS: 134 routes have signed multi-breakpoint browser evidence. Validate evidence authenticity separately.");
+ const arg=name=>{const i=process.argv.indexOf(name);return i>=0?process.argv[i+1]:null;};
+ const evidenceFile=arg("--verify"),evidenceRoot=arg("--evidence-root");
+ const publicKeyFile=arg("--public-key"),keySha256=arg("--key-sha256"),releaseSha=arg("--release-sha");
+ if(!evidenceFile||!evidenceRoot||!publicKeyFile||!keySha256||!releaseSha)
+  throw Error("Signed evidence, artifact root, trusted Ed25519 key fingerprint and exact commit SHA are mandatory");
+ const {verifyAttestedEvidence}=require("./browser-evidence-attestation.cjs");
+ const result=verifyAttestedEvidence({
+  evidenceFile,evidenceRoot,publicKeyFile,keySha256,releaseSha,
+  expectedRoutes:routes,viewports,checks:requiredChecks,baseUrl:plan.baseUrl,
+ });
+ console.log("PASS: signed evidence structure and "+result.artifacts+" PNG digests match "+result.releaseSha);
+ console.log("PENDING: reviewer must separately attest genuine role authentication, visual parity and deployed runtime.");
+
 }else{
  console.log("PENDING: Batch 8 browser parity plan covers "+routes.length+" routes / "+(routes.length*viewports.length)+" viewport cases; verified results require real authenticated browser evidence.");
 }

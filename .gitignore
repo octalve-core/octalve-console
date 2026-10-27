@@ -1,17 +1,18 @@
-@"
-# Dependencies
+# Node and package caches
 node_modules/
+frontend/node_modules/
 .pnpm-store/
 
-# Next.js
+# Build, deployment and TypeScript outputs
 .next/
+frontend/.next/
+.vercel/
 out/
 dist/
 build/
-frontend/.next/
-frontend/node_modules/
+*.tsbuildinfo
 
-# Environment files
+# Secrets and environment configuration
 .env
 .env.*
 !.env.example
@@ -20,13 +21,14 @@ frontend/.env.*
 backend/.env
 backend/.env.*
 
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
+# Sensitive authentication state and browser evidence
+playwright/.auth/
+frontend/playwright/.auth/
+frontend/.browser-evidence/
+frontend/browser-evidence/
+browser-evidence/
 
-# Python / Django
+# Backend local state
 __pycache__/
 *.py[cod]
 *.pyo
@@ -40,81 +42,32 @@ backend/staticfiles/
 backend/.venv/
 backend/venv/
 backend/env/
+/backend/.gitignore
 
-# OS / Editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-"@ | Set-Content -Encoding UTF8 .gitignore
-# Dependencies
-node_modules/
-.pnpm-store/
-
-# Next.js / build output
-.next/
-out/
-dist/
-
-# Environment files
-.env
-.env.*
-!.env.example
-
-# Logs and temporary files
+# Logs, scratch work and backups
 *.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
 *.bak
+*.bak.*
 *.tmp
 *.swp
-typecheck-errors*.txt
-final-polish-typecheck.txt
-project-structure.txt
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Local generated files
 backups/
 frontend-before-*/
 *typecheck*.txt
 typecheck-errors*.txt
+final-polish-typecheck.txt
+project-structure.txt
+project-important-files.txt
 phase-*.txt
 pending-fixes*.txt
 auth-api-inspection.txt
 fix-card-typecheck.txt
 octalve-*.txt
-project-important-files.txt
-*.bak
-*.bak.*
-*.tmp
-*.swp
-*.tsbuildinfo
 
-# Dependencies
-node_modules/
-.pnpm-store/
-
-# Next.js / build output
-.next/
-out/
-dist/
-.vercel/
-
-# Environment files
-.env
-.env.*
-!.env.example
-
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-
-# OS files
+# Editor and OS
 .DS_Store
 Thumbs.db
-
-# Workstation-specific backend ignore file; keep locally, never commit.
-/backend/.gitignore
+.vscode/
+.idea/
