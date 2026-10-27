@@ -14,7 +14,7 @@ const current = "bg-white/10 text-white";
 function NavChild({href,label,pathname,onNavigate}:{
   href:string;label:string;pathname:string;onNavigate:()=>void;
 }) {
-  const active = pathname === href.split("?")[0].split("#")[0];
+  const active = !/[?#]/.test(href) && pathname === href;
   return <li><Link href={href} onClick={onNavigate} aria-current={active?"page":undefined}
     className={cn(baseLink,active?current:secondary)}>{label}</Link></li>;
 }
@@ -61,7 +61,7 @@ export function ClientServicesNavigation({pathname,onNavigate}:{
     return ()=>{mounted=false;};
   },[]);
   const active=pathname===routes.client.services||pathname.startsWith("/client/services/")
-    ||pathname.startsWith("/client/order")||pathname.startsWith("/client/purchases/");
+    ||pathname.startsWith("/client/order");
   return <li className="min-w-0">
     <NavRoot href={routes.client.services} label="Services" icon={PackageCheck}
       active={active} onNavigate={onNavigate} expanded={expanded}
