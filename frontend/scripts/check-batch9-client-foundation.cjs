@@ -30,8 +30,10 @@ const languagePanel=read("src/features/client/components/ClientLanguagePreferenc
 const localeClient=read("src/lib/i18n/preferences.ts");
 const languageBackend=read("../backend/accounts/language_preferences.py");
 assert.ok(settingsPage.includes("<ClientLanguagePreferences/>"),"Language preference panel missing");
-assert.ok(languagePanel.includes("languagePreferenceApi.get()"),"Language preference must be server-backed");
-assert.ok(languagePanel.includes("languagePreferenceApi.save(chosen)"),"Language save must be explicit");
+const localeProvider=read("src/lib/i18n/LocaleProvider.tsx");
+assert.ok(localeProvider.includes("languagePreferenceApi.get()"),"Language preference must be server-backed");
+assert.ok(localeProvider.includes("languagePreferenceApi.save(language)"),"Language save must be explicit");
+assert.ok(languagePanel.includes("changeLanguage(chosen)"),"Language selection must be server-confirmed");
 assert.ok(localeClient.includes('"/auth/language/"'),"Missing protected language route");
 assert.ok(languageBackend.includes("permission_classes = [IsAuthenticated]"),"Language preference must be authenticated");
 assert.ok(languageBackend.includes('CLOUD_MULTILINGUAL_ENABLED'),"Language availability must be gated");
