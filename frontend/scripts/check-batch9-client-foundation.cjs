@@ -24,7 +24,17 @@ assert.ok(routes.includes('purchases: "/client/purchases"'));
 assert.ok(routes.includes('settings: "/client/settings"'));
 assert.ok(fs.existsSync(path.join(base,"src/app/client/settings/page.tsx")));
 assert.ok(fs.existsSync(path.join(base,"src/app/client/purchases/page.tsx")));
-assert.match(read("src/app/client/settings/page.tsx"),/Current language: English/);
+// Settings language control moved into the reviewed owner-scoped component in Batch 14.
+const settingsPage=read("src/app/client/settings/page.tsx");
+const languagePanel=read("src/features/client/components/ClientLanguagePreferences.tsx");
+const localeClient=read("src/lib/i18n/preferences.ts");
+const languageBackend=read("../backend/accounts/language_preferences.py");
+assert.ok(settingsPage.includes("<ClientLanguagePreferences/>"),"Language preference panel missing");
+assert.ok(languagePanel.includes("languagePreferenceApi.get()"),"Language preference must be server-backed");
+assert.ok(languagePanel.includes("languagePreferenceApi.save(chosen)"),"Language save must be explicit");
+assert.ok(localeClient.includes('"/auth/language/"'),"Missing protected language route");
+assert.ok(languageBackend.includes("permission_classes = [IsAuthenticated]"),"Language preference must be authenticated");
+assert.ok(languageBackend.includes('CLOUD_MULTILINGUAL_ENABLED'),"Language availability must be gated");
 assert.ok(dynamic.includes("publicApi.publishedCategories()"));
 assert.ok(dynamic.includes("categories.map(item=>"));
 assert.ok(dynamic.includes("encodeURIComponent(item.slug)"));
