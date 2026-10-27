@@ -91,6 +91,8 @@ jobs:
         run: node frontend/scripts/check-admin-workspace-coverage.cjs --built
       - name: Phase 1 exact Admin identity and changed-field edit qualification
         run: node --experimental-strip-types frontend/scripts/check-phase1-admin-authority.cjs
+      - name: Phase 1 and 2 client data recovery and Tailwind accessibility
+        run: node frontend/scripts/check-phase12-client-recovery.cjs --built
 
   django-check:
     runs-on: ubuntu-latest
