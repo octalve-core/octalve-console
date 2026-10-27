@@ -115,7 +115,7 @@ export function toAdminResourcePayload(resource: AdminResourceKey, payload: Form
       return compactPayload({
         name: cleanString(payload.name),
         product: cleanString(payload.product),
-        currency: cleanString(payload.currency || "NGN"),
+        currency: cleanString(payload.currency),
         price: numberOrUndefined(payload.price),
         cycle: cleanString(payload.cycle),
         storage: cleanString(payload.storage),
@@ -164,7 +164,7 @@ export function toAdminResourcePayload(resource: AdminResourceKey, payload: Form
     case "gateways":
       return compactPayload({
         name: cleanString(payload.name),
-        display_name: cleanString(payload.display_name || payload.name),
+        display_name: cleanString(payload.display_name),
         public_key: cleanString(payload.public_key),
         secret_key: cleanString(payload.secret_key),
         webhook_secret: cleanString(payload.webhook_secret),
@@ -178,7 +178,9 @@ export function toAdminResourcePayload(resource: AdminResourceKey, payload: Form
       return compactPayload({
         name: cleanString(payload.name),
         adapter_type: cleanString(payload.adapter_type),
-        config: { fulfillment_model: cleanString(payload.fulfillment_model) },
+        ...(cleanString(payload.fulfillment_model)
+          ? { config: { fulfillment_model: cleanString(payload.fulfillment_model) } }
+          : {}),
         server_group: cleanString(payload.server_group),
         base_url: cleanString(payload.base_url),
         username: cleanString(payload.username),
