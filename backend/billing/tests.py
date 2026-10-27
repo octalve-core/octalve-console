@@ -1,5 +1,6 @@
 """Regression: no fabricated billing status, unsafe quotes or cross-tenant PDFs."""
 from datetime import timedelta
+import re
 from decimal import Decimal
 from dataclasses import FrozenInstanceError
 from importlib import import_module
@@ -133,6 +134,28 @@ class BillingDocumentAuthorityTests(APITestCase):
         result = renderer(document)
         self.assertTrue(result.startswith(b"%PDF-"))
 
+    def test_approved_four_item_invoice_keeps_notes_on_one_page(self):
+        from dataclasses import replace
+        from .invoice_pdf import InvoiceLine
+        doc = _document(self.invoice)
+        amounts = [Decimal("120000.00"), Decimal("25000.00"),
+                   Decimal("30000.00"), Decimal("50000.00")]
+        lines = tuple(InvoiceLine(f"Example hosting plan {index}", "1", value, value)
+                      for index, value in enumerate(amounts))
+        subtotal = sum(amounts)
+        tax = Decimal("16875.00")
+        typical = replace(
+            doc, lines=lines, subtotal=subtotal, tax_total=tax,
+            discount_total=Decimal("0.00"), total=subtotal + tax,
+            amount_paid=Decimal("0.00"), amount_due=subtotal + tax,
+            notes="SAMPLE PREVIEW ONLY - NO PAYMENT IS DUE. "
+                  "This is not an issued invoice, tax record, or proof of payment. "
+                  "All customer details are fictional."
+        )
+        pdf = import_module(TEMPLATE_REGISTRY["template_01"]).render(typical)
+        pages = len(re.findall(rb"/Type\s*/Page\b", pdf))
+        self.assertEqual(pages, 1, "A normal invoice must not strand Notes on page two")
+
     def test_multi_page_invoice_without_database_writes(self):
         from dataclasses import replace
         from .invoice_pdf import InvoiceLine
@@ -150,6 +173,7 @@ class BillingDocumentAuthorityTests(APITestCase):
         pdf = import_module(TEMPLATE_REGISTRY["template_01"]).render(multi)
         self.assertTrue(pdf.startswith(b"%PDF-"))
         self.assertGreater(len(pdf), 5000)
+        self.assertGreater(len(re.findall(rb"/Type\s*/Page\b", pdf)), 1)
 
     def test_read_existing_quote_is_account_scoped(self):
         path = f"/api/billing/quotes/{self.quote.pk}/"
