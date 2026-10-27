@@ -32,7 +32,7 @@ export function ClientOverviewRecent({title,description,href,records,state}:{
      <span className="min-w-0 flex-1">
       <span className="block truncate text-sm font-semibold text-console-ink">{record.title}</span>
       <span className="mt-1 block truncate text-xs text-console-muted">{record.subtitle}</span>
-      {record.date && /^\\d{4}-\\d{2}-\\d{2}/.test(record.date) ? <time title={record.date}
+      {record.date && /^\d{4}-\d{2}-\d{2}/.test(record.date) ? <time title={record.date}
         dateTime={record.date.slice(0,10)} className="mt-1 block text-xs text-console-muted">{displayDate(record.date.slice(0,10),locale)}</time>:null}
      </span>
      <StatusBadge tone={tone(record.status)}>{formatStatus(record.status)}</StatusBadge>
