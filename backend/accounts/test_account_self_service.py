@@ -111,3 +111,66 @@ class AccountSelfServiceTests(APITestCase):
         send.return_value=1
         codes=[self.client.post("/api/auth/email/verification/request/",{},format="json").status_code for _ in range(4)]
         self.assertEqual(codes,[202,202,202,429])
+
+
+class AccountLanguagePreferenceTests(APITestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user(email="locale-owner@example.invalid",
+            username="locale_owner", password="NotARealPassword2026!")
+        self.other = User.objects.create_user(email="locale-other@example.invalid",
+            username="locale_other", password="NotARealPassword2026!")
+        self.client.force_authenticate(user=self.owner)
+
+    def test_default_english_and_no_migration(self):
+        result = self.client.get("/api/auth/language/")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.data["language"], "en")
+        self.assertFalse(result.data["enabled"])
+        self.assertEqual([row["code"] for row in result.data["available_languages"]], ["en"])
+
+    def test_nonactivated_french_fails_closed(self):
+        result = self.client.patch("/api/auth/language/", {"language": "fr"}, format="json")
+        self.assertEqual(result.status_code, 409)
+        self.owner.refresh_from_db()
+        self.assertEqual(self.owner.language, "en")
+
+    @override_settings(CLOUD_MULTILINGUAL_ENABLED=True)
+    def test_enabled_owner_only_update_and_reloaded_value(self):
+        result = self.client.patch("/api/auth/language/", {"language": "fr"}, format="json")
+        self.assertEqual(result.status_code, 200, result.data)
+        self.assertEqual(result.data["language"], "fr")
+        self.owner.refresh_from_db()
+        self.other.refresh_from_db()
+        self.assertEqual(self.owner.language, "fr")
+        self.assertEqual(self.other.language, "en")
+        self.assertEqual(self.client.get("/api/auth/language/").data["language"], "fr")
+
+    @override_settings(CLOUD_MULTILINGUAL_ENABLED=True)
+    def test_strict_allowlist_blocks_extra_fields_bad_types_and_other_account(self):
+        for payload in (
+            {"language": "ar"}, {"language": "fr-CA"}, {"language": "FR"},
+            {"language": None}, {"language": ["fr"]},
+            {"language": "fr", "user_id": self.other.pk}, {},
+        ):
+            with self.subTest(payload=payload):
+                response = self.client.patch("/api/auth/language/", payload, format="json")
+                self.assertEqual(response.status_code, 400, response.data)
+        self.owner.refresh_from_db()
+        self.other.refresh_from_db()
+        self.assertEqual(self.owner.language, "en")
+        self.assertEqual(self.other.language, "en")
+
+    def test_unauthenticated_language_read_and_write_are_rejected(self):
+        self.client.force_authenticate(user=None)
+        self.assertIn(self.client.get("/api/auth/language/").status_code, (401, 403))
+        self.assertIn(self.client.patch("/api/auth/language/",
+            {"language": "en"}, format="json").status_code, (401, 403))
+
+    def test_preexisting_unsupported_language_has_safe_effective_fallback(self):
+        self.owner.language = "zz"
+        self.owner.save(update_fields=["language"])
+        result = self.client.get("/api/auth/language/")
+        self.assertEqual(result.data["language"], "en")
+        self.owner.refresh_from_db()
+        self.assertEqual(self.owner.language, "zz")  # A GET must never mutate history.
