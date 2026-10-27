@@ -243,3 +243,6 @@ class ProviderHealthCheck(models.Model):
     def __str__(self):
         return f"{self.provider.name} - {self.status} at {self.checked_at}"
 
+
+# Keep the new connection vault separate from the legacy hosting Provider model.
+from .connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent  # noqa: E402,F401
