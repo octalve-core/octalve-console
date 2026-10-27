@@ -44,6 +44,9 @@ class BaseProviderAdapter(ABC):
         import time
         start_time = time.time()
         
+        # Legacy DirectAdmin/WHM executor is not a verified provisioning authority.
+        if self.provider.adapter_type in ("DirectAdminAdapter","CpanelAdapter"):
+            return AdapterResult(success=False,error="Legacy hosting executor is disabled.")
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         
         # Prepare headers
