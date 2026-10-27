@@ -73,6 +73,8 @@ jobs:
         run: node frontend/scripts/check-client-commerce.cjs --built
       - name: Support and knowledge module authority regression (Batch 5)
         run: node frontend/scripts/check-support-knowledge.cjs --built
+      - name: Staff Console interface and read-only authority regression (Batch 6)
+        run: node frontend/scripts/check-staff-console.cjs --built
 
   django-check:
     runs-on: ubuntu-latest
