@@ -16,6 +16,7 @@ from .connection_models import IntegrationConnection, IntegrationCredentialVersi
 from .connection_specs import SCHEMAS, public_catalog, validate_public_settings, validate_secrets
 from .connection_vault import seal, vault, VaultUnavailable
 from .connection_stepup import check_mutation
+from .connection_audit import audit_key,append_event
 
 class VaultMutationThrottle(SimpleRateThrottle):
     scope = "provider_draft_secrets"
@@ -42,6 +43,7 @@ def require_write_authority(request):
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,32}",getattr(settings,"CLOUD_PROVIDER_VAULT_KEY_ID","")):
         raise VaultUnavailable()
     vault()
+    audit_key()
     check_mutation(user,password,request.data.get('totp_code'))
 
 def clean_payload(data, expected):
@@ -94,7 +96,7 @@ def connections(request):
             state="draft",current_version=1,created_by=request.user)
         IntegrationCredentialVersion.objects.create(connection=row,version=1,
             key_id=settings.CLOUD_PROVIDER_VAULT_KEY_ID,ciphertext=seal(adapter,row.pk,1,secrets))
-        IntegrationConnectionEvent.objects.create(connection=row,actor=request.user,action="draft_created",version=1)
+        append_event(row,request.user,"draft_created",1)
     return Response(safe_connection(row),status=status.HTTP_201_CREATED,
                     headers={"Cache-Control":"no-store"})
 
@@ -134,7 +136,7 @@ def rotate_connection(request, connection_id):
             key_id=settings.CLOUD_PROVIDER_VAULT_KEY_ID,ciphertext=encrypted)
         row.current_version=next_version
         row.save(update_fields=["current_version","updated_at"])
-        IntegrationConnectionEvent.objects.create(connection=row,actor=request.user,action="credential_rotated",version=next_version)
+        append_event(row,request.user,"credential_rotated",next_version)
     return Response(safe_connection(row),headers={"Cache-Control":"no-store"})
 
 @api_view(["POST"])
@@ -154,5 +156,5 @@ def revoke_connection(request, connection_id):
         IntegrationCredentialVersion.objects.filter(connection=row,revoked_at__isnull=True).update(revoked_at=now)
         row.state="revoked"
         row.save(update_fields=["state","updated_at"])
-        IntegrationConnectionEvent.objects.create(connection=row,actor=request.user,action="credential_revoked",version=row.current_version)
+        append_event(row,request.user,"credential_revoked",row.current_version)
     return Response(safe_connection(row),headers={"Cache-Control":"no-store"})
