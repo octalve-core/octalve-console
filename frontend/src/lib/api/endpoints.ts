@@ -558,6 +558,10 @@ export const adminApi = {
     );
   },
 
+  staffRoster() {
+    return api.get<{results:Record<string, unknown>[];count:number;truncated:boolean;read_only:true}>("/auth/staff/");
+  },
+
   // Existing Django Quotes GET is authenticated and Admin-owned.
   // Quote creation and acceptance remain closed by the backend.
   quotes(params?: ListParams) {

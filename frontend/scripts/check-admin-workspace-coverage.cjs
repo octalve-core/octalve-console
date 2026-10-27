@@ -5,9 +5,9 @@ const read=p=>fs.readFileSync(path.join(root,p),"utf8");
 const config=read("features/admin/workspace/data/admin-workspace-config.ts");
 const view=read("features/admin/workspace/views/AdminWorkspaceView.tsx");
 const panel=read("features/admin/workspace/components/AdminWorkspaceConnectionStatus.tsx");
-if((config.match(/loader: emptyLoader,/g)||[]).length!==10)
+if((config.match(/loader: emptyLoader,/g)||[]).length!==9)
  throw Error("Unsupported workspace inventory changed; review API contracts first.");
-if((config.match(/availability: "unconnected"/g)||[]).length!==9)
+if((config.match(/availability: "unconnected"/g)||[]).length!==8)
  throw Error("Unconnected Admin workspace pages must be identified explicitly.");
 if((config.match(/availability: "navigation"/g)||[]).length!==1)
  throw Error("Billing navigation hub must be the only navigation-only workspace.");
@@ -50,4 +50,7 @@ if(!previewBlock.includes("loader: () => adminApi.renewalPreview()")||!previewBl
  throw Error("Renewal review must be backed by the safe admin API");
 if(!read("features/admin/workspace/views/AdminWorkspaceView.tsx").includes('"quote_number"'))
  throw Error("Quote number must remain visible in Admin listing");
-console.log("PASS: 9 unconnected workspace loaders remain disclosed; Quotes and Renewal Preview are read-only API-backed.");
+const staffBlock=config.slice(config.indexOf("  staff: {"),config.indexOf("  blacklist: {"));
+if(!staffBlock.includes("loader: () => adminApi.staffRoster()")||!staffBlock.includes('availability: "api"'))
+ throw Error("Staff roster must come from the reviewed read-only API");
+console.log("PASS: 8 unconnected workspace loaders remain disclosed; Staff, Quotes and Renewals are read-only API-backed.");
