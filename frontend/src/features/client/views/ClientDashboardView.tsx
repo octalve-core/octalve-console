@@ -4,6 +4,7 @@ import {useMemo} from "react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {useAuth} from "@/context/AuthContext";
 import {ClientHero} from "../components/ClientHero";
+import {ClientLoginAlerts} from "../components/ClientLoginAlerts";
 import {ClientOverviewActions} from "../components/ClientOverviewActions";
 import {ClientOverviewMetrics} from "../components/ClientOverviewMetrics";
 import {ClientOverviewRecent} from "../components/ClientOverviewRecent";
