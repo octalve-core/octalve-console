@@ -153,7 +153,8 @@ def render_invoice_pdf(invoice):
     Future issuance must pin a versioned identifier and document snapshot; a
     runtime designer must never rewrite past issued documents.
     """
-    meta = invoice.metadata if isinstance(invoice.metadata, dict) else {}
+    metadata = getattr(invoice, "metadata", None)
+    meta = metadata if isinstance(metadata, dict) else {}
     template_id = meta.get("invoice_template_id", DEFAULT_TEMPLATE_ID)
     module_path = TEMPLATE_REGISTRY.get(template_id) if isinstance(template_id, str) else None
     if module_path is None:
