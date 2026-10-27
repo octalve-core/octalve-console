@@ -1,6 +1,8 @@
 """Regression: no fabricated billing status, unsafe quotes or cross-tenant PDFs."""
 from datetime import timedelta
 from decimal import Decimal
+from dataclasses import FrozenInstanceError
+from importlib import import_module
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -9,7 +11,10 @@ from django.test import SimpleTestCase
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from .invoice_pdf import LOGO_FILE, MAX_ITEMS, _logo, render_invoice_pdf
+from .invoice_pdf import (
+    DEFAULT_TEMPLATE_ID, LOGO_FILE, MAX_ITEMS, TEMPLATE_REGISTRY,
+    _document, _logo, render_invoice_pdf,
+)
 from .models import Invoice, InvoiceItem, Quote
 
 
@@ -91,6 +96,42 @@ class BillingDocumentAuthorityTests(APITestCase):
         self.quote.refresh_from_db()
         self.assertEqual(self.quote.status, "draft")
         self.assertEqual(self.quote.total, 1)
+
+    def test_approved_design_is_isolated_in_invoice_template_folder(self):
+        self.assertEqual(DEFAULT_TEMPLATE_ID, "template_01")
+        self.assertEqual(
+            TEMPLATE_REGISTRY, {"template_01": "billing.invoice-template.template_01"})
+        renderer = import_module(TEMPLATE_REGISTRY[DEFAULT_TEMPLATE_ID])
+        self.assertTrue(callable(renderer.render))
+        self.assertTrue(renderer.__file__.replace(chr(92), "/").endswith(
+            "/billing/invoice-template/template_01.py"))
+
+    def test_disallows_arbitrary_renderer_path_in_invoice_metadata(self):
+        self.invoice.metadata = {"invoice_template_id": "../../unsafe_import"}
+        with self.assertRaisesRegex(ValueError, "unsupported template"):
+            render_invoice_pdf(self.invoice)
+
+    def test_document_snapshot_is_frozen_and_template_receives_no_orm(self):
+        document = _document(self.invoice)
+        self.assertEqual(document.currency, "NGN")
+        with self.assertRaises(FrozenInstanceError):
+            document.total = Decimal("0.00")
+        renderer = import_module(TEMPLATE_REGISTRY[DEFAULT_TEMPLATE_ID]).render
+        result = renderer(document)
+        self.assertTrue(result.startswith(b"%PDF-"))
+
+    def test_multi_page_invoice_without_database_writes(self):
+        from dataclasses import replace
+        from .invoice_pdf import InvoiceLine
+        doc = _document(self.invoice)
+        multi = replace(doc, lines=tuple(
+            InvoiceLine("Annual hosting renewal for account " + str(n),
+                        "1", Decimal("10.00"), Decimal("10.00"))
+            for n in range(65)
+        ))
+        pdf = import_module(TEMPLATE_REGISTRY["template_01"]).render(multi)
+        self.assertTrue(pdf.startswith(b"%PDF-"))
+        self.assertGreater(len(pdf), 5000)
 
     def test_read_existing_quote_is_account_scoped(self):
         path = f"/api/billing/quotes/{self.quote.pk}/"
