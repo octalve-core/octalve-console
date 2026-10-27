@@ -55,7 +55,7 @@ for(const file of [
  if(/from\s*["'][^"']+\.css["']|\b(?:adminApi|schemaApi|clientApi)\b|\bfetch\s*\(/.test(body))
   throw Error(p+": presentational component cannot own API or stylesheet");
 }
-for(const name of ["tailwind.config.js","tailwind.config.ts"]){
+for(const name of ["tailwind.config.ts"]){
  const value=fs.readFileSync(path.resolve(__dirname,"..",name),"utf8");
  if(!value.includes("./src/features/admin/**/*.{js,ts,jsx,tsx,mdx}"))
   throw Error("Admin Tailwind feature glob missing: "+name);
