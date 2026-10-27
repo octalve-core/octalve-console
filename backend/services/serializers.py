@@ -1,136 +1,264 @@
-# services/serializers.py
+# services/views.py
 
-from rest_framework import serializers
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, BasePermission
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from django.db import transaction
+from django.db.models import OuterRef, Subquery
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from .models import (
     Service, ServiceCredential, ServiceUsage, 
     ServiceActionLog, ServiceSuspension, ServiceChangeRequest
 )
+from .serializers import (
+    ServiceSerializer, ServiceCredentialSerializer, ServiceUsageSerializer,
+    ServiceActionLogSerializer, ServiceActionSerializer, 
+    ServiceChangePackageSerializer, ServiceChangeRequestSerializer
+)
+from catalog.models import Plan, PlanBillingCycle
+from billing.models import Invoice, InvoiceItem
+from rbac.decorators import permission_required
 
 
-class ServiceCredentialSerializer(serializers.ModelSerializer):
-    """Serializer for service credentials"""
-    
-    password = serializers.CharField(write_only=True, required=False)
-    
-    class Meta:
-        model = ServiceCredential
-        fields = [
-            'id', 'username', 'password', 'control_panel_url', 'ftp_server',
-            'ftp_port', 'database_host', 'database_name', 'database_user',
-            'nameserver1', 'nameserver2', 'nameserver3', 'nameserver4',
-            'metadata'
-        ]
-        read_only_fields = ['id']
-    
-    def update(self, instance, validated_data):
-        password = validated_data.pop('password', None)
-        if password:
-            instance.set_password(password)
-        return super().update(instance, validated_data)
+class CloudServiceWritePermission(BasePermission):
+    """Creating and editing commercial service state is admin-only."""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and
+                    (request.user.is_superuser or request.user.role == 'admin'))
 
 
-class ServiceUsageSerializer(serializers.ModelSerializer):
-    """Serializer for service usage"""
+class ServiceViewSet(viewsets.ModelViewSet):
+    """ViewSet for services"""
     
-    class Meta:
-        model = ServiceUsage
-        fields = [
-            'id', 'disk_used_mb', 'disk_limit_mb', 'disk_percent',
-            'bandwidth_used_mb', 'bandwidth_limit_mb', 'bandwidth_percent',
-            'email_used', 'email_limit', 'database_used', 'database_limit',
-            'addon_domains_used', 'subdomains_used', 'ftp_accounts_used',
-            'cpu_usage_percent', 'memory_used_mb', 'memory_limit_mb',
-            'memory_percent', 'recorded_at'
-        ]
-        # read_only_fields = '__all__'
-        read_only_fields = ['id', 'created_at']
+    serializer_class = ServiceSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['status', 'service_type', 'auto_renew']
+    search_fields = ['label', 'domain_name', 'client__email', 'client__full_name']
+    ordering_fields = ['created_at', 'next_due_date', 'amount']
+    ordering = ['-created_at']
+    
+    def get_permissions(self):
+        if self.action in {'create', 'update', 'partial_update', 'destroy'}:
+            return [CloudServiceWritePermission()]
+        return super().get_permissions()
 
+    def get_queryset(self):
+        # Display name from catalogue in SQL instead of per-record lookups.
+        plan_name = Plan.objects.filter(pk=OuterRef('plan_id')).values('name')[:1]
+        queryset = Service.objects.annotate(plan_name=Subquery(plan_name))
+        user = self.request.user
+        if user.role == 'admin' or user.is_superuser:
+            return queryset
+        if user.role == 'staff':
+            return queryset
+        return queryset.filter(client=user)
+    
+    @action(detail=True, methods=['get'])
+    def credentials(self, request, pk=None):
+        """Legacy browser credential download is permanently disabled."""
+        self.get_object()  # Preserve owner-scoped 404.
+        return Response(
+            {"detail": "Provider credentials are server-side only. Use verified OPanel SSO."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
-class ServiceActionLogSerializer(serializers.ModelSerializer):
-    """Serializer for service action logs"""
-    
-    action_display = serializers.CharField(source='get_action_display', read_only=True)
-    performed_by_name = serializers.CharField(source='performed_by.full_name', read_only=True)
-    
-    class Meta:
-        model = ServiceActionLog
-        fields = [
-            'id', 'action', 'action_display', 'performed_by', 'performed_by_name',
-            'is_automatic', 'success', 'error_message', 'details', 'created_at'
-        ]
-        # read_only_fields = '__all__'
-        read_only_fields = ['id', 'created_at']
+    @action(detail=True, methods=['post'])
+    def update_credentials(self, request, pk=None):
+        """No browser may write provider passwords or privileged API keys."""
+        if not (request.user.is_superuser or request.user.role == 'admin'):
+            return Response({"detail": "Not authorised."}, status=status.HTTP_403_FORBIDDEN)
+        self.get_object()
+        return Response(
+            {"detail": "Browser credential mutation is disabled. Use audited provider workers."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
+    @action(detail=True, methods=['get'])
+    def usage(self, request, pk=None):
+        """Get service usage history"""
+        service = self.get_object()
+        usage = service.usage_history.all()[:30]
+        serializer = ServiceUsageSerializer(usage, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'], url_path='renewal-status')
+    def renewal_status(self, request, pk=None):
+        """Owner-scoped, read-only renewal status. Never creates an invoice.
 
-class ServiceSerializer(serializers.ModelSerializer):
-    """Serializer for services"""
+        Only an existing authoritative renewal invoice may be offered for
+        payment. A service's next_due_date is not itself payment authority.
+        """
+        if (getattr(request.user, 'role', None) != 'client' or
+                not request.user.is_active):
+            return Response({'detail': 'Service unavailable.'}, status=404)
+        service = get_object_or_404(Service, pk=pk, client_id=request.user.pk)
+        if service.status not in ('active', 'suspended', 'cancellation_requested'):
+            return Response({
+                'service_id': service.pk, 'state': 'unavailable',
+                'invoice_id': None, 'auto_renew': service.auto_renew,
+                'next_due_date': service.next_due_date.isoformat(),
+            }, headers={'Cache-Control': 'private, no-store'})
+        # Renewal invoices are generated by the billing authority, not here.
+        invoice = (Invoice.objects.filter(
+            client_id=request.user.pk,
+            metadata__type='renewal', metadata__service_id=service.pk,
+            status__in=('unpaid', 'partially_paid', 'overdue'),
+        ).order_by('-created_at', '-pk').first())
+        return Response({
+            'service_id': service.pk,
+            'state': 'invoice_ready' if invoice else 'request_assistance',
+            'invoice_id': invoice.pk if invoice else None,
+            'auto_renew': service.auto_renew,
+            'next_due_date': service.next_due_date.isoformat(),
+        }, headers={'Cache-Control': 'private, no-store'})
+
+    @action(detail=True, methods=['get'])
+    def actions(self, request, pk=None):
+        """Get service action logs"""
+        service = self.get_object()
+        actions = service.action_logs.all()[:50]
+        serializer = ServiceActionLogSerializer(actions, many=True)
+        return Response(serializer.data)
     
-    client_name = serializers.CharField(source='client.full_name', read_only=True)
-    client_email = serializers.EmailField(source='client.email', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    is_overdue = serializers.SerializerMethodField()
-    
-    # Hosting credentials and arbitrary provider config are server-only.
-    current_usage = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Service
-        fields = [
-            'id', 'client', 'client_name', 'client_email', 'service_type',
-            'domain_name', 'label', 'description', 'status', 'status_display',
-            'billing_cycle', 'amount', 'currency', 'next_due_date',
-            'auto_renew', 'has_ssl', 'has_backup', 'activated_at',
-            'suspended_at', 'current_usage', 'is_overdue',
-            'created_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'activated_at', 'suspended_at']
+    @action(detail=True, methods=['post'])
+    def action(self, request, pk=None):
+        """No customer or administrator can fake a provider operation.
+
+        Disabled until a verified, durable worker performs the host action and
+        confirms its result. Read access to the owning service remains scoped.
+        """
+        self.get_object()  # Enforce object ownership before revealing state.
+        return Response(
+            {'error': 'Hosting operations are unavailable until provider-confirmed execution is enabled.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    # @action(detail=True, methods=['post'])
+    @transaction.atomic
+    def change_package(self, request, pk=None):
+        """Request package upgrade/downgrade"""
+        service = self.get_object()
+        serializer = ServiceChangePackageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         
+        new_plan_id = serializer.validated_data['new_plan_id']
+        
+        try:
+            new_plan = Plan.objects.get(id=new_plan_id, status='active')
+            current_plan = Plan.objects.get(id=service.plan_id)
+        except Plan.DoesNotExist:
+            return Response({'error': 'Plan not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        change_type = 'upgrade' if new_plan.base_price > current_plan.base_price else 'downgrade'
+        
+        # Calculate prorated amount
+        days_remaining = max(0, (service.next_due_date - timezone.now()).days)
+        cycle_days = service.get_cycle_days()
+        
+        if cycle_days > 0:
+            current_value = (service.amount / cycle_days) * days_remaining
+            new_value = (new_plan.base_price / cycle_days) * days_remaining
+            
+            if change_type == 'upgrade':
+                prorated_amount = new_value - current_value
+            else:
+                prorated_amount = current_value - new_value
+        else:
+            prorated_amount = 0
+        
+        # Create change request
+        change_request = ServiceChangeRequest.objects.create(
+            service=service,
+            change_type=change_type,
+            current_plan_id=current_plan.id,
+            current_price=service.amount,
+            new_plan_id=new_plan.id,
+            new_price=new_plan.base_price
+        )
+        
+        # Create invoice for upgrade
+        if change_type == 'upgrade' and prorated_amount > 0:
+            invoice = Invoice.objects.create(
+                client=service.client,
+                subtotal=prorated_amount,
+                total=prorated_amount,
+                due_date=timezone.now() + timezone.timedelta(days=3),
+                metadata={'type': 'upgrade', 'service_id': service.id, 'change_request_id': change_request.id}
+            )
+            
+            InvoiceItem.objects.create(
+                invoice=invoice,
+                description=f"Prorated upgrade from {current_plan.name} to {new_plan.name}",
+                product_id=new_plan.product.id,
+                plan_id=new_plan.id,
+                service_id=service.id,
+                quantity=1,
+                unit_price=prorated_amount,
+                subtotal=prorated_amount,
+                period_start=timezone.now(),
+                period_end=service.next_due_date
+            )
+            
+            change_request.invoice = invoice
+            change_request.save()
+            
+            return Response({
+                'message': 'Upgrade requires payment',
+                'invoice_id': invoice.id,
+                'invoice_number': invoice.invoice_number,
+                'amount': prorated_amount
+            })
+        
+        # For downgrade or zero-cost upgrade, process immediately
+        change_request.approve(processed_by=request.user)
+        change_request.complete()
+        
+        return Response({'message': f'Package {change_type} completed successfully'})
     
-    def get_current_usage(self, obj):
-        latest_usage = obj.usage_history.first()
-        if latest_usage:
-            return ServiceUsageSerializer(latest_usage).data
-        return None
+    # @action(detail=True, methods=['post'])
+    def cancel_request(self, request, pk=None):
+        """Request service cancellation"""
+        service = self.get_object()
+        
+        if service.status != 'active':
+            return Response({'error': 'Only active services can be cancelled'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        service.request_cancellation()
+        
+        return Response({
+            'message': 'Cancellation requested. Service will be cancelled at the end of billing period.'
+        })
     
-    def get_is_overdue(self, obj):
-        return obj.is_overdue()
+    # @action(detail=True, methods=['post'])
+    def cancel_immediate(self, request, pk=None):
+        """Immediately cancel service (admin only)"""
+        service = self.get_object()
+        
+        if request.user.role not in ['admin', 'staff']:
+            return Response({'error': 'Only staff can immediately cancel services'}, status=status.HTTP_403_FORBIDDEN)
+        
+        service.cancel()
+        
+        return Response({'message': 'Service cancelled immediately'})
 
 
-class ServiceChangeRequestSerializer(serializers.ModelSerializer):
-    """Serializer for service change requests"""
+class ServiceChangeRequestViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for service change requests"""
     
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    change_type_display = serializers.CharField(source='get_change_type_display', read_only=True)
+    serializer_class = ServiceChangeRequestSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['status', 'change_type']
+    ordering = ['-created_at']
     
-    class Meta:
-        model = ServiceChangeRequest
-        fields = [
-            'id', 'service', 'change_type', 'change_type_display',
-            'current_plan_id', 'current_price', 'new_plan_id', 'new_price',
-            'invoice', 'status', 'status_display', 'error_message',
-            'created_at'
-        ]
-        read_only_fields = ['id', 'created_at']
-
-
-class ServiceActionSerializer(serializers.Serializer):
-    """Serializer for service actions"""
-    
-    action = serializers.ChoiceField(choices=[
-        ('suspend', 'Suspend'),
-        ('unsuspend', 'Unsuspend'),
-        ('terminate', 'Terminate'),
-        ('reboot', 'Reboot'),
-        ('start', 'Start'),
-        ('stop', 'Stop'),
-        ('change_password', 'Change Password'),
-    ])
-    reason = serializers.CharField(required=False, allow_blank=True)
-    new_password = serializers.CharField(required=False, allow_blank=True)
-
-
-class ServiceChangePackageSerializer(serializers.Serializer):
-    """Serializer for changing service package"""
-    
-    new_plan_id = serializers.IntegerField()
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ['admin', 'staff']:
+            return ServiceChangeRequest.objects.all()
+        return ServiceChangeRequest.objects.filter(service__client=user)
 
