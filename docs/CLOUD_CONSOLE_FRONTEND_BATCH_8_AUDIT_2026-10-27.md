@@ -48,3 +48,9 @@ This is the front-end-only final migration phase. Django API, authentication, RB
 - `AdminPremiumTable` and `PremiumStatusPill` now use Tailwind and Lucide. Filtering, status, mobile/desktop row actions and existing caller-supplied handlers remain.
 - CI requires logo identity and source/built CSS regressions via `check-batch8-shared-migration.cjs`.
 - CSS deletion remains **blocked**: other checkout, domain, legacy specialist Admin, and global shell selectors need route-by-route work, plus authenticated browser acceptance for 123 routes.
+
+## Browser QA manifest and release blocker
+
+- `frontend/scripts/browser-parity-qualification.cjs --plan frontend/.next/batch8-browser-qa.json` builds a reproducible 123-route x 6-viewport plan (738 cases), including signed-in role and dynamic-ID fixtures.
+- `--verify <signed-results.json>` rejects incomplete coverage, absent evidence, missing keyboard/navigation/overflow and data-truthfulness checks, and any dynamic route without verified fixture ID. It is **not** run as a passing CI gate until authentic browser evidence exists; CI generates the plan, never fabricates screenshots or passes.
+- Real browser acceptance requires credentialed Client, Staff and Admin test sessions with authorized read-only fixtures; payment/provisioning mutations are out of scope for visual checks. Current status **PENDING**.
