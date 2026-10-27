@@ -54,3 +54,17 @@ This is the front-end-only final migration phase. Django API, authentication, RB
 - `frontend/scripts/browser-parity-qualification.cjs --plan frontend/.next/batch8-browser-qa.json` builds a reproducible 123-route x 6-viewport plan (738 cases), including signed-in role and dynamic-ID fixtures.
 - `--verify <signed-results.json>` rejects incomplete coverage, absent evidence, missing keyboard/navigation/overflow and data-truthfulness checks, and any dynamic route without verified fixture ID. It is **not** run as a passing CI gate until authentic browser evidence exists; CI generates the plan, never fabricates screenshots or passes.
 - Real browser acceptance requires credentialed Client, Staff and Admin test sessions with authorized read-only fixtures; payment/provisioning mutations are out of scope for visual checks. Current status **PENDING**.
+
+## Continuation — live Admin integration safety, 27 October 2026
+
+- Discovered that the Paystack page still mounted an old `ResourceEditor` whose Save button had **no submit handler**. Replaced it with a typed, read-only API-backed gateway record overview through the existing `schemaApi.payments.gateways()` endpoint. Status means **record status**, never payment/webhook verification; no secrets are displayed. No payment or provider write operation was added.
+- Discovered that `AdminWorkspaceEditorView` showed a fake Save success after a timeout for Staff, Quotes, Transactions and Billing Services. Removed the unconnected forms and replaced them with a clear read-only unavailability section; `AdminWorkspaceView` no longer promotes unsupported Create actions. Backend mutation endpoints must be explicitly verified before restoring these operations.
+- Discovered that `AdminResourceEditorView` could prefill fallback/sample data when an edit record was absent or API read failed, risking modification of a different record. It now requires an exact authorized record and blocks both the form and write on failure. Existing valid `saveAdminResourceRecord` operations remain intact.
+- Gateway secret, webhook-secret, API-key and provider-secret fields now use password inputs with password-appropriate autocomplete. Backend storage/response security is **not** certified by a frontend change.
+- Added release regression `frontend/scripts/check-admin-integration-safety.cjs` for the above invariants. All Django services/migrations/contracts remain untouched.
+
+### Still pending
+
+- Authenticated role-correct browser verification across 123 routes and six breakpoints.
+- Remaining legacy CSS consumers in specialized forms, checkout and domain UI, plus visual styling parity. The legacy stylesheet remains protected.
+- Real staff/workspace creation endpoint contracts, full payments gateway secret handling and provider sandbox acceptance require separate backend verification after the frontend qualification, never inferred from mock form input.

@@ -21,7 +21,8 @@ export function AdminEditorFields({fields,values,fieldErrors,onChange}:{
     <SelectField {...common} options={field.options??[]}/>
    </div>;
    return <div key={field.name} className="min-w-0">
-    <TextField {...common} type={field.type} placeholder={field.placeholder}/>
+    <TextField {...common} type={field.type} placeholder={field.placeholder}
+     autoComplete={field.type==="password"?"new-password":undefined} spellCheck={field.type==="password"?false:undefined}/>
    </div>;
   })}
  </div>;

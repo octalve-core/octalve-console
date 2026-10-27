@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { LoadingState } from "@/components/feedback/LoadingState";
+import { ErrorState } from "@/components/feedback/ErrorState";
 import { ApiFormError } from "@/components/feedback/ApiFormError";
 import { cn } from "@/lib/utils";
 import {
@@ -157,31 +158,20 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
         const apiRecords = unwrapAdminList(response).map((item) => normalizeAdminRecord(item, listConfig.key));
         const foundApiRecord = apiRecords.find((item) => item.id === activeId);
 
-        const fallbackRecord =
-          foundApiRecord ??
-          listConfig.fallback.find((item) => item.id === activeId || item.title === activeId) ??
-          listConfig.fallback[0] ??
-          null;
-
         if (!active) return;
 
-        setSourceRecord(fallbackRecord);
-        setValues(buildInitialState(editorConfig.fields, fallbackRecord));
+        setSourceRecord(foundApiRecord ?? null);
+        setValues(buildInitialState(editorConfig.fields, foundApiRecord ?? null));
 
         if (!foundApiRecord) {
-          setNotice("Live API record was not found locally. The form is prefilled with fallback data.");
+          setError("This record is not available in your authorized account. Editing has been disabled.");
         }
       } catch {
-        const fallbackRecord =
-          listConfig.fallback.find((item) => item.id === activeId || item.title === activeId) ??
-          listConfig.fallback[0] ??
-          null;
-
         if (!active) return;
 
-        setSourceRecord(fallbackRecord);
-        setValues(buildInitialState(editorConfig.fields, fallbackRecord));
-        setNotice("Live API data is not available yet. The form is using fallback data.");
+        setSourceRecord(null);
+        setValues(buildInitialState(editorConfig.fields));
+        setError("We could not verify this record with the server. Editing has been disabled.");
       } finally {
         if (active) setIsLoading(false);
       }
@@ -196,6 +186,10 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (effectiveMode === "edit" && (!activeId || sourceRecord?.id !== activeId)) {
+      setError("This record could not be verified. Return to the list and select a valid record.");
+      return;
+    }
     setError("");
     setNotice("");
     setFieldErrors({});
@@ -256,6 +250,8 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
       >
         {isLoading ? (
           <LoadingState title="Preparing editor" description="Loading record details for editing." />
+        ) : effectiveMode === "edit" && (!sourceRecord || sourceRecord.id !== activeId) ? (
+          <ErrorState title="Record unavailable" description={error || "The requested record could not be verified."} />
         ) : (
           <div className="grid gap-5 xl:grid-cols-[1fr_22rem]">
             <Card>
