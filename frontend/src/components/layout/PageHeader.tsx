@@ -2,7 +2,7 @@ import type {ReactNode} from "react";
 export function PageHeader({title,description,eyebrow="Octalve Console",actions}:{
  title:string;description?:string;eyebrow?:string;actions?:ReactNode;
 }){
- return <header className="flex min-w-0 flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
+ return <header className="mb-7 flex min-w-0 flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
   <div className="min-w-0">
    <p className="text-xs font-semibold uppercase tracking-wider text-console-primary">{eyebrow}</p>
    <h1 className="mt-2 break-words text-2xl font-semibold tracking-tight text-console-ink sm:text-3xl">{title}</h1>
