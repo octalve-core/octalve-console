@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import {Menu,MessageSquare,Search,X} from "lucide-react";
+import {Bell,Menu,MessageSquare,Search,X} from "lucide-react";
 import {useState} from "react";
 import {ConsoleAccountMenu} from "@/features/shell/components/ConsoleAccountMenu";
 import {ConsolePageSearch} from "@/features/shell/components/ConsolePageSearch";
@@ -28,6 +28,10 @@ export function DashboardHeader({role,onMenuClick,onLogout,loggingOut}:{
      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-console-primary">
      <MessageSquare aria-hidden="true" className="h-5 w-5"/>
     </Link>
+    {role==="client"?<Link href="/client/notifications" aria-label="View notifications"
+      title="Notifications" className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-console-primary">
+      <Bell aria-hidden="true" className="h-5 w-5"/>
+    </Link>:null}
     <ConsoleAccountMenu role={role} onLogout={onLogout} loggingOut={loggingOut}/>
    </div>
   </div>

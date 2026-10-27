@@ -35,6 +35,8 @@ export const routes = {
     services: "/client/services",
     purchases: "/client/purchases",
     settings: "/client/settings",
+    notifications: "/client/notifications",
+    community: "/client/community",
     domains: "/client/domains",
     domainRegister: "/client/domains/register",
     domainTransfer: "/client/domains/transfer",

@@ -4,6 +4,7 @@ import {useMemo} from "react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {useAuth} from "@/context/AuthContext";
 import {ClientHero} from "../components/ClientHero";
+import {ClientLoginAlerts} from "../components/ClientLoginAlerts";
 import {ClientOverviewActions} from "../components/ClientOverviewActions";
 import {ClientOverviewMetrics} from "../components/ClientOverviewMetrics";
 import {ClientOverviewRecent} from "../components/ClientOverviewRecent";
@@ -23,6 +24,7 @@ export function ClientDashboardView(){
     description="Manage hosting, domains, billing and support.">
     <div className="space-y-6">
       <ClientHero name={firstName}/>
+      <ClientLoginAlerts/>
       <ClientOverviewActions/>
       <ClientOverviewMetrics summary={summary}/>
       <div className="grid gap-5 xl:grid-cols-2">

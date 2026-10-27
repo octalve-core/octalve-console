@@ -54,6 +54,22 @@ export type DomainTransferReadiness = {
   state:"registrar_verification_required";
   indicative_price:string|null;currency:string|null;message:string;
 };
+export type CustomerNotice = {
+  key:string;kind:"invoice"|"domain";severity:"urgent"|"attention";
+  title:string;description:string;date:string;href:string;read:boolean;
+};
+export type CustomerNoticePreferences = {
+  show_login_alerts:boolean;invoice_alerts:boolean;domain_alerts:boolean;
+};
+export type CustomerNoticeInbox = {
+  items:CustomerNotice[];unread_count:number;
+  preferences:CustomerNoticePreferences;
+  delivery:{in_app:boolean;email_reminders_enabled:boolean};
+};
+export type CustomerCommunityLinks = {
+  links:{whatsapp:string|null;telegram:string|null};
+  automatic_enrollment:boolean;
+};
 export type EditableAccountProfile = Omit<AccountProfile,"email"|"email_verified">;
 
 type ListParams = {
@@ -103,6 +119,7 @@ export const apiPaths = {
     wallet: "/wallet/my-wallet/me/",
     tickets: "/support/tickets/",
     knowledgeBase: "/knowledge-base/",
+    notices: "/notifications/",
   },
 
   admin: {
@@ -233,6 +250,21 @@ export const publicApi = {
 };
 
 export const clientApi = {
+  notices() {
+    return api.get<CustomerNoticeInbox>(apiPaths.client.notices+"inbox/");
+  },
+  markNoticeRead(key:string) {
+    return api.post<{key:string;read:boolean}>(apiPaths.client.notices+"read/",{key});
+  },
+  noticePreferences() {
+    return api.get<CustomerNoticePreferences>(apiPaths.client.notices+"preferences/");
+  },
+  updateNoticePreferences(prefs:Partial<CustomerNoticePreferences>) {
+    return api.patch<CustomerNoticePreferences>(apiPaths.client.notices+"preferences/",prefs);
+  },
+  community() {
+    return api.get<CustomerCommunityLinks>(apiPaths.client.notices+"community/");
+  },
   // The customer overview is assembled from independently authorized resource reads.
 
   services(params?: ListParams) {

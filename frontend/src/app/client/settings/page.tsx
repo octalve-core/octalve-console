@@ -4,6 +4,7 @@ import {DashboardPage} from "@/components/layout/DashboardPage";
 import {Panel} from "@/components/design-system/Panel";
 import {ActionLink} from "@/components/design-system/ActionLink";
 import {routes} from "@/lib/routes";
+import {ClientNoticePreferences} from "@/features/client/components/ClientNoticePreferences";
 
 export default function ClientSettingsPage(){
   return <DashboardShell role="client" title="Settings"
@@ -31,6 +32,7 @@ export default function ClientSettingsPage(){
           </p>
         </Panel>
       </div>
+      <div className="mt-5"><ClientNoticePreferences/></div>
     </DashboardPage>
   </DashboardShell>;
 }

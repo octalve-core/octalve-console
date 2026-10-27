@@ -21,7 +21,9 @@ export type DashboardNavIcon =
   | "shoppingCart"
   | "userRound"
   | "ticket"
-  | "packageCheck";
+  | "packageCheck"
+  | "bell"
+  | "usersRound";
 
 export type DashboardNavItem = {
   label: string;
@@ -191,6 +193,8 @@ export const clientNavGroups: DashboardNavGroup[] = [
       {label: "Purchases", href: routes.client.purchases, icon: "shoppingCart",
         description: "Orders and invoices"},
       {label: "Wallet", href: routes.client.wallet, icon: "walletCards"},
+      {label: "Notifications", href: routes.client.notifications, icon: "bell",
+        description: "Invoice and domain reminders"},
     ],
   },
   {
@@ -198,6 +202,7 @@ export const clientNavGroups: DashboardNavGroup[] = [
     items: [
       {label: "Support", href: routes.client.support, icon: "lifeBuoy"},
       {label: "Knowledge Base", href: routes.client.knowledgeBase, icon: "bookOpen"},
+      {label: "O-Cloud Clan", href: routes.client.community, icon: "usersRound"},
       {label: "Profile", href: routes.client.profile, icon: "userRound"},
       {label: "Settings", href: routes.client.settings, icon: "settings",
         description: "Account preferences and language"},
