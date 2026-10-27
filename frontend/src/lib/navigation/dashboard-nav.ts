@@ -21,7 +21,9 @@ export type DashboardNavIcon =
   | "shoppingCart"
   | "userRound"
   | "ticket"
-  | "packageCheck";
+  | "packageCheck"
+  | "bell"
+  | "usersRound";
 
 export type DashboardNavItem = {
   label: string;
