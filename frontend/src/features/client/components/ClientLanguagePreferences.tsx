@@ -13,7 +13,7 @@ export function ClientLanguagePreferences(){
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState("");
   const [notice,setNotice]=useState("");
-  useEffect(()=>{setChosen(locale);setNotice("");setError("");},[locale]);
+  useEffect(()=>{setChosen(locale);setError("");},[locale]);
   const m=messages(locale);
   async function save(){
     if(!ready||saving||chosen===locale)return;
