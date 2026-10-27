@@ -61,7 +61,10 @@ def _notices(user, now=None):
     ).order_by("due_date", "pk")[:100])
     for bill in invoices:
         overdue = bill.due_date < now
-        key = f"invoice:{bill.pk}:{bill.due_date.date().isoformat()}"
+        days = (bill.due_date - now).total_seconds() / 86400
+        stage = "overdue" if overdue else ("one_day" if days <= 1 else
+                                           "seven_days" if days <= 7 else "fourteen_days")
+        key = f"invoice:{bill.pk}:{bill.due_date.date().isoformat()}:{stage}"
         items.append({
             "key": key, "kind": "invoice", "severity": "urgent" if overdue else "attention",
             "title": "Invoice overdue" if overdue else "Invoice due soon",
@@ -78,7 +81,10 @@ def _notices(user, now=None):
     ).order_by("expiry_date", "pk")[:100])
     for domain in domains:
         expired = domain.expiry_date < now
-        key = f"domain:{domain.pk}:{domain.expiry_date.date().isoformat()}"
+        days = (domain.expiry_date - now).total_seconds() / 86400
+        stage = "expired" if expired else ("one_day" if days <= 1 else
+                                           "seven_days" if days <= 7 else "month")
+        key = f"domain:{domain.pk}:{domain.expiry_date.date().isoformat()}:{stage}"
         items.append({
             "key": key, "kind": "domain", "severity": "urgent" if expired else "attention",
             "title": "Domain expired" if expired else "Domain expiring soon",
@@ -174,9 +180,13 @@ def _safe_community_link(raw, provider):
         parsed = urlsplit(raw.strip())
     except ValueError:
         return None
-    if parsed.scheme != "https" or parsed.username or parsed.password or parsed.port or (
-        parsed.query or parsed.fragment
-    ):
+    try:
+        forbidden = (parsed.scheme != "https" or parsed.username or
+                     parsed.password or parsed.port is not None or
+                     parsed.query or parsed.fragment)
+    except ValueError:
+        return None
+    if forbidden:
         return None
     if provider == "whatsapp" and parsed.hostname == "whatsapp.com":
         if not parsed.path.startswith("/channel/") or len(parsed.path) < 15:
