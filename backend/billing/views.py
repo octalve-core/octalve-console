@@ -9,6 +9,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.utils import timezone
 from django.http import HttpResponse
+from importlib import import_module
+from .invoice_pdf import DEFAULT_TEMPLATE_ID, TEMPLATE_REGISTRY, default_template_id
 from .models import Invoice, Tax, Quote
 from .serializers import InvoiceSerializer, TaxSerializer, QuoteSerializer, CreateQuoteSerializer
 from rbac.decorators import permission_required
@@ -36,6 +38,75 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     ordering_fields = ['issue_date', 'due_date', 'total']
     ordering = ['-issue_date']
     
+    @staticmethod
+    def _financial_write_closed():
+        return Response(
+            {"detail": "Direct invoice editing is unavailable. Payment and invoice changes must use approved billing workflows."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    # The legacy ModelViewSet allowed arbitrary financial fields to be
+    # submitted through generic Admin CRUD, bypassing the payment ledger.
+    # Invoice issuance/amendments need a separate audited and verified API.
+    def create(self, request, *args, **kwargs):
+        return self._financial_write_closed()
+
+    def update(self, request, *args, **kwargs):
+        return self._financial_write_closed()
+
+    def partial_update(self, request, *args, **kwargs):
+        return self._financial_write_closed()
+
+    def destroy(self, request, *args, **kwargs):
+        return self._financial_write_closed()
+
+    @staticmethod
+    def _require_admin(request):
+        user = request.user
+        return bool(user and user.is_authenticated and
+                    (user.is_superuser or getattr(user, "role", "") == "admin"))
+
+    @action(detail=False, methods=["get"], url_path="templates")
+    def templates(self, request):
+        """Read-only reviewed templates; no template upload or editing."""
+        if not self._require_admin(request):
+            return Response({"detail": "Permission denied."}, status=403)
+        return Response({
+            "templates": [
+                {
+                    "id": template_id,
+                    "label": "Invoice Template 01",
+                    "version": 1,
+                    "is_default": template_id == default_template_id(),
+                    "preview_path": f"/billing/invoices/template-preview/?template_id={template_id}",
+                    "mode": "read_only",
+                }
+                for template_id in sorted(TEMPLATE_REGISTRY)
+            ],
+            "editing_enabled": False,
+            "issuance_mode": "existing_billing_system",
+            "historical_snapshots_ready": False,
+        })
+
+    @action(detail=False, methods=["get"], url_path="template-preview")
+    def template_preview(self, request):
+        """Illustrative PDF only. No customer records or financial mutations."""
+        if not self._require_admin(request):
+            return Response({"detail": "Permission denied."}, status=403)
+        template_id = request.query_params.get("template_id", DEFAULT_TEMPLATE_ID)
+        if template_id not in TEMPLATE_REGISTRY:
+            return Response({"detail": "Template is not available."}, status=404)
+        sample = import_module("billing.invoice-template.preview_template_01").sample()
+        document_bytes = import_module(TEMPLATE_REGISTRY[template_id]).render(sample)
+        if not isinstance(document_bytes, bytes) or not document_bytes.startswith(b"%PDF-"):
+            raise ValueError("Invalid invoice template output")
+        response = HttpResponse(document_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = 'inline; filename="octalve-invoice-template-example.pdf"'
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        response["X-Robots-Tag"] = "noindex, nofollow"
+        return response
+
     def get_queryset(self):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:

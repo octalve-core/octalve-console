@@ -109,6 +109,8 @@ jobs:
         run: node --experimental-strip-types frontend/scripts/check-batch14-internationalization.cjs
       - name: Batch 15 signed evidence rejection and browser qualification boundary
         run: node frontend/scripts/check-batch15-browser-gates.cjs
+      - name: Batch 16 invoice template Studio and financial authority
+        run: node frontend/scripts/check-batch16-invoice-studio.cjs
 
   django-check:
     runs-on: ubuntu-latest
