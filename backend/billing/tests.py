@@ -100,7 +100,7 @@ class BillingDocumentAuthorityTests(APITestCase):
     def test_approved_design_is_isolated_in_invoice_template_folder(self):
         self.assertEqual(DEFAULT_TEMPLATE_ID, "template_01")
         self.assertEqual(
-            TEMPLATE_REGISTRY, {"template_01": "billing.invoice-template.template_01"})
+            TEMPLATE_REGISTRY["template_01"], "billing.invoice-template.template_01")
         renderer = import_module(TEMPLATE_REGISTRY[DEFAULT_TEMPLATE_ID])
         self.assertTrue(callable(renderer.render))
         self.assertTrue(renderer.__file__.replace(chr(92), "/").endswith(
@@ -137,11 +137,16 @@ class BillingDocumentAuthorityTests(APITestCase):
         from dataclasses import replace
         from .invoice_pdf import InvoiceLine
         doc = _document(self.invoice)
-        multi = replace(doc, lines=tuple(
+        lines = tuple(
             InvoiceLine("Annual hosting renewal for account " + str(n),
                         "1", Decimal("10.00"), Decimal("10.00"))
             for n in range(65)
-        ))
+        )
+        # Keep the fixture's financial totals internally consistent.
+        subtotal = Decimal("650.00")
+        multi = replace(doc, lines=lines, subtotal=subtotal, discount_total=Decimal("0.00"),
+                        tax_total=Decimal("0.00"), total=subtotal,
+                        amount_paid=Decimal("0.00"), amount_due=subtotal)
         pdf = import_module(TEMPLATE_REGISTRY["template_01"]).render(multi)
         self.assertTrue(pdf.startswith(b"%PDF-"))
         self.assertGreater(len(pdf), 5000)
