@@ -25,7 +25,7 @@ const API_ROOTS = new Set([
   "auth", "catalog", "orders", "billing", "providers", "payments",
   "services", "provisioning", "domains", "support", "audit", "settings",
   "reports", "wallet", "dashboard", "knowledge-base", "integrations",
-  "storefront",
+  "storefront", "notifications",
 ]);
 const ALLOWED_AUTH_PATHS = new Set([
   "auth/jwt/create", "auth/register", "auth/logout",
