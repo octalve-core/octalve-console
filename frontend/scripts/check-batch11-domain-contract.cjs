@@ -41,7 +41,7 @@ for(const key of ["Transfer Domain to Us","Register New Domain",
  "routes.client.domainTransfer","routes.client.domainRegister"])assert.ok(nav.includes(key));
 for(const key of ["clientApi.domain(id)","clientApi.domainRenewalStatus(id)",
  "normalizeDomain(details.value)","record.id!==id","CloudRecordDirectory",
- "DomainDns","invoice_ready","Renewal is unavailable"])
+ "invoice_ready","Renewal is unavailable"])
 assert.ok(domain.includes(key),"Domain detail "+key);
 assert.ok(!domain.includes("clientApi.domains()"),"Domain detail must not page-scan");
 for(const key of ["clientApi.domainTransferReadiness(domain)",
@@ -50,7 +50,7 @@ for(const key of ["clientApi.domainTransferReadiness(domain)",
 assert.ok(transfer.includes(key),"Transfer flow "+key);
 assert.ok(!/name=["']epp_code["']/.test(transfer),"Never collect EPP before provider verification");
 assert.ok(register.includes("ClientDomainSearch"));
-assert.ok(model.includes("normalizeDomain")&&model.includes("dns_records")&&model.includes("nameservers"));
+assert.ok(model.includes("normalizeDomain")&&model.includes("DomainDns")&&model.includes("dns_records")&&model.includes("nameservers"));
 assert.ok(directory.includes("hasRowActions")&&directory.includes("hasRowActions?<button"));
 assert.ok(!list.includes("resource===\"domains\"&&<ClientDomainSearch/>"));
 for(const loc of [
