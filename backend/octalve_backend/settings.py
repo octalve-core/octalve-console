@@ -567,3 +567,7 @@ CLOUD_SUPPLIER_PINNED_IPS_JSON = env("CLOUD_SUPPLIER_PINNED_IPS_JSON",default=""
 
 # Dedicated 32-byte HMAC integrity key. Keep outside Neon/source; no fallback to JWT/vault.
 CLOUD_PROVIDER_AUDIT_KEY = env("CLOUD_PROVIDER_AUDIT_KEY",default="")
+
+# Synthetic/Review-only isolated vault recovery, no browser route or filesystem writes.
+CLOUD_PROVIDER_RECOVERY_KEY = env("CLOUD_PROVIDER_RECOVERY_KEY",default="")
+CLOUD_PROVIDER_SNAPSHOT_REVIEW_ENABLED = env.bool("CLOUD_PROVIDER_SNAPSHOT_REVIEW_ENABLED",default=False)
