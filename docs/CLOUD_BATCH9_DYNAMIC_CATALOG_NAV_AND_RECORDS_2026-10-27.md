@@ -33,3 +33,11 @@ Keyboard, screen reader and viewport parity across all 123 authenticated routes 
 - In Batch 11 implement registrar-backed transfer, registration, renewals and DNS authority.
 - In Batches 12–14 add notifications/Clan, points+affiliates, and translations (Settings).
 - Final Batch 15 includes authenticated 123x6 visual/functional acceptance, CSS retirement and launch review.
+
+## Route manifest change recorded after implementation
+
+Batch 9 added authenticated `/client/purchases` and `/client/settings`, increasing
+Client routes from 23 to **25**, and the complete Console inventory from **123 to 125**.
+The signed real-browser acceptance matrix therefore increases from 738 to **750**
+route/viewport cases. Updated static CSS and browser-parity count gates; no evidence
+has been fabricated or treated as completed.
