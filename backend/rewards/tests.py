@@ -147,6 +147,65 @@ class RewardsBatch13Tests(APITestCase):
         self.assertEqual(sum(PointEntry.objects.filter(user=self.owner).
             values_list("points_delta",flat=True)),0)
 
+
+    def test_offer_maximum_never_exceeds_n2500_even_if_admin_policy_is_larger(self):
+        policy=RewardPolicy.objects.create(
+            is_active=True,min_eligible_points=1,
+            max_discount_ngn=Decimal("999999.00"))
+        RewardTier.objects.create(
+            policy=policy,title="Unsafe high cap attempt",required_points=1,
+            discount_percent=Decimal("5.00"),
+            max_discount_ngn=Decimal("999999.00"),enabled=True)
+        PointEntry.objects.create(
+            user=self.owner,event_key="test-discount-ceiling",
+            kind="adjustment",points_delta=2)
+        preview=self.client.get("/api/rewards/me/").data["offer"]
+        self.assertEqual(Decimal(preview["max_discount_ngn"]),Decimal("2500.00"))
+        self.assertFalse(preview["redemption_available"])
+
+    def test_pending_unverified_refund_fails_closed_before_new_points_award(self):
+        RewardPolicy.objects.create(is_active=True,points_per_ngn=1000)
+        self.invoice.mark_paid()
+        gateway=PaymentGateway.objects.create(
+            code="paystack",name="Synthetic live gateway",status="active",
+            test_mode=False)
+        Transaction.objects.create(
+            client=self.owner,invoice=self.invoice,gateway=gateway,
+            reference="fully-settled-before-refund",provider_reference="provider-paid-1",
+            amount=Decimal("12000.00"),net_amount=Decimal("12000.00"),
+            currency="NGN",status="successful",
+            webhook_verified=True,transaction_type="payment")
+        Transaction.objects.create(
+            client=self.owner,invoice=self.invoice,gateway=gateway,
+            reference="refund-processing",amount=Decimal("100.00"),
+            net_amount=Decimal("100.00"),currency="NGN",status="pending",
+            webhook_verified=False,transaction_type="refund")
+        self.client.force_authenticate(user=self.admin)
+        result=self.client.post("/api/rewards/admin/purchases/award/",
+            {"invoice_id":self.invoice.pk},format="json")
+        self.assertEqual(result.status_code,409)
+        self.assertFalse(PointEntry.objects.exists())
+
+    def test_duplicate_verified_provider_reference_cannot_be_double_counted(self):
+        RewardPolicy.objects.create(is_active=True,points_per_ngn=1000)
+        self.invoice.mark_paid()
+        gateway=PaymentGateway.objects.create(
+            code="paystack",name="Synthetic duplicated payment",status="active",
+            test_mode=False)
+        for index in range(2):
+            Transaction.objects.create(
+                client=self.owner,invoice=self.invoice,gateway=gateway,
+                reference=f"duplicate-internal-{index}",
+                provider_reference="same-gateway-charge",
+                amount=Decimal("6000.00"),net_amount=Decimal("6000.00"),
+                currency="NGN",status="successful",
+                webhook_verified=True,transaction_type="payment")
+        self.client.force_authenticate(user=self.admin)
+        response=self.client.post("/api/rewards/admin/purchases/award/",
+            {"invoice_id":self.invoice.pk},format="json")
+        self.assertEqual(response.status_code,409)
+        self.assertFalse(PointEntry.objects.exists())
+
     def test_recognition_is_private_positive_and_customer_dismissible(self):
         self.client.force_authenticate(user=self.admin)
         r=self.client.post("/api/rewards/admin/recognitions/",{
