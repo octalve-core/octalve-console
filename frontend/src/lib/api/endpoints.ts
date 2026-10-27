@@ -463,6 +463,7 @@ export const clientApi = {
 
 export const adminApi = {
   rewardStats(){return api.get<AdminRewardStatistics>("/rewards/admin/stats/");},
+  affiliateApplications(){return api.get<{results:{id:number;client_id:number;status:string;created_at:string}[]}>("/rewards/admin/affiliates/");},
   reviewAffiliate(id:number,decision:"approve"|"reject"|"suspend"){
     return api.post<{id:number;status:string}>(
       "/rewards/admin/affiliates/"+id+"/review/",{decision});
