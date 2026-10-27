@@ -1,5 +1,6 @@
 """Regression: no fabricated billing status, unsafe quotes or cross-tenant PDFs."""
 from datetime import timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -38,16 +39,16 @@ class BillingDocumentAuthorityTests(APITestCase):
             password="LocalTest2026!", role="client")
         cls.invoice = Invoice.objects.create(
             client=cls.owner, due_date=timezone.now() - timedelta(days=2),
-            currency="NGN", subtotal="25000.00", total="25000.00",
+            currency="NGN", subtotal=Decimal("25000.00"), total=Decimal("25000.00"),
             status="unpaid")
         InvoiceItem.objects.create(
             invoice=cls.invoice, description="Cloud hosting - one year",
-            quantity=1, unit_price="25000.00", subtotal="25000.00",
+            quantity=1, unit_price=Decimal("25000.00"), subtotal=Decimal("25000.00"),
             period_start=timezone.now(),
             period_end=timezone.now() + timedelta(days=365))
         cls.quote = Quote.objects.create(
             client=cls.owner, valid_until=timezone.now() + timedelta(days=7),
-            currency="NGN", total="1.00", items_data=[])
+            currency="NGN", total=Decimal("1.00"), items_data=[])
 
     def test_existing_invoice_has_branded_pdf_and_is_scoped(self):
         path = f"/api/billing/invoices/{self.invoice.pk}/download_pdf/"
