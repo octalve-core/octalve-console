@@ -1,5 +1,5 @@
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
-import {normalizeServiceSnapshot} from "./service-contract";
+import {normalizeServiceSnapshot} from "./service-contract.ts";
 
 export function unwrapClientList(value: unknown): Record<string, unknown>[] {
   const rows = Array.isArray(value)
