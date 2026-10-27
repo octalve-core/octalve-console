@@ -1,5 +1,3 @@
-import { AdminResourceEditorView } from "@/features/admin/views/AdminResourceEditorView";
-
-export default function AdminNewProviderPage() {
-  return <AdminResourceEditorView resource="providers" mode="create" />;
-}
+import {redirect} from "next/navigation";
+/** Legacy provider create/edit is retired until the hardened connection manager is qualified. */
+export default function OldProviderEditor(){redirect("/admin/integrations");}

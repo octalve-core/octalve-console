@@ -10,7 +10,7 @@ export const routes = {
   admin: {
     root: "/admin",
     customers: "/admin/customers",
-    category: "/admin/category",  
+    category: "/admin/catalog/workbench",  
     products: "/admin/products",
     plans: "/admin/plans",
     orders: "/admin/orders",
@@ -21,6 +21,7 @@ export const routes = {
     services: "/admin/billing/services",
     gateways: "/admin/gateways",
     providers: "/admin/servers",
+    integrations: "/admin/integrations",
     provisioning: "/admin/provisioning",
     support: "/admin/support",
     knowledgeBase: "/admin/knowledge-base",
