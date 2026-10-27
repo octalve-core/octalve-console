@@ -48,7 +48,7 @@ type ListParams = {
   page_size?: number;
 };
 
-const byId = (base: string, id: string) => `${base}/${encodeURIComponent(id)}/`;
+const byId = (base: string, id: string) => `${base.replace(/\/+$/, "")}/${encodeURIComponent(id)}/`;
 
 export const apiPaths = {
   auth: {
@@ -80,11 +80,11 @@ export const apiPaths = {
     // knowledgeBase: "/client/knowledge-base/",
     
     dashboard: "/dashboard/",
-    services: "/services/",
-    domains: "/domains/",
+    services: "/services/services/",
+    domains: "/domains/domains/",
     invoices: "/billing/invoices/",
     orders: "/orders/orders/",
-    wallet: "/wallet/",
+    wallet: "/wallet/my-wallet/me/",
     tickets: "/support/tickets/",
     knowledgeBase: "/knowledge-base/",
   },
@@ -93,22 +93,22 @@ export const apiPaths = {
     customers: "/auth/customers/",
     // customers: "/admin/customers/",
     products: "/catalog/products/",
-    plans: "/admin/plans/",
-    orders: "/admin/orders/",
-    services: "/admin/services/",
-    invoices: "/admin/invoices/",
-    transactions: "/admin/transactions/",
-    domains: "/admin/domains/",
-    gateways: "/admin/gateways/",
-    providers: "/admin/providers/",
-    settings: "/admin/settings/",
+    plans: "/catalog/plans/",
+    orders: "/orders/orders/",
+    services: "/services/services/",
+    invoices: "/billing/invoices/",
+    transactions: "/payments/transactions/",
+    domains: "/domains/domains/",
+    gateways: "/payments/gateways/",
+    providers: "/providers/providers/",
+    settings: "/settings/settings/",
     apiKeys: "/admin/api-keys/",
-    notificationTemplates: "/admin/notification-templates/",
-    tickets: "/admin/support/tickets/",
-    knowledgeBase: "/admin/knowledge-base/",
-    auditLogs: "/admin/audit-logs/",
-    reports: "/admin/reports/",
-    provisioningQueue: "/admin/provisioning/queue/",
+    notificationTemplates: "/settings/email-templates/",
+    tickets: "/support/tickets/",
+    knowledgeBase: "/knowledge-base/",
+    auditLogs: "/audit/logs/",
+    reports: "/reports/definitions/",
+    provisioningQueue: "/provisioning/tasks/",
   },
 };
 
@@ -340,8 +340,22 @@ export const clientApi = {
     return api.post<{checkout_url:string;invoice_id:number;status:string}>(
       "/payments/initialize/",{invoice_id:invoiceId,gateway});
   },
-  wallet() {
-    return api.get<WalletBalance>(apiPaths.client.wallet);
+  async wallet(): Promise<WalletBalance> {
+    // Django's wallet/my-wallet/me/ serializer returns `balance` as a
+    // decimal string, not the old frontend-only `available` property.
+    // Never fabricate a zero when the response is absent or invalid.
+    const record = await api.get<{balance?: unknown;currency?: unknown}>(apiPaths.client.wallet);
+    const raw = record?.balance;
+    if (typeof raw !== "string" && typeof raw !== "number") {
+      throw new Error("Wallet balance response is unavailable.");
+    }
+    const amountText = String(raw);
+    if (!/^\\d+(?:\\.\\d{1,2})?$/.test(amountText) ||
+        !Number.isFinite(Number(amountText)) || Number(amountText) < 0 ||
+        typeof record.currency !== "string" || !/^[A-Z]{3}$/.test(record.currency)) {
+      throw new Error("Wallet balance response is invalid.");
+    }
+    return { available: Number(amountText), currency: record.currency };
   },
 
   fundWallet(payload: unknown) {
