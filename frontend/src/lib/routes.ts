@@ -28,6 +28,7 @@ export const routes = {
     reports: "/admin/reports",
     settings: "/admin/settings",
     utilities: "/admin/tools/utilities",
+    rewards: "/admin/rewards",
   },
 
   client: {
@@ -37,6 +38,7 @@ export const routes = {
     settings: "/client/settings",
     notifications: "/client/notifications",
     community: "/client/community",
+    rewards: "/client/rewards",
     domains: "/client/domains",
     domainRegister: "/client/domains/register",
     domainTransfer: "/client/domains/transfer",
