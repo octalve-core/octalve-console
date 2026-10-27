@@ -24,6 +24,8 @@ class PlanBillingCycleSerializer(serializers.ModelSerializer):
 class PlanSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_type = serializers.CharField(source='product.product_type', read_only=True)
+    category_slug = serializers.CharField(source='product.category.slug', read_only=True)
+    category_name = serializers.CharField(source='product.category.name', read_only=True)
     features = PlanFeatureSerializer(many=True, read_only=True)
     billing_cycles = PlanBillingCycleSerializer(many=True, read_only=True)
     published_revision = serializers.SerializerMethodField()
@@ -33,7 +35,7 @@ class PlanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Plan
-        fields = ['id', 'product', 'product_name', 'product_type', 'name', 'slug', 'description', 'currency', 
+        fields = ['id', 'product', 'product_name', 'product_type', 'category_slug', 'category_name', 'name', 'slug', 'description', 'currency', 
                   'base_price', 'status', 'is_public', 'is_popular', 'sort_order',
                   'features', 'billing_cycles', 'published_revision']
 
