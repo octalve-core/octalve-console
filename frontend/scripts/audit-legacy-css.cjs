@@ -25,10 +25,8 @@ function usage(body){
   for(const token of (m[1]??m[2]??m[3]??"").matchAll(/[A-Za-z_][A-Za-z0-9_-]*/g))
    if(selectors.has(token[0]))result.add(token[0]);
  }
- for(const candidate of body.matchAll(/["'\x60]([^"'\x60\r\n]{1,350})["'\x60]/g)){
-  if(!/\s/.test(candidate[1]))continue;
-  for(const token of candidate[1].split(/\s+/))if(selectors.has(token))result.add(token);
- }
+ // Only direct JSX class attributes are counted as confirmed tokens.
+ // Conditional cn()/clsx() and template-driven names require browser review.
  return [...result].sort();
 }
 const uses=new Map([...sources].map(([file,body])=>[file,usage(body)]));
@@ -79,7 +77,7 @@ const top=[...usageCount.values()].sort((a,b)=>b.routes-a.routes||b.files.length
 const report={schemaVersion:1,stylesheet:{path:"src/app/globals.css",lines:css.split("\n").length,
  bytes:Buffer.byteLength(css,"utf8"),classSelectors:selectors.size},
  totals:{routePages:routes.length,sourceFiles:sources.size,directClassConsumers:consumers.length,
- routesWithLegacyClassCandidates:routes.filter(x=>x.classes.length>0).length},
+ routesWithDirectLegacyClassTokens:routes.filter(x=>x.classes.length>0).length},
  group,top,consumers,routeDependencies:routes.map(x=>({file:x.file,route:x.route,
  role:x.role,legacyClasses:x.classes,sourceModuleCount:x.modules.length,
  ownerFiles:x.modules.filter(p=>(uses.get(p)||[]).length>0)}))};
@@ -90,7 +88,7 @@ if(flag>=0){
  fs.writeFileSync(path.resolve(dest),JSON.stringify(report,null,2)+"\n");
 }
 console.log("Batch 8 CSS audit: "+JSON.stringify({stylesheet:report.stylesheet,totals:report.totals,group,top:top.slice(0,15)},null,2));
-if(process.argv.includes("--require-retired")&&consumers.length){
- console.error("BLOCK: Legacy classes remain. Global CSS cannot be retired before migration and authenticated browser parity.");
+if(process.argv.includes("--require-retired")&&(consumers.length||css.split("\n").length>120)){
+ console.error("BLOCK: Legacy stylesheet remains too large or direct class consumers exist. Browser parity is also required.");
  process.exitCode=1;
 }
