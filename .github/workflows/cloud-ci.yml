@@ -89,6 +89,8 @@ jobs:
         run: node frontend/scripts/check-admin-integration-safety.cjs --built
       - name: Admin workspace live-vs-unconnected service qualification
         run: node frontend/scripts/check-admin-workspace-coverage.cjs --built
+      - name: Phase 1 exact Admin identity and changed-field edit qualification
+        run: node --experimental-strip-types frontend/scripts/check-phase1-admin-authority.cjs
 
   django-check:
     runs-on: ubuntu-latest
