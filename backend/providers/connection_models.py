@@ -41,3 +41,11 @@ class IntegrationConnectionEvent(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["connection", "-created_at"], name="integration_event_recent_idx")]
+
+class ProviderVaultAuthenticator(models.Model):
+    """Encrypted vault-only authenticator; no password reset or silent bypass."""
+    user=models.OneToOneField(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name="provider_vault_authenticator")
+    encrypted_secret=models.TextField()
+    verified=models.BooleanField(default=False)
+    last_counter=models.BigIntegerField(default=-1)
+    pending_until=models.DateTimeField(blank=True,null=True)

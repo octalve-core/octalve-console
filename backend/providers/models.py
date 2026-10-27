@@ -245,4 +245,4 @@ class ProviderHealthCheck(models.Model):
 
 
 # Keep the new connection vault separate from the legacy hosting Provider model.
-from .connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent  # noqa: E402,F401
+from .connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent, ProviderVaultAuthenticator  # noqa: E402,F401

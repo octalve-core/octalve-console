@@ -16,6 +16,7 @@ SKIPPED_MODELS = {
     "IntegrationConnection",
     "IntegrationCredentialVersion",
     "IntegrationConnectionEvent",
+    "ProviderVaultAuthenticator",
 }
 
 

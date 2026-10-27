@@ -10,11 +10,16 @@ from rest_framework.test import APITestCase
 from audit.models import AuditLog
 from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent
 from providers.connection_vault import inspect_test_only
+from providers.connection_models import ProviderVaultAuthenticator
+from providers.connection_stepup import otp_at
 
 KEY=Fernet.generate_key().decode()
+AUTH_KEY=Fernet.generate_key().decode()
+AUTH_SECRET='JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
 PASSWORD="ci-only-password-test-0123!"
 
 @override_settings(CLOUD_PROVIDER_VAULT_KEY=KEY,CLOUD_PROVIDER_VAULT_KEY_ID="v1",
+                   CLOUD_PROVIDER_STEPUP_KEY=AUTH_KEY, CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED=True,
                    CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True)
 class DraftVaultTests(APITestCase):
     def setUp(self):
@@ -23,6 +28,22 @@ class DraftVaultTests(APITestCase):
         self.owner=User.objects.create_superuser(email="vault-admin@example.invalid",username="vaultadmin",password=PASSWORD)
         self.other=User.objects.create_user(email="vault-client@example.invalid",username="vaultclient",password=PASSWORD)
         self.client.force_authenticate(user=self.owner)
+        ProviderVaultAuthenticator.objects.create(user=self.owner,verified=True,
+             encrypted_secret=Fernet(AUTH_KEY.encode()).encrypt(AUTH_SECRET.encode()).decode(),
+             last_counter=-1)
+        self.test_clock=1800000000
+        self.clock_patch=patch("providers.connection_stepup.time.time",side_effect=lambda:self.test_clock)
+        self.clock_patch.start()
+        self.addCleanup(self.clock_patch.stop)
+        original_post=self.client.post
+        self.original_post=original_post
+        def stepup_post(path,data=None,*args,**kwargs):
+            if path.startswith("/api/providers/connections/"):
+                self.test_clock+=30
+                data=dict(data or {})
+                data["totp_code"]=otp_at(AUTH_SECRET,self.test_clock//30)
+            return original_post(path,data,*args,**kwargs)
+        self.client.post=stepup_post
         self.payload={"adapter_key":"directadmin","label":"Test Panel A","environment":"test",
                       "public_settings":{"server_url":"https://panel.example.invalid:2222","username":"reseller"},
                       "secrets":{"login_key":"TEST-SYNTHETIC-API-KEY-123"},"confirm_password":PASSWORD}
