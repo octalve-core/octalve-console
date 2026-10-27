@@ -1,0 +1,35 @@
+# Octalve Cloud — Batch 13: Loyalty & Affiliate Governance
+Date: 27 Oct 2026. Baseline: `bfd0cc640d94a06ea7bd1c51bd8a58094c223036`.
+
+## Product architecture
+- **O-Cloud Points** are a non-cash integer ledger (PointEntry). They cannot be withdrawn, transferred into wallet balances, or redeemed for cash. Unique event keys, append-only rows, owner isolation and an Admin-verifiable earning process guard against replay. RewardPolicy and RewardTier are set by Admin, not hardcoded product categories.
+- **Affiliate earnings** are a separate CommissionEntry monetary accounting record with distinct pending/approved/reversed/paid states. No cash payable or withdrawal API is present. Final disbursement requires a reconciled finance workflow, tax/KYC where applicable, verified settlement and supplier margin audit.
+- **Commission terms**: user must accept current terms to request account; application starts `pending`. Application immediately returns the user's unique existing referral code, allowing signup-link copying, but **commissions remain unavailable until approved and verified**. Admin can approve, reject or suspend. Idempotent application does not make multiple affiliate accounts.
+- **Signup attribution**: the referred registrant expressly lands at `/signup?ref=CODE` and submits the code with their own signup request; Django records one immutable ReferralAttribution if the referring customer has an application, without tracking cookies or third-party visitor IDs. Self-referrals, artificial signups, unpaid orders and unapproved affiliates do not generate commissions. Browser visitor conversion statistics require an explicit privacy review and consent-aware mechanism before release.
+- **Offers:** RewardPolicy defaults inactive, Redemption enabled defaults **false** and points never change checkout totals. An approved tier can show maximum **5%** with minimum **20%** intended resale margin and capped naira discount. A tier is a *pre-eligibility illustration*, not checkout authorization. Actual one-time redemption requires an atomic order-bound reservation, verified supplier cost, gateway/registrar fees, tax, coupon stacking rules, refund reversal and positive minimum net contribution at checkout. No unsafe public coupon issue or provider-independent free domain discount. An Admin can create eligible tier records via Django Admin once the gated database is migrated; there is no activation shortcut through TypeScript.
+- **Verified earning:** Admin-only `POST /api/rewards/admin/purchases/award/` accepts only an invoice ID, never an arbitrary points amount. Requires paid, NGN invoice, matching verified successful live gateway transaction, active reward policy, unique invoice event key, and an invoice row lock before recording. No checkout/payment status is changed.
+- **Recognition:** Admin-only published appreciation is always private to the specified customer. It appears on dashboard as a dismissible card and in rewards history; positive, specific appreciation is preferred over subjective public rank or negative performance grading.
+- **Admin KPIs:** private affiliate approval queue, attributed signups, issued verified points, monetary commissions by approved statuses, and a small positive advocate participation list by internal customer ID. Public leaderboard defaults OFF. No customer is shown a comparative score or another customer's spending. Any public yearly celebration requires separate customer opt-in, privacy review and content approval.
+
+## Financial hard requirements before money can flow
+1. Server-authoritative supplier floor and retained supplier snapshot (domains/SSL/hosting and future adapters). Do not infer cost from retail percentage. Exclude taxes, gateway charges, registry, refunds, promotions and renewals.
+2. Hard caps: **at most 5% of eligible pretax net selling price**, **at most ₦2,500** per eligible purchase (Admin may reduce), margin preserved **at least 20% after every benefit/commission**. Lower tiers are configurable. These are ceilings, not promised discount rates.
+3. Disallow coupon stacking unless the combined authorized reduction still passes supplier plus target margin, and issue an idempotent redemption entry only after confirmed order/checkout reference.
+4. Award points or signup rewards only after live payment authority and applicable service/referral eligibility, with explicit reversal entries for chargebacks and fraud. No bonuses just for clicks. Approved commission schedule and payout floor need publication before activation.
+5. Introduce spend/discount budgets, total reward liability accounting, fraud monitoring and customer consent/withdrawal workflows before automatic annual campaigns.
+6. Keep point and commission tables separate from Wallet and billing ledgers; never convert points into unverified cash.
+
+## Gate and migration
+This batch introduces **rewards.0001_initial** with RewardPolicy, RewardTier, PointEntry, AffiliateAccount, ReferralAttribution, CommissionEntry and ClientRecognition.
+**REWARDS_API_ENABLED defaults false**: every customer/Admin reward endpoint returns 503 until Production Neon migration is applied and verified by the established consolidated local PowerShell preflight and activation. This prevents missing-table errors during code deployment.
+Never run a migration from a Vercel build or CI preview against Production. Migration and activation remain separate approved operator steps. The existing Production baseline, payment/registrar/OPanel authority, domains and pricing are unchanged during the merge. After successful schema preflight, allow `REWARDS_API_ENABLED=true` only when the APIs, idempotency, tenant isolation and financial controls pass Production smoke tests. Redemption/commissions remain separately disabled.
+
+## Privacy research
+- Nigeria Data Protection Act GAID 2025: https://ndpc.gov.ng/wp-content/uploads/2025/07/NDP-ACT-GAID-2025-MARCH-20TH.pdf . Cookie/similar tracking tools must be disclosed and require appropriate legal grounds, transparency and ability to withdraw consent. No cookie-based visitor tracker in Batch 13.
+- OWASP Business Logic Security: https://cheatsheetseries.owasp.org/cheatsheets/Business_Logic_Security_Cheat_Sheet.html . Points redemptions and bonuses are race-condition sensitive; lock all check-then-act steps.
+- OWASP Transaction Authorization: https://cheatsheetseries.owasp.org/cheatsheets/Transaction_Authorization_Cheat_Sheet.html . Authorization is enforced on Django, not from browser fields.
+
+## Quality / launch
+- Two routes: `/client/rewards` and `/admin/rewards`; total **134 routes** (84 Admin, 33 Client, 10 Staff, 7 Public), **804 six-viewport browser checks** pending real signed user sessions.
+- GitHub exact-head TypeScript, Next.js, backfill-free Django migration check, isolated API/security tests and disposable PostgreSQL. No additional long-lived branches. Merge only after qualified checks, then verify both Production deployments at the merged SHA.
+- Legacy global CSS retirement remains gated. No actual live payment, cash disbursement, fake award or provider mutation in this batch.
