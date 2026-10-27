@@ -40,6 +40,14 @@ export function AdminRewardsView(){
    setMessage(result.already_recorded?"Award already recorded — no duplicate points.":result.points+" points awarded.");}
   catch{setError("Award denied. Verify the live payment, invoice and policy.");}finally{setBusy(false);}
  }
+ async function reverse(){
+  const id=Number(invoiceId);if(!Number.isSafeInteger(id)||id<1||busy)return;
+  setBusy(true);setError("");setMessage("");
+  try{const result=await adminApi.reversePurchasePoints(id);await refresh();
+   setMessage(result.already_recorded?"Refund points were already reversed.":"Verified refund reversal recorded.");}
+  catch{setError("Reversal denied. Verify the original award and live refund proof.");}
+  finally{setBusy(false);}
+ }
  async function recognize(e:FormEvent<HTMLFormElement>){
   e.preventDefault();const id=Number(customerId);if(!Number.isSafeInteger(id)||id<1||busy)return;
   setBusy(true);setError("");setMessage("");
@@ -91,7 +99,11 @@ export function AdminRewardsView(){
        <label className="block text-sm font-medium">Paid invoice ID
         <input className={field} type="number" min="1" required value={invoiceId}
          onChange={e=>setInvoiceId(e.target.value)}/></label>
-       <ActionButton disabled={busy} loading={busy}>Verify and award</ActionButton>
+       <div className="flex flex-wrap gap-3">
+        <ActionButton disabled={busy} loading={busy}>Verify and award</ActionButton>
+        <ActionButton type="button" variant="outline" disabled={busy||!invoiceId}
+          onClick={()=>void reverse()}>Reverse verified refund</ActionButton>
+       </div>
       </form>
      </Panel>
      <Panel>
