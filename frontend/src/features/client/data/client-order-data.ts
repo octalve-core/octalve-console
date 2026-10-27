@@ -6,11 +6,13 @@ export type OrderCycle = {
 export type ClientOrderPlan = {
   id: string; name: string; product: string; description: string;
   currency: string; features: string[]; popular: boolean; cycles: OrderCycle[]; revision: number | null;
+  categorySlug: string; categoryName: string;
 };
 
 type ApiCycle = {cycle_key: string; label: string; price: string; setup_fee: string; is_active: boolean; is_default: boolean};
 type ApiPlan = {
   id: number; name: string; product_name: string; product_type: string;
+  category_slug?: string; category_name?: string;
   description?: string; currency: string; status: string; is_public: boolean;
   is_popular: boolean; published_revision?: number | null; features: {label: string; value: string}[];
   billing_cycles: ApiCycle[];
@@ -24,9 +26,12 @@ export async function loadSellablePlans(): Promise<ClientOrderPlan[]> {
   if (!Array.isArray(raw)) throw new Error("Catalog returned an invalid plan list.");
   return (raw as ApiPlan[]).filter(p =>
     p.status === "active" && p.is_public &&
+    // Django CreateOrderSerializer currently authorizes these three types only.
+    // The dynamic sidebar discovers ALL published categories independently.
     ["shared_hosting", "wordpress_hosting", "vps"].includes(p.product_type)
   ).map(p => ({
     id: String(p.id), name: p.name, product: p.product_name || "Hosting",
+    categorySlug: p.category_slug || "", categoryName: p.category_name || "",
     description: p.description || "", currency: p.currency,
     popular: p.is_popular, revision: p.published_revision ?? null,
     features: (p.features || []).map(f => [f.label, f.value].filter(Boolean).join(": ")),
