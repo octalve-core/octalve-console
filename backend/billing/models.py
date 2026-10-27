@@ -353,38 +353,13 @@ class Quote(models.Model):
         return f"{prefix}{new_num:05d}"
     
     def convert_to_order(self):
-        """Convert quote to an order"""
-        from orders.models import Order, OrderItem
-        from catalog.models import Plan, PlanBillingCycle
-        
-        order = Order.objects.create(
-            client=self.client,
-            source='web',
-            status='pending_payment',
-            notes=f"Converted from quote {self.quote_number}"
-        )
-        
-        for item_data in self.items_data:
-            OrderItem.objects.create(
-                order=order,
-                product_id=item_data['product_id'],
-                plan_id=item_data['plan_id'],
-                billing_cycle_id=item_data['billing_cycle_id'],
-                item_type=item_data.get('item_type', 'hosting'),
-                description=item_data['description'],
-                domain_name=item_data.get('domain_name', ''),
-                quantity=item_data.get('quantity', 1),
-                unit_price=item_data['unit_price'],
-                cycle_key=item_data['cycle_key'],
-                months=item_data['months'],
-                config=item_data.get('config', {})
-            )
-        
-        self.status = 'converted'
-        self.save()
-        
-        return order
-    
+        """Fail closed until server-side catalogue repricing is installed.
+
+        Legacy conversion trusted stored quote line prices and bypassed the
+        verified checkout quote. A private model method must never reopen it.
+        """
+        raise ValueError("Quote conversion requires approved server-priced checkout")
+
     def __str__(self):
         return f"{self.quote_number} - {self.client.email}"
 

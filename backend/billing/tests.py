@@ -175,6 +175,74 @@ class BillingDocumentAuthorityTests(APITestCase):
         self.assertGreater(len(pdf), 5000)
         self.assertGreater(len(re.findall(rb"/Type\s*/Page\b", pdf)), 1)
 
+
+    def test_admin_invoice_write_cannot_fake_paid_or_change_totals(self):
+        User = get_user_model()
+        admin = User.objects.create_user(
+            email="invoice-admin@example.invalid", username="invoiceadmin",
+            password="LocalTest2026!", role="admin")
+        self.client.force_authenticate(admin)
+        base = "/api/billing/invoices/"
+        amount = self.invoice.total
+        count = Invoice.objects.count()
+        self.assertEqual(self.client.post(base, {
+            "client": self.owner.id, "status": "paid",
+            "total": "0.01", "amount_paid": "0.01",
+            "due_date": timezone.now().isoformat(),
+        }, format="json").status_code, 503)
+        self.assertEqual(Invoice.objects.count(), count)
+        for method in ("put", "patch", "delete"):
+            result = getattr(self.client, method)(
+                f"{base}{self.invoice.pk}/",
+                {"status": "paid", "total": "0.01", "client": self.other.pk},
+                format="json",
+            )
+            self.assertEqual(result.status_code, 503, method)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.total, amount)
+        self.assertEqual(self.invoice.status, "unpaid")
+        self.assertEqual(self.invoice.client_id, self.owner.pk)
+        self.assertEqual(Invoice.objects.count(), count)
+
+    def test_template_catalog_admin_only_and_sample_pdf_no_customer_data(self):
+        User = get_user_model()
+        admin = User.objects.create_user(
+            email="studio-admin@example.invalid", username="studioadmin",
+            password="LocalTest2026!", role="admin")
+        list_path = "/api/billing/invoices/templates/"
+        preview_path = "/api/billing/invoices/template-preview/?template_id=template_01"
+        self.client.force_authenticate(self.owner)
+        self.assertEqual(self.client.get(list_path).status_code, 403)
+        self.assertEqual(self.client.get(preview_path).status_code, 403)
+        self.client.force_authenticate(user=None)
+        self.assertIn(self.client.get(list_path).status_code, (401, 403))
+        self.client.force_authenticate(admin)
+        total = Invoice.objects.count()
+        result = self.client.get(list_path)
+        self.assertEqual(result.status_code, 200)
+        self.assertFalse(result.data["editing_enabled"])
+        self.assertFalse(result.data["historical_snapshots_ready"])
+        self.assertEqual(result.data["templates"][0]["id"], "template_01")
+        preview = self.client.get(preview_path)
+        self.assertEqual(preview.status_code, 200)
+        self.assertTrue(preview.content.startswith(b"%PDF-"))
+        self.assertIn("no-store", preview["Cache-Control"])
+        self.assertEqual(Invoice.objects.count(), total)
+        self.assertEqual(
+            self.client.get("/api/billing/invoices/template-preview/?template_id=../evil").status_code,
+            404,
+        )
+        self.assertEqual(self.client.post(list_path, {}, format="json").status_code, 405)
+
+    def test_private_quote_conversion_still_requires_server_requote(self):
+        from orders.models import Order
+        self.assertFalse(Order.objects.filter(client=self.owner).exists())
+        with self.assertRaisesRegex(ValueError, "approved server-priced checkout"):
+            self.quote.convert_to_order()
+        self.quote.refresh_from_db()
+        self.assertEqual(self.quote.status, "draft")
+        self.assertFalse(Order.objects.filter(client=self.owner).exists())
+
     def test_read_existing_quote_is_account_scoped(self):
         path = f"/api/billing/quotes/{self.quote.pk}/"
         self.client.force_authenticate(self.owner)
