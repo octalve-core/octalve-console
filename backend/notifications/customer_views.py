@@ -105,6 +105,9 @@ class CustomerInbox(APIView):
     def get(self, request):
         if not _client(request):
             return Response({"detail": "Unavailable."}, status=404)
+        # JWT normally reloads the user, but sessions/test clients can cache it.
+        # Read persisted metadata so the next request sees atomic updates.
+        request.user.refresh_from_db(fields=["metadata"])
         state = _state(request.user)
         known = set(state["read"])
         records = [{**item, "read": item["key"] in known}
@@ -148,6 +151,7 @@ class CustomerNoticePreferences(APIView):
     def get(self, request):
         if not _client(request):
             return Response({"detail": "Unavailable."}, status=404)
+        request.user.refresh_from_db(fields=["metadata"])
         return Response(_state(request.user)["preferences"],
                         headers={"Cache-Control": "private, no-store"})
 
