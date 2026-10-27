@@ -22,3 +22,18 @@ Existing invoices lacking a pinned template use `template_01`. Changing a templa
 The design preview approved in chat is an illustrative mockup with synthetic company data. Actual PDF seller identity fields must be configured/verified; the renderer never invents RC/TIN, tax clearance, IRN, fiscal QR or payment proof.
 
 No migrations or changes to Production payment, provisioning, Rewards or registrar gates are part of this refactor.
+
+## Verify the real PDF layout without a database
+
+From the Octalve Console repository root, with the local Octalve Python virtualenv:
+
+```powershell
+& "$HOME\.venvs\octalve-console\Scripts\python.exe" "backend\billing\invoice-template\preview_template_01.py" --output "$HOME\Downloads\octalve-invoice-template-01-preview.pdf"
+& "$HOME\.venvs\octalve-console\Scripts\python.exe" "backend\billing\invoice-template\preview_template_01.py" --long --output "$HOME\Downloads\octalve-invoice-template-01-long-preview.pdf"
+```
+
+These PDFs are marked synthetic through their SAMPLE invoice number, sample contact data and nonpayment notice. They do not connect to the database, send invoices or change payment state. The output fails if a PDF with the exact filename already exists, to prevent an accidental overwrite. Use a new output filename for another review.
+
+Review the actual generated pages at print size. The Review CI also uploads both sample PDFs as the `octalve-invoice-template-01-visual-review` artifact, available on the exact-head GitHub Actions run.
+
+Once issued, an invoice stores an allowlisted `invoice_template_id` under its existing metadata. Older invoices without an ID use Template 01. There is no new migration.
