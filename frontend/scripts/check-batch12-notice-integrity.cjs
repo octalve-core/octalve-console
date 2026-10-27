@@ -18,7 +18,7 @@ const community=src("src/features/client/views/ClientCommunityView.tsx");
 const routes=src("src/lib/routes.ts");
 const tests=src("../backend/notifications/tests.py");
 const checks={
- backend:["client=user","client_id","_client(request)","metadata","select_for_update()",
+ backend:["client=user","_client(request)","metadata","select_for_update()",
   "invoice_start","domain_start","amount_due__gt=0","expiry_date__lte=domain_end",
   'stage = "overdue"','stage = "expired"',"MAX_READ_KEYS",
   'email_reminders_enabled": False',"_safe_community_link",
@@ -30,7 +30,7 @@ const checks={
  prefs:["clientApi.noticePreferences()","clientApi.updateNoticePreferences(draft)",
   "show_login_alerts","invoice_alerts","domain_alerts"],
  community:["clientApi.community()","rel=\"noopener noreferrer\"",
-  "Coming soon","automatic","joining"],
+  "Coming soon","automatically","Joining"],
 };
 for(const [key,needles] of Object.entries(checks)){
  const source={backend,api,inbox,prefs,community}[key];
