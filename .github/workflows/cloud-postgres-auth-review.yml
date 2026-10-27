@@ -140,6 +140,9 @@ jobs:
       - name: BIZ-01 order and pending-invoice regression on disposable PostgreSQL
         working-directory: backend
         run: python manage.py test orders.tests --verbosity=2
+      - name: Batch 13.2 verified points race and margin guards on disposable PostgreSQL
+        working-directory: backend
+        run: python manage.py test rewards.test_financial_qualification --verbosity=2
       - name: Collect illustrative PostgreSQL SQL for every blacklist migration
         if: always()
         working-directory: backend

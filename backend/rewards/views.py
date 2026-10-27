@@ -54,7 +54,7 @@ def _tier_data(policy, points):
         "title":tier.title,
         "required_points":tier.required_points,
         "discount_percent":str(min(tier.discount_percent,policy.max_discount_percent,Decimal("5.00"))),
-        "max_discount_ngn":str(min(tier.max_discount_ngn,policy.max_discount_ngn)),
+        "max_discount_ngn":str(min(tier.max_discount_ngn,policy.max_discount_ngn,Decimal("2500.00"))),
         "redemption_available":False,
         "explanation":"Discount can only be activated after checkout's cost-and-margin verification.",
     }
@@ -171,17 +171,33 @@ def _verified_invoice(invoice):
         invoice.total<=0 or invoice.amount_paid<invoice.total or
         invoice.amount_due>0):
         return False
+    # Refund initiation must freeze new awards immediately, not only after
+    # processing succeeds. A failed refund also requires reconciliation before
+    # any new award; never treat a transient provider status as finality.
+    if Transaction.objects.filter(invoice=invoice,transaction_type="refund").exists():
+        return False
     transactions=Transaction.objects.filter(
         invoice=invoice,client_id=invoice.client_id,transaction_type="payment",
         status="successful",webhook_verified=True,currency="NGN",
+        amount__gt=Decimal("0.00"),
         gateway__status="active",gateway__test_mode=False,
     )
+    # One provider charge cannot be counted more than once under two internal
+    # references. Existing verified legacy transactions may have no provider
+    # reference; those remain subject to the unique internal reference.
+    provider_refs=[reference for reference in transactions.values_list(
+        "provider_reference",flat=True) if reference]
+    if len(provider_refs)!=len(set(provider_refs)):
+        return False
+    # Refunded/reversed original payment entries also disqualify settlement,
+    # even if other transaction records happen to sum to the invoice total.
+    if Transaction.objects.filter(
+        invoice=invoice,client_id=invoice.client_id,transaction_type="payment",
+        status="refunded",
+    ).exists():
+        return False
     settled=transactions.aggregate(v=Sum("amount"))["v"] or Decimal("0")
-    # A refund/chargeback invalidates eligibility pending reconciliation.
-    refunded=Transaction.objects.filter(
-        invoice=invoice,status__in=("successful","refunded"),
-        transaction_type="refund").exists()
-    return settled>=invoice.total and not refunded
+    return settled>=invoice.total
 
 class AdminGrantPurchasePoints(APIView):
     """One grant per paid invoice, admin manual release only, no user-supplied points."""
