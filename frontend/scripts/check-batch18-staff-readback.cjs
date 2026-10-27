@@ -1,0 +1,21 @@
+"use strict";
+const fs=require("node:fs"),path=require("node:path"),assert=require("node:assert/strict");
+const read=p=>fs.readFileSync(path.resolve(__dirname,"..",p),"utf8");
+const bff=read("src/app/api/cloud/[...path]/route.ts");
+const api=read("src/lib/api/endpoints.ts");
+const django=read("../backend/accounts/staff_roster.py");
+const test=read("../backend/accounts/test_account_self_service.py");
+const cfg=read("src/features/admin/workspace/data/admin-workspace-config.ts");
+assert.ok(bff.includes('"auth/staff"'));
+assert.ok(bff.includes('apiPath === "auth/staff" && method !== "GET"'));
+assert.ok(api.includes('api.get<{results:Record<string, unknown>[];count:number;truncated:boolean;read_only:true}>("/auth/staff/")'));
+assert.ok(django.includes("permission_classes = [IsAuthenticated]"));
+assert.ok(django.includes('http_method_names = ["get", "head", "options"]'));
+assert.ok(django.includes('operator.is_superuser or getattr(operator, "role", None) == "admin"'));
+assert.ok(django.includes('.select_related("staff_profile")'));
+assert.ok(django.includes('[:51]')&&django.includes('users[:50]'));
+for(const name of ["password","notes","signature","referral_code","phone_number","api_key"])
+ assert.ok(!django.includes('"'+name+'":'),"Private staff metadata exposed in response");
+assert.ok(test.includes("test_staff_roster_scope_redaction_and_no_mutations"));
+assert.ok(cfg.includes("loader: () => adminApi.staffRoster()"));
+console.log("PASS: Batch 18 admin-only staff roster, fixed pagination, no role/status mutation or private fields");

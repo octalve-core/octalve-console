@@ -32,7 +32,7 @@ const ALLOWED_AUTH_PATHS = new Set([
   "auth/users/me", "auth/me",
   "auth/users/reset_password", "auth/users/reset_password_confirm",
   "auth/users/set_password", "auth/customers",
-"auth/profile", "auth/language", "auth/email/verification/request", "auth/email/verification/confirm",
+"auth/profile", "auth/language", "auth/staff", "auth/email/verification/request", "auth/email/verification/confirm",
 ]);
 
 function error(status: number, detail: string) {
@@ -137,6 +137,10 @@ async function forward(request: NextRequest, context: Context) {
       !ALLOWED_AUTH_PATHS.has(apiPath) &&
       !(path[1] === "customers" && path.length === 3 && /^\d+$/.test(path[2]))) {
     return error(404, "API route not found.");
+  }
+  // Staff roster is explicitly GET-only; never proxy invitations, role edits or secrets.
+  if (apiPath === "auth/staff" && method !== "GET") {
+    return error(405, "Method not allowed.");
   }
   // Owner-only preference: never expose other auth verbs via the BFF.
   if (apiPath === "auth/language" && method !== "GET" && method !== "PATCH") {

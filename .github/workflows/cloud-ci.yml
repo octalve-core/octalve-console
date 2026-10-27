@@ -113,6 +113,8 @@ jobs:
         run: node frontend/scripts/check-batch16-invoice-studio.cjs
       - name: Batch 17 read-only renewal review and no financial mutation
         run: node frontend/scripts/check-batch17-renewal-preflight.cjs
+      - name: Batch 18 owner-checked staff overview and private field exclusion
+        run: node frontend/scripts/check-batch18-staff-readback.cjs
 
   django-check:
     runs-on: ubuntu-latest

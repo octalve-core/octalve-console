@@ -12,7 +12,7 @@ export function readAuthorizedDetail(value:unknown,id:string,href:string):AdminR
   read(item as Record<string,unknown>,["id","uuid","reference","code"],"")===id);
  if(!row)return null;
  const item=row as Record<string,unknown>;
- return {id,title:read(item,["quote_number","name","title","subject","domain","label","customer","client"],id),
+ return {id,title:read(item,["quote_number","full_name","name","title","subject","domain","label","customer","client"],id),
   subtitle:read(item,["client_email","email","description","summary","product","category"],""),
   meta:read(item,["reference","type","category","provider","status"],"—"),
   amount:read(item,["total","price","amount","balance"],""),

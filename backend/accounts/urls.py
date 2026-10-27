@@ -14,6 +14,7 @@ from .views import (
 )
 
 from .language_preferences import OwnLanguagePreferenceView
+from .staff_roster import AdminStaffRosterView
 
 from .account_self_service import (
     OwnProfileView, PasswordRecoveryRequestView,
@@ -23,6 +24,7 @@ from .account_self_service import (
 urlpatterns = [
     path('profile/', OwnProfileView.as_view(), name='self-service-profile'),
     path('language/', OwnLanguagePreferenceView.as_view(), name='own-language-preference'),
+    path('staff/', AdminStaffRosterView.as_view(), name='admin-staff-roster'),
     path('email/verification/request/', EmailVerificationRequestView.as_view(), name='self-service-email-verify-request'),
     path('email/verification/confirm/', EmailVerificationConfirmView.as_view(), name='self-service-email-verify-confirm'),
     # Registered ahead of Djoser to ensure approved SMTP delivery, not file-based success.

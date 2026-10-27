@@ -174,3 +174,62 @@ class AccountLanguagePreferenceTests(APITestCase):
         self.assertEqual(result.data["language"], "en")
         self.owner.refresh_from_db()
         self.assertEqual(self.owner.language, "zz")  # A GET must never mutate history.
+
+
+class AdminStaffRosterReadbackTests(APITestCase):
+    def setUp(self):
+        from accounts.models import StaffProfile
+        User = get_user_model()
+        self.admin = User.objects.create_user(
+            email="staff-admin@example.invalid", username="staffadmin",
+            password="NotARealPassword2026!", role="admin")
+        self.staff = User.objects.create_user(
+            email="team-one@example.invalid", username="teamone",
+            password="NotARealPassword2026!", role="staff",
+            full_name="Staff Member",
+        )
+        self.customer = User.objects.create_user(
+            email="staff-customer@example.invalid", username="staffcustomer",
+            password="NotARealPassword2026!", role="client")
+        StaffProfile.objects.create(
+            user=self.staff, department="Support", job_title="Agent",
+            notes="Private internal notes must never leave the server",
+            signature="Private staff signature",
+        )
+
+    def test_staff_roster_scope_redaction_and_no_mutations(self):
+        path = "/api/auth/staff/"
+        self.client.force_authenticate(self.customer)
+        self.assertEqual(self.client.get(path).status_code, 403)
+        self.client.force_authenticate(self.staff)
+        self.assertEqual(self.client.get(path).status_code, 403)
+        self.client.force_authenticate(user=None)
+        self.assertIn(self.client.get(path).status_code, (401, 403))
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(path)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["read_only"])
+        self.assertFalse(response.data["operations_enabled"])
+        self.assertEqual(response["Cache-Control"], "private, no-store")
+        self.assertEqual(len(response.data["results"]), 1)
+        record = response.data["results"][0]
+        self.assertEqual(record["email"], "team-one@example.invalid")
+        self.assertEqual(record["department"], "Support")
+        self.assertNotIn("notes", record)
+        self.assertNotIn("signature", record)
+        self.assertNotIn("password", record)
+        self.assertNotIn("referral_code", record)
+        self.assertNotIn("phone_number", record)
+        self.assertEqual(self.client.post(path, {}, format="json").status_code, 405)
+        self.staff.refresh_from_db()
+        self.assertEqual(self.staff.role, "staff")
+
+    def test_disabled_staff_visible_to_admin_but_never_enabled_by_get(self):
+        self.staff.is_active = False
+        self.staff.save(update_fields=["is_active"])
+        self.client.force_authenticate(self.admin)
+        result = self.client.get("/api/auth/staff/")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.data["results"][0]["status"], "inactive")
+        self.staff.refresh_from_db()
+        self.assertFalse(self.staff.is_active)

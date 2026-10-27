@@ -33,7 +33,7 @@ function normalizeRecord(item: unknown, config: typeof adminWorkspaceConfig[Admi
 
   const id = readString(record, ["id", "uuid", "reference", "code"], "");
   if (!id) throw new Error("A record is missing its unique identifier.");
-  const title = readString(record, ["quote_number", "name", "title", "domain", "label", "subject", "client", "customer"], id);
+  const title = readString(record, ["quote_number", "full_name", "name", "title", "domain", "label", "subject", "client", "customer"], id);
   const subtitle = readString(record, ["client_email", "email", "summary", "description", "product", "package", "type"], config.title);
   const meta = readString(record, ["status", "quote_number", "adapter", "gateway", "provider", "category", "cycle"], "—");
   const amount = readString(record, ["total", "price", "amount", "balance", "credited"], "");
