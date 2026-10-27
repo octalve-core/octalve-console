@@ -9,9 +9,9 @@ const directory=read("components/data/CloudRecordDirectory.tsx");
 const page=read("features/client/views/ClientServiceDetailView.tsx");
 const route=read("app/client/services/[id]/page.tsx");
 const api=read("lib/api/endpoints.ts");
-const django=fs.readFileSync(path.join(root,"../../../backend/services/views.py"),"utf8");
-const serializer=fs.readFileSync(path.join(root,"../../../backend/services/serializers.py"),"utf8");
-const djangoTests=fs.readFileSync(path.join(root,"../../../backend/services/tests.py"),"utf8");
+const django=fs.readFileSync(path.join(root,"../../backend/services/views.py"),"utf8");
+const serializer=fs.readFileSync(path.join(root,"../../backend/services/serializers.py"),"utf8");
+const djangoTests=fs.readFileSync(path.join(root,"../../backend/services/tests.py"),"utf8");
 for(const token of [
  "normalizeServiceSnapshot","usagePercent","disk_limit_mb",
  "bandwidth_limit_mb","recorded_at","limit<=0","Number.isFinite",
