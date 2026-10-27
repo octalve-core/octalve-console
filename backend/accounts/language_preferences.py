@@ -27,7 +27,7 @@ class OwnLanguagePreferenceView(APIView):
             "language": preferred,
             "enabled": enabled,
             "available_languages": [{"code": code, "name": name} for code, name in available.items()],
-            "scope": "pilot-settings-only" if enabled else "english-only",
+            "scope": "partial-console" if enabled else "english-only",
         }
 
     def get(self, request):
