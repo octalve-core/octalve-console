@@ -39,3 +39,18 @@ This is the front-end-only final migration phase. Django API, authentication, RB
 - Existing Django and security tests, disposable PostgreSQL acceptance.
 - PR-review/merge SHA, both Production aliases READY and matched to merge SHA.
 - Authenticated browser parity remains outstanding independently of CI; record evidence before declaring Batch 8 complete.
+
+## Continuation — shared login logo and legacy UI components
+
+- Authentication screens now reuse the exact approved dashboard `CloudBrandLogo` component, with the same `/branding/octalve-cloud-logo.png` asset, fallback, and dedicated auth padding/size variant.
+- `DataTable` now renders responsive mobile cards and semantic desktop tables without legacy `card/table/actions` selectors. Existing record action links and status colors are preserved.
+- Shared `FormField` now uses Tailwind for labelled inputs, selects and textareas, retaining existing value/defaultValue and handler contracts.
+- `AdminPremiumTable` and `PremiumStatusPill` now use Tailwind and Lucide. Filtering, status, mobile/desktop row actions and existing caller-supplied handlers remain.
+- CI requires logo identity and source/built CSS regressions via `check-batch8-shared-migration.cjs`.
+- CSS deletion remains **blocked**: other checkout, domain, legacy specialist Admin, and global shell selectors need route-by-route work, plus authenticated browser acceptance for 123 routes.
+
+## Browser QA manifest and release blocker
+
+- `frontend/scripts/browser-parity-qualification.cjs --plan frontend/.next/batch8-browser-qa.json` builds a reproducible 123-route x 6-viewport plan (738 cases), including signed-in role and dynamic-ID fixtures.
+- `--verify <signed-results.json>` rejects incomplete coverage, absent evidence, missing keyboard/navigation/overflow and data-truthfulness checks, and any dynamic route without verified fixture ID. It is **not** run as a passing CI gate until authentic browser evidence exists; CI generates the plan, never fabricates screenshots or passes.
+- Real browser acceptance requires credentialed Client, Staff and Admin test sessions with authorized read-only fixtures; payment/provisioning mutations are out of scope for visual checks. Current status **PENDING**.
