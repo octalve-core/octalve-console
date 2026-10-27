@@ -11,6 +11,7 @@ import { staffResourceConfig } from "../data/staff-resource-config";
 import type { StaffRecord, StaffResourceKey } from "../data/staff-demo-data";
 import { normalizeStaffRecord, unwrapStaffList } from "../utils/staff-record-normalizer";
 import { StaffRecordList } from "../components/StaffRecordList";
+import {StaffOperationalDirectory} from "../components/StaffOperationalDirectory";
 
 type StaffResourceListViewProps = {
   resource: StaffResourceKey;
@@ -60,13 +61,16 @@ export function StaffResourceListView({ resource }: StaffResourceListViewProps) 
             <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Preparing your records…" />
           ) : error ? (
             <ErrorState description={error} />
-          ) : (
-            <StaffRecordList
-              records={records}
+          ) : (resource==="customers"||resource==="orders"||resource==="provisioning") ? (
+            <StaffOperationalDirectory
               resource={resource}
+              records={records}
               emptyTitle={config.emptyTitle}
               emptyDescription={config.emptyDescription}
             />
+          ) : (
+            <StaffRecordList records={records} resource={resource}
+              emptyTitle={config.emptyTitle} emptyDescription={config.emptyDescription}/>
           )}
         </div>
       </DashboardPage>

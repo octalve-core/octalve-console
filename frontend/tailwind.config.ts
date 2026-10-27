@@ -4,6 +4,7 @@ const config: Config = {
   content: [
     // Batch 5 support sections must be scanned by the production build.
     "./src/features/support/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/features/staff/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
