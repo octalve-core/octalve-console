@@ -25,7 +25,7 @@ class ProviderViewSet(viewsets.ModelViewSet):
     """
     
     serializer_class = ProviderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [InternalSupplierAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['adapter_type', 'status', 'health_status', 'test_mode']
     search_fields = ['name', 'base_url', 'username']
@@ -49,22 +49,22 @@ class ProviderViewSet(viewsets.ModelViewSet):
     @permission_required('manage_providers')
     def create(self, request, *args, **kwargs):
         """Create a new provider (admin only)"""
-        return super().create(request, *args, **kwargs)
+        return Response({'error':'Provider connection changes require a verified connection workflow.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     
     @permission_required('manage_providers')
     def update(self, request, *args, **kwargs):
         """Update provider (admin only)"""
-        return super().update(request, *args, **kwargs)
+        return Response({'error':'Provider connection changes require a verified connection workflow.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     
     @permission_required('manage_providers')
     def partial_update(self, request, *args, **kwargs):
         """PATCH must enforce the same provider-secret authority as PUT."""
-        return super().partial_update(request, *args, **kwargs)
+        return Response({'error':'Provider connection changes require a verified connection workflow.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     @permission_required('manage_providers')
     def destroy(self, request, *args, **kwargs):
         """Delete provider (admin only)"""
-        return super().destroy(request, *args, **kwargs)
+        return Response({'error':'Provider connection changes require a verified connection workflow.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     
     @action(detail=True, methods=['post'])
     @permission_required('manage_providers')
@@ -214,7 +214,7 @@ class ProviderLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
     
     serializer_class = ProviderLogSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [InternalSupplierAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['provider', 'action', 'method', 'success', 'status_code']
     search_fields = ['action', 'endpoint', 'error_message']

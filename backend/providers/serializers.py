@@ -17,6 +17,22 @@ class ProviderSerializer(serializers.ModelSerializer):
     health_status_display = serializers.CharField(source='get_health_status_display', read_only=True)
     adapter_type_display = serializers.CharField(source='get_adapter_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    config = serializers.SerializerMethodField()
+    metadata = serializers.SerializerMethodField()
+    health_check_message = serializers.SerializerMethodField()
+
+    def get_config(self, instance):
+        source = instance.config if isinstance(instance.config, dict) else {}
+        mode = source.get('fulfillment_model')
+        return {'fulfillment_model':mode} if mode in ('owned_server','partner_reseller') else {}
+
+    def get_metadata(self, instance):
+        return {}
+
+    def get_health_check_message(self, instance):
+        msg = instance.health_check_message
+        return msg if msg in ('Inventory access verified','Inventory test rejected or unavailable') else ''
+
     
     class Meta:
         model = Provider
@@ -75,6 +91,15 @@ class ProviderPackageSerializer(serializers.ModelSerializer):
 
 
 class ProviderLogSerializer(serializers.ModelSerializer):
+    metadata = serializers.SerializerMethodField()
+    error_message = serializers.SerializerMethodField()
+
+    def get_metadata(self, instance):
+        return {}
+
+    def get_error_message(self, instance):
+        return 'Provider operation failed.' if instance.error_message else ''
+
     """Serializer for ProviderLog model"""
     
     provider_name = serializers.CharField(source='provider.name', read_only=True)
