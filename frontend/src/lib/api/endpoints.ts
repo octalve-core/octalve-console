@@ -65,6 +65,7 @@ export const apiPaths = {
 
   public: {
     plans: "/catalog/plans/",
+    categories: "/storefront/categories/",
     products: "/catalog/products/",
     knowledgeBase: "/knowledge-base/",
   },
@@ -188,7 +189,12 @@ export const authApi = {
   },
 };
 
+export type PublishedServiceCategory = {slug: string;name: string;description: string};
+
 export const publicApi = {
+  publishedCategories() {
+    return api.get<{categories: PublishedServiceCategory[]}>(apiPaths.public.categories);
+  },
   products(params?: ListParams) {
     return api.get<PaginatedResponse<Product> | Product[]>(
       apiPaths.public.products,
