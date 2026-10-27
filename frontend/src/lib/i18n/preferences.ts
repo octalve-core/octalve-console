@@ -5,7 +5,7 @@ export type SupportedLocale = (typeof localeCodes)[number];
 export type LanguagePreference = {
   language: SupportedLocale;
   enabled: boolean;
-  scope: "english-only" | "pilot-settings-only";
+  scope: "english-only" | "partial-console";
   available_languages: {code: SupportedLocale; name: string}[];
 };
 export const isSupportedLocale = (code: string): code is SupportedLocale =>
