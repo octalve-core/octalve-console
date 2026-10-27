@@ -97,6 +97,8 @@ jobs:
         run: node frontend/scripts/check-phase3-django-route-contract.cjs
       - name: Batch 9 dynamic catalogue, navigation and responsive record contract
         run: node frontend/scripts/check-batch9-client-foundation.cjs --built
+      - name: Batch 10 owned Services, usage and renewal authority contract
+        run: node frontend/scripts/check-batch10-service-authority.cjs
 
   django-check:
     runs-on: ubuntu-latest
