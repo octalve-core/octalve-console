@@ -111,6 +111,6 @@ class VaultKeyringTests(TestCase):
             {"CLOUD_PROVIDER_VAULT_PREVIOUS_KEYS_JSON":"not-json"},
             {"CLOUD_PROVIDER_VAULT_PREVIOUS_KEYS_JSON":json.dumps({"old":NEW})},
         ]:
-            with override_settings(**self.key_config,**extra):
+            with override_settings(**dict(self.key_config,**extra)):
                 with self.assertRaises(VaultUnavailable):
                     rewrap_versions()
