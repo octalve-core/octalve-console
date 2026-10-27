@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import {useEffect,useMemo,useRef,useState,type ReactNode} from "react";
 import { ChevronLeft, ChevronRight, MoreVertical, Search, SlidersHorizontal, X } from "lucide-react";
 
 export type CloudRecord = {
@@ -56,6 +56,8 @@ export function CloudRecordDirectory({
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [selected, setSelected] = useState<CloudRecord | null>(null);
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const focusOrigin = useRef<HTMLElement | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const statuses = useMemo(() => [...new Set(records.map(r => r.status))], [records]);
@@ -75,6 +77,44 @@ export function CloudRecordDirectory({
   ];
   function chooseStatus(next: string) { setStatus(next); setPage(1); setFiltersOpen(false); }
   const chosenActions = selected ? actions.filter(a => a.available?.(selected) !== false) : [];
+  const modalOpen = selected !== null || filtersOpen;
+
+  // WAI-ARIA modal contract: lock background scrolling, focus the content,
+  // cycle Tab within it, support Escape and return focus to the opener.
+  useEffect(()=>{
+    if(!modalOpen)return;
+    const dialog=dialogRef.current;
+    if(!dialog)return;
+    focusOrigin.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    const previousOverflow=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    const focusable=()=>Array.from(dialog.querySelectorAll<HTMLElement>(
+      'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
+    )).filter(node=>node.getClientRects().length>0&&!node.hasAttribute("hidden"));
+    const initial=focusable()[0]??dialog;
+    initial.focus({preventScroll:true});
+    function keydown(event:KeyboardEvent){
+      if(event.key==="Escape"){
+        event.preventDefault();event.stopPropagation();
+        setSelected(null);setFiltersOpen(false);return;
+      }
+      if(event.key!=="Tab")return;
+      const items=focusable();
+      if(!items.length){event.preventDefault();dialog?.focus();return;}
+      const first=items[0],last=items[items.length-1];
+      if(event.shiftKey&&(document.activeElement===first||document.activeElement===dialog)){
+        event.preventDefault();last.focus();
+      }else if(!event.shiftKey&&document.activeElement===last){
+        event.preventDefault();first.focus();
+      }
+    }
+    document.addEventListener("keydown",keydown,true);
+    return ()=>{
+      document.removeEventListener("keydown",keydown,true);
+      document.body.style.overflow=previousOverflow;
+      if(focusOrigin.current?.isConnected)focusOrigin.current.focus({preventScroll:true});
+    };
+  },[modalOpen]);
 
   return <section aria-label={label} className="min-w-0 overflow-hidden rounded-2xl border border-[#E5EBF3] bg-white shadow-[0_1px_2px_rgba(15,23,42,.035)]">
     <div className="border-b border-[#EFF2F6] px-3 py-3 sm:px-5">
@@ -110,7 +150,7 @@ export function CloudRecordDirectory({
             {onOpen ? <button type="button" onClick={() => onOpen(r)} className="max-w-full truncate text-left hover:underline">{c.render(r)}</button> : c.render(r)}
           </td>)}
           <td className="bg-[#F6F8FB] px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusClass(r.status)}`}>{readable(r.status)}</span></td>
-          <td className="rounded-r-xl bg-[#F6F8FB] px-2 py-4"><button type="button" aria-label={`Actions for ${r.title}`} onClick={() => setSelected(r)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200"><MoreVertical size={17}/></button></td>
+          <td className="rounded-r-xl bg-[#F6F8FB] px-2 py-4"><button type="button" aria-label={`Actions for ${r.title}`} onClick={() => setSelected(r)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary"><MoreVertical size={17}/></button></td>
         </tr>)}</tbody>
       </table>
     </div>
@@ -138,14 +178,14 @@ export function CloudRecordDirectory({
       <button type="button" disabled={page >= pages} onClick={() => setPage(v => v + 1)} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50 disabled:opacity-30">Next<ChevronRight size={14}/></button>
     </div>
     {filtersOpen && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-[#06192A]/50 p-0 sm:items-center sm:p-4" onMouseDown={e => {if(e.target === e.currentTarget) setFiltersOpen(false);}}>
-      <section role="dialog" aria-modal="true" aria-label="Filter records" className="w-full max-w-md rounded-t-[24px] bg-white p-5 shadow-2xl sm:rounded-2xl">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Filter records" className="max-h-[90dvh] overflow-y-auto w-full max-w-md rounded-t-[24px] bg-white p-5 shadow-2xl sm:rounded-2xl">
         <div className="mb-4 flex items-center justify-between"><h2 className="text-base font-semibold">Filter {label}</h2><button aria-label="Close filters" onClick={() => setFiltersOpen(false)}><X size={19}/></button></div>
         <div className="flex flex-wrap gap-2">{["all", ...statuses].map(s => <button key={s} type="button" onClick={() => chooseStatus(s)} className={`rounded-full px-3 py-2 text-xs ${status === s ? "bg-[#EAF3FF] text-[#0064E0]" : "bg-slate-100 text-slate-600"}`}>{readable(s)}</button>)}</div>
         <button type="button" onClick={() => setFiltersOpen(false)} className="mt-5 w-full rounded-full bg-[#0064E0] py-3 text-sm font-semibold text-white">Done</button>
       </section>
     </div>}
     {selected && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-[#06192A]/55 sm:items-center sm:p-4" onMouseDown={e => {if(e.target === e.currentTarget) setSelected(null);}}>
-      <section role="dialog" aria-modal="true" aria-label={`Actions for ${selected.title}`} className="w-full max-w-md rounded-t-[28px] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Actions for ${selected.title}`} className="max-h-[90dvh] overflow-y-auto w-full max-w-md rounded-t-[28px] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl">
         <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-slate-200 sm:hidden"/>
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
           <div><h2 className="font-semibold text-[#142A43]">{selected.title}</h2><p className="mt-1 text-xs text-slate-500">{selected.reference || selected.subtitle}</p></div>
