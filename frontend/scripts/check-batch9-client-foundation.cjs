@@ -41,7 +41,7 @@ assert.ok(essential.includes("CloudRecordDirectory")&&essential.includes("onOpen
 assert.ok(essential.includes("records.find(item=>item.id===row.id)"));
 assert.ok(table.includes("lg:hidden")&&table.includes("lg:block"));
 assert.ok(table.includes("aria-modal=\"true\""));
-for(const part of ["focusable()","event.key===\"Escape\"","event.key===\"Tab\"",
+for(const part of ["focusable()","event.key===\"Escape\"","event.key!==\"Tab\"",
  "focusOrigin.current","document.body.style.overflow","ref={dialogRef}"])
  assert.ok(table.includes(part),"Modal accessibility missing: "+part);
 assert.ok(order.includes("categorySlug")&&order.includes("visiblePlans"));
