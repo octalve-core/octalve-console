@@ -16,7 +16,7 @@ export function displayMoney(amount:string,currency:string,locale:SupportedLocal
     typeof currency!=="string"||!/^[A-Z]{3}$/.test(currency))
     return String(currency)+" "+String(amount);
   const integerPart=amount.replace(/^[-+]/,"").split(".")[0];
-  if(BigInt(integerPart)>1000000000n)return currency+" "+amount;
+  if(BigInt(integerPart)>BigInt("1000000000"))return currency+" "+amount;
   const numeric=Number(amount);
   if(!Number.isFinite(numeric))return currency+" "+amount;
   try {
