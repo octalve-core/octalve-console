@@ -4,17 +4,15 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Loader2, Save, ShieldCheck } from "lucide-react";
+import {AdminEditorFields} from "../components/AdminEditorFields";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ApiFormError } from "@/components/feedback/ApiFormError";
-import { FieldError } from "@/components/forms/FieldError";
 import { cn } from "@/lib/utils";
 import {
-  getApiFieldError,
   parseApiValidationError,
   type ApiFieldErrors,
 } from "@/lib/api/validation";
@@ -238,84 +236,6 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
     }
   }
 
-  function renderField(field: AdminEditorField) {
-    const value = values[field.name] ?? "";
-    const fieldError = getApiFieldError(fieldErrors, field.name);
-
-    if (field.type === "textarea") {
-      return (
-        <div key={field.name} className="space-y-2">
-          <label htmlFor={field.name} className="block text-sm font-medium text-slate-700">
-            {field.label}
-          </label>
-          <textarea
-            id={field.name}
-            name={field.name}
-            value={value}
-            required={field.required}
-            placeholder={field.placeholder}
-            aria-invalid={Boolean(fieldError)}
-            onChange={(event) => updateField(field.name, event.target.value)}
-            className={cn(
-              "min-h-32 w-full rounded-2xl border bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:ring-4",
-              fieldError
-                ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-                : "border-slate-200 focus:border-[#0064E0] focus:ring-[#0064E0]/10",
-            )}
-          />
-          <FieldError message={fieldError} />
-        </div>
-      );
-    }
-
-    if (field.type === "select") {
-      return (
-        <div key={field.name} className="space-y-2">
-          <label htmlFor={field.name} className="block text-sm font-medium text-slate-700">
-            {field.label}
-          </label>
-          <select
-            id={field.name}
-            name={field.name}
-            value={value}
-            required={field.required}
-            aria-invalid={Boolean(fieldError)}
-            onChange={(event) => updateField(field.name, event.target.value)}
-            className={cn(
-              "h-12 w-full rounded-2xl border bg-white px-4 text-sm text-slate-950 outline-none transition focus:ring-4",
-              fieldError
-                ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-                : "border-slate-200 focus:border-[#0064E0] focus:ring-[#0064E0]/10",
-            )}
-          >
-            {(field.options ?? []).map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <FieldError message={fieldError} />
-        </div>
-      );
-    }
-
-    return (
-      <div key={field.name}>
-        <Input
-          label={field.label}
-          id={field.name}
-          name={field.name}
-          type={field.type}
-          placeholder={field.placeholder}
-          required={field.required}
-          value={value}
-          aria-invalid={Boolean(fieldError)}
-          onChange={(event) => updateField(field.name, event.target.value)}
-        />
-        <FieldError message={fieldError} />
-      </div>
-    );
-  }
 
   return (
     <DashboardShell
@@ -341,7 +261,8 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
             <Card>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid gap-5 md:grid-cols-2">
-                  {editorConfig.fields.map(renderField)}
+                  <AdminEditorFields fields={editorConfig.fields} values={values}
+                    fieldErrors={fieldErrors} onChange={updateField}/>
                 </div>
 
                 {notice ? (
