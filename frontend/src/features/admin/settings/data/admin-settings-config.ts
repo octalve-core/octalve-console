@@ -38,7 +38,7 @@ export type AdminSettingsItem = {
   description: string;
   href: string;
   icon: LucideIcon;
-  status: "Ready" | "Needs setup" | "Connected" | "Draft";
+  status: "Needs setup" | "Connected" | "Draft";
   fields: Array<{
     label: string;
     value: string;
@@ -49,10 +49,10 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "general",
     title: "General",
-    description: "App name, URL, timezone, default language, and platform identity.",
+    description: "Review platform identity, public URLs and default preferences; editing requires a verified configuration workflow.",
     href: "/admin/settings/general",
     icon: Building2,
-    status: "Ready",
+    status: "Needs setup",
     fields: [
       { label: "App URL", value: "https://console.octalve.cloud" },
       { label: "Timezone", value: "Africa/Lagos" },
@@ -75,7 +75,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "mail",
     title: "Mail",
-    description: "SMTP, sender email, templates, and delivery configuration.",
+    description: "Review sender configuration and message templates; live sending requires a verified mail provider.",
     href: "/admin/settings/mail",
     icon: Mail,
     status: "Needs setup",
@@ -88,7 +88,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "tax",
     title: "Tax",
-    description: "Tax mode, inclusive/exclusive pricing, invoices, and compliance setup.",
+    description: "Tax and invoice-compliance policy; editing and legal certification are not connected here.",
     href: "/admin/settings/tax",
     icon: Percent,
     status: "Draft",
@@ -101,7 +101,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "providers",
     title: "Providers",
-    description: "Manage supplier connections, hosting panels, registrar integrations and approval gates.",
+    description: "Review hosting suppliers, payment gateways, domain records and approved retail offers.",
     href: "/admin/settings/providers",
     icon: PlugZap,
     status: "Needs setup",
@@ -114,10 +114,10 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "api-keys",
     title: "API keys",
-    description: "Create keys for users, invoices, tickets, orders, services, and integrations.",
+    description: "Review API-access policy. Credential issuance and rotation are not connected here.",
     href: "/admin/settings/api-keys",
     icon: KeyRound,
-    status: "Ready",
+    status: "Needs setup",
     fields: [
       { label: "Access", value: "Role-based" },
       { label: "Permissions", value: "Fine-grained" },
@@ -127,10 +127,10 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "notifications",
     title: "Notifications",
-    description: "New login, invoice, order, service, ticket, and verification templates.",
+    description: "Review saved notification templates; external email delivery requires separate setup.",
     href: "/admin/settings/notifications",
     icon: Bell,
-    status: "Ready",
+    status: "Needs setup",
     fields: [
       { label: "Invoice templates", value: "Ready" },
       { label: "Ticket templates", value: "Ready" },
@@ -140,7 +140,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "credits",
     title: "Credits",
-    description: "Wallet deposits, credit limits, auto-apply rules, and recurring balances.",
+    description: "Wallet and credit policy. No new deposit or auto-apply authority is enabled here.",
     href: "/admin/settings/credits",
     icon: CreditCard,
     status: "Draft",
@@ -153,7 +153,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "cron-jobs",
     title: "Cron jobs",
-    description: "Invoice reminders, renewals, suspensions, and data retention jobs.",
+    description: "Review billing schedules and renewal preflight; automatic execution is not enabled here.",
     href: "/admin/settings/cron-jobs",
     icon: Clock3,
     status: "Needs setup",
@@ -166,10 +166,10 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "invoices",
     title: "Invoices",
-    description: "Invoice numbering, print queue, due dates, payment rules, and PDF branding.",
+    description: "Review invoice records, PDF templates, queue readiness and billing policy.",
     href: "/admin/settings/invoices",
     icon: FileText,
-    status: "Ready",
+    status: "Needs setup",
     fields: [
       { label: "Prefix", value: "INV" },
       { label: "PDF", value: "Template-ready" },
@@ -179,7 +179,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "social-login",
     title: "Social login",
-    description: "Google, GitHub, Discord, and future account login integrations.",
+    description: "Future third-party sign-in options; no OAuth providers are enabled from this page.",
     href: "/admin/settings/social-login",
     icon: Users,
     status: "Draft",
@@ -192,10 +192,10 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "theme",
     title: "Theme",
-    description: "Brand color, logo, admin style, client portal appearance, and UI preference.",
+    description: "Review the Console appearance. Theme changes are not connected to a saved editor.",
     href: "/admin/settings/theme",
     icon: Palette,
-    status: "Ready",
+    status: "Needs setup",
     fields: [
       { label: "Primary color", value: "#0064E0" },
       { label: "Background", value: "#F6F8FB" },
@@ -205,10 +205,10 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "tickets",
     title: "Tickets",
-    description: "Departments, piping, escalation, ticket priorities, and support routing.",
+    description: "Review support departments, ticket responses and routing; advanced automation is not connected.",
     href: "/admin/settings/tickets",
     icon: Ticket,
-    status: "Ready",
+    status: "Needs setup",
     fields: [
       { label: "Departments", value: "Supported" },
       { label: "Escalation", value: "Planned" },
