@@ -24,7 +24,7 @@ const routes=walk(root).sort().map(file=>{
   status:"pending",testedAt:null,evidence:null};
 });
 const counts=Object.fromEntries(["admin","client","staff","public"].map(role=>[role,routes.filter(x=>x.role===role).length]));
-if(routes.length!==130||counts.admin!==83||counts.client!==30||counts.staff!==10||counts.public!==7)
+if(routes.length!==132||counts.admin!==83||counts.client!==32||counts.staff!==10||counts.public!==7)
  throw Error("Route coverage inventory has changed; review all missing/added pages before qualification");
 const plan={schemaVersion:1,release:"Batch 8 browser acceptance",
  baseUrl:"https://console.cloud.octalve.com",viewports,roles:counts,
@@ -54,7 +54,7 @@ if(process.argv.includes("--verify")){
   }
  }
  if(bad.length)throw Error("Browser parity NOT qualified: "+bad.length+" routes lack complete signed evidence. Examples: "+bad.slice(0,8).join(", "));
- console.log("PASS: 130 routes have signed multi-breakpoint browser evidence. Validate evidence authenticity separately.");
+ console.log("PASS: 132 routes have signed multi-breakpoint browser evidence. Validate evidence authenticity separately.");
 }else{
  console.log("PENDING: Batch 8 browser parity plan covers "+routes.length+" routes / "+(routes.length*viewports.length)+" viewport cases; verified results require real authenticated browser evidence.");
 }
