@@ -75,6 +75,8 @@ jobs:
         run: node frontend/scripts/check-support-knowledge.cjs --built
       - name: Staff Console interface and read-only authority regression (Batch 6)
         run: node frontend/scripts/check-staff-console.cjs --built
+      - name: Admin Console and server-authority regression (Batch 7)
+        run: node frontend/scripts/check-admin-console.cjs --built
 
   django-check:
     runs-on: ubuntu-latest
