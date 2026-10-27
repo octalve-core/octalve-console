@@ -103,6 +103,8 @@ jobs:
         run: node frontend/scripts/check-batch11-domain-contract.cjs
       - name: Batch 12 customer notification security and community contract
         run: node frontend/scripts/check-batch12-notice-integrity.cjs
+      - name: Batch 13 rewards and affiliate authority contract
+        run: node frontend/scripts/check-batch13-rewards.cjs
 
   django-check:
     runs-on: ubuntu-latest
@@ -139,7 +141,7 @@ jobs:
         run: python scripts/security_release_check.py
       - name: Real Django API and isolated database regression
         working-directory: backend
-        run: python manage.py test catalog.test_public_storefront accounts.tests accounts.test_account_self_service orders.tests orders.test_premium_checkout support.test_routing knowledge_base.tests tests.test_biz01_authority catalog.tests catalog.test_offer_workflows provisioning.test_authority provisioning.test_completion_authority provisioning.test_paid_funnel notifications.test_hosting_ready notifications.tests domains.test_registrar_quote payments.test_readback payments.test_checkout_webhooks services.test_opanel opanel_bridge.tests opanel_bridge.test_readback --verbosity=2
+        run: python manage.py test catalog.test_public_storefront accounts.tests accounts.test_account_self_service orders.tests orders.test_premium_checkout support.test_routing knowledge_base.tests tests.test_biz01_authority catalog.tests catalog.test_offer_workflows provisioning.test_authority provisioning.test_completion_authority provisioning.test_paid_funnel notifications.test_hosting_ready notifications.tests rewards.tests domains.test_registrar_quote payments.test_readback payments.test_checkout_webhooks services.test_opanel opanel_bridge.tests opanel_bridge.test_readback --verbosity=2
       - name: BIZ-01 financial write authority regression
         working-directory: backend
         run: python manage.py test tests.test_biz01_authority --verbosity=2
@@ -175,7 +177,7 @@ jobs:
           assert hashlib.sha256(reference.encode('utf-8')).hexdigest() == '516cd378502964020838c5d23b89caf172bd1cf135677172ee85e4795892a8cd'
           assert 'accounts.0003_auththrottlebucket' in transcript
           migrations = [line for line in transcript.splitlines() if line and not line.startswith(' ') and line != 'Planned operations:']
-          assert len(migrations) == 54, f'Expected 49 historical + 3 foundation + 2 support/help migrations, got {len(migrations)}'
+          assert len(migrations) == 55, f'Expected 49 historical + 3 foundation + 2 support/help + 1 rewards migration, got {len(migrations)}'
           assert 'catalog.0002_catalog_offers' in transcript, 'Catalog draft/revision migration missing'
           assert 'notifications.0001_hosting_ready_outbox' in transcript, 'Hosting notice outbox migration missing'
           try:

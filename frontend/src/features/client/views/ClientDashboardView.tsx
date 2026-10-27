@@ -5,6 +5,7 @@ import {DashboardShell} from "@/components/layout/DashboardShell";
 import {useAuth} from "@/context/AuthContext";
 import {ClientHero} from "../components/ClientHero";
 import {ClientLoginAlerts} from "../components/ClientLoginAlerts";
+import {ClientRecognitionBanner} from "../components/ClientRecognitionBanner";
 import {ClientOverviewActions} from "../components/ClientOverviewActions";
 import {ClientOverviewMetrics} from "../components/ClientOverviewMetrics";
 import {ClientOverviewRecent} from "../components/ClientOverviewRecent";
@@ -25,6 +26,7 @@ export function ClientDashboardView(){
     <div className="space-y-6">
       <ClientHero name={firstName}/>
       <ClientLoginAlerts/>
+      <ClientRecognitionBanner/>
       <ClientOverviewActions/>
       <ClientOverviewMetrics summary={summary}/>
       <div className="grid gap-5 xl:grid-cols-2">

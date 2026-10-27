@@ -70,6 +70,23 @@ export type CustomerCommunityLinks = {
   links:{whatsapp:string|null;telegram:string|null};
   automatic_enrollment:boolean;
 };
+export type CustomerRewardOverview = {
+  points:{balance:number;earned:number;spent:number;redeemable_cash:string;currency:string};
+  offer:null|{title:string;required_points:number;discount_percent:string;
+    max_discount_ngn:string;redemption_available:boolean;explanation:string};
+  programme_enabled:boolean;
+  affiliate:{status:"not_applied"|"pending"|"approved"|"suspended"|"rejected";
+    terms_version:string;referral_code:string|null;attributed_signups:number;
+    commissions_ngn:{pending:string;approved:string;paid:string;reversed:string};
+    commission_payout_enabled:boolean};
+  recognition:{id:number;title:string;message:string;category:string}[];
+};
+export type AdminRewardStatistics = {
+  affiliate_applications:number;affiliates_approved:number;
+  attributed_signups:number;points_issued:number;pending_commissions_ngn:string;
+  top_advocates_private:{client_id:number;points:number;events:number}[];
+  public_leaderboard_enabled:boolean;
+};
 export type EditableAccountProfile = Omit<AccountProfile,"email"|"email_verified">;
 
 type ListParams = {
@@ -250,6 +267,14 @@ export const publicApi = {
 };
 
 export const clientApi = {
+  rewards() { return api.get<CustomerRewardOverview>("/rewards/me/"); },
+  affiliateApply(terms_version:string) {
+    return api.post<{status:string;referral_code:string;commission_payout_enabled:boolean}>(
+      "/rewards/affiliate/apply/",{terms_version,accept_terms:true});
+  },
+  dismissRecognition(id:number) {
+    return api.post<{dismissed:boolean}>("/rewards/recognitions/"+id+"/dismiss/",{});
+  },
   notices() {
     return api.get<CustomerNoticeInbox>(apiPaths.client.notices+"inbox/");
   },
@@ -437,6 +462,24 @@ export const clientApi = {
 };
 
 export const adminApi = {
+  rewardStats(){return api.get<AdminRewardStatistics>("/rewards/admin/stats/");},
+  affiliateApplications(){return api.get<{results:{id:number;client_id:number;status:string;created_at:string}[]}>("/rewards/admin/affiliates/");},
+  reviewAffiliate(id:number,decision:"approve"|"reject"|"suspend"){
+    return api.post<{id:number;status:string}>(
+      "/rewards/admin/affiliates/"+id+"/review/",{decision});
+  },
+  awardPurchasePoints(invoice_id:number){
+    return api.post<{points:number;already_recorded:boolean}>(
+      "/rewards/admin/purchases/award/",{invoice_id});
+  },
+  reversePurchasePoints(invoice_id:number){
+    return api.post<{id:number;already_recorded:boolean}>(
+      "/rewards/admin/purchases/reverse/",{invoice_id});
+  },
+  recognizeCustomer(client_id:number,title:string,message:string){
+    return api.post<{id:number;published:boolean}>(
+      "/rewards/admin/recognitions/",{client_id,title,message});
+  },
   customers(params?: ListParams) {
     return api.get<PaginatedResponse<Customer> | Customer[]>(
       apiPaths.admin.customers,

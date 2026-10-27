@@ -55,7 +55,8 @@ urlpatterns = [
     path('api/settings/', include('settings_registry.urls')),
     path('api/reports/', include('reports.urls')),
     path('api/wallet/', include('wallet.urls')),
-    path('api/notifications/', include('notifications.urls')), 
+    path('api/notifications/', include('notifications.urls')),
+    path('api/rewards/', include('rewards.urls')),  
 
     # Root → docs
     path('', RedirectView.as_view(url='/api/docs/', permanent=False)),
