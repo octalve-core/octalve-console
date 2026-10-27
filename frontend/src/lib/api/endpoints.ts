@@ -212,9 +212,7 @@ export const publicApi = {
 };
 
 export const clientApi = {
-  dashboard() {
-    return api.get(apiPaths.client.dashboard);
-  },
+  // The customer overview is assembled from independently authorized resource reads.
 
   services(params?: ListParams) {
     return api.get<PaginatedResponse<Service> | Service[]>(
@@ -259,34 +257,29 @@ export const clientApi = {
   },
 
   domainDnsRecords(id: string) {
-    return api.get(byId(apiPaths.client.domains, id) + "dns-records/");
+    return api.get(byId(apiPaths.client.domains, id) + "dns_records/");
   },
 
   createDomainDnsRecord(id: string, payload: unknown) {
     return api.post(
-      byId(apiPaths.client.domains, id) + "dns-records/",
+      byId(apiPaths.client.domains, id) + "dns_records/",
       payload,
     );
   },
 
-  updateDomainDnsRecord(id: string, recordId: string, payload: unknown) {
-    return api.patch(
-      byId(apiPaths.client.domains, id) +
-        `dns-records/${encodeURIComponent(recordId)}/`,
-      payload,
-    );
+  updateDomainDnsRecord(_id: string, _recordId: string, _payload: unknown): Promise<never> {
+    return Promise.reject(new Error("DNS record editing requires a verified DNS provider."));
   },
 
   deleteDomainDnsRecord(id: string, recordId: string) {
-    return api.del(
-      byId(apiPaths.client.domains, id) +
-        `dns-records/${encodeURIComponent(recordId)}/`,
-    );
+    return api.post(byId(apiPaths.client.domains, id) + "delete_dns_record/", {
+      record_id: recordId,
+    });
   },
 
   updateDomainNameservers(id: string, payload: unknown) {
     return api.post(
-      byId(apiPaths.client.domains, id) + "nameservers/",
+      byId(apiPaths.client.domains, id) + "update_nameservers/",
       payload,
     );
   },
@@ -350,7 +343,7 @@ export const clientApi = {
       throw new Error("Wallet balance response is unavailable.");
     }
     const amountText = String(raw);
-    if (!/^\\d+(?:\\.\\d{1,2})?$/.test(amountText) ||
+    if (!/^\d+(?:\.\d{1,2})?$/.test(amountText) ||
         !Number.isFinite(Number(amountText)) || Number(amountText) < 0 ||
         typeof record.currency !== "string" || !/^[A-Z]{3}$/.test(record.currency)) {
       throw new Error("Wallet balance response is invalid.");
@@ -358,8 +351,9 @@ export const clientApi = {
     return { available: Number(amountText), currency: record.currency };
   },
 
-  fundWallet(payload: unknown) {
-    return api.post(apiPaths.client.wallet + "fund/", payload);
+  fundWallet(_payload: unknown): Promise<never> {
+    // No authorized customer top-up endpoint is connected yet.
+    return Promise.reject(new Error("Wallet funding is not yet available."));
   },
 
   tickets(params?: ListParams) {
