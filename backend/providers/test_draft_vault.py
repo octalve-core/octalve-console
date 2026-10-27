@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import override_settings
 from rest_framework.test import APITestCase
+from audit.models import AuditLog
 from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent
 from providers.connection_vault import inspect_test_only
 
@@ -44,6 +45,10 @@ class DraftVaultTests(APITestCase):
             self.assertNotIn("TEST-SYNTHETIC-API-KEY-123",json.dumps(get.data))
             self.assertNotIn("ciphertext",json.dumps(get.data))
         self.assertEqual(IntegrationConnectionEvent.objects.filter(connection=row,action="draft_created").count(),1)
+        self.assertFalse(AuditLog.objects.filter(entity_type__in=[
+            "IntegrationConnection","IntegrationCredentialVersion","IntegrationConnectionEvent"
+        ]).exists(), "Do not mirror vault records into generic audit JSON.")
+
 
     def test_rotation_and_revocation_are_atomic_and_inert(self):
         created=self.client.post("/api/providers/connections/",self.payload,format="json")

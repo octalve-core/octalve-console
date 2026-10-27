@@ -12,6 +12,10 @@ SKIPPED_MODELS = {
     "APIAccessLog",
     "LoginAttempt",
     "Migration",
+    # Separate vault lifecycle audit: never copy ciphertext or UUID into generic JSON logs.
+    "IntegrationConnection",
+    "IntegrationCredentialVersion",
+    "IntegrationConnectionEvent",
 }
 
 
