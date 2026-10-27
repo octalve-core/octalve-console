@@ -90,7 +90,8 @@ export function ClientDomainsNavigation({pathname,onNavigate}:{
       onExpand={()=>setExpanded(v=>!v)} controls={id}/>
     {expanded?<ul id={id} className="ml-7 mt-1 space-y-0.5 border-l border-white/15 pl-2">
       <NavChild href={routes.client.domains} label="My Domains" pathname={pathname} onNavigate={onNavigate}/>
-      <NavChild href={routes.client.domains+"#domain-search"} label="Register New Domain" pathname={pathname} onNavigate={onNavigate}/>
+      <NavChild href={routes.client.domainRegister} label="Register New Domain" pathname={pathname} onNavigate={onNavigate}/>
+      <NavChild href={routes.client.domainTransfer} label="Transfer Domain to Us" pathname={pathname} onNavigate={onNavigate}/>
     </ul>:null}
   </li>;
 }
