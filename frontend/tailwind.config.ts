@@ -2,7 +2,8 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    // Batch 5 support sections must be scanned by the production build.
+    // Batch 8: one TypeScript Tailwind configuration. Keep historical feature
+    // globs to preserve prior regression contracts; the catch-all covers every view.
     "./src/features/support/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/features/staff/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/features/admin/**/*.{js,ts,jsx,tsx,mdx}",
@@ -28,8 +29,7 @@ const config: Config = {
       },
     },
   },
-  // Foundation components are intentionally not mounted before Batch 2.
-  // Preserve only these essential token utilities in the production CSS bundle.
+  // Preserve core brand tokens in generated CSS even when a route is lazy-loaded.
   safelist: ["bg-console-primary", "text-console-ink", "border-console-line", "min-h-36"],
   plugins: [],
 };

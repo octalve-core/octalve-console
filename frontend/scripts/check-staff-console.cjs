@@ -73,7 +73,7 @@ for(const file of [
  if(/(?<!\w)(?:onProvision|provisionNow|markPaid|grantAdmin)/.test(source))
   throw Error(file+": unverified Staff action must not appear");
 }
-for(const config of ["tailwind.config.js","tailwind.config.ts"]){
+for(const config of ["tailwind.config.ts"]){
  const body=fs.readFileSync(path.resolve(__dirname,"..",config),"utf8");
  if(!body.includes("./src/features/staff/**/*.{js,ts,jsx,tsx,mdx}"))
   throw Error(config+": Staff components absent from production CSS scan");
