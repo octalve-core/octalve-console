@@ -213,6 +213,38 @@ class AdminGrantPurchasePoints(APIView):
                 note="Verified paid invoice loyalty award")
         return Response({"id":entry.pk,"points":entry.points_delta,"already_recorded":False},status=201)
 
+class AdminReversePurchasePoints(APIView):
+    """Append a compensating debit only after verified live refund evidence."""
+    permission_classes=[IsAuthenticated]
+    def post(self,request):
+        denied=_gate(request,admin=True)
+        if denied:return denied
+        invoice_id=request.data.get("invoice_id")
+        if type(invoice_id) is not int or invoice_id<1:
+            return Response({"detail":"Valid invoice id required."},status=400)
+        with transaction.atomic():
+            invoice=Invoice.objects.select_for_update().filter(pk=invoice_id).first()
+            if not invoice:return Response({"detail":"Invoice unavailable."},status=404)
+            award=PointEntry.objects.filter(event_key=f"paid-invoice:{invoice.pk}",
+                                             user=invoice.client,points_delta__gt=0).first()
+            if not award:return Response({"detail":"No original reward to reverse."},status=404)
+            # Do not allow a browser-provided refund flag to invent a clawback.
+            actual_refund=Transaction.objects.filter(
+                invoice=invoice,client_id=invoice.client_id,transaction_type="refund",
+                status="successful",webhook_verified=True,currency="NGN",
+                gateway__status="active",gateway__test_mode=False
+            ).exists()
+            if not actual_refund:
+                return Response({"detail":"Verified live refund required."},status=409)
+            key=f"refund-invoice:{invoice.pk}"
+            previous=PointEntry.objects.filter(event_key=key).first()
+            if previous:return Response({"id":previous.pk,"already_recorded":True})
+            entry=PointEntry.objects.create(
+                user=invoice.client,event_key=key,points_delta=-award.points_delta,
+                kind="reversal",order=invoice.order,approved_by=request.user,
+                note="Verified refunded invoice reward reversal")
+        return Response({"id":entry.pk,"already_recorded":False},status=201)
+
 class AdminRecognize(APIView):
     permission_classes=[IsAuthenticated]
     def post(self,request):
