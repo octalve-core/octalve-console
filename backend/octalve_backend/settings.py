@@ -85,6 +85,8 @@ INSTALLED_APPS = [
     'audit.apps.AuditConfig',
     'settings_registry.apps.SettingsRegistryConfig',
     'notifications.apps.NotificationsConfig',
+    'rewards.apps.RewardsConfig',
+
     'reports.apps.ReportsConfig',
     'tools.apps.ToolsConfig',
 
