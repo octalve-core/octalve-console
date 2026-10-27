@@ -1,5 +1,6 @@
 """Only encrypted bytes leave this module. Independent key from legacy Provider."""
 import base64
+import binascii
 import json
 from cryptography.fernet import Fernet
 from django.conf import settings
@@ -20,7 +21,7 @@ def vault():
         if len(raw)!=32:
             raise ValueError("Invalid key size")
         return Fernet(key.encode("ascii"))
-    except (ValueError,TypeError,UnicodeError) as exc:
+    except (ValueError,TypeError,UnicodeError,binascii.Error) as exc:
         raise VaultUnavailable() from exc
 
 def seal(adapter, connection_id, version, secrets):

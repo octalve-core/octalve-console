@@ -4,6 +4,7 @@ import json
 from unittest.mock import patch
 from cryptography.fernet import Fernet
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import override_settings
 from rest_framework.test import APITestCase
 from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent
@@ -16,6 +17,7 @@ PASSWORD="ci-only-password-test-0123!"
                    CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True)
 class DraftVaultTests(APITestCase):
     def setUp(self):
+        cache.clear()  # Each test gets an isolated throttle budget.
         User=get_user_model()
         self.owner=User.objects.create_superuser(email="vault-admin@example.invalid",username="vaultadmin",password=PASSWORD)
         self.other=User.objects.create_user(email="vault-client@example.invalid",username="vaultclient",password=PASSWORD)

@@ -18,7 +18,11 @@ from .connection_vault import seal, vault, VaultUnavailable
 class VaultMutationThrottle(SimpleRateThrottle):
     scope = "provider_draft_secrets"
     def get_rate(self):
-        return "5/hour"
+        return "10/hour"
+    def allow_request(self, request, view):
+        if request.method=="GET":
+            return True
+        return super().allow_request(request, view)
     def get_cache_key(self, request, view):
         user=request.user
         return self.cache_format % {"scope":self.scope,"ident":f"user:{user.pk}"}
