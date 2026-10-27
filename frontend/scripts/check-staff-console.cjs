@@ -35,7 +35,7 @@ ensure("features/staff/views/StaffResourceListView.tsx",[
 ensure("features/staff/components/StaffOperationalDirectory.tsx",[
  "ResponsiveTable","TextField","SelectField","StatusBadge","getRowKey={r=>r.id}",
  "const PAGE_SIZE=10","setSearch(e.target.value)","setStatus(e.target.value)",
- "resource===\"customers\"","resource===\"orders\"","resource===\"provisioning\""
+ "resource===\"customers\"","resource===\"orders\"","OperationalResource"
 ]);
 ensure("features/staff/views/StaffSecurityView.tsx",[
  "StaffSecurityOverview",'role="staff"',"DashboardPage"
