@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db import transaction
+from django.db import transaction, models
 from django.utils import timezone
 from .models import Provider, ProviderPackage, ProviderLog, ProviderHealthCheck
 from .serializers import (
