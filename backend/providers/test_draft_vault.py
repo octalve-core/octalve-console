@@ -3,6 +3,7 @@ import base64
 import json
 from unittest.mock import patch
 from cryptography.fernet import Fernet
+AUDIT_KEY=Fernet.generate_key().decode()
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import override_settings
@@ -18,7 +19,7 @@ AUTH_KEY=Fernet.generate_key().decode()
 AUTH_SECRET='JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
 PASSWORD="ci-only-password-test-0123!"
 
-@override_settings(CLOUD_PROVIDER_VAULT_KEY=KEY,CLOUD_PROVIDER_VAULT_KEY_ID="v1",
+@override_settings(CLOUD_PROVIDER_VAULT_KEY=KEY,CLOUD_PROVIDER_AUDIT_KEY=AUDIT_KEY,CLOUD_PROVIDER_VAULT_KEY_ID="v1",
                    CLOUD_PROVIDER_STEPUP_KEY=AUTH_KEY, CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED=True,
                    CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True)
 class DraftVaultTests(APITestCase):
