@@ -38,7 +38,7 @@ export type AdminSettingsItem = {
   description: string;
   href: string;
   icon: LucideIcon;
-  status: "Ready" | "Needs setup" | "Connected" | "Draft";
+  status: "Needs setup" | "Connected" | "Draft";
   fields: Array<{
     label: string;
     value: string;
