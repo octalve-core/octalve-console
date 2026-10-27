@@ -85,6 +85,8 @@ jobs:
         run: node frontend/scripts/check-batch8-shared-migration.cjs --built
       - name: Prepare 123-route responsive browser acceptance manifest
         run: node frontend/scripts/browser-parity-qualification.cjs --plan frontend/.next/batch8-browser-qa.json
+      - name: Admin Settings route and truthful management link contract
+        run: node frontend/scripts/check-admin-settings-routing.cjs
       - name: Admin payment and editor truthfulness integration regression
         run: node frontend/scripts/check-admin-integration-safety.cjs --built
       - name: Admin workspace live-vs-unconnected service qualification
