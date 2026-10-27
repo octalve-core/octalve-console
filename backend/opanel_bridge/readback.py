@@ -10,6 +10,7 @@ import re
 from urllib.parse import parse_qs
 
 import requests
+from providers.pinned_egress import pinned_get
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -157,7 +158,7 @@ def verify_existing_account(service, provider, *, getter=None, pending_account=N
         path = "/json-api/accountsummary"
         args = {"api.version": "1", "user": account}
     try:
-        request = getter or requests.get
+        request = getter or pinned_get
         response = request(
             origin + path, params=args, headers=headers,
             timeout=min(max(provider.timeout_seconds or 10, 1), 10),
