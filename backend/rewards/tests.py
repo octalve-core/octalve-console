@@ -70,7 +70,7 @@ class RewardsBatch13Tests(APITestCase):
         data=self.client.get("/api/rewards/me/").data
         self.assertEqual(data["points"]["balance"],10)
         self.assertEqual(data["points"]["redeemable_cash"],"0.00")
-        self.assertEqual(data["offer"]["discount_percent"],"5")
+        self.assertEqual(Decimal(data["offer"]["discount_percent"]),Decimal("5.00"))
         self.assertFalse(data["offer"]["redemption_available"])
 
     def test_verified_payment_only_and_idempotent_manual_points(self):
