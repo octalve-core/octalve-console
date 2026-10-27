@@ -105,6 +105,8 @@ jobs:
         run: node frontend/scripts/check-batch12-notice-integrity.cjs
       - name: Batch 13 rewards and affiliate authority contract
         run: node frontend/scripts/check-batch13-rewards.cjs
+      - name: Batch 14 language, BFF owner-scope and formatting contract
+        run: node --experimental-strip-types frontend/scripts/check-batch14-internationalization.cjs
 
   django-check:
     runs-on: ubuntu-latest

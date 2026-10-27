@@ -32,7 +32,7 @@ const ALLOWED_AUTH_PATHS = new Set([
   "auth/users/me", "auth/me",
   "auth/users/reset_password", "auth/users/reset_password_confirm",
   "auth/users/set_password", "auth/customers",
-"auth/profile", "auth/email/verification/request", "auth/email/verification/confirm",
+"auth/profile", "auth/language", "auth/email/verification/request", "auth/email/verification/confirm",
 ]);
 
 function error(status: number, detail: string) {
@@ -137,6 +137,10 @@ async function forward(request: NextRequest, context: Context) {
       !ALLOWED_AUTH_PATHS.has(apiPath) &&
       !(path[1] === "customers" && path.length === 3 && /^\d+$/.test(path[2]))) {
     return error(404, "API route not found.");
+  }
+  // Owner-only preference: never expose other auth verbs via the BFF.
+  if (apiPath === "auth/language" && method !== "GET" && method !== "PATCH") {
+    return error(405, "Method not allowed.");
   }
   // Only Console-authenticated issuance is browser-reachable. The confidential
   // code exchange and entitlement endpoints are server-to-server exclusively.

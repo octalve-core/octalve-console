@@ -1,0 +1,46 @@
+"use strict";
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const path=require("node:path");
+const {pathToFileURL}=require("node:url");
+const root=path.resolve(__dirname,"..");
+const read=p=>fs.readFileSync(path.join(root,p),"utf8");
+const bff=read("src/app/api/cloud/[...path]/route.ts");
+const api=read("../backend/accounts/language_preferences.py");
+const urls=read("../backend/accounts/urls.py");
+const provider=read("src/lib/i18n/LocaleProvider.tsx");
+const dictionary=read("src/lib/i18n/dictionary.ts");
+const rootLayout=read("src/app/layout.tsx");
+const nav=read("src/lib/navigation/dashboard-nav.ts");
+const clients=read("src/features/shell/components/ClientCatalogNavigation.tsx");
+const prefs=read("src/lib/i18n/preferences.ts");
+assert.match(bff,/"auth\/language"/);
+assert.match(bff,/apiPath === "auth\/language" && method !== "GET" && method !== "PATCH"/);
+assert.match(api,/permission_classes = \[IsAuthenticated\]/);
+assert.match(api,/set\(payload\) != \{"language"\}/);
+assert.match(api,/CLOUD_MULTILINGUAL_ENABLED/);
+assert.match(urls,/path\('language\/'/);
+assert.match(prefs,/languagePreferenceApi/);
+assert.match(provider,/languagePreferenceApi\.get\(\)/);
+assert.match(provider,/languagePreferenceApi\.save\(language\)/);
+assert.match(provider,/document\.documentElement\.lang=profile\.language/);
+assert.match(rootLayout,/<LocaleProvider>\{children\}<\/LocaleProvider>/);
+assert.match(dictionary,/translateNavigationLabel/);
+assert.match(dictionary,/satisfies Record<SupportedLocale,Record<string,string>>/);
+assert.match(clients,/publicApi\.publishedCategories\(\)/);
+assert.match(clients,/encodeURIComponent\(item\.slug\)/);
+assert.match(nav,/href: routes\.client\.settings/);
+for (const part of ["_customer", "payment", "authoriz"]) {
+  assert.ok(!read("src/lib/i18n/formatters.ts").includes("mutate"+part));
+}
+(async()=>{
+ const {displayDate,displayMoney}=await import(pathToFileURL(path.join(root,"src/lib/i18n/formatters.ts")).href);
+ assert.notEqual(displayDate("2026-10-27","en"),displayDate("2026-10-27","fr"));
+ assert.equal(displayDate("2026-02-31","fr"),"2026-02-31");
+ assert.equal(displayDate("not-a-date","en"),"not-a-date");
+ assert.ok(displayMoney("1234.50","NGN","en").includes("1,234.50"));
+ assert.notEqual(displayMoney("1234.50","NGN","en"),displayMoney("1234.50","NGN","fr"));
+ assert.equal(displayMoney("1000000000000.99","NGN","fr"),"NGN 1000000000000.99");
+ assert.equal(displayMoney("1234.567","NGN","fr"),"NGN 1234.567");
+ console.log("PASS: Batch 14 reviewed auth proxy, locale gate, shared navigation and exact display fallback");
+})().catch(e=>{console.error(e);process.exitCode=1;});
