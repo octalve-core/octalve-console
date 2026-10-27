@@ -557,3 +557,7 @@ CLOUD_PROVIDER_VAULT_KEY_ID = env("CLOUD_PROVIDER_VAULT_KEY_ID", default="v1")
 # Vault-only enrollment and step-up are separate from the account 2FA flag.
 CLOUD_PROVIDER_STEPUP_KEY = env("CLOUD_PROVIDER_STEPUP_KEY",default="")
 CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED = env.bool("CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",default=False)
+
+# Previous decryption keys stay separate from the active key, outside source and DB.
+CLOUD_PROVIDER_VAULT_PREVIOUS_KEYS_JSON = env("CLOUD_PROVIDER_VAULT_PREVIOUS_KEYS_JSON",default="")
+CLOUD_PROVIDER_VAULT_REWRAP_ENABLED = env.bool("CLOUD_PROVIDER_VAULT_REWRAP_ENABLED",default=False)
