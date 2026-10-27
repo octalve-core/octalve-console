@@ -558,6 +558,13 @@ export const adminApi = {
     );
   },
 
+  // Existing Django Quotes GET is authenticated and Admin-owned.
+  // Quote creation and acceptance remain closed by the backend.
+  quotes(params?: ListParams) {
+    return api.get<PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[]>(
+      "/billing/quotes/", {params});
+  },
+
   invoices(params?: ListParams) {
     return api.get<PaginatedResponse<Invoice> | Invoice[]>(
       apiPaths.admin.invoices,

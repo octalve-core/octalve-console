@@ -5,9 +5,9 @@ const read=p=>fs.readFileSync(path.join(root,p),"utf8");
 const config=read("features/admin/workspace/data/admin-workspace-config.ts");
 const view=read("features/admin/workspace/views/AdminWorkspaceView.tsx");
 const panel=read("features/admin/workspace/components/AdminWorkspaceConnectionStatus.tsx");
-if((config.match(/loader: emptyLoader,/g)||[]).length!==12)
+if((config.match(/loader: emptyLoader,/g)||[]).length!==11)
  throw Error("Unsupported workspace inventory changed; review API contracts first.");
-if((config.match(/availability: "unconnected"/g)||[]).length!==11)
+if((config.match(/availability: "unconnected"/g)||[]).length!==10)
  throw Error("Unconnected Admin workspace pages must be identified explicitly.");
 if((config.match(/availability: "navigation"/g)||[]).length!==1)
  throw Error("Billing navigation hub must be the only navigation-only workspace.");
@@ -41,4 +41,10 @@ if(process.argv.includes("--built")){
  for(const token of [".bg-console-primary",".border-console-line",".text-console-ink"])
   if(!css.includes(token))throw Error("Missing workspace Tailwind utility "+token);
 }
-console.log("PASS: 12 stub workspaces are explicitly distinguished; Billing routes to real records; active loaders unchanged.");
+const quoteBlock=config.slice(config.indexOf("  quotes: {"),config.indexOf('  "billing-batch": {'));
+if(!quoteBlock.includes("loader: () => adminApi.quotes()")||!quoteBlock.includes('availability: "api"'))
+ throw Error("Quotes must use the existing owned API, not demo data");
+if(!read("lib/api/endpoints.ts").includes('"/billing/quotes/"'))throw Error("Existing Django quote API route is missing");
+if(!read("features/admin/workspace/views/AdminWorkspaceView.tsx").includes('"quote_number"'))
+ throw Error("Quote number must remain visible in Admin listing");
+console.log("PASS: 11 unavailable workspace loaders remain disclosed; Quotes are read-only API-backed.");

@@ -243,6 +243,33 @@ class BillingDocumentAuthorityTests(APITestCase):
         self.assertEqual(self.quote.status, "draft")
         self.assertFalse(Order.objects.filter(client=self.owner).exists())
 
+
+    def test_admin_quote_list_is_live_read_only_and_no_conversion(self):
+        from orders.models import Order
+        User = get_user_model()
+        admin = User.objects.create_user(
+            email="quote-admin@example.invalid", username="quoteadmin",
+            password="LocalTest2026!", role="admin")
+        self.client.force_authenticate(admin)
+        before = Quote.objects.count()
+        response = self.client.get("/api/billing/quotes/")
+        self.assertEqual(response.status_code, 200)
+        rows = response.data.get("results", []) if isinstance(response.data, dict) else response.data
+        self.assertTrue(any(item["quote_number"] == self.quote.quote_number for item in rows))
+        self.assertEqual(
+            self.client.post("/api/billing/quotes/", {
+                "client": self.owner.pk, "items": [{"unit_price": "0.01"}],
+            }, format="json").status_code, 503,
+        )
+        self.assertEqual(
+            self.client.post(f"/api/billing/quotes/{self.quote.pk}/accept/", {}, format="json").status_code,
+            503,
+        )
+        self.assertEqual(Quote.objects.count(), before)
+        self.quote.refresh_from_db()
+        self.assertEqual(self.quote.status, "draft")
+        self.assertFalse(Order.objects.filter(client=self.owner).exists())
+
     def test_read_existing_quote_is_account_scoped(self):
         path = f"/api/billing/quotes/{self.quote.pk}/"
         self.client.force_authenticate(self.owner)
