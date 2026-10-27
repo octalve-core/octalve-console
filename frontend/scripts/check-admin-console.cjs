@@ -33,7 +33,7 @@ requireParts("features/admin/components/AdminGenericDirectory.tsx",[
  "ResponsiveTable","PAGE_SIZE=10","allowDetails"]);
 requireParts("features/admin/views/AdminResourceEditorView.tsx",[
  "AdminEditorFields","saveAdminResourceRecord","parseApiValidationError",
- "setFieldErrors(parsedError.fieldErrors)","buildPayload(values)"]);
+ "setFieldErrors(parsedError.fieldErrors)","buildPayload(submittedValues)"]);
 requireParts("features/admin/components/AdminEditorFields.tsx",[
  "TextField","TextAreaField","SelectField","error"]);
 requireParts("features/admin/settings/views/AdminSettingsHubView.tsx",[
