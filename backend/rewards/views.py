@@ -134,6 +134,18 @@ class AdminRewardsStats(APIView):
             "public_leaderboard_enabled":False,
         },headers={"Cache-Control":"private, no-store"})
 
+class AdminAffiliateList(APIView):
+    permission_classes=[IsAuthenticated]
+    def get(self,request):
+        denied=_gate(request,admin=True)
+        if denied:return denied
+        accounts=AffiliateAccount.objects.order_by("-created_at","pk")[:100]
+        return Response({"results":[
+            {"id":a.pk,"client_id":a.user_id,"status":a.status,
+             "created_at":a.created_at.isoformat()}
+            for a in accounts
+        ]},headers={"Cache-Control":"private, no-store"})
+
 class AdminAffiliateReview(APIView):
     permission_classes=[IsAuthenticated]
     def post(self,request,pk):
