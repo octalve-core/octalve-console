@@ -1,7 +1,10 @@
+"use client";
 import Link from "next/link";
 import {Globe2,LifeBuoy,PackagePlus,ReceiptText,Sparkles,type LucideIcon} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
 import {SectionHeading} from "@/components/design-system/SectionHeading";
+import {useLocale} from "@/lib/i18n/LocaleProvider";
+import {messages,translateNavigationLabel} from "@/lib/i18n/dictionary";
 
 type Shortcut={href:string;label:string;icon:LucideIcon;iconColor:string};
 const shortcuts:readonly Shortcut[]=[
@@ -11,10 +14,11 @@ const shortcuts:readonly Shortcut[]=[
  {href:"/client/invoices",label:"View invoices",icon:ReceiptText,iconColor:"bg-amber-50 text-amber-700"}
 ];
 export function ClientOverviewActions(){
+ const {locale}=useLocale(),m=messages(locale);
  return <Panel>
   <div className="mb-5 flex items-center gap-2">
    <Sparkles aria-hidden="true" className="h-5 w-5 text-console-primary"/>
-   <SectionHeading title="Quick actions"/>
+   <SectionHeading title={m.quickActions}/>
   </div>
   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
    {shortcuts.map(({href,label,icon:Icon,iconColor})=><Link key={href} href={href}
@@ -22,7 +26,7 @@ export function ClientOverviewActions(){
     <span className={"flex h-12 w-12 items-center justify-center rounded-full "+iconColor}>
      <Icon aria-hidden="true" className="h-6 w-6"/>
     </span>
-    <span className="text-sm font-semibold leading-5 text-console-ink">{label}</span>
+    <span className="text-sm font-semibold leading-5 text-console-ink">{translateNavigationLabel(label,locale)}</span>
    </Link>)}
   </div>
  </Panel>;
