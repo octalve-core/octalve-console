@@ -82,6 +82,7 @@ export function CloudRecordDirectory({
   ];
   function chooseStatus(next: string) { setStatus(next); setPage(1); setFiltersOpen(false); }
   const chosenActions = selected ? actions.filter(a => a.available?.(selected) !== false) : [];
+  const hasRowActions = Boolean(onOpen || actions.length);
   const modalOpen = selected !== null || filtersOpen;
 
   // WAI-ARIA modal contract: lock background scrolling, focus the content,
@@ -147,7 +148,7 @@ export function CloudRecordDirectory({
           <th className="w-12 rounded-l-xl px-3 py-3 font-medium" scope="col"><span className="sr-only">Icon</span></th>
           {cols.map(c => <th key={c.key} scope="col" className="px-3 py-3 font-semibold">{c.label}</th>)}
           <th scope="col" className="w-28 px-3 py-3 font-medium">Status</th>
-          <th scope="col" className="w-12 rounded-r-xl px-2 py-3"><span className="sr-only">Options</span></th>
+          {hasRowActions?<th scope="col" className="w-12 rounded-r-xl px-2 py-3"><span className="sr-only">Options</span></th>:null}
         </tr></thead>
         <tbody>{visible.map(r => <tr key={r.id} className="text-[#24374D]">
           <td className="rounded-l-xl bg-[#F6F8FB] px-3 py-4"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconTone(r.status)}`}>{r.icon || "•"}</span></td>
@@ -155,13 +156,13 @@ export function CloudRecordDirectory({
             {onOpen ? <button type="button" onClick={() => onOpen(r)} className="max-w-full truncate text-left hover:underline">{c.render(r)}</button> : c.render(r)}
           </td>)}
           <td className="bg-[#F6F8FB] px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusClass(r.status)}`}>{readable(r.status)}</span></td>
-          <td className="rounded-r-xl bg-[#F6F8FB] px-2 py-4"><button type="button" aria-label={`Actions for ${r.title}`} onClick={() => setSelected(r)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary"><MoreVertical size={17}/></button></td>
+          {hasRowActions?<td className="rounded-r-xl bg-[#F6F8FB] px-2 py-4"><button type="button" aria-label={`Actions for ${r.title}`} onClick={() => setSelected(r)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary"><MoreVertical size={17}/></button></td>:null}
         </tr>)}</tbody>
       </table>
     </div>
     <div className="space-y-3 p-3 lg:hidden">{visible.map(r => <div key={r.id}
       className="flex w-full items-stretch rounded-2xl border border-slate-100 bg-[#F6F8FB] text-left transition hover:border-blue-200">
-      <button type="button" onClick={() => onOpen ? onOpen(r) : setSelected(r)}
+      <button type="button" disabled={!hasRowActions} onClick={() => onOpen ? onOpen(r) : setSelected(r)}
         aria-label={`View ${r.title}`} className="flex min-w-0 flex-1 items-center gap-3 p-4 text-left">
         <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconTone(r.status)}`}>{r.icon || "•"}</span>
         <span className="min-w-0 flex-1">
@@ -172,10 +173,10 @@ export function CloudRecordDirectory({
           <span className="mt-2 flex items-center justify-between gap-2"><span className="text-[11px] text-slate-500">{r.date}</span><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(r.status)}`}>{readable(r.status)}</span></span>
         </span>
       </button>
-      <button type="button" aria-label={`More actions for ${r.title}`} onClick={() => setSelected(r)}
+      {hasRowActions?<button type="button" aria-label={`More actions for ${r.title}`} onClick={() => setSelected(r)}
         className="flex w-11 shrink-0 items-start justify-center rounded-r-2xl pt-5 text-slate-400 hover:bg-slate-100 hover:text-[#0064E0]">
         <MoreVertical size={18}/>
-      </button>
+      </button>:null}
     </div>)}</div>
     {visible.length === 0 && <p className="p-8 text-center text-sm text-slate-500">{emptyMessage}</p>}
     <div className="flex items-center justify-between border-t border-[#EFF2F6] px-4 py-3 text-xs">
