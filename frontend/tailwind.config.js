@@ -4,6 +4,7 @@ module.exports = {
     // Batch 5 support sections must be scanned by the production build.
     "./src/features/support/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/features/staff/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/features/admin/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",

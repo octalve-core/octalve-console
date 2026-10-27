@@ -1,105 +1,42 @@
 "use client";
-
-import { useParams } from "next/navigation";
-import { ArrowLeft, Edit3, FileText, ShieldCheck } from "lucide-react";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { DashboardPage } from "@/components/layout/DashboardPage";
-import { DashboardShell } from "@/components/layout/DashboardShell";
-import { formatStatus, getStatusTone } from "@/lib/constants/status";
-import { adminOperationConfig } from "../data/admin-operations-config";
-import type { AdminOperationKey } from "../data/admin-operations-data";
-
-type AdminOperationDetailViewProps = {
-  operation: AdminOperationKey;
-};
-
-function getParamValue(value: string | string[] | undefined) {
-  if (Array.isArray(value)) return value[0] ?? "";
-  return value ?? "";
-}
-
-export function AdminOperationDetailView({ operation }: AdminOperationDetailViewProps) {
-  const params = useParams();
-  const id = decodeURIComponent(getParamValue(params.id));
-  const config = adminOperationConfig[operation];
-
-  const record =
-    config.fallback.find((item) => item.id === id || item.title === id) ??
-    config.fallback[0];
-
-  return (
-    <DashboardShell
-      role="admin"
-      title={record?.title ?? config.title}
-      description={config.description}
-      actions={
-        <Button href={operation === "notifications" ? "/admin/settings/notifications" : config.key === "knowledge-base" ? "/admin/knowledge-base" : "/admin/support"} variant="outline">
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-      }
-    >
-      <DashboardPage
-        eyebrow={config.eyebrow}
-        title={record?.title ?? config.title}
-        description={record?.subtitle ?? config.description}
-        actions={
-          <Button href={operation === "notifications" ? "/admin/settings/notifications/new" : operation === "knowledge-base" ? "/admin/knowledge-base/new" : "/admin/support/new"}>
-            <Edit3 className="h-4 w-4" />
-            Edit
-          </Button>
-        }
-      >
-        <div className="grid gap-5 xl:grid-cols-[1fr_22rem]">
-          <Card>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
-                <FileText className="h-7 w-7" />
-              </div>
-
-              <Badge variant={getStatusTone(record?.status)}>{formatStatus(record?.status)}</Badge>
-            </div>
-
-            <h2 className="mt-6 text-2xl font-medium tracking-[-0.04em] text-slate-950">{record?.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">{record?.subtitle}</p>
-
-            <div className="mt-8 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Record ID</p>
-                <p className="mt-2 text-sm font-medium text-slate-950">{record?.id}</p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Meta</p>
-                <p className="mt-2 text-sm font-medium text-slate-950">{record?.meta}</p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Date</p>
-                <p className="mt-2 text-sm font-medium text-slate-950">{record?.date ?? "—"}</p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Status</p>
-                <p className="mt-2 text-sm font-medium text-slate-950">{record?.status}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0064E0]/10 text-[#0064E0]">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-
-            <h3 className="mt-5 text-lg font-medium tracking-[-0.03em] text-slate-950">API-ready detail</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              This detail page is ready to be connected to a single-record backend endpoint when available in the schema.
-            </p>
-          </Card>
-        </div>
-      </DashboardPage>
-    </DashboardShell>
-  );
+import {useEffect,useState} from "react";
+import {useParams} from "next/navigation";
+import {ArrowLeft} from "lucide-react";
+import {DashboardShell} from "@/components/layout/DashboardShell";
+import {DashboardPage} from "@/components/layout/DashboardPage";
+import {LoadingState} from "@/components/feedback/LoadingState";
+import {ErrorState} from "@/components/feedback/ErrorState";
+import {ActionLink} from "@/components/design-system/ActionLink";
+import {AdminRecordDetailPanel} from "../../components/AdminRecordDetailPanel";
+import {readAuthorizedDetail} from "../../utils/read-authorized-detail";
+import type {AdminRecord} from "../../data/admin-demo-data";
+import {adminOperationConfig} from "../data/admin-operations-config";
+import type {AdminOperationKey} from "../data/admin-operations-data";
+export function AdminOperationDetailView({operation}:{operation:AdminOperationKey}){
+ const params=useParams(),id=String(Array.isArray(params.id)?params.id[0]:params.id??"");
+ const config=adminOperationConfig[operation];
+ const href=operation==="notifications"?"/admin/settings/notifications":operation==="knowledge-base"?"/admin/knowledge-base":"/admin/support";
+ const [record,setRecord]=useState<AdminRecord|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
+ useEffect(()=>{
+  let active=true;setLoading(true);setError("");setRecord(null);
+  config.loader().then(result=>{
+   if(!active)return;
+   const found=readAuthorizedDetail(result,id,href+"/"+encodeURIComponent(id));
+   setRecord(found);
+   if(!found)setError("This record could not be found in the authorized response.");
+  }).catch(()=>{if(active){setRecord(null);setError("We couldn't load the requested record.");}})
+   .finally(()=>{if(active)setLoading(false);});
+  return ()=>{active=false;};
+ },[config,href,id]);
+ return <DashboardShell role="admin" title={config.title} description={config.description}
+  actions={<ActionLink href={href} variant="outline">
+   <ArrowLeft aria-hidden="true" className="h-4 w-4"/>Back
+  </ActionLink>}>
+  <DashboardPage eyebrow={config.eyebrow} title={record?.title??config.title}
+   description={record?.subtitle??config.description}>
+   {loading?<LoadingState title="Loading record" description="Getting the latest details…"/>:
+    !record?<ErrorState title="Record unavailable" description={error}/>:
+    <AdminRecordDetailPanel record={record} actions={[{href,label:"Back to records",variant:"outline"}]}/>}
+  </DashboardPage>
+ </DashboardShell>;
 }

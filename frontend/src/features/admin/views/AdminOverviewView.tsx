@@ -1,27 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CreditCard, Globe2, PackageCheck, ReceiptText, Server, Users } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import { MetricCard } from "@/components/data/MetricCard";
-import { ResponsiveGrid } from "@/components/data/ResponsiveGrid";
-import { LoadingState } from "@/components/feedback/LoadingState";
 import { useAuth } from "@/context/AuthContext";
 import { adminApi } from "@/lib/api/endpoints";
 import { schemaApi } from "@/lib/api/schema-api";
-import { formatNumber } from "@/lib/formatters";
 import { AdminHero } from "../components/AdminHero";
-import {WorkspaceQuickActions} from "@/components/data/WorkspaceQuickActions";
-import { AdminSectionCard } from "../components/AdminSectionCard";
-
-type OverviewCounts = {
-  customers: number | null;
-  services: number | null;
-  invoices: number | null;
-  domains: number | null;
-  providers: number | null;
-  transactions: number | null;
-};
+import {AdminQuickActions} from "../components/AdminQuickActions";
+import {AdminOverviewMetrics,type AdminOverviewCounts} from "../components/AdminOverviewMetrics";
+import {Panel} from "@/components/design-system/Panel";
+import {ActionLink} from "@/components/design-system/ActionLink";
 
 function getListCount(value: unknown) {
   const data = value as { count?: number; results?: unknown[] } | unknown[];
@@ -35,7 +23,7 @@ function getListCount(value: unknown) {
 
 export function AdminOverviewView() {
   const { user } = useAuth();
-  const [counts, setCounts] = useState<OverviewCounts>({
+  const [counts, setCounts] = useState<AdminOverviewCounts>({
     customers: null,
     services: null,
     invoices: null,
@@ -94,65 +82,27 @@ export function AdminOverviewView() {
     >
       <div className="space-y-6">
         <AdminHero name={firstName} />
-        <WorkspaceQuickActions role="admin"/>
-
-        {isLoading ? (
-          <LoadingState title="Loading admin overview" description="Preparing your overview…" />
-        ) : (
-          <ResponsiveGrid columns="4">
-            <MetricCard
-              label="Customers" accent="blue"
-              value={counts.customers === null ? "—" : formatNumber(counts.customers)}
-              description="Registered client accounts"
-              icon={<Users className="h-5 w-5" />}
-            />
-            <MetricCard
-              label="Active services" accent="green"
-              value={counts.services === null ? "—" : formatNumber(counts.services)}
-              description="Hosting and cloud services"
-              icon={<PackageCheck className="h-5 w-5" />}
-            />
-            <MetricCard
-              label="Invoices" accent="orange"
-              value={counts.invoices === null ? "—" : formatNumber(counts.invoices)}
-              description="Billing records"
-              icon={<ReceiptText className="h-5 w-5" />}
-            />
-            <MetricCard
-              label="Domains" accent="purple"
-              value={counts.domains === null ? "—" : formatNumber(counts.domains)}
-              description="Registered domains"
-              icon={<Globe2 className="h-5 w-5" />}
-            />
-            <MetricCard
-              label="Providers" accent="rose"
-              value={counts.providers === null ? "—" : formatNumber(counts.providers)}
-              description="Server and registrar adapters"
-              icon={<Server className="h-5 w-5" />}
-            />
-            <MetricCard
-              label="Transactions" accent="blue"
-              value={counts.transactions === null ? "—" : formatNumber(counts.transactions)}
-              description="Payment activity"
-              icon={<CreditCard className="h-5 w-5" />}
-            />
-          </ResponsiveGrid>
-        )}
-
-        <div className="grid gap-5 xl:grid-cols-2">
-          <AdminSectionCard
-            title="Recent invoices"
-            description="Track unpaid, paid and pending billing activity."
-            href="/admin/billing/invoices"
-            records={[]}
-          />
-
-          <AdminSectionCard
-            title="Provisioning queue"
-            description="Monitor automation tasks before they affect customers."
-            href="/admin/provisioning"
-            records={[]}
-          />
+        <AdminQuickActions/>
+        <AdminOverviewMetrics counts={counts} loading={isLoading}/>
+        <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+          <Panel>
+            <h2 className="text-lg font-semibold text-console-ink">Invoice management</h2>
+            <p className="mt-2 text-sm leading-6 text-console-muted">
+              View issued invoices and their server-confirmed statuses in the billing centre.
+            </p>
+            <ActionLink href="/admin/billing/invoices" variant="outline" className="mt-5 w-full sm:w-auto">
+              View invoices
+            </ActionLink>
+          </Panel>
+          <Panel>
+            <h2 className="text-lg font-semibold text-console-ink">Provisioning queue</h2>
+            <p className="mt-2 text-sm leading-6 text-console-muted">
+              Review actual provisioning tasks and operational states before taking any action.
+            </p>
+            <ActionLink href="/admin/provisioning" variant="outline" className="mt-5 w-full sm:w-auto">
+              View provisioning tasks
+            </ActionLink>
+          </Panel>
         </div>
       </div>
     </DashboardShell>

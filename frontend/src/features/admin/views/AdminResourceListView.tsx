@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import {ActionLink} from "@/components/design-system/ActionLink";
+import {AdminResourceDirectory} from "../components/AdminResourceDirectory";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { useAutoSync } from "@/lib/hooks/useAutoSync";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -10,7 +11,6 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { adminResourceConfig, type AdminResourceKey } from "../data/admin-resource-config";
 import type { AdminRecord } from "../data/admin-demo-data";
-import { AdminRecordList } from "../components/AdminRecordList";
 
 type AdminResourceListViewProps = {
   resource: AdminResourceKey;
@@ -115,10 +115,10 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
       description={config.description}
       actions={
         config.createHref ? (
-          <Button href={config.createHref}>
+          <ActionLink href={config.createHref}>
             <Plus className="h-4 w-4" />
             {config.createLabel ?? "Create"}
-          </Button>
+          </ActionLink>
         ) : null
       }
     >
@@ -134,11 +134,10 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
           ) : error ? (
             <ErrorState description={error} />
           ) : (
-            <AdminRecordList
-              resource={resource}
-              records={records}
-              emptyTitle={config.emptyTitle}
-              emptyDescription={config.emptyDescription}
+            <AdminResourceDirectory
+              resource={resource} records={records}
+              emptyTitle={config.emptyTitle} emptyDescription={config.emptyDescription}
+              detailEnabled={resource!=="provisioning"}
             />
           )}
         </div>
