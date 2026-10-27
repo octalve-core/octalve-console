@@ -11,6 +11,7 @@ import os
 from urllib.parse import parse_qs, urlsplit
 
 import requests
+from .pinned_egress import pinned_get
 from rest_framework.exceptions import ValidationError
 
 
@@ -105,7 +106,7 @@ def _endpoint(provider):
 def fetch_inventory(provider, *, getter=None):
     """Fetch inventory only; never mutate provider or Django records here."""
     origin = _endpoint(provider)
-    getter = getter or requests.get
+    getter = getter or pinned_get
     key = provider.get_api_key()
     if not provider.username or not key:
         raise InventoryError("Provider account name and encrypted API token are required.")
