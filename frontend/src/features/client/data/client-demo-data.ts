@@ -1,3 +1,5 @@
+import type {ClientServiceSnapshot} from "../utils/service-contract";
+
 export type ClientResourceKey =
   | "services"
   | "domains"
@@ -15,6 +17,7 @@ export type ClientRecord = {
   date?: string;
   actionHref: string;
   score?: number;
+  service?: ClientServiceSnapshot;
 };
 
 export const clientDemo: Record<ClientResourceKey, ClientRecord[]> = {
