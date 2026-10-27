@@ -18,7 +18,7 @@ ensure("features/client/views/ClientResourceListView.tsx",[
  "setRecords([])","ClientEssentialRecords","resource===\"services\"||resource===\"domains\"","ClientDomainSearch"
 ]);
 ensure("features/client/components/ClientEssentialRecords.tsx",[
- "CloudRecordDirectory","onOpen={openDetails}","record.actionHref","records.map(record=>",
+ "CloudRecordDirectory","onOpen={openDetails}","verified.actionHref","records.map(record=>",
  "rows={rows}","columns={[","resource===\"domains\""
 ]);
 ensure("features/client/views/ClientResourceDetailView.tsx",[
