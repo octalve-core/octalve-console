@@ -1,6 +1,7 @@
 # billing/serializers.py
 
 from rest_framework import serializers
+from django.utils import timezone
 from .models import Invoice, InvoiceItem, Tax, Quote
 
 
@@ -37,7 +38,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
         read_only_fields = ['invoice_number', 'amount_paid', 'amount_due', 'created_at']
     
     def get_is_overdue(self, obj):
-        return obj.is_overdue()
+        # Serializing an invoice is read-only; do not mutate payment/status fields on GET.
+        return obj.status in ('unpaid', 'overdue') and timezone.now() > obj.due_date
 
 
 class TaxSerializer(serializers.ModelSerializer):

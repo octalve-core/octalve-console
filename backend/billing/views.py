@@ -98,56 +98,44 @@ class TaxViewSet(viewsets.ModelViewSet):
 
 
 class QuoteViewSet(viewsets.ModelViewSet):
-    """ViewSet for quotes"""
-    
+    """Existing quotes are viewable but legacy writes lack price authority.
+
+    The prior endpoint trusted caller-supplied amounts and its convert_to_order
+    path did not reprice current catalogue/cycles. Do not expose a cheaper order
+    creation route than the verified customer checkout.
+    """
+
     serializer_class = QuoteSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['quote_number', 'client__email']
     ordering = ['-issued_at']
-    
+
     def get_queryset(self):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
             return Quote.objects.all()
         return Quote.objects.filter(client=user)
-    
-    @transaction.atomic
-    def create(self, request, *args, **kwargs):
-        """Create a new quote"""
-        serializer = CreateQuoteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        items = serializer.validated_data['items']
-        subtotal = sum(item.get('price', 0) * item.get('quantity', 1) for item in items)
-        
-        quote = Quote.objects.create(
-            client=request.user,
-            subtotal=subtotal,
-            total=subtotal,
-            valid_until=timezone.now() + timezone.timedelta(days=serializer.validated_data.get('valid_days', 7)),
-            notes=serializer.validated_data.get('notes', ''),
-            items_data=items
+
+    @staticmethod
+    def _unavailable():
+        return Response(
+            {'detail': 'Quote changes are unavailable until server-priced approvals are enabled.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-        
-        return Response(QuoteSerializer(quote).data, status=status.HTTP_201_CREATED)
-    
+
+    def create(self, request, *args, **kwargs):
+        return self._unavailable()
+
+    def update(self, request, *args, **kwargs):
+        return self._unavailable()
+
+    def partial_update(self, request, *args, **kwargs):
+        return self._unavailable()
+
+    def destroy(self, request, *args, **kwargs):
+        return self._unavailable()
+
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
-        """Accept a quote and convert to order"""
-        quote = self.get_object()
-        
-        if quote.status != 'sent':
-            return Response({'error': 'Quote cannot be accepted'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        if quote.valid_until < timezone.now():
-            return Response({'error': 'Quote has expired'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        order = quote.convert_to_order()
-        
-        return Response({
-            'message': 'Quote accepted and converted to order',
-            'order_id': order.id,
-            'order_number': order.order_number
-        })
-
+        return self._unavailable()
