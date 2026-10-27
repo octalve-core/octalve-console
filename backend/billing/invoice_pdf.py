@@ -49,7 +49,7 @@ def _date(value):
 @lru_cache(maxsize=1)
 def _logo():
     """Use the identical approved dashboard logo bundled with the API release."""
-    return b64decode(LOGO_FILE.read_text(encoding="ascii"), validate=True)
+    return b64decode(LOGO_FILE.read_text(encoding="ascii").strip(), validate=True)
 
 
 def render_invoice_pdf(invoice):
