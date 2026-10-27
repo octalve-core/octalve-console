@@ -43,7 +43,15 @@ export function ClientEssentialRecords({resource,records,emptyTitle,emptyDescrip
     label={resource==="domains"?"Domains":"Services"}
     records={rows}
     onOpen={openDetails}
-    actions={resource==="services"?[
+    actions={resource==="domains"?[
+      {label:"Manage domain",onSelect:openDetails},
+      {label:"DNS records",onSelect:row=>router.push(
+        `/client/domains/${encodeURIComponent(row.id)}/dns`)},
+      {label:"Nameservers",onSelect:row=>router.push(
+        `/client/domains/${encodeURIComponent(row.id)}/nameservers`)},
+      {label:"Renewal options",onSelect:row=>router.push(
+        `/client/domains/${encodeURIComponent(row.id)}/renewal`)},
+    ]:resource==="services"?[
       {label:"Manage service",onSelect:openDetails},
       {label:"View usage",onSelect:row=>router.push(
         `/client/services/${encodeURIComponent(row.id)}#usage`)},
