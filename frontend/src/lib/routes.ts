@@ -36,6 +36,8 @@ export const routes = {
     purchases: "/client/purchases",
     settings: "/client/settings",
     domains: "/client/domains",
+    domainRegister: "/client/domains/register",
+    domainTransfer: "/client/domains/transfer",
     invoices: "/client/invoices",
     orders: "/client/orders",
     order: "/client/order",
