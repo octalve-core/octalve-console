@@ -91,6 +91,11 @@ class ProviderPackageSerializer(serializers.ModelSerializer):
 
 
 class ProviderLogSerializer(serializers.ModelSerializer):
+    endpoint = serializers.SerializerMethodField()
+
+    def get_endpoint(self, instance):
+        return "[redacted]"
+
     metadata = serializers.SerializerMethodField()
     error_message = serializers.SerializerMethodField()
 

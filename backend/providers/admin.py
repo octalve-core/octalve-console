@@ -7,7 +7,7 @@ class ProviderAdmin(admin.ModelAdmin):
     list_display = ['name','adapter_type','status','health_status','test_mode','last_health_check']
     list_filter = ['adapter_type','status','health_status','test_mode']
     search_fields = ['name','base_url','username']
-    readonly_fields = ['name','adapter_type','description','base_url','username',
+    readonly_fields = ['name','adapter_type','description','username',
                        'server_group','status','test_mode','health_status','last_health_check',
                        'created_at','updated_at']
     fieldsets = (
