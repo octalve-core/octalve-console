@@ -25,6 +25,7 @@ const API_ROOTS = new Set([
   "auth", "catalog", "orders", "billing", "providers", "payments",
   "services", "provisioning", "domains", "support", "audit", "settings",
   "reports", "wallet", "dashboard", "knowledge-base", "integrations",
+  "storefront",
 ]);
 const ALLOWED_AUTH_PATHS = new Set([
   "auth/jwt/create", "auth/register", "auth/logout",
@@ -139,6 +140,11 @@ async function forward(request: NextRequest, context: Context) {
   }
   // Only Console-authenticated issuance is browser-reachable. The confidential
   // code exchange and entitlement endpoints are server-to-server exclusively.
+  // The sidebar may read only the published, sanitized category index.
+  if (path[0] === "storefront" &&
+      !(apiPath === "storefront/categories" && method === "GET")) {
+    return error(404, "API route not found.");
+  }
   if (path[0] === "integrations" &&
       !(apiPath === "integrations/opanel/v1/authorize" && method === "POST")) {
     return error(404, "API route not found.");

@@ -39,6 +39,27 @@ class PublicStorefrontTests(TestCase):
         self.assertTrue(any(item["id"] == self.plan.pk for item in second_data))
         self.api.force_authenticate(user=None)
 
+    def test_categories_require_published_priced_active_offers(self):
+        url = "/api/storefront/categories/"
+        self.assertEqual(self.api.get(url).data["categories"], [])
+        PublishedCatalogOffer.objects.create(plan=self.plan, revision=1, snapshot={})
+        self.assertEqual([c["name"] for c in self.api.get(url).data["categories"]], ["Hosting"])
+        future = ProductCategory.objects.create(name="Future Security")
+        product = Product.objects.create(category=future, name="SSL", product_type="ssl")
+        plan = Plan.objects.create(product=product, name="Future", base_price=100, currency="NGN")
+        PlanBillingCycle.objects.create(plan=plan, cycle_key="1mo", months=1, price=100, is_active=True)
+        self.assertEqual(len(self.api.get(url).data["categories"]), 1)
+        PublishedCatalogOffer.objects.create(plan=plan, revision=1, snapshot={})
+        categories = self.api.get(url).data["categories"]
+        self.assertEqual(len(categories), 2)
+        self.assertNotIn("supplier_provider_id", str(categories))
+        future.is_active = False
+        future.save(update_fields=["is_active"])
+        self.assertEqual([c["name"] for c in self.api.get(url).data["categories"]], ["Hosting"])
+        self.plan.is_public = False
+        self.plan.save(update_fields=["is_public"])
+        self.assertEqual(self.api.get(url).data["categories"], [])
+
     def test_longest_tld_suffix_wins(self):
         TLDPricing.objects.create(tld=".ng",register_price=16000,renewal_price=17000,transfer_price=16000)
         TLDPricing.objects.create(tld=".com.ng",register_price=9000,renewal_price=10000,transfer_price=9000)

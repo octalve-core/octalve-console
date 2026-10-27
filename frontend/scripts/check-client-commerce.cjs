@@ -8,7 +8,7 @@ function requires(file,tokens){
  for(const token of tokens)if(!source.includes(token))throw Error(file+": missing contract "+token);
 }
 requires("features/client/views/ClientOrderView.tsx",[
- "loadSellablePlans().then","items.find(item => item.id === requestedPlan)","HostingPlanCards","HostingOrderSummary","defaultCycle"
+ "loadSellablePlans().then","allowed.find(item => item.id === requestedPlan)","HostingPlanCards","HostingOrderSummary","defaultCycle"
 ]);
 requires("features/client/data/client-order-data.ts",[
  "publicApi.plans()",'p.status === "active" && p.is_public',"c.is_active && Number(c.price) > 0","published_revision"

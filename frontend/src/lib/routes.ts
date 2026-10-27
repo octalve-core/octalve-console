@@ -33,6 +33,8 @@ export const routes = {
   client: {
     root: "/client",
     services: "/client/services",
+    purchases: "/client/purchases",
+    settings: "/client/settings",
     domains: "/client/domains",
     invoices: "/client/invoices",
     orders: "/client/orders",

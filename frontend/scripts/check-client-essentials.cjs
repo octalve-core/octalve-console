@@ -18,8 +18,8 @@ ensure("features/client/views/ClientResourceListView.tsx",[
  "setRecords([])","ClientEssentialRecords","resource===\"services\"||resource===\"domains\"","ClientDomainSearch"
 ]);
 ensure("features/client/components/ClientEssentialRecords.tsx",[
- "ResponsiveTable","TextField","SelectField","StatusBadge","record.actionHref","LIMIT=10",
- "setQuery(event.target.value)","setStatus(event.target.value)","getRowKey={record=>record.id}"
+ "CloudRecordDirectory","onOpen={openDetails}","verified.actionHref","records.map(record=>",
+ "records={rows}","columns={[","resource===\"domains\""
 ]);
 ensure("features/client/views/ClientResourceDetailView.tsx",[
  "config.loader()","setRecord(foundApiRecord ?? null)","if (!foundApiRecord)","ClientEssentialDetail"

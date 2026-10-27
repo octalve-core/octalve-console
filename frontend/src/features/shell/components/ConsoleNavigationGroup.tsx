@@ -1,4 +1,6 @@
+"use client";
 import Link from "next/link";
+import {ClientServicesNavigation,ClientDomainsNavigation} from "@/features/shell/components/ClientCatalogNavigation";
 import {
  BarChart3,BookOpen,Boxes,CreditCard,Globe2,LayoutDashboard,LifeBuoy,ListChecks,
  PackageCheck,ReceiptText,Server,Settings,Shield,ShoppingCart,Ticket,UserRound,Users,
@@ -24,6 +26,12 @@ export function ConsoleNavigationGroup({group,role,pathname,onNavigate}:{
    {group.items.map(item=>{
     const Icon=icons[item.icon];
     const active=pathname===item.href||(item.href!=="/"+role&&pathname.startsWith(item.href+"/"));
+    if (role === "client" && item.href === "/client/services") {
+      return <ClientServicesNavigation key={item.href} pathname={pathname} onNavigate={onNavigate}/>;
+    }
+    if (role === "client" && item.href === "/client/domains") {
+      return <ClientDomainsNavigation key={item.href} pathname={pathname} onNavigate={onNavigate}/>;
+    }
     return <li key={item.href}>
      <Link href={item.href} onClick={onNavigate} aria-current={active?"page":undefined}
       className={cn(

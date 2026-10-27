@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 
-from .models import Plan, PlanBillingCycle, PlanFeature
+from .models import Plan, PlanBillingCycle, PlanFeature, ProductCategory
 from domains.models import TLDPricing
 from domains.registrar_quote import HOSTNAME
 from knowledge_base.models import KnowledgeArticle
@@ -49,6 +49,29 @@ class PublicPublishedPlans(APIView):
                 "billing_cycles": cycles,
             })
         return Response({"plans": plans}, headers={"Cache-Control": "public, max-age=60"})
+
+
+class PublicPublishedCategories(APIView):
+    """Expose only visible, published and priced categories; never supplier details.
+
+    Visibility is not permission to charge or provision. Checkout remains authoritative.
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        categories = ProductCategory.objects.filter(
+            is_active=True,
+            products__status="active", products__is_public=True,
+            products__plans__status="active", products__plans__is_public=True,
+            products__plans__published_versions__isnull=False,
+            products__plans__billing_cycles__is_active=True,
+            products__plans__billing_cycles__price__gt=0,
+        ).distinct().order_by("sort_order", "name", "pk")[:100]
+        return Response({"categories": [
+            {"slug": c.slug, "name": c.name, "description": c.description or ""}
+            for c in categories
+        ]}, headers={"Cache-Control": "public, max-age=60"})
 
 
 class PublicDomainPrices(APIView):

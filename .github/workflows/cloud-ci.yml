@@ -95,6 +95,8 @@ jobs:
         run: node frontend/scripts/check-phase12-client-recovery.cjs --built
       - name: Phase 3 Console-to-Django route and tenant contract guard
         run: node frontend/scripts/check-phase3-django-route-contract.cjs
+      - name: Batch 9 dynamic catalogue, navigation and responsive record contract
+        run: node frontend/scripts/check-batch9-client-foundation.cjs --built
 
   django-check:
     runs-on: ubuntu-latest
