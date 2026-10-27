@@ -48,6 +48,10 @@ class _NumberedCanvas(canvas.Canvas):
         self._startPage()
 
     def save(self):
+        # Canvas.save() would add the last page only *after* our count.
+        # Flush it first, then stamp every stored page with the true total.
+        if self._code:
+            self.showPage()
         count = len(self._saved_states)
         for state in self._saved_states:
             self.__dict__.update(state)
