@@ -1,44 +1,26 @@
-# providers/admin.py
-
 from django.contrib import admin
-from django.urls import reverse
-from django.utils.html import format_html
 from .models import Provider, ProviderPackage, ProviderLog, ProviderHealthCheck
-
 
 @admin.register(Provider)
 class ProviderAdmin(admin.ModelAdmin):
-    list_display = ['name', 'adapter_type', 'status', 'health_status', 'test_mode', 'last_health_check', 'connection_test_button']
-    list_filter = ['adapter_type', 'status', 'health_status', 'test_mode']
-    search_fields = ['name', 'base_url', 'username']
-    readonly_fields = ['health_status', 'last_health_check', 'health_check_message', 'created_at', 'updated_at']
-    
+    """Existing provider profiles are view-only until secure connections are qualified."""
+    list_display = ['name','adapter_type','status','health_status','test_mode','last_health_check']
+    list_filter = ['adapter_type','status','health_status','test_mode']
+    search_fields = ['name','base_url','username']
+    readonly_fields = ['name','adapter_type','description','username',
+                       'server_group','status','test_mode','health_status','last_health_check',
+                       'created_at','updated_at']
     fieldsets = (
-        ('Basic Info', {
-            'fields': ('name', 'adapter_type', 'description')
-        }),
-        ('Connection Settings', {
-            'fields': ('base_url', 'username', 'encrypted_api_key', 'encrypted_secret', 'server_group')
-        }),
-        ('Configuration', {
-            'fields': ('config', 'test_mode', 'max_connections', 'timeout_seconds')
-        }),
-        ('Status', {
-            'fields': ('status', 'health_status', 'last_health_check', 'health_check_message')
-        }),
-        ('Metadata', {
-            'fields': ('metadata', 'created_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
+        ('Provider', {'fields':('name','adapter_type','description','base_url','username','server_group')}),
+        ('Status', {'fields':('status','test_mode','health_status','last_health_check')}),
+        ('History', {'fields':('created_at','updated_at')}),
     )
-    
-    def connection_test_button(self, obj):
-        return format_html(
-            '<a class="button" href="{}">Test Connection</a>',
-            reverse('admin:providers_provider_test', args=[obj.pk])
-        )
-    connection_test_button.short_description = 'Test Connection'
-
+    def has_add_permission(self, request):
+        return False
+    def has_change_permission(self, request, obj=None):
+        return False
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 @admin.register(ProviderPackage)
 class ProviderPackageAdmin(admin.ModelAdmin):
