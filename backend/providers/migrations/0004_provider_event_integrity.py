@@ -1,5 +1,7 @@
 """Append-only supplier lifecycle receipts, PostgreSQL immutability at DB boundary."""
 import django.utils.timezone
+import django.db.models.deletion
+from django.conf import settings
 from django.db import migrations,models
 
 def lock_events(apps,schema_editor):
@@ -28,5 +30,6 @@ class Migration(migrations.Migration):
         migrations.AddField("integrationconnectionevent","previous_mac",models.CharField(max_length=64,default="",blank=True)),
         migrations.AddField("integrationconnectionevent","event_mac",models.CharField(max_length=64,default="",blank=True)),
         migrations.AlterField("integrationconnectionevent","created_at",models.DateTimeField(default=django.utils.timezone.now)),
+        migrations.AlterField("integrationconnectionevent","actor",models.ForeignKey(to=settings.AUTH_USER_MODEL,null=True,on_delete=django.db.models.deletion.PROTECT)),
         migrations.RunPython(lock_events,unlock_events),
     ]

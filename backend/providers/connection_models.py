@@ -36,7 +36,7 @@ class IntegrationCredentialVersion(models.Model):
 
 class IntegrationConnectionEvent(models.Model):
     connection = models.ForeignKey(IntegrationConnection, on_delete=models.PROTECT, related_name="security_events")
-    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
     action = models.CharField(max_length=32)
     version = models.PositiveIntegerField()
     sequence = models.PositiveIntegerField(default=0)
