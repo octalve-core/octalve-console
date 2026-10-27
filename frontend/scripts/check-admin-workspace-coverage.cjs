@@ -5,9 +5,9 @@ const read=p=>fs.readFileSync(path.join(root,p),"utf8");
 const config=read("features/admin/workspace/data/admin-workspace-config.ts");
 const view=read("features/admin/workspace/views/AdminWorkspaceView.tsx");
 const panel=read("features/admin/workspace/components/AdminWorkspaceConnectionStatus.tsx");
-if((config.match(/loader: emptyLoader,/g)||[]).length!==11)
+if((config.match(/loader: emptyLoader,/g)||[]).length!==10)
  throw Error("Unsupported workspace inventory changed; review API contracts first.");
-if((config.match(/availability: "unconnected"/g)||[]).length!==10)
+if((config.match(/availability: "unconnected"/g)||[]).length!==9)
  throw Error("Unconnected Admin workspace pages must be identified explicitly.");
 if((config.match(/availability: "navigation"/g)||[]).length!==1)
  throw Error("Billing navigation hub must be the only navigation-only workspace.");
@@ -45,6 +45,9 @@ const quoteBlock=config.slice(config.indexOf("  quotes: {"),config.indexOf('  "b
 if(!quoteBlock.includes("loader: () => adminApi.quotes()")||!quoteBlock.includes('availability: "api"'))
  throw Error("Quotes must use the existing owned API, not demo data");
 if(!read("lib/api/endpoints.ts").includes('"/billing/quotes/"'))throw Error("Existing Django quote API route is missing");
+const previewBlock=config.slice(config.indexOf('  "billing-batch": {'),config.indexOf('  "print-queue": {'));
+if(!previewBlock.includes("loader: () => adminApi.renewalPreview()")||!previewBlock.includes('availability: "api"'))
+ throw Error("Renewal review must be backed by the safe admin API");
 if(!read("features/admin/workspace/views/AdminWorkspaceView.tsx").includes('"quote_number"'))
  throw Error("Quote number must remain visible in Admin listing");
-console.log("PASS: 11 unavailable workspace loaders remain disclosed; Quotes are read-only API-backed.");
+console.log("PASS: 9 unconnected workspace loaders remain disclosed; Quotes and Renewal Preview are read-only API-backed.");

@@ -270,6 +270,66 @@ class BillingDocumentAuthorityTests(APITestCase):
         self.assertEqual(self.quote.status, "draft")
         self.assertFalse(Order.objects.filter(client=self.owner).exists())
 
+
+    def test_renewal_preview_is_admin_only_and_read_only(self):
+        from services.models import Service
+        User = get_user_model()
+        admin = User.objects.create_user(
+            email="renewal-admin@example.invalid", username="renewaladmin",
+            password="LocalTest2026!", role="admin")
+        service = Service.objects.create(
+            client=self.owner, product_id=1, plan_id=1, label="Synthetic hosting",
+            status="active", billing_cycle="12mo", amount=Decimal("50000.00"),
+            currency="NGN", next_due_date=timezone.now() + timedelta(days=5),
+        )
+        path = "/api/billing/invoices/renewal-preview/"
+        self.client.force_authenticate(self.owner)
+        self.assertEqual(self.client.get(path).status_code, 403)
+        self.client.force_authenticate(user=None)
+        self.assertIn(self.client.get(path).status_code, (401, 403))
+        self.client.force_authenticate(admin)
+        self.assertEqual(self.client.get(path + "?days=0").status_code, 400)
+        self.assertEqual(self.client.get(path + "?days=91").status_code, 400)
+        self.assertEqual(self.client.post(path, {}, format="json").status_code, 405)
+        before = Invoice.objects.count()
+        result = self.client.get(path + "?days=10")
+        self.assertEqual(result.status_code, 200)
+        self.assertTrue(result.data["preview_only"])
+        self.assertFalse(result.data["billing_enabled"])
+        found = next(item for item in result.data["results"] if item["id"] == str(service.pk))
+        self.assertEqual(found["status"], "needs_billing_policy_review")
+        self.assertEqual(Invoice.objects.count(), before)
+        service.refresh_from_db()
+        self.assertEqual(service.status, "active")
+
+    def test_renewal_preview_blocks_opt_out_and_existing_open_invoice(self):
+        from services.models import Service
+        User = get_user_model()
+        admin = User.objects.create_user(
+            email="renewal-otheradmin@example.invalid", username="renewalotheradmin",
+            password="LocalTest2026!", role="admin")
+        service = Service.objects.create(
+            client=self.owner, product_id=1, plan_id=1, label="Synthetic opt-out",
+            status="active", billing_cycle="1mo", amount=Decimal("1500.00"),
+            currency="NGN", next_due_date=timezone.now() + timedelta(days=3),
+            auto_renew=False,
+        )
+        self.client.force_authenticate(admin)
+        path = "/api/billing/invoices/renewal-preview/"
+        first = self.client.get(path)
+        self.assertEqual(next(item["status"] for item in first.data["results"]
+            if item["id"] == str(service.pk)), "renewal_not_authorized")
+        Invoice.objects.create(
+            client=self.owner, due_date=timezone.now() + timedelta(days=3),
+            status="unpaid", total=Decimal("1500.00"),
+            metadata={"type": "renewal", "service_id": service.pk},
+        )
+        before=Invoice.objects.count()
+        result=self.client.get(path)
+        self.assertEqual(next(item["status"] for item in result.data["results"]
+            if item["id"] == str(service.pk)), "existing_open_invoice")
+        self.assertEqual(Invoice.objects.count(), before)
+
     def test_read_existing_quote_is_account_scoped(self):
         path = f"/api/billing/quotes/{self.quote.pk}/"
         self.client.force_authenticate(self.owner)

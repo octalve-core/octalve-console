@@ -10,6 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.http import HttpResponse
 from importlib import import_module
+from datetime import timedelta
 from .invoice_pdf import DEFAULT_TEMPLATE_ID, TEMPLATE_REGISTRY, default_template_id
 from .models import Invoice, Tax, Quote
 from .serializers import InvoiceSerializer, TaxSerializer, QuoteSerializer, CreateQuoteSerializer
@@ -106,6 +107,69 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         response["X-Content-Type-Options"] = "nosniff"
         response["X-Robots-Tag"] = "noindex, nofollow"
         return response
+
+    @action(detail=False, methods=["get"], url_path="renewal-preview")
+    def renewal_preview(self, request):
+        """Bounded read-only renewal review; never an invoice-creation action.
+
+        Invoice period keys, supplier margin, tax and consent still require a
+        separate approved batch. No service shown here is authorised to bill.
+        """
+        if not self._require_admin(request):
+            return Response({"detail": "Permission denied."}, status=403)
+        raw_days = request.query_params.get("days", "30")
+        if (not isinstance(raw_days, str) or len(raw_days) > 2 or
+                not raw_days.isascii() or not raw_days.isdecimal() or
+                not 1 <= int(raw_days) <= 90):
+            return Response({"days": ["Use 1 to 90 days."]}, status=400)
+        from services.models import Service
+        now = timezone.now()
+        horizon = now + timedelta(days=int(raw_days))
+        lower_bound = now - timedelta(days=60)
+        # A bounded window and deterministic order avoid unknowable unbounded
+        # serverless scans. Older arrears require a separately approved report.
+        candidates = list(
+            Service.objects.filter(
+                next_due_date__gte=lower_bound,
+                next_due_date__lte=horizon,
+                status__in=("active", "suspended", "cancellation_requested"),
+            ).order_by("next_due_date", "pk")[:51]
+        )
+        results = []
+        for service in candidates[:50]:
+            existing = Invoice.objects.filter(
+                client_id=service.client_id, metadata__type="renewal",
+                metadata__service_id=service.pk,
+                status__in=("unpaid", "partially_paid", "overdue"),
+            ).exists()
+            if service.billing_cycle == "once":
+                review = "one_time_not_recurring"
+            elif existing:
+                review = "existing_open_invoice"
+            elif not service.auto_renew:
+                review = "renewal_not_authorized"
+            elif service.status != "active":
+                review = "service_not_active"
+            else:
+                review = "needs_billing_policy_review"
+            results.append({
+                "id": str(service.pk),
+                "label": service.label,
+                "description": "Customer service renewal review - no invoice created",
+                "status": review,
+                "date": service.next_due_date.isoformat(),
+                "service_type": service.service_type,
+            })
+        return Response({
+            "results": results,
+            "count": len(results),
+            "truncated": len(candidates) > 50,
+            "as_of": now.isoformat(),
+            "window_days": int(raw_days),
+            "preview_only": True,
+            "billing_enabled": False,
+            "message": "Review only. No invoices, charges, renewals or service changes were made.",
+        }, headers={"Cache-Control": "private, no-store"})
 
     def get_queryset(self):
         user = self.request.user

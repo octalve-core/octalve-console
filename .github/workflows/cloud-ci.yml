@@ -111,6 +111,8 @@ jobs:
         run: node frontend/scripts/check-batch15-browser-gates.cjs
       - name: Batch 16 invoice template Studio and financial authority
         run: node frontend/scripts/check-batch16-invoice-studio.cjs
+      - name: Batch 17 read-only renewal review and no financial mutation
+        run: node frontend/scripts/check-batch17-renewal-preflight.cjs
 
   django-check:
     runs-on: ubuntu-latest
