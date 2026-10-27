@@ -104,7 +104,7 @@ export function ClientServiceDetailView(){
               {usage?.recordedAt?<p className="mt-5 text-xs text-console-muted">Last recorded: {serviceDate(usage.recordedAt)}</p>:null}
             </Panel>
             <Panel>
-              <h2 className="flex items-center gap-2 text-lg font-semibold text-console-ink">
+              <h2 id="renewal" className="scroll-mt-24 flex items-center gap-2 text-lg font-semibold text-console-ink">
                 <CalendarClock className="h-5 w-5 text-console-primary" aria-hidden="true"/>Renewal
               </h2>
               <p className="mt-3 text-sm text-console-muted">Next due: {serviceDate(data.nextDueDate)}.</p>
