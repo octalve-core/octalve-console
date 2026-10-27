@@ -141,7 +141,7 @@ def render(document: "InvoiceDocument") -> bytes:
     pdf.setFillColor(status_colour)
     pdf.setFont("Helvetica-Bold", 9)
     pdf.drawString(416, y - 38, document.status)
-    y -= 82
+    y -= 78
 
     issuer = [document.issuer_name, document.issuer_address, document.issuer_email, document.issuer_tax_id]
     customer = [
@@ -176,7 +176,7 @@ def render(document: "InvoiceDocument") -> bytes:
             pdf.setFillColor(NAVY if idx == 0 else INK)
             pdf.setFont("Helvetica-Bold" if idx == 0 else "Helvetica", 8)
             pdf.drawString(x, y - 37 - idx * 12, entry)
-    y -= card_height + 22
+    y -= card_height + 14
 
     def table_header():
         nonlocal y
@@ -190,12 +190,12 @@ def render(document: "InvoiceDocument") -> bytes:
         pdf.drawRightString(361, y - 17, "QTY")
         pdf.drawRightString(444, y - 17, "UNIT PRICE")
         pdf.drawRightString(RIGHT - 9, y - 17, "TOTAL")
-        y -= 34
+        y -= 32
 
     table_header()
     for item in document.lines:
         parts = _wrap(item.description, 8.5, 259) or ["Invoice item"]
-        height = max(34, 15 + len(parts) * 12)
+        height = max(32, 15 + len(parts) * 12)
         if ensure(height + 8):
             table_header()
         pdf.setFillColor(INK)
@@ -209,7 +209,7 @@ def render(document: "InvoiceDocument") -> bytes:
         y -= height
         pdf.setStrokeColor(BORDER)
         pdf.line(LEFT, y, RIGHT, y)
-        y -= 4
+        y -= 3
 
     # Financial rows are rendered only from persisted, validated totals.
     ensure(170)
@@ -231,7 +231,7 @@ def render(document: "InvoiceDocument") -> bytes:
         pdf.setFont("Helvetica-Bold" if emph else "Helvetica", 9.5)
         pdf.drawString(313, y, name)
         pdf.drawRightString(RIGHT - 8, y, _money(amount, document.currency))
-        y -= 24
+        y -= 22
 
     # User-provided notes are bounded by the engine. Do not imply payment success.
     note = document.notes or (
@@ -241,7 +241,7 @@ def render(document: "InvoiceDocument") -> bytes:
     pieces = _wrap(note, 8, RIGHT - LEFT - 28)
     height = max(47, 26 + len(pieces) * 11)
     ensure(height + 16)
-    y -= 9
+    y -= 7
     pdf.setFillColor(PALE)
     pdf.roundRect(LEFT, y - height, RIGHT - LEFT, height, 7, fill=1, stroke=0)
     pdf.setFillColor(BLUE)
