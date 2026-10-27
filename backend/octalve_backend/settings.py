@@ -39,6 +39,8 @@ environ.Env.read_env(BASE_DIR / '.env')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG', False)
+# Off in Production until the consolidated migration and release qualification pass.
+REWARDS_API_ENABLED = env.bool('REWARDS_API_ENABLED', False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
