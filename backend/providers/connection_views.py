@@ -15,6 +15,7 @@ from catalog.permissions import InternalSupplierAuthority
 from .connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent
 from .connection_specs import SCHEMAS, public_catalog, validate_public_settings, validate_secrets
 from .connection_vault import seal, vault, VaultUnavailable
+from .connection_stepup import check_mutation
 
 class VaultMutationThrottle(SimpleRateThrottle):
     scope = "provider_draft_secrets"
@@ -40,7 +41,8 @@ def require_write_authority(request):
         raise PermissionDenied("Recent account password verification is required.")
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,32}",getattr(settings,"CLOUD_PROVIDER_VAULT_KEY_ID","")):
         raise VaultUnavailable()
-    vault()  # A missing, malformed or reused key must fail before any database write.
+    vault()
+    check_mutation(user,password,request.data.get('totp_code'))
 
 def clean_payload(data, expected):
     if not isinstance(data,dict) or set(data)!=expected:
@@ -75,7 +77,7 @@ def connections(request):
         return Response({"results":[safe_connection(x) for x in rows[:50]],
                          "truncated":len(rows)>50,"execution_enabled":False})
     require_write_authority(request)
-    data=clean_payload(request.data,{"adapter_key","label","environment","public_settings","secrets","confirm_password"})
+    data=clean_payload(request.data,{"adapter_key","label","environment","public_settings","secrets","confirm_password","totp_code"})
     adapter=data["adapter_key"]
     if adapter not in SCHEMAS:
         raise ValidationError({"adapter_key":"Adapter is not supported for secure draft storage."})
@@ -112,7 +114,7 @@ def connection_detail(request, connection_id):
 @throttle_classes([VaultMutationThrottle])
 def rotate_connection(request, connection_id):
     require_write_authority(request)
-    data=clean_payload(request.data,{"secrets","confirm_password"})
+    data=clean_payload(request.data,{"secrets","confirm_password","totp_code"})
     with transaction.atomic():
         try:
             row=IntegrationConnection.objects.select_for_update().get(pk=connection_id)
@@ -140,7 +142,7 @@ def rotate_connection(request, connection_id):
 @throttle_classes([VaultMutationThrottle])
 def revoke_connection(request, connection_id):
     require_write_authority(request)
-    clean_payload(request.data,{"confirm_password"})
+    clean_payload(request.data,{"confirm_password","totp_code"})
     with transaction.atomic():
         try:
             row=IntegrationConnection.objects.select_for_update().get(pk=connection_id)
