@@ -58,6 +58,10 @@ def _decode(document):
         raise VaultUnavailable()
     try:
         envelope = json.loads(document)
+        # Reject ambiguous duplicate JSON keys, whitespace rewrites and
+        # non-canonical encodings before interpreting any signed receipt.
+        if document != _canonical(envelope):
+            raise ValueError("Noncanonical checkpoint envelope")
         if not isinstance(envelope, dict) or set(envelope) != {"payload", "mac"}:
             raise ValueError("Invalid envelope")
         payload, mac = envelope["payload"], envelope["mac"]
