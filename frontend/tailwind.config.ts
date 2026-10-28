@@ -11,6 +11,21 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Opt-in premium layout tokens. Existing utility scales and route sizing
+      // stay untouched until authenticated visual parity qualifies migration.
+      spacing: {
+        "page-gutter": "clamp(1rem, 2vw, 2rem)",
+        "section": "2rem",
+        "section-lg": "3rem",
+      },
+      maxWidth: {
+        "console-content": "97.5rem",
+        "console-reading": "48rem",
+      },
+      borderRadius: {
+        "console-card": "1.5rem",
+        "console-control": "0.875rem",
+      },
       colors: {
         "octalve-blue": "#0064E0",
         "cloud-blue": "#0064E0",
