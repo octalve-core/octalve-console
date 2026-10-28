@@ -43,16 +43,12 @@ class WalletViewSet(viewsets.GenericViewSet):
     
     @action(detail=False, methods=['post'])
     def update_settings(self, request):
-        """Update wallet settings"""
-        wallet = self.get_object()
-        wallet.auto_pay_enabled = request.data.get('auto_pay_enabled', wallet.auto_pay_enabled)
-        wallet.auto_pay_threshold = request.data.get('auto_pay_threshold', wallet.auto_pay_threshold)
-        wallet.low_balance_threshold = request.data.get('low_balance_threshold', wallet.low_balance_threshold)
-        wallet.save()
-        
-        serializer = self.get_serializer(wallet)
-        return Response(serializer.data)
-    
+        """Autopay preferences remain closed until their debit authority is qualified."""
+        return Response(
+            {'detail': 'Wallet payment preferences cannot be changed while automatic settlement is unavailable.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
     @action(detail=False, methods=['get'])
     def ledger(self, request):
         """Get wallet ledger history"""
@@ -232,30 +228,8 @@ class AdminWalletViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['post'])
     @permission_required('manage_finances')
     def manual_adjust(self, request, pk=None):
-        """Manually adjust wallet balance (admin only)"""
-        wallet = self.get_object()
-        amount = Decimal(str(request.data.get('amount', 0)))
-        operation = request.data.get('operation', 'credit')  # credit or debit
-        reason = request.data.get('reason', 'Manual adjustment')
-        
-        if operation == 'credit':
-            wallet.add_balance(
-                amount=amount,
-                description=reason,
-                created_by=request.user,
-                metadata={'admin_note': reason}
-            )
-            message = f"Credited {amount} to wallet"
-        else:
-            try:
-                wallet.deduct_balance(
-                    amount=amount,
-                    description=reason,
-                    created_by=request.user,
-                    metadata={'admin_note': reason}
-                )
-                message = f"Debited {amount} from wallet"
-            except ValueError as e:
-                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
-        return Response({'message': message, 'new_balance': wallet.balance})
+        """Manual balance changes require a separately reconciled ledger workflow."""
+        return Response(
+            {'detail': 'Manual wallet adjustments are unavailable until financial reconciliation is approved.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
