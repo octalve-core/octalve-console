@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Loader2, Mail, MailCheck } from "lucide-react";
+import { Loader2, Mail, MailCheck } from "lucide-react";
+import styles from "../components/AuthLayout.module.css";
 import { authApi } from "@/lib/api/endpoints";
 import { parseApiValidationError } from "@/lib/api/validation";
 import { ApiFormError } from "@/components/feedback/ApiFormError";
@@ -41,12 +42,12 @@ export function ForgotPasswordPageClient() {
   return (
     <AuthLayout
       icon={MailCheck}
-      title="Reset password"
-      description="Enter your email address to receive a secure reset link."
+      title="Forgot password?"
+      description="Enter your email to recover your account. We’ll send a secure reset link if it matches an account."
       sideTitle="Recover your account securely."
       sideDescription="Request a secure password reset link for your Octalve Console account without exposing account information."
     >
-      <form method="post" onSubmit={handleSubmit} className="grid gap-4 sm:gap-[18px]">
+      <form method="post" onSubmit={handleSubmit} className={styles.form}>
         <AuthInput
           label="Email address"
           name="email"
@@ -80,17 +81,8 @@ export function ForgotPasswordPageClient() {
         </AuthButton>
         </div>
 
-        <p className="mb-2 mt-4 text-center text-sm leading-6 text-slate-500">
-          Remember your password?
-        </p>
-
-        <Link
-          href="/login"
-          className="mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-console-primary hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to login
-        </Link>
+        <div className={styles.support}><MailCheck size={16} aria-hidden="true"/>Check your inbox for the secure link after submitting.</div>
+        <p className={styles.footer}><Link href="/login" className={styles.link}>← Back to sign in</Link></p>
       </form>
     </AuthLayout>
   );
