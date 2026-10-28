@@ -50,25 +50,13 @@ if(process.argv.includes("--built")){
  walk(staticRoot);
  if(!css.length)throw Error("Next build did not emit CSS");
  const built=css.map(file=>fs.readFileSync(file,"utf8")).join("\n");
- const previews=css.map(file=>{
-  const contents=fs.readFileSync(file,"utf8");
-  const terms=["report-column-gap","sheet-elevation","AdminReports","grid-template-columns","overscroll-behavior"];
-  return {asset:path.relative(root,file),bytes:contents.length,
-   terms:Object.fromEntries(terms.map(token=>[token,contents.includes(token)])),
-   head:contents.slice(0,180)};
- });
- console.log("Batch A emitted CSS diagnostics:",JSON.stringify(previews));
- // Next.js hashes CSS Module class selectors and may change the naming
- // pattern between webpack/Turbopack versions. Assert emitted CSS behavior,
- // while source checks above verify exact module owner/class bindings.
- // Module class hashes and CSS minification are implementation details.
- // Assert scoped semantic variables survive the production compilation.
  const checks=[
-  {name:"report grid module",rule:/--report-column-gap\\s*:/},
-  {name:"adaptive sheet module",rule:/--sheet-elevation\\s*:/},
+  {name:"report grid module",token:"--report-column-gap:"},
+  {name:"adaptive sheet module",token:"--sheet-elevation:"},
  ];
  for(const check of checks)
-  if(!check.rule.test(built))throw Error("Scoped UI CSS not emitted: "+check.name);
+  if(!built.includes(check.token))throw Error("Scoped UI CSS not emitted: "+check.name);
+
 }
 console.log("PASS: Batch A report UI uses real read-only Django sources, scoped responsive CSS, Lucide icons, and accessible adaptive sheet.");
 console.log("PENDING: authenticated viewport browser evidence and backend currency-qualified financial totals.");
