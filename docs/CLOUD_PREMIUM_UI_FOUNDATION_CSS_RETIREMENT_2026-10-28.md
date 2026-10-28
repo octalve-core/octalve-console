@@ -11,14 +11,31 @@
 - An exactly duplicated `.error-alert` rule appeared at original lines 560 and 787, with the same declarations. Removed only the earlier identical copy, leaving the later one intact. Protected stylesheet now has **8,516 lines**. This is **not** broad CSS retirement.
 - Existing TSX components already include DashboardShell, design-system Panel, SectionHeading, ActionButton, ResponsiveTable, and role-aware navigation. Do not replace them with a new scaffold.
 
-## Reference comparison
-| Source | Framework | Styling architecture | Applicability |
-| --- | --- | --- | --- |
-| `octalve-core/octalve-console` | Next.js/React | Tailwind v3 + 8,526-line compatibility sheet before this patch | Preserve existing flows; consolidate gradually |
-| `octalve-core/octalve-fintech` | **Expo/React Native**, NOT Next.js | NativeWind v4 with Tailwind v3; three Tailwind directives in mobile global.css, color/layout tokens in `apps/mobile/src/design/tokens.ts` | Reuse modular design-token philosophy, not mobile JSX/native architecture |
-| `octalve-core/coov-web` | Next.js 16 web | Tailwind v4, relatively small globals.css, typed Container/Section/Heading components | Better reference for web layout rhythm; do not import its purple fintech branding |
+## Correct reference comparison — Octalve Invoice, not fintech
+The requested UI reference is **`octalve-core/octalve-invoice`**, inspected on `main` at Git tree `6bfa293ebbc29bc0c9fa4f14d2a6fd301b862a64`. The previously cited mobile fintech repository was a mistaken identification and **is not** the design reference for this work.
 
-No accessible `octalve-core/octalve-finance` repository was found. Do not claim its implementation was examined; the two closest confirmed repositories above were inspected.
+| Topic | Octalve Invoice | Octalve Console | Proposed nonbreaking Console direction |
+| --- | --- | --- | --- |
+| Web framework | Next.js 16, React 19, TypeScript | Next.js 16, React 19, TypeScript | Preserve existing Console app and typed APIs |
+| Tailwind | v4 with `@import "tailwindcss"`, `@theme inline`, `@tailwindcss/postcss` | v3.4 with `@tailwind` directives and one canonical TS config | Keep Tailwind v3 during cleanup; assess v4 in a separately tested migration |
+| Global stylesheet | `app/globals.css`: 472 lines; theme tokens, auth classes, animations and selected utilities | `frontend/src/app/globals.css`: 8,526 lines before the exact-duplicate cleanup | Centralize tokens; shrink global CSS **only after consumers are retired**, not by blind deletion |
+| Additional CSS | `sapphire-document.css` (925 lines), `classic-ledger.module.css` (571 lines), `classic-receipt.module.css` (800 lines) | One 8,526-line global compatibility stylesheet before cleanup | Use CSS Modules for truly component- or document-scoped non-Tailwind styling; do not add more global override patches |
+| UI components | `components/ui/button.tsx` uses Radix Slot and CVA variants; input, form, label and notifications have owned UI files | Typed `components/design-system` plus shared `components/ui` | Adapt accessible patterns individually; no wholesale shadcn init or double component registry |
+| Dashboard architecture | Sidebar, TopNavbar, mobile header/bottom navigation, MerchantPageHeading, Tabs, cards and feature tables | Shared DashboardShell, DashboardHeader/Sidebar, Panel, SectionHeading, typed actions/forms/tables | Reuse layouts and improve whitespace/hierarchy; preserve Admin/Staff/Client role boundaries |
+| Document rendering | Separate invoice template CSS Modules, browser preview, and `@react-pdf/renderer` PDF implementations | Django invoice templates and financial authority | Borrow **CSS isolation only**; do not move invoice logic between products |
+| Brand | Invoice uses familiar Octalve blue, dark/navy sidebar and neutral workspaces | Existing Octalve Console blue/navy/white palette | Keep Console brand; do not import separate product-specific theme variables |
+
+**Important nuances:** Invoice's global CSS is smaller than Console's but is **not CSS-free**; substantial template CSS exists in separate files and its global stylesheet still contains custom classes. Its `tailwind.config.ts` currently uses a CommonJS-style `module.exports` despite the `.ts` extension; under Tailwind v4 the CSS-first theme is the reliable authoritative pattern. Do not copy that config verbatim.
+
+Its dashboard's focused `MerchantPageHeading`, route-level `Tabs`, componentized cards and relatively compact `p-3 / sm:p-4 / lg:p-6` shell gutters are useful visual references. They are not proof of authenticated browser parity. Some Invoice table source includes hardcoded illustrative rows, which must **never** be copied into Console's real, Django-authoritative commerce and service data.
+
+### What to borrow from Octalve Invoice
+1. **Design system discipline:** shared typography, colors, border/radius and component variants owned in one place; limit one-off class definitions.
+2. **Page rhythm:** compact dashboard shell with clear heading, actions, whitespace between meaningful blocks, consistent card and table density. Reserve large marketing gutters for marketing pages, not administrative workbenches.
+3. **Accessible component patterns:** Radix Slot and CVA-style variant APIs for specific new components when useful; preserve existing Console component props, event behavior, keyboard use, loading and pending states.
+4. **Style isolation:** opt-in Tailwind for standard UI; use local CSS Modules for complex specialized visuals that genuinely require CSS, with explicit import ownership, not product-level unscoped selectors.
+5. **Independent templates:** isolate each invoice/document presentation from authoritative business calculations, storing template-specific preview/PDF styles and tests under its own folder.
+6. **Incremental versioning:** Tailwind 4 brings meaningful breaking changes (`@tailwind` to `@import`, changed PostCSS plugin, CSS theme config and source scanning). Upgrade after separate CI + 810-browser-case evidence; don't mix it with removal of 8,000+ lines of CSS.
 
 ## Approved design principles
 1. Console blue/ink/white branding remains authoritative. Neither COOV plum/gold nor other product branding should bleed into Console.
