@@ -8,7 +8,7 @@ The B2.4 HMAC event chain protects integrity within the current database but can
 B2.7 signs a bounded checkpoint containing **only** provider connection UUID, signed audit sequence and audit head, plus an issuance timestamp. When its original bytes are saved independently and immutably, later verification detects missing connections, a valid but rolled-back event history, changed historical events or a substituted artifact. Later legitimate events are allowed by comparing the event at the saved sequence.
 
 ## Controls and operator workflow
-- Export is default OFF via CLOUD_PROVIDER_AUDIT_CHECKPOINT_ENABLED. CLOUD_PROVIDER_CHECKPOINT_KEY must be its own 32-byte Base64 key, distinct from audit, vault, MFA, recovery and legacy keys, managed outside Neon/source.
+- Export is default OFF via CLOUD_PROVIDER_AUDIT_CHECKPOINT_ENABLED. CLOUD_PROVIDER_CHECKPOINT_SCOPE must be a stable, distinct, explicitly configured identifier for the source deployment and database (for example, octalve-console:review); export and verification reject missing or mismatched scope. CLOUD_PROVIDER_CHECKPOINT_KEY must be its own 32-byte Base64 key, distinct from audit, vault, MFA, recovery and legacy keys, managed outside Neon/source.
 - In an independently approved offline Review environment, run: python manage.py provider_audit_checkpoint --output /approved/new/checkpoint.json --confirm=EXPORT-PROVIDER-AUDIT-CHECKPOINT
 - The exporter creates an exclusive mode-0600 new local file, refuses overwrite and symlinks, and **never** uploads it. Do not run it against Production in this phase.
 - Transfer the original file via a separately approved secure process into independently owned immutable/WORM storage. Preserve every checkpoint and independently certify retention and access controls.
@@ -18,7 +18,7 @@ B2.7 signs a bounded checkpoint containing **only** provider connection UUID, si
 - A receipt protects only connections and events present when signed. Events created after the last receipt require a new, separately stored checkpoint. An attacker who can replace external receipts or steal both the key and storage write authority can defeat this protection. Store the newest checkpoint in independently controlled WORM storage, with alerting for missed exports.
 
 ## Synthetic acceptance
-Tests include proper newer events; an *internally valid full rollback* rejected against the checkpoint; missing connection; altered signature; even re-signed malformed or duplicate rows; missing/reused key; disabled export; bad source audit; malformed/oversized data; and exclusive private-file export.
+Tests include proper newer events; an *internally valid full rollback* rejected against the checkpoint; missing connection; altered signature; source-scope substitution; even re-signed malformed or duplicate rows; missing/reused key; disabled export; bad source audit; malformed/oversized data; and exclusive private-file export.
 
 ## Not certified or activated
 - No external immutable bucket or schedule, dual-control custody or independent timestamp has been provisioned by this PR. AWS S3 Object Lock compliance mode or Google Cloud Bucket Lock can be separately qualified under independent IAM and retention policy, but no provider selection is made here.
