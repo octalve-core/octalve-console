@@ -34,63 +34,23 @@ class Wallet(models.Model):
         ]
     
     def add_balance(self, amount, description, reference=None, created_by=None, metadata=None):
-        """Add funds to wallet"""
-        amount = Decimal(str(amount))
-        if not amount.is_finite() or amount <= 0 or amount != amount.quantize(Decimal("0.01")):
-            raise ValueError("Wallet amount must be a positive, two-decimal sum.")
-        old_balance = self.balance
-        self.balance += amount
-        self.save()
-        
-        WalletLedger.objects.create(
-            wallet=self,
-            user=self.user,
-            transaction_type='credit',
-            amount=amount,
-            balance_before=old_balance,
-            balance_after=self.balance,
-            description=description,
-            reference=reference,
-            created_by=created_by,
-            metadata=metadata or {}
+        """Internal credit with durable, wallet-scoped idempotency and row locking."""
+        from .ledger_authority import post_wallet_entry
+        balance, _created = post_wallet_entry(
+            self, direction="credit", amount=amount, description=description,
+            reference=reference, created_by=created_by, metadata=metadata,
         )
-        
-        # Check if we should send low balance alert (not needed since we're adding)
-        
-        return self.balance
-    
+        return balance
+
     def deduct_balance(self, amount, description, reference=None, created_by=None, metadata=None):
-        """Deduct funds from wallet"""
-        amount = Decimal(str(amount))
-        if not amount.is_finite() or amount <= 0 or amount != amount.quantize(Decimal("0.01")):
-            raise ValueError("Wallet amount must be a positive, two-decimal sum.")
-        
-        if self.balance < amount:
-            raise ValueError(f"Insufficient wallet balance. Available: {self.balance}, Required: {amount}")
-        
-        old_balance = self.balance
-        self.balance -= amount
-        self.save()
-        
-        WalletLedger.objects.create(
-            wallet=self,
-            user=self.user,
-            transaction_type='debit',
-            amount=amount,
-            balance_before=old_balance,
-            balance_after=self.balance,
-            description=description,
-            reference=reference,
-            created_by=created_by,
-            metadata=metadata or {}
+        """Internal debit; never performs a blind read/modify/write."""
+        from .ledger_authority import post_wallet_entry
+        balance, _created = post_wallet_entry(
+            self, direction="debit", amount=amount, description=description,
+            reference=reference, created_by=created_by, metadata=metadata,
         )
-        
-        # Check low balance alert
-        if self.balance <= self.low_balance_threshold:
-            self._send_low_balance_alert()
-        
-        return self.balance
-    
+        return balance
+
     def _send_low_balance_alert(self):
         """Send low balance notification"""
         # This would trigger a notification
