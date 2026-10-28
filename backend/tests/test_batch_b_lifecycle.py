@@ -243,3 +243,56 @@ class BatchBPostgresConcurrentWalletTests(TransactionTestCase):
         self.assertEqual(results, [Decimal("100"), Decimal("100")])
         self.assertEqual(wallet.balance, Decimal("100"))
         self.assertEqual(WalletLedger.objects.filter(wallet=wallet).count(), 1)
+
+    def test_competing_debits_do_not_overdraw_wallet(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("Real row-lock acceptance requires PostgreSQL.")
+        owner = create_owner("competingdebit")
+        wallet, _ = Wallet.objects.get_or_create(user=owner)
+        wallet.add_balance(Decimal("100"), "Synthetic preload", reference="preload")
+        barrier = threading.Barrier(2)
+
+        def worker(number):
+            close_old_connections()
+            try:
+                row = Wallet.objects.get(pk=wallet.pk)
+                barrier.wait(timeout=12)
+                try:
+                    row.deduct_balance(Decimal("70"), "Synthetic debit", reference=f"debit-{number}")
+                    return "committed"
+                except LedgerRefused:
+                    return "refused"
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(worker, (1, 2)))
+        wallet.refresh_from_db()
+        self.assertEqual(sorted(outcomes), ["committed", "refused"])
+        self.assertEqual(wallet.balance, Decimal("30"))
+        self.assertEqual(WalletLedger.objects.filter(wallet=wallet).count(), 2)
+
+    def test_simultaneous_service_cancellation_requests_are_idempotent(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("Real row-lock acceptance requires PostgreSQL.")
+        owner = create_owner("concurrentcancel")
+        service = create_service(owner)
+        barrier = threading.Barrier(2)
+
+        def worker():
+            close_old_connections()
+            try:
+                barrier.wait(timeout=12)
+                _entry, created = request_service_cancellation(service.pk, actor=owner)
+                return created
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(lambda _i: worker(), range(2)))
+        self.assertEqual(sorted(outcomes), [False, True])
+        service.refresh_from_db()
+        self.assertEqual(service.status, "active")
+        self.assertEqual(ServiceActionLog.objects.filter(
+            service=service, action="cancel", details__state="pending_review"
+        ).count(), 1)
