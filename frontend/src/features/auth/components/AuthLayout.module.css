@@ -1,0 +1,13 @@
+/* Authentication shell only. No generic global .grid override. */
+.frame {
+  display: grid;
+  min-width: 0;
+  width: 100%;
+  --console-auth-panel-columns: 1;
+  grid-template-columns: repeat(var(--console-auth-panel-columns), minmax(0, 1fr));
+}
+@media (min-width: 1024px) {
+  .frame {
+    --console-auth-panel-columns: 2;
+  }
+}

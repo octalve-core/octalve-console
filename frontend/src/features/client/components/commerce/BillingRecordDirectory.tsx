@@ -2,6 +2,7 @@
 import {useMemo,useState} from "react";
 import {Search,ChevronLeft,ChevronRight} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {TextField} from "@/components/design-system/TextField";
 import {SelectField} from "@/components/design-system/SelectField";
 import {ActionButton} from "@/components/design-system/ActionButton";
@@ -30,14 +31,14 @@ export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescrip
   {key:"view",heading:"Details",cell:r=><ActionLink size="sm" variant="outline" href={r.actionHref} className="w-full sm:w-auto">View details</ActionLink>}
  ];
  return <Panel padded={false} className="overflow-hidden">
-  <div className="grid gap-4 border-b border-console-line p-4 sm:grid-cols-2 sm:p-5">
+  <WorkspaceGrid variant="filters" className="border-b border-console-line p-4 sm:p-5">
    <TextField label={resource==="orders"?"Search orders":"Search invoices"} type="search" value={search}
     startIcon={<Search aria-hidden="true" className="h-4 w-4"/>} placeholder="Search by reference or name"
     onChange={e=>{setSearch(e.target.value);setPage(1);}}/>
    <SelectField label="Status" value={status}
     options={[{value:"all",label:"All statuses"},...statuses.map(s=>({value:s,label:formatStatus(s)}))]}
     onChange={e=>{setStatus(e.target.value);setPage(1);}}/>
-  </div>
+  </WorkspaceGrid>
   <div className="min-w-0 p-4 sm:p-5">
    <p className="mb-3 text-xs text-console-muted">{matched.length} {resource} found</p>
    <ResponsiveTable caption={"Your "+resource} rows={visible} columns={cols} getRowKey={r=>r.id}

@@ -59,6 +59,8 @@ jobs:
         run: node frontend/scripts/check-console-design-system.cjs
       - name: Batch B canonical Admin and Staff UI source and CSS retirement contract
         run: node frontend/scripts/check-batch-b-admin-staff-ui.cjs
+      - name: Batch C Client and authentication shared UI authority contract
+        run: node frontend/scripts/check-batch-c-client-auth-ui.cjs
       - name: Invoice-style reports and responsive UI safety contract (Batch A)
         run: node frontend/scripts/check-batch-a-invoice-report-ui.cjs
       - name: Report financial count parser truthfulness (Batch A)
@@ -73,6 +75,8 @@ jobs:
         run: node frontend/scripts/check-console-design-system.cjs --built
       - name: Batch B responsive workspace CSS Modules in production output
         run: node frontend/scripts/check-batch-b-admin-staff-ui.cjs --built
+      - name: Batch C Client and authentication scoped CSS output
+        run: node frontend/scripts/check-batch-c-client-auth-ui.cjs --built
       - name: Report CSS Modules and emitted UI regression (Batch A)
         run: node frontend/scripts/check-batch-a-invoice-report-ui.cjs --built
       - name: Shared Console shell and auth Tailwind contract (Batch 2)

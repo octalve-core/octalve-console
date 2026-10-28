@@ -3,6 +3,7 @@ import type {ReactNode} from "react";
 import type {LucideIcon} from "lucide-react";
 import {AuthBrandLogo} from "./AuthBrandLogo";
 import {AuthBrandPanel} from "./AuthBrandPanel";
+import styles from "./AuthLayout.module.css";
 
 type AuthLayoutProps={
  title:string;description:string;sideTitle:string;sideDescription:string;
@@ -12,7 +13,7 @@ type AuthLayoutProps={
 export function AuthLayout({title,description,sideTitle,sideDescription,icon:Icon,children}:AuthLayoutProps){
  return <main className="min-h-dvh bg-console-canvas px-3 py-5 text-console-ink sm:px-6 sm:py-7">
   <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-[1180px] items-center justify-center">
-   <div className="grid w-full min-w-0 overflow-hidden rounded-[28px] border border-console-line bg-white shadow-xl lg:min-h-[680px] lg:grid-cols-2">
+   <div className={`${styles.frame} overflow-hidden rounded-[28px] border border-console-line bg-white shadow-xl lg:min-h-[680px]`}>
     <AuthBrandPanel sideTitle={sideTitle} sideDescription={sideDescription}/>
     <section className="flex min-w-0 items-center justify-center px-5 py-9 sm:px-10 sm:py-12 lg:px-12">
      <div className="w-full max-w-[432px] min-w-0">

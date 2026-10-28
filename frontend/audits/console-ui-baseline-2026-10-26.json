@@ -12,7 +12,8 @@
   "otherCss": [
     "frontend/src/components/design-system/AdaptiveSheet.module.css",
     "frontend/src/components/design-system/WorkspaceGrid.module.css",
-    "frontend/src/features/admin/reports/views/AdminReportsWorkspace.module.css"
+    "frontend/src/features/admin/reports/views/AdminReportsWorkspace.module.css",
+    "frontend/src/features/auth/components/AuthLayout.module.css"
   ],
   "routeCounts": {
     "client": 23,
@@ -146,7 +147,7 @@
     }
   ],
   "legacyCssReviewedAsOf": "2026-10-28",
-  "legacyCssApprovedDelta": "Batch B: migrate final AdminToolPage .stat-icon reference to local utilities; retire exactly two global .stat-icon rules (2 lines) after confirming previous StatCard already migrated. Keep all other legacy CSS until qualified owners migrate; no authenticated browser parity claimed.",
+  "legacyCssApprovedDelta": "No source-exclusive legacy global selectors qualified for deletion in this Client/auth migration: .grid is still owned by independent Admin/Client/Staff pages. Keep 8,502-line frozen root CSS and exact blob until all remaining consumers pass browser acceptance.",
   "reviewedCssModulesAsOf": "2026-10-28",
-  "reviewedCssModulesReason": "Batch B: one locally owned Admin/Staff responsive grid CSS Module; imported only by shared typed WorkspaceGrid, never global. Report and sheet CSS Modules unchanged."
+  "reviewedCssModulesReason": "Batch C: AuthLayout.module.css privately owns responsive authentication panel columns to avoid unlayered legacy .grid collision; imports only in AuthLayout.tsx. Existing Client overview/action/filter layout extends the canonical WorkspaceGrid.module.css. Root globals.css unchanged at 8,502 lines."
 }
