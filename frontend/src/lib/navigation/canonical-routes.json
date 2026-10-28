@@ -1,0 +1,825 @@
+{
+  "schemaVersion": 1,
+  "kind": "SOURCE INVENTORY ONLY, NOT AUTHENTICATED TEST EVIDENCE",
+  "generatedFromCommit": "9723f0c2aec4eaff0d0c2f3c17c2c37f71af10bb",
+  "expectedViewportWidths": [
+    320,
+    360,
+    390,
+    768,
+    1024,
+    1440
+  ],
+  "routes": [
+    {
+      "route": "/",
+      "role": "public",
+      "source": "frontend/src/app/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin",
+      "role": "admin",
+      "source": "frontend/src/app/admin/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/affiliates",
+      "role": "admin",
+      "source": "frontend/src/app/admin/affiliates/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/affiliates/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/affiliates/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/affiliates/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/affiliates/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/audit-logs",
+      "role": "admin",
+      "source": "frontend/src/app/admin/audit-logs/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/batch",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/batch/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/domains",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/domains/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/domains/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/domains/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/billing/domains/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/domains/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/invoices",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/invoices/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/invoices/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/invoices/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/billing/invoices/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/invoices/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/print-queue",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/print-queue/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/quotes",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/quotes/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/quotes/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/quotes/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/billing/quotes/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/quotes/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/services",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/services/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/services/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/services/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/billing/services/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/services/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/transactions",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/transactions/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/billing/transactions/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/transactions/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/billing/transactions/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/transactions/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/catalog/workbench",
+      "role": "admin",
+      "source": "frontend/src/app/admin/catalog/workbench/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/customers",
+      "role": "admin",
+      "source": "frontend/src/app/admin/customers/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/customers/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/customers/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/customers/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/customers/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/gateways",
+      "role": "admin",
+      "source": "frontend/src/app/admin/gateways/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/gateways/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/gateways/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/gateways/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/gateways/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/gateways/paystack",
+      "role": "admin",
+      "source": "frontend/src/app/admin/gateways/paystack/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/integrations",
+      "role": "admin",
+      "source": "frontend/src/app/admin/integrations/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/invoice-designer",
+      "role": "admin",
+      "source": "frontend/src/app/admin/invoice-designer/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/knowledge-base",
+      "role": "admin",
+      "source": "frontend/src/app/admin/knowledge-base/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/knowledge-base/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/knowledge-base/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/knowledge-base/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/knowledge-base/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/orders",
+      "role": "admin",
+      "source": "frontend/src/app/admin/orders/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/orders/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/orders/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/orders/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/orders/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/plans",
+      "role": "admin",
+      "source": "frontend/src/app/admin/plans/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/plans/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/plans/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/plans/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/plans/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/products",
+      "role": "admin",
+      "source": "frontend/src/app/admin/products/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/products/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/products/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/products/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/products/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/provisioning",
+      "role": "admin",
+      "source": "frontend/src/app/admin/provisioning/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/provisioning/run",
+      "role": "admin",
+      "source": "frontend/src/app/admin/provisioning/run/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/reports",
+      "role": "admin",
+      "source": "frontend/src/app/admin/reports/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/rewards",
+      "role": "admin",
+      "source": "frontend/src/app/admin/rewards/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/servers",
+      "role": "admin",
+      "source": "frontend/src/app/admin/servers/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/servers/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/servers/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/servers/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/servers/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/api-keys",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/api-keys/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/credits",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/credits/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/cron-jobs",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/cron-jobs/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/general",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/general/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/invoices",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/invoices/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/mail",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/mail/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/notifications",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/notifications/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/notifications/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/notifications/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/settings/notifications/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/notifications/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/other",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/other/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/providers",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/providers/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/security",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/security/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/social-login",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/social-login/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/tax",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/tax/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/theme",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/theme/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/settings/tickets",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/tickets/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/staff",
+      "role": "admin",
+      "source": "frontend/src/app/admin/staff/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/staff/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/staff/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/staff/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/staff/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/support",
+      "role": "admin",
+      "source": "frontend/src/app/admin/support/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/support/[id]",
+      "role": "admin",
+      "source": "frontend/src/app/admin/support/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/admin/support/departments",
+      "role": "admin",
+      "source": "frontend/src/app/admin/support/departments/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/support/new",
+      "role": "admin",
+      "source": "frontend/src/app/admin/support/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/support/responses",
+      "role": "admin",
+      "source": "frontend/src/app/admin/support/responses/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/support/staff",
+      "role": "admin",
+      "source": "frontend/src/app/admin/support/staff/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/tools/blacklist",
+      "role": "admin",
+      "source": "frontend/src/app/admin/tools/blacklist/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/tools/cms",
+      "role": "admin",
+      "source": "frontend/src/app/admin/tools/cms/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/tools/currency",
+      "role": "admin",
+      "source": "frontend/src/app/admin/tools/currency/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/tools/download-manager",
+      "role": "admin",
+      "source": "frontend/src/app/admin/tools/download-manager/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/tools/mass-mailer",
+      "role": "admin",
+      "source": "frontend/src/app/admin/tools/mass-mailer/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/tools/service-queue",
+      "role": "admin",
+      "source": "frontend/src/app/admin/tools/service-queue/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/admin/tools/utilities",
+      "role": "admin",
+      "source": "frontend/src/app/admin/tools/utilities/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client",
+      "role": "client",
+      "source": "frontend/src/app/client/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/community",
+      "role": "client",
+      "source": "frontend/src/app/client/community/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/domains",
+      "role": "client",
+      "source": "frontend/src/app/client/domains/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/domains/[id]",
+      "role": "client",
+      "source": "frontend/src/app/client/domains/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/domains/[id]/dns",
+      "role": "client",
+      "source": "frontend/src/app/client/domains/[id]/dns/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/domains/[id]/nameservers",
+      "role": "client",
+      "source": "frontend/src/app/client/domains/[id]/nameservers/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/domains/[id]/renewal",
+      "role": "client",
+      "source": "frontend/src/app/client/domains/[id]/renewal/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/domains/register",
+      "role": "client",
+      "source": "frontend/src/app/client/domains/register/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/domains/transfer",
+      "role": "client",
+      "source": "frontend/src/app/client/domains/transfer/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/invoices",
+      "role": "client",
+      "source": "frontend/src/app/client/invoices/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/invoices/[id]",
+      "role": "client",
+      "source": "frontend/src/app/client/invoices/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/knowledge-base",
+      "role": "client",
+      "source": "frontend/src/app/client/knowledge-base/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/knowledge-base/[id]",
+      "role": "client",
+      "source": "frontend/src/app/client/knowledge-base/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/notifications",
+      "role": "client",
+      "source": "frontend/src/app/client/notifications/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/order",
+      "role": "client",
+      "source": "frontend/src/app/client/order/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/order/checkout",
+      "role": "client",
+      "source": "frontend/src/app/client/order/checkout/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/order/processing",
+      "role": "client",
+      "source": "frontend/src/app/client/order/processing/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/orders",
+      "role": "client",
+      "source": "frontend/src/app/client/orders/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/orders/[id]",
+      "role": "client",
+      "source": "frontend/src/app/client/orders/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/payments/return",
+      "role": "client",
+      "source": "frontend/src/app/client/payments/return/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/profile",
+      "role": "client",
+      "source": "frontend/src/app/client/profile/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/purchases",
+      "role": "client",
+      "source": "frontend/src/app/client/purchases/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/rewards",
+      "role": "client",
+      "source": "frontend/src/app/client/rewards/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/services",
+      "role": "client",
+      "source": "frontend/src/app/client/services/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/services/[id]",
+      "role": "client",
+      "source": "frontend/src/app/client/services/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/services/[id]/authorize-opanel",
+      "role": "client",
+      "source": "frontend/src/app/client/services/[id]/authorize-opanel/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/services/[id]/hosting-status",
+      "role": "client",
+      "source": "frontend/src/app/client/services/[id]/hosting-status/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/services/[id]/opanel",
+      "role": "client",
+      "source": "frontend/src/app/client/services/[id]/opanel/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/settings",
+      "role": "client",
+      "source": "frontend/src/app/client/settings/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/support",
+      "role": "client",
+      "source": "frontend/src/app/client/support/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/support/[id]",
+      "role": "client",
+      "source": "frontend/src/app/client/support/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/client/support/new",
+      "role": "client",
+      "source": "frontend/src/app/client/support/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/client/wallet",
+      "role": "client",
+      "source": "frontend/src/app/client/wallet/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/forgot-password",
+      "role": "public",
+      "source": "frontend/src/app/forgot-password/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/login",
+      "role": "public",
+      "source": "frontend/src/app/login/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/logout",
+      "role": "public",
+      "source": "frontend/src/app/logout/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/reset-password/confirm/[uid]/[token]",
+      "role": "public",
+      "source": "frontend/src/app/reset-password/confirm/[uid]/[token]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/signup",
+      "role": "public",
+      "source": "frontend/src/app/signup/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/staff",
+      "role": "staff",
+      "source": "frontend/src/app/staff/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/staff/customers",
+      "role": "staff",
+      "source": "frontend/src/app/staff/customers/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/staff/knowledge-base",
+      "role": "staff",
+      "source": "frontend/src/app/staff/knowledge-base/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/staff/knowledge-base/[id]",
+      "role": "staff",
+      "source": "frontend/src/app/staff/knowledge-base/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/staff/knowledge-base/new",
+      "role": "staff",
+      "source": "frontend/src/app/staff/knowledge-base/new/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/staff/orders",
+      "role": "staff",
+      "source": "frontend/src/app/staff/orders/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/staff/provisioning",
+      "role": "staff",
+      "source": "frontend/src/app/staff/provisioning/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/staff/security",
+      "role": "staff",
+      "source": "frontend/src/app/staff/security/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/staff/tickets",
+      "role": "staff",
+      "source": "frontend/src/app/staff/tickets/page.tsx",
+      "fixtureRequired": false
+    },
+    {
+      "route": "/staff/tickets/[id]",
+      "role": "staff",
+      "source": "frontend/src/app/staff/tickets/[id]/page.tsx",
+      "fixtureRequired": true
+    },
+    {
+      "route": "/verify-email",
+      "role": "public",
+      "source": "frontend/src/app/verify-email/page.tsx",
+      "fixtureRequired": false
+    }
+  ]
+}
