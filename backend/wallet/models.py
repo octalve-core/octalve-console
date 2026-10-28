@@ -36,6 +36,8 @@ class Wallet(models.Model):
     def add_balance(self, amount, description, reference=None, created_by=None, metadata=None):
         """Add funds to wallet"""
         amount = Decimal(str(amount))
+        if not amount.is_finite() or amount <= 0 or amount != amount.quantize(Decimal("0.01")):
+            raise ValueError("Wallet amount must be a positive, two-decimal sum.")
         old_balance = self.balance
         self.balance += amount
         self.save()
@@ -60,6 +62,8 @@ class Wallet(models.Model):
     def deduct_balance(self, amount, description, reference=None, created_by=None, metadata=None):
         """Deduct funds from wallet"""
         amount = Decimal(str(amount))
+        if not amount.is_finite() or amount <= 0 or amount != amount.quantize(Decimal("0.01")):
+            raise ValueError("Wallet amount must be a positive, two-decimal sum.")
         
         if self.balance < amount:
             raise ValueError(f"Insufficient wallet balance. Available: {self.balance}, Required: {amount}")
