@@ -35,7 +35,7 @@ class CloudProvisioningManagementAccess(BasePermission):
         ))
 
 
-class ProvisioningTaskViewSet(viewsets.ModelViewSet):
+class ProvisioningTaskViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for provisioning tasks"""
     
     serializer_class = ProvisioningTaskSerializer
@@ -217,7 +217,7 @@ class ProvisioningWebhookAccess(IsAuthenticated):
         ))
 
 
-class ProvisioningWebhookViewSet(viewsets.ModelViewSet):
+class ProvisioningWebhookViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for provisioning webhooks"""
     
     queryset = ProvisioningWebhook.objects.all()
