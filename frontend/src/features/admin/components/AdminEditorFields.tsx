@@ -2,13 +2,14 @@
 import {TextField} from "@/components/design-system/TextField";
 import {TextAreaField} from "@/components/design-system/TextAreaField";
 import {SelectField} from "@/components/design-system/SelectField";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import type {AdminEditorField} from "../data/admin-editor-config";
 export function AdminEditorFields({fields,values,fieldErrors,onChange}:{
  fields:readonly AdminEditorField[];values:Readonly<Record<string,string>>;
  fieldErrors:Readonly<Record<string,string|string[]|undefined>>;
  onChange:(name:string,value:string)=>void;
 }){
- return <div className="grid min-w-0 gap-4 md:grid-cols-2">
+ return <WorkspaceGrid variant="editorFields">
   {fields.map(field=>{
    const rawError=fieldErrors[field.name];
    const error=Array.isArray(rawError)?rawError.join(" "):rawError;
@@ -25,5 +26,5 @@ export function AdminEditorFields({fields,values,fieldErrors,onChange}:{
      autoComplete={field.type==="password"?"new-password":undefined} spellCheck={field.type==="password"?false:undefined}/>
    </div>;
   })}
- </div>;
+ </WorkspaceGrid>;
 }

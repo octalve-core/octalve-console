@@ -6,6 +6,7 @@ import {ArrowLeft,CalendarClock,Globe2,ShieldCheck} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {Panel} from "@/components/design-system/Panel";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {ActionLink} from "@/components/design-system/ActionLink";
 import {StatusBadge} from "@/components/design-system/StatusBadge";
 import {CloudRecordDirectory,type CloudRecord} from "@/components/data/CloudRecordDirectory";
@@ -107,14 +108,14 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
                   ${mode===item.mode?"bg-console-primary text-white":"bg-slate-100 text-console-ink hover:bg-slate-200"}`}>
                 {item.label}</Link>)}
             </div>
-            {mode==="overview"?<dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {mode==="overview"?<WorkspaceGrid variant="domainFacts" as="dl" className="mt-5">
               {info.map(([label,value])=><div key={label} className="rounded-xl bg-slate-50 p-4">
                 <dt className="text-xs text-console-muted">{label}</dt>
                 <dd className="mt-2 break-words text-sm font-semibold text-console-ink">{value}</dd>
               </div>)}
-            </dl>:null}
+            </WorkspaceGrid>:null}
           </Panel>
-          {mode==="overview"?<div className="grid gap-5 lg:grid-cols-2">
+          {mode==="overview"?<WorkspaceGrid variant="domainPanels">
             <Panel><h3 className="text-base font-semibold text-console-ink">Domain records</h3>
               <p className="mt-2 text-sm text-console-muted">
                 {domain.dnsRecords.length} stored DNS records · {domain.nameservers.length} stored nameservers.
@@ -126,7 +127,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
               <p className="mt-2 text-sm text-console-muted">Expiry: {displayDomainDate(domain.expiryDate)}</p>
               <ActionLink href={prefix+"/renewal"} variant="outline" className="mt-4">Review renewal options</ActionLink>
             </Panel>
-          </div>:null}
+          </WorkspaceGrid>:null}
           {mode==="dns"?<div className="space-y-4">
             <Panel><h3 className="text-base font-semibold text-console-ink">DNS records</h3>
               <p className="mt-2 text-sm leading-6 text-console-muted">
