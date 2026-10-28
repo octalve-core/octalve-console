@@ -15,7 +15,7 @@ import canonicalRouteManifest from "@/lib/navigation/canonical-routes.json";
 import { productionReadinessChecks, type ProductionReadinessCheck } from "../data/production-readiness";
 
 function readinessTone(status: ProductionReadinessCheck["status"]) {
-  if (status === "Ready") return "success";
+  if (status === "Blocked") return "danger";
   if (status === "Review") return "warning";
   return "neutral";
 }
