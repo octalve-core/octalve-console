@@ -1,9 +1,10 @@
 import Link from "next/link";
 import {ArrowRight} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
+import styles from "@/components/design-system/WorkspaceGrid.module.css";
 import type {AdminSettingsItem} from "../settings/data/admin-settings-config";
 export function AdminSettingsDirectory({items}:{items:readonly AdminSettingsItem[]}){
- return <ul aria-label="Administration settings" className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+ return <ul aria-label="Administration settings" className={styles.directory}>
   {items.map(item=>{const Icon=item.icon;return <li key={item.key}>
    <Link href={item.href} className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary">
     <Panel className="flex h-full min-h-48 flex-col transition-colors group-hover:border-blue-200 group-hover:bg-blue-50/30">
