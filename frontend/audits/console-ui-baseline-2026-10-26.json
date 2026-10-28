@@ -5,12 +5,13 @@
   "policy": "Frozen Batch 0 baseline; update only with explicit approved later-batch migration",
   "legacyCss": {
     "path": "frontend/src/app/globals.css",
-    "gitBlobSha": "fe3c43002dc068714b379aadf206e3591922e2fa",
-    "lines": 8504,
-    "bytes": 155169
+    "gitBlobSha": "9ae994d96118a54fe4e48411f39ec84b541478e3",
+    "lines": 8502,
+    "bytes": 154966
   },
   "otherCss": [
     "frontend/src/components/design-system/AdaptiveSheet.module.css",
+    "frontend/src/components/design-system/WorkspaceGrid.module.css",
     "frontend/src/features/admin/reports/views/AdminReportsWorkspace.module.css"
   ],
   "routeCounts": {
@@ -145,7 +146,7 @@
     }
   ],
   "legacyCssReviewedAsOf": "2026-10-28",
-  "legacyCssApprovedDelta": "PR #83: after StatCard.tsx migration to locally-owned Tailwind, remove exactly seven .stat-card, .stat-label and .stat-value CSS rules (12 lines) with conservative ownership report; preserve .stat-icon, which remains referenced in AdminToolPage.tsx. Authenticated browser parity remains pending.",
+  "legacyCssApprovedDelta": "Batch B: migrate final AdminToolPage .stat-icon reference to local utilities; retire exactly two global .stat-icon rules (2 lines) after confirming previous StatCard already migrated. Keep all other legacy CSS until qualified owners migrate; no authenticated browser parity claimed.",
   "reviewedCssModulesAsOf": "2026-10-28",
-  "reviewedCssModulesReason": "PR #84: two scoped CSS Modules imported by their owning typed components. No added globally scoped CSS selectors; former legacy root CSS blob unchanged."
+  "reviewedCssModulesReason": "Batch B: one locally owned Admin/Staff responsive grid CSS Module; imported only by shared typed WorkspaceGrid, never global. Report and sheet CSS Modules unchanged."
 }
