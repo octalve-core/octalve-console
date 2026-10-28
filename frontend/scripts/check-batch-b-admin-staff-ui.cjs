@@ -35,7 +35,7 @@ const tool=check("components/modules/AdminToolPage.tsx",['text-console-primary',
 if(tool.includes('className="stat-icon"'))throw Error("Retired stat icon consumer returned");
 const global=src("app/globals.css");
 if(/\.stat-icon\s*\{/.test(global))throw Error("Retired .stat-icon global rule reintroduced");
-if(global.split("\n").length!==8502)throw Error("CSS retirement baseline changed without evidence");
+if(global.split("\n").length!==8460)throw Error("CSS retirement baseline changed without evidence");
 for(const forbidden of ["fetch(", "axios(", "localStorage", "sessionStorage"]){
  if((grid+icon+tile).includes(forbidden))throw Error("Presentational primitive acquired backend/session authority");
 }

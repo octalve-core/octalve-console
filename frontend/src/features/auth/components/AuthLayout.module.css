@@ -1,13 +1,174 @@
-/* Authentication shell only. No generic global .grid override. */
-.frame {
-  display: grid;
-  min-width: 0;
-  width: 100%;
-  --console-auth-panel-columns: 1;
-  grid-template-columns: repeat(var(--console-auth-panel-columns), minmax(0, 1fr));
+/* Auth-only design translated from the supplied five-screen HTML, Oct 28.
+   One replaceable background: public/branding/octalve-auth-background.webp.
+   This module has no global selectors and never handles auth state. */
+.art {
+  --auth-brand: #076be7;
+  --auth-ink: #111c2d;
+  --auth-muted: #6b7585;
+  min-height: calc(100dvh - 36px);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 38px clamp(30px, 14.1vw, 260px) 38px 30px;
+  position: relative;
+  isolation: isolate;
+  background: #ebbd3b url("/branding/octalve-auth-background.webp") center / cover no-repeat;
+  color: var(--auth-ink);
 }
-@media (min-width: 1024px) {
-  .frame {
-    --console-auth-panel-columns: 2;
-  }
+.frame {
+  position: relative;
+  z-index: 1;
+  width: 482px;
+  max-width: 100%;
+  padding: 37px 53px 32px;
+  background: #fff;
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: 5px;
+  box-shadow: 0 28px 75px rgba(24,28,34,.14);
+}
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  margin-bottom: 32px;
+  gap: 16px;
+}
+.logo { display: flex; align-items: center; min-width: 0; }
+.home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 64px;
+  padding: 2px;
+  color: #24334b;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+}
+.home:hover, .home:focus-visible { color: var(--auth-brand); }
+.home:focus-visible, .link:focus-visible, .action:focus-visible,
+ .social:focus-visible { outline: 3px solid #83baf8; outline-offset: 3px; }
+.screen { min-width: 0; animation: authArrive .2s ease-out both; }
+.heading {
+  font-size: 28px;
+  line-height: 1.17;
+  font-weight: 760;
+  letter-spacing: -.9px;
+  color: #131c29;
+  margin: 0 0 23px;
+}
+.description { font-size: 12.5px; line-height: 1.6; color: #66758b; margin: -12px 0 22px; }
+.badge {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: #eaf3ff;
+  color: #0b6fe5;
+  margin: 2px 0 15px;
+}
+.form { display: flex; flex-direction: column; gap: 15px; }
+.field { display: block; min-width: 0; }
+.fieldLabel { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 650; line-height: 1.4; color: #1c293a; }
+.fieldShell {
+  display: flex; align-items: center; position: relative;
+  width: 100%; height: 44px;
+  border: 1px solid #d5dbe3; border-radius: 8px; background: #fff;
+  box-shadow: 0 1px 2px rgba(15,30,51,.025);
+  transition: border-color .18s, box-shadow .18s;
+}
+.fieldShell:focus-within { border-color: #1580f0; box-shadow: 0 0 0 3px rgba(0,107,231,.12); }
+.fieldError { border-color: #e47e84; }
+.fieldIcon { position: absolute; left: 13px; width: 17px; height: 17px; color: #929fb0; pointer-events: none; }
+.fieldShell:focus-within .fieldIcon { color: #418ff0; }
+.fieldControl {
+  display: block; width: 100%; height: 100%; min-width: 0;
+  padding: 0 14px 0 39px; border: 0; border-radius: 8px;
+  outline: none; background: transparent;
+  color: var(--auth-ink); font-size: 13px; font-weight: 450;
+}
+.fieldControl::placeholder { color: #9aa6b8; opacity: 1; }
+.fieldControl:disabled { color: #8390a0; }
+.withEnd { padding-right: 45px; }
+.eye {
+  position: absolute; top: 4px; right: 5px; bottom: 4px;
+  width: 35px; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 6px; background: transparent; color: #71829c;
+}
+.eye:hover { background: #eef5ff; color: var(--auth-brand); }
+.eye:focus-visible { outline: 2px solid var(--auth-brand); outline-offset: 1px; }
+.hint { margin-top: 5px; color: #ba3345; font-size: 11px; line-height: 1.4; }
+.twoFields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.action {
+  min-height: 45px; width: 100%; display: inline-flex;
+  align-items: center; justify-content: center; gap: 9px;
+  padding: 10px 15px; border: 1px solid #076be7; border-radius: 8px;
+  background: linear-gradient(180deg,#0874f7,#0066dc);
+  color: white; font-size: 12.5px; font-weight: 650;
+  box-shadow: 0 4px 10px rgba(0,103,221,.13);
+  transition: filter .15s, transform .15s;
+}
+.action:hover:not(:disabled) { filter: brightness(.96); }
+.action:active:not(:disabled) { transform: translateY(1px); }
+.action:disabled { opacity: .58; cursor: not-allowed; }
+.options { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11.5px; color: #677386; }
+.check { display: inline-flex; align-items: flex-start; gap: 8px; font-size: 11.5px; line-height: 1.6; color: #505e70; }
+.check input { margin-top: 3px; flex: 0 0 auto; accent-color: var(--auth-brand); }
+.link { color: var(--auth-brand); font-weight: 700; font-size: inherit; text-decoration: none; }
+.link:hover { text-decoration: underline; }
+.footer { margin-top: 20px; text-align: center; color: #525f70; font-size: 11.5px; }
+.divider { margin: 20px 0 13px; display: flex; align-items: center; gap: 10px; color: #939eaa; font-size: 10px; text-align: center; }
+.divider::before, .divider::after { content: ""; height: 1px; background: #e5e8ee; flex: 1; }
+.socialRow { display: flex; justify-content: center; align-items: center; gap: 11px; }
+.social { width: 38px; height: 36px; display: inline-flex; justify-content: center; align-items: center; border: 1px solid #dce3ed; border-radius: 8px; background: #fff; color: #7f8ca0; }
+.social:disabled { cursor: not-allowed; opacity: .65; }
+.notice { padding: 11px 12px; border: 1px solid #cfede1; border-radius: 8px; background: #eff8f5; color: #0f775b; font-size: 12px; line-height: 1.5; }
+.support { display: flex; align-items: center; gap: 8px; margin-top: 20px; padding-top: 17px; border-top: 1px solid #e8edf3; color: #6e7b8c; font-size: 11px; line-height: 1.5; }
+.strength { display: flex; flex-direction: column; gap: 6px; }
+.strengthBars { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 5px; }
+.strengthBars span { height: 4px; border-radius: 3px; background: #e8edf3; }
+.strengthBars span[data-active="true"] { background: #0874eb; }
+.strengthInfo { display: flex; flex-wrap: wrap; gap: 5px; justify-content: space-between; color: #778499; font-size: 10px; }
+.otpRow { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; }
+.otpDigit { width: 100%; height: 57px; min-width: 0; border: 1px solid #d5dfe9; border-radius: 9px; color: #0e1b2d; text-align: center; font-size: 21px; font-weight: 650; }
+.otpDigit:focus-visible { border-color: #076be7; outline: 2px solid #8cbef9; }
+.bottom {
+  min-height: 36px; display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 6px 14px; padding: 8px clamp(24px,6vw,104px);
+  color: #45505b; background: #fff; font-size: 10px;
+}
+.bottomLinks { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.bottomBrand { color: var(--auth-brand); font-weight: 700; }
+@keyframes authArrive { from { opacity: .45; transform: translateY(4px); } to { opacity:1; transform: translateY(0); } }
+@media (min-width:1750px) {
+  .frame { width: 498px; }
+  .art { padding-right: clamp(190px,14vw,330px); }
+}
+@media (max-width:1100px) { .art { padding-right: 7vw; } .frame { width: 465px; } }
+@media (max-width:750px) {
+  .art { background-position: 38% center; min-height: calc(100dvh - 45px); padding: 24px 15px 28px; justify-content: center; }
+  .art::before { content:""; position:absolute; inset:0; z-index:-1; background:rgba(5,19,41,.08); }
+  .frame { width: min(100%,460px); padding: 26px clamp(23px,6vw,44px) 27px; border-radius: 9px; box-shadow: 0 18px 65px rgba(27,32,37,.22); }
+  .top { margin-bottom: 24px; }
+  .heading { font-size: 25px; }
+  .twoFields { grid-template-columns: 1fr; gap: 15px; }
+  .bottom { justify-content: center; padding: 10px 16px; font-size: 10px; }
+}
+@media (max-width:370px) {
+  .frame { padding: 20px 16px; }
+  .top { margin-bottom: 15px; }
+  .form { gap: 11px; }
+  .otpRow { gap: 5px; }
+  .otpDigit { height: 49px; font-size: 18px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .screen { animation: none; }
+  .action { transition: none; }
 }

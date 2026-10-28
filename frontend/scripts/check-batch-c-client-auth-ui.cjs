@@ -26,10 +26,10 @@ const profile=has("features/client/components/ClientProfileDetailsForm.tsx",[
  "disabled={saving}","onChange(field.key,event.target.value)","ActionButton"
 ]);
 const auth=has("features/auth/components/AuthLayout.tsx",[
- 'AuthLayout.module.css',"styles.frame","AuthBrandPanel","AuthBrandLogo","/privacy-policy","/terms-of-service"
+ 'AuthLayout.module.css',"styles.frame","AuthBrandLogo","https://cloud.octalve.com","/privacy-policy","/terms-of-service"
 ]);
 const authCss=has("features/auth/components/AuthLayout.module.css",[
- ".frame","--console-auth-panel-columns","@media (min-width: 1024px)"
+ ".frame",".art","--auth-brand","@media (max-width:750px)"
 ]);
 if(auth.includes('className="grid ')||metrics.includes('className="grid ')||actions.includes('className="grid ')||
  billing.includes('className="grid ')||profile.includes('className="grid '))
@@ -40,7 +40,7 @@ for(const s of bad){
   throw Error("Presentation-only migration accidentally acquired business/session authority: "+s);
 }
 const baseline=JSON.parse(read("audits/console-ui-baseline-2026-10-26.json"));
-if(baseline.legacyCss.lines!==8502||baseline.legacyCss.gitBlobSha!=="9ae994d96118a54fe4e48411f39ec84b541478e3")
+if(baseline.legacyCss.lines!==8460||baseline.legacyCss.gitBlobSha!=="4bade3c74196118a0372adc60f94dcd7fa817ad1")
  throw Error("Protected CSS fingerprint changed without reviewed retirement");
 if(!baseline.otherCss.includes("frontend/src/features/auth/components/AuthLayout.module.css"))
  throw Error("Authentication CSS Module must be explicitly reviewed in ownership baseline");
@@ -61,7 +61,7 @@ if(process.argv.includes("--built")){
  scan(path.join(root,".next/static"));
  if(!files.length)throw Error("No compiled CSS");
  const output=files.map(f=>fs.readFileSync(f,"utf8")).join("\n");
- for(const token of ["--console-client-shortcut-columns:","--console-auth-panel-columns:","--console-workspace-gap:"])
+ for(const token of ["--console-client-shortcut-columns:","--auth-brand:","--console-workspace-gap:"])
   if(!output.includes(token))throw Error("Responsive Client/auth CSS Module token was not emitted: "+token);
 }
 console.log("PASS: Batch C Client overview, quick actions, billing, profile and auth use shared scoped layouts with authority unchanged.");

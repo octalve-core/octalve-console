@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail, Phone, UserRound, UserRoundPlus } from "lucide-react";
+import styles from "../components/AuthLayout.module.css";
+import {AuthPasswordStrength,AuthSocialOptions} from "../components/AuthFormControls";
 import { ApiFormError } from "@/components/feedback/ApiFormError";
 import { getRoleDashboard, useAuth } from "@/context/AuthContext";
 import {
@@ -99,12 +101,12 @@ export function SignupPageClient() {
   return (
     <AuthLayout
       icon={UserRoundPlus}
-      title="Create your account"
+      title="Create account"
       description="Start managing your hosting services securely."
       sideTitle="Create your Octalve Cloud workspace."
       sideDescription="Create an account to access hosting services, domains, invoices, orders, support tickets, and secure account management."
     >
-      <form method="post" onSubmit={handleSubmit} className="grid gap-4 sm:gap-[18px]">
+      <form method="post" onSubmit={handleSubmit} className={styles.form}>
         <AuthInput
           label="Full name"
           name="full_name"
@@ -141,7 +143,7 @@ export function SignupPageClient() {
           onChange={(event) => updateField("phone", event.target.value)}
         />
 
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className={styles.twoFields}>
           <AuthPasswordInput
             label="Password"
             name="password"
@@ -165,7 +167,9 @@ export function SignupPageClient() {
           />
         </div>
 
-        <label className="flex cursor-pointer items-start gap-3 pt-1 text-sm leading-6 text-slate-600">
+        <AuthPasswordStrength password={values.password}/>
+
+        <label className={styles.check}>
           <input
             type="checkbox"
             checked={values.acceptedTerms}
@@ -174,11 +178,11 @@ export function SignupPageClient() {
           />
           <span>
             I agree to the{" "}
-            <a href="https://cloud.octalve.com/terms-of-service" className="text-[#0064E0] hover:underline">
+            <a href="https://cloud.octalve.com/terms-of-service" className={styles.link}>
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="https://cloud.octalve.com/privacy-policy" className="text-[#0064E0] hover:underline">
+            <a href="https://cloud.octalve.com/privacy-policy" className={styles.link}>
               Privacy Policy
             </a>
           </span>
@@ -209,16 +213,8 @@ export function SignupPageClient() {
         </AuthButton>
         </div>
 
-        <p className="mb-2 mt-4 text-center text-sm leading-6 text-slate-500">
-          Already have an account?
-        </p>
-
-        <Link
-          href="/login"
-          className="mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-console-primary hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary"
-        >
-          Login
-        </Link>
+        <AuthSocialOptions/>
+        <p className={styles.footer}>Already have an account? <Link href="/login" className={styles.link}>Sign in</Link></p>
       </form>
     </AuthLayout>
   );

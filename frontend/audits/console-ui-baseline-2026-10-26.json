@@ -5,9 +5,9 @@
   "policy": "Frozen Batch 0 baseline; update only with explicit approved later-batch migration",
   "legacyCss": {
     "path": "frontend/src/app/globals.css",
-    "gitBlobSha": "9ae994d96118a54fe4e48411f39ec84b541478e3",
-    "lines": 8502,
-    "bytes": 154966
+    "gitBlobSha": "4bade3c74196118a0372adc60f94dcd7fa817ad1",
+    "lines": 8460,
+    "bytes": 153180
   },
   "otherCss": [
     "frontend/src/components/design-system/AdaptiveSheet.module.css",
@@ -147,7 +147,7 @@
     }
   ],
   "legacyCssReviewedAsOf": "2026-10-28",
-  "legacyCssApprovedDelta": "No source-exclusive legacy global selectors qualified for deletion in this Client/auth migration: .grid is still owned by independent Admin/Client/Staff pages. Keep 8,502-line frozen root CSS and exact blob until all remaining consumers pass browser acceptance.",
+  "legacyCssApprovedDelta": "Batch Auth Five-Screen HTML→React 2026-10-28: deleted exactly 42 lines exclusively owned by retired .auth-layout/.auth-brand/.auth-copy/.auth-bars/.auth-panel/.auth-card and media overrides, retaining generic brand and app-shell definitions. All five existing auth routes remain Django/BFF-authoritative; DOM-based preview script and info badge not imported.",
   "reviewedCssModulesAsOf": "2026-10-28",
-  "reviewedCssModulesReason": "Batch C: AuthLayout.module.css privately owns responsive authentication panel columns to avoid unlayered legacy .grid collision; imports only in AuthLayout.tsx. Existing Client overview/action/filter layout extends the canonical WorkspaceGrid.module.css. Root globals.css unchanged at 8,502 lines."
+  "reviewedCssModulesReason": "Replaced the existing AuthLayout.module.css with a 175-line locally scoped scenic background/card/fields design directly based on the user's HTML. The reference photo is a single uploadable static asset; no base64 duplicated across pages."
 }

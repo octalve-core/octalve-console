@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2, LockKeyhole } from "lucide-react";
+import styles from "../components/AuthLayout.module.css";
+import {AuthPasswordStrength} from "../components/AuthFormControls";
 import { authApi } from "@/lib/api/endpoints";
 import {
   getApiFieldError,
@@ -37,11 +39,6 @@ export function ResetPasswordConfirmPageClient() {
   const uid = safeDecode(getParamValue(params.uid));
   const token = safeDecode(getParamValue(params.token));
 
-  // Decode the URL-encoded parameters
-  // const uid = decodeURIComponent(params.uid as string);
-  // const token = decodeURIComponent(params.token as string);
-
-  // Now use these decoded values in your API call
   const [values, setValues] = useState({
     password: "",
     confirmPassword: "",
@@ -107,7 +104,7 @@ export function ResetPasswordConfirmPageClient() {
     <AuthLayout
       icon={LockKeyhole}
       title="Create new password"
-      description="Enter a new password for your Octalve Console account."
+      description="Choose a secure password for your account."
       sideTitle="Set a new secure password."
       sideDescription="Create a new password for your Octalve Console account using the secure reset link sent to your email."
     >
@@ -116,7 +113,7 @@ export function ResetPasswordConfirmPageClient() {
           Password reset successful. Redirecting to login...
         </div>
       ) : (
-        <form method="post" onSubmit={handleSubmit} className="grid gap-4 sm:gap-[18px]">
+        <form method="post" onSubmit={handleSubmit} className={styles.form}>
           <AuthPasswordInput
             label="New password"
             name="password"
@@ -139,6 +136,7 @@ export function ResetPasswordConfirmPageClient() {
             onChange={(event) => updateField("confirmPassword", event.target.value)}
           />
 
+          <AuthPasswordStrength password={values.password}/>
           <ApiFormError message={error} fieldErrors={fieldErrors} />
 
           <div className="pt-2">
@@ -149,17 +147,12 @@ export function ResetPasswordConfirmPageClient() {
                 Resetting...
               </span>
             ) : (
-              "Reset password"
+              "Save new password"
             )}
           </AuthButton>
           </div>
 
-          <Link
-            href="/login"
-            className="mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-console-primary hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary"
-          >
-            Back to login
-          </Link>
+          <p className={styles.footer}><Link href="/login" className={styles.link}>← Back to sign in</Link></p>
         </form>
       )}
     </AuthLayout>

@@ -3,20 +3,21 @@ const fs=require("node:fs"),path=require("node:path");
 const root=path.resolve(__dirname,"../src"),read=p=>fs.readFileSync(path.join(root,p),"utf8");
 const logo=read("components/branding/CloudBrandLogo.tsx");
 const auth=read("features/auth/components/AuthBrandLogo.tsx");
-const panel=read("features/auth/components/AuthBrandPanel.tsx");
+const authCss=read("features/auth/components/AuthLayout.module.css");
 const layout=read("features/auth/components/AuthLayout.tsx");
 const sidebar=read("components/layout/DashboardSidebar.tsx");
 if(!fs.existsSync(path.resolve(__dirname,"../public/branding/octalve-cloud-logo.png")))
  throw Error("Approved dashboard logo asset missing");
 for(const [name,body,needles] of [
  ["Shared logo",logo,["/branding/octalve-cloud-logo.png","/assets/logo/octalve.png",'variant="sidebar"','variant?:"sidebar"|"auth"',"isAuth"]],
- ["Auth logo",auth,["CloudBrandLogo",'href="/login"','variant="auth"']],
- ["Auth panel",panel,["AuthBrandLogo"]],
- ["Auth layout",layout,["AuthBrandLogo","AuthBrandPanel"]],
+ ["Auth logo",auth,["CloudBrandLogo",'href="https://cloud.octalve.com"','variant="auth"']],
+ ["Auth layout",layout,["AuthBrandLogo","styles.art","styles.frame","https://cloud.octalve.com"]],
  ["Dashboard sidebar",sidebar,["CloudBrandLogo"]]
 ]){
  for(const token of needles)if(!body.includes(token))throw Error(name+" missing: "+token);
 }
+if(!authCss.includes('url("/branding/octalve-auth-background.webp")')) throw Error("Scenic auth stylesheet lost");
+if(fs.existsSync(path.resolve(root,"features/auth/components/AuthBrandPanel.tsx"))) throw Error("Retired legacy split panel returned");
 if(auth.includes("<img ")||auth.includes("/assets/logo/octalve.png"))
  throw Error("Authentication must reuse dashboard logo");
 const data=read("components/ui/DataTable.tsx");
