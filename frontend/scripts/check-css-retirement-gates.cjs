@@ -5,6 +5,12 @@ const src=path.join(frontend,"src");
 const old=path.join(frontend,"tailwind.config.js");
 const configPath=path.join(frontend,"tailwind.config.ts");
 const globals=path.join(src,"app/globals.css");
+const postcssPath=path.join(frontend,"postcss.config.mjs");
+if(fs.existsSync(path.join(frontend,"postcss.config.js")))throw Error("Duplicate PostCSS config must not return");
+if(!fs.existsSync(postcssPath))throw Error("Canonical PostCSS MJS config missing");
+const postcss=fs.readFileSync(postcssPath,"utf8");
+if(!postcss.includes("tailwindcss: {}")||!postcss.includes("autoprefixer: {}"))throw Error("Canonical Tailwind v3 PostCSS plugins missing");
+
 if(fs.existsSync(old))throw Error("Duplicate Tailwind JS config returned");
 if(!fs.existsSync(configPath))throw Error("Canonical TypeScript Tailwind config missing");
 const config=fs.readFileSync(configPath,"utf8");
@@ -16,7 +22,8 @@ const layout=fs.readFileSync(path.join(src,"app/layout.tsx"),"utf8");
 if(!layout.includes('import "./globals.css"'))throw Error("Unqualified CSS removal: RootLayout still requires the compatibility sheet");
 if(!fs.existsSync(globals))throw Error("Premature globals.css removal");
 const css=fs.readFileSync(globals,"utf8");
-if(css.split("\n").length!==8526)throw Error("Legacy stylesheet changed before remaining route and browser consumers qualify");
+if(css.split("\n").length!==8516)throw Error("Protected compatibility stylesheet changed without CSS retirement qualification");
+if((css.match(/\.error-alert\s*\{/g)||[]).length!==1)throw Error("Duplicate legacy alert rule returned");
 for(const selector of [".page-container",".premium-table",".checkout-v2-header",".domain-search-v2",".oct-topbar"])
  if(!css.includes(selector))throw Error("Existing compatibility selector changed: "+selector);
 function routes(folder){
@@ -47,5 +54,5 @@ if(process.argv.includes("--built")){
  for(const rule of [".bg-console-primary",".text-console-ink",".border-console-line",".page-container"])
   if(!built.includes(rule))throw Error("Missing required pre-retirement styling in compiled output: "+rule);
 }
-console.log("PASS: Batch 8 foundation: one TS Tailwind config; 135 routes; 8,526-line CSS safely retained.");
+console.log("PASS: Batch 8 foundation: one TS Tailwind config; 135 routes; protected compatibility CSS safely retained.");
 console.log("NOT QUALIFIED: Removing globals.css remains blocked pending zero legacy consumers and authenticated browser parity.");
