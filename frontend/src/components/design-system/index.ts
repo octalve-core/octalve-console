@@ -24,3 +24,6 @@ export type {WorkspaceNavTab} from "./WorkspaceNavTabs";
 export {WorkspaceContainer,WorkspaceSection} from "./WorkspaceLayout";
 export {ConsoleIconTile} from "./ConsoleIconTile";
 export {AdaptiveSheet} from "./AdaptiveSheet";
+export {WorkspaceGrid} from "./WorkspaceGrid";
+export type {WorkspaceGridVariant} from "./WorkspaceGrid";
+export {IconActionButton} from "./IconActionButton";
