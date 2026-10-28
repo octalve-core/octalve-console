@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from billing.models import Invoice
 from catalog.models import ProductCategory, Product, Plan, PlanBillingCycle, PublishedCatalogOffer
+from catalog.test_published_fixture import attach_test_published_offer
 from orders.models import Order, OrderItem
 
 
@@ -29,18 +30,16 @@ class HostingCheckoutTests(TestCase):
             plan=self.plan, cycle_key="1mo", months=1, is_active=True,
             price=Decimal("1000.00"), setup_fee=Decimal("200.00"),
         )
+        attach_test_published_offer(self.plan,self.cycle)
 
     def payload(self, key=None):
         return {"checkout_id": str(key or uuid4()), "items": [{
-            "plan_id": self.plan.id, "cycle_key": "1mo", "quantity": 1,
+            "plan_id": self.plan.id, "cycle_key": "1mo", "offer_revision": 1, "quantity": 1,
         }]}
 
     def test_client_can_browse_active_public_hosting_catalog(self):
         # The customer catalog is publication-gated. A raw active plan
         # without an approved revision must not be promoted as sellable.
-        PublishedCatalogOffer.objects.create(
-            plan=self.plan, revision=1, snapshot={}
-        )
         response = self.client.get("/api/catalog/plans/")
         self.assertEqual(response.status_code, 200)
         rows = response.data.get("results", []) if isinstance(response.data, dict) else response.data
