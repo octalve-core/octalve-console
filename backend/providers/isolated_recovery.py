@@ -31,6 +31,35 @@ def backup_cipher():
     except (ValueError,TypeError,UnicodeError,binascii.Error) as exc:
         raise VaultUnavailable() from exc
 
+
+def check_lifecycle(record):
+    """Require a complete, monotone credential and signed-event history."""
+    state=record["state"]
+    current=record["current"]
+    versions=record["versions"]
+    events=record["events"]
+    if (type(current) is not int or not (1<=current<=MAX_RECORDS) or
+        not isinstance(versions,list) or not isinstance(events,list) or
+        len(versions)!=current or
+        len(events)!=current+(1 if state=="revoked" else 0)):
+        raise VaultUnavailable()
+    for index,version in enumerate(versions,start=1):
+        if (not isinstance(version,dict) or type(version.get("number")) is not int or
+            version["number"]!=index or type(version.get("revoked")) is not bool or
+            version["revoked"]!=(index<current or state=="revoked")):
+            raise VaultUnavailable()
+    for index,event in enumerate(events,start=1):
+        if not isinstance(event,dict) or type(event.get("version")) is not int:
+            raise VaultUnavailable()
+        if index==1:
+            action,expected_version="draft_created",1
+        elif index<=current:
+            action,expected_version="credential_rotated",index
+        else:
+            action,expected_version="credential_revoked",current
+        if event.get("action")!=action or event["version"]!=expected_version:
+            raise VaultUnavailable()
+
 @transaction.atomic
 def build_isolated_snapshot():
     """Review-only encrypted in-memory snapshot; no file, network or API export."""
@@ -47,14 +76,16 @@ def build_isolated_snapshot():
         total+=len(versions)+len(events)
         if total>MAX_RECORDS: raise VaultUnavailable()
         for version in versions: unseal_version(version)
-        out.append({"id":str(conn.pk),"adapter":conn.adapter_key,
+        record={"id":str(conn.pk),"adapter":conn.adapter_key,
             "state":conn.state,"current":conn.current_version,
             "head":conn.audit_head,"sequence":conn.audit_sequence,
             "versions":[{"number":v.version,"key":v.key_id,"cipher":v.ciphertext,
                          "revoked":bool(v.revoked_at)} for v in versions],
             "events":[{"number":e.sequence,"actor":e.actor_id,"action":e.action,
                        "version":e.version,"date":e.created_at.isoformat(),
-                       "prev":e.previous_mac,"mac":e.event_mac} for e in events]})
+                       "prev":e.previous_mac,"mac":e.event_mac} for e in events]}
+        check_lifecycle(record)
+        out.append(record)
     data=json.dumps({"format":"octalve-vault-recovery-v1","connections":out},
                     sort_keys=True,separators=(",",":")).encode()
     if len(data)>MAX_BYTES//2: raise VaultUnavailable()
@@ -85,6 +116,7 @@ def verify_isolated_snapshot(blob):
                     raise VaultUnavailable()
                 scratch.execute("INSERT INTO connections VALUES(?,?,?,?)",(row["id"],row["adapter"],row["head"],row["sequence"]))
                 counts["connections"]+=1
+                check_lifecycle(row)
                 active=[]
                 if not isinstance(row["versions"],list) or not isinstance(row["events"],list): raise VaultUnavailable()
                 for version in row["versions"]:

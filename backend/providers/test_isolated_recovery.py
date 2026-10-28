@@ -76,6 +76,30 @@ class IsolatedRecoveryTests(TestCase):
             with self.assertRaises(VaultUnavailable):
                 verify_isolated_snapshot(build_isolated_snapshot())
 
+    def test_missing_historical_version_or_forged_lifecycle_state_fails(self):
+        crypt=Fernet(BACKUP_KEY.encode())
+        original=json.loads(crypt.decrypt(build_isolated_snapshot()))
+        forged=json.loads(json.dumps(original))
+        forged["connections"][0]["versions"]=[]
+        with self.assertRaises(VaultUnavailable):
+            verify_isolated_snapshot(crypt.encrypt(json.dumps(forged).encode()))
+        forged=json.loads(json.dumps(original))
+        forged["connections"][0]["state"]="revoked"
+        with self.assertRaises(VaultUnavailable):
+            verify_isolated_snapshot(crypt.encrypt(json.dumps(forged).encode()))
+        forged=json.loads(json.dumps(original))
+        forged["connections"][0]["current"]=2
+        with self.assertRaises(VaultUnavailable):
+            verify_isolated_snapshot(crypt.encrypt(json.dumps(forged).encode()))
+
+    def test_source_with_incomplete_credential_history_cannot_be_exported(self):
+        # Simulate an incomplete database snapshot using a second recorded version
+        # without the corresponding signed credential_rotated event.
+        self.row.current_version=2
+        self.row.save(update_fields=["current_version"])
+        with self.assertRaises(VaultUnavailable):
+            build_isolated_snapshot()
+
     def test_export_is_default_off_and_requires_independent_key(self):
         with override_settings(CLOUD_PROVIDER_SNAPSHOT_REVIEW_ENABLED=False):
             with self.assertRaises(VaultUnavailable):
