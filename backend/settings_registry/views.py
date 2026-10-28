@@ -42,6 +42,21 @@ class SettingViewSet(viewsets.ReadOnlyModelViewSet):
             return Setting.objects.all()
         return Setting.objects.filter(is_public=True, is_deprecated=False, is_encrypted=False).exclude(data_type='password')
     
+    @action(detail=True, methods=["post"], url_path="validate-change")
+    def validate_change(self, request, pk=None):
+        """Review an exact allowlisted value without changing configuration."""
+        user = request.user
+        if not (user.is_active and user.is_superuser and user.role == "admin"):
+            return Response({"detail": "Super Admin approval is required."},
+                            status=status.HTTP_403_FORBIDDEN)
+        from .change_validation import validate_change, SettingChangeRefused
+        record = self.get_object()
+        try:
+            result = validate_change(record, request.data)
+        except SettingChangeRefused as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result, headers={"Cache-Control": "private, no-store"})
+
     # @action(detail=False, methods=['get'])
     def by_group(self, request):
         """Get settings by group key"""

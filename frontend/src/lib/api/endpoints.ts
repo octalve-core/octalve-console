@@ -307,6 +307,13 @@ export const clientApi = {
   serviceRenewalStatus(id: string) {
     return api.get<ServiceRenewalStatus>(byId(apiPaths.client.services, id)+"renewal-status/");
   },
+  /** Records a cancellation REVIEW ONLY; no service termination is performed. */
+  requestServiceCancellation(id:string){
+    return api.post<{state:"pending_review";request_id:number;created:boolean;provider_action_taken:false}>(
+      byId(apiPaths.client.services,id)+"request-cancellation/",{},
+    );
+  },
+
 
   serviceAction(
     id: string,

@@ -448,16 +448,14 @@ class ServiceChangeRequest(models.Model):
         self.save()
     
     def complete(self):
-        """Mark change as completed"""
-        self.status = 'completed'
-        self.processed_at = timezone.now()
-        self.save()
-        
-        # Update service with new plan
-        self.service.plan_id = self.new_plan_id
-        self.service.amount = self.new_price
-        self.service.save()
-    
+        """Never apply an unverified new package directly to a live service.
+
+        Payment, provider package identity and vendor acknowledgement need an
+        independently reviewed replacement transition service. There is no
+        generic authorization to mutate Service.plan_id or amount here.
+        """
+        raise ValueError("Package changes require provider-confirmed reconciliation.")
+
     def fail(self, error):
         """Mark change as failed"""
         self.status = 'failed'

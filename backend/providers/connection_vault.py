@@ -28,7 +28,10 @@ def keyring():
     if not isinstance(active_id,str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,32}",active_id):
         raise VaultUnavailable()
     forbidden=(getattr(settings,"ENCRYPTION_KEY",""),
-               getattr(settings,"CLOUD_PROVIDER_STEPUP_KEY",""))
+               getattr(settings,"CLOUD_PROVIDER_STEPUP_KEY",""),
+               getattr(settings,"CLOUD_PROVIDER_AUDIT_KEY",""),
+               getattr(settings,"CLOUD_PROVIDER_RECOVERY_KEY",""),
+               getattr(settings,"CLOUD_PROVIDER_CHECKPOINT_KEY",""))
     if not active_key or active_key in forbidden:
         raise VaultUnavailable()
     primary=valid_key(active_key)

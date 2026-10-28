@@ -4,6 +4,7 @@ import {FileText,ShieldCheck,ExternalLink} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {Panel} from "@/components/design-system/Panel";
+import {ActionLink} from "@/components/design-system/ActionLink";
 import {api} from "@/lib/api/client";
 
 type InvoiceTemplate={
@@ -40,6 +41,10 @@ export function AdminInvoiceTemplateStudio(){
     <DashboardPage eyebrow="Billing" title="Invoice designer"
         description="Review document layouts and their approved status.">
       <div className="space-y-5">
+        <nav aria-label="Billing navigation" className="flex flex-wrap items-center gap-3">
+          <ActionLink href="/admin/billing/invoices" variant="outline">Invoices</ActionLink>
+          <ActionLink href="/admin/settings/invoices" variant="outline">Invoice policies</ActionLink>
+        </nav>
         <Panel>
           <div className="flex items-start gap-3">
             <ShieldCheck aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-console-primary"/>

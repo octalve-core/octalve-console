@@ -14,6 +14,7 @@ import {clientApi,type ServiceRenewalStatus} from "@/lib/api/endpoints";
 import {useAutoSync} from "@/lib/hooks/useAutoSync";
 import {normalizeServiceSnapshot,serviceDate,type ClientServiceSnapshot} from "../utils/service-contract";
 import {ServiceUsageRing} from "../components/ServiceUsageRing";
+import {ServiceCancellationRequest} from "../components/ServiceCancellationRequest";
 
 const validId=(s:string)=>/^[1-9][0-9]{0,11}$/.test(s);
 function readRenewal(value:unknown,id:string):ServiceRenewalStatus|null {
@@ -140,6 +141,7 @@ export function ClientServiceDetailView(){
               <ActionLink href="/client/support/new" variant="outline">Contact support</ActionLink>
               <ActionLink href="/client/invoices" variant="outline">My invoices</ActionLink>
             </div>
+            <ServiceCancellationRequest serviceId={id} serviceStatus={data.status}/>
           </Panel>
         </div>:null}
       </div>

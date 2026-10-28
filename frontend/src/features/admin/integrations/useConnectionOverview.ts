@@ -2,6 +2,7 @@
 import {useEffect,useState} from "react";
 import {readConnectionOverview,type DraftConnection} from "./connection-readback";
 export function useConnectionOverview(){
+ const [retryCount,setRetryCount]=useState(0);
  const [state,setState]=useState<{
   status:"loading"|"ready"|"unavailable";
   connections:DraftConnection[];supported:ReadonlySet<string>;truncated:boolean;
@@ -14,6 +15,6 @@ export function useConnectionOverview(){
    if(alive)setState({status:"unavailable",connections:[],supported:new Set(),truncated:false});
   });
   return ()=>{alive=false;};
- },[]);
- return state;
+ },[retryCount]);
+ return {...state,retry:()=>{setState(current=>({...current,status:"loading"}));setRetryCount(count=>count+1);}};
 }

@@ -5,7 +5,7 @@ import type {Integration} from "./catalog";
 import {ProviderLogo} from "./ProviderLogo";
 import {ProviderRequirements} from "./ProviderRequirements";
 import type {DraftConnection} from "./connection-readback";
-export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean}){
+export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,overviewStatus}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean;overviewStatus:"loading"|"ready"|"unavailable"}){
  const element=useRef<HTMLDialogElement>(null);
  useEffect(()=>{const dialog=element.current;if(dialog&&!dialog.open)dialog.showModal();return ()=>{if(dialog?.open)dialog.close();};},[item.slug]);
  return <dialog ref={element} onClose={onClose} aria-labelledby="integration-sheet-title"
@@ -24,6 +24,9 @@ export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable}:{it
    <p className="text-sm font-semibold">Prepare your connection</p>
    <p className="mt-1 text-xs leading-5 text-slate-700">Review what you need and follow the official setup guide. Secure credential entry is not yet available on this screen.</p>
   </div>
+  {overviewStatus!=="ready"?<p role="status" className="rounded-xl border border-console-line bg-slate-50 p-3 text-xs text-console-muted">
+   {overviewStatus==="loading"?"Checking saved connection records…":"Connection status is temporarily unavailable. This does not mean a provider is disconnected."}
+  </p>:null}
   {drafts.length?<section aria-label="Saved connection drafts" className="space-y-3">
    <h3 className="text-sm font-semibold">Your saved drafts</h3>
    {drafts.map(c=><div key={c.id} className="rounded-xl border border-console-line bg-slate-50 p-3">
