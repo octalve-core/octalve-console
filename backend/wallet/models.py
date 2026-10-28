@@ -76,8 +76,26 @@ class Wallet(models.Model):
 # WALLET LEDGER MODEL
 # ============================================
 
+class AppendOnlyLedgerQuerySet(models.QuerySet):
+    """Prevent ordinary ORM bulk mutation of historical ledger facts."""
+
+    def update(self, **kwargs):
+        raise ValueError("Ledger entries are append-only.")
+
+    def delete(self):
+        raise ValueError("Ledger entries are append-only.")
+
+    def bulk_update(self, *args, **kwargs):
+        raise ValueError("Ledger entries are append-only.")
+
+    def bulk_create(self, *args, **kwargs):
+        raise ValueError("Ledger entries must use the authorized posting path.")
+
+
 class WalletLedger(models.Model):
-    """Wallet transaction ledger - complete history of all wallet movements"""
+    """Append-only application ledger. DB-level retention is a separate gate."""
+
+    objects = models.Manager.from_queryset(AppendOnlyLedgerQuerySet)()
     
     TRANSACTION_TYPES = [
         ('credit', 'Credit'),
@@ -125,6 +143,14 @@ class WalletLedger(models.Model):
             models.Index(fields=['invoice_id']),
         ]
     
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("Ledger entries cannot be edited.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("Ledger entries cannot be deleted.")
+
     def __str__(self):
         return f"{self.user.email} - {self.transaction_type} - {self.amount}"
 
