@@ -20,9 +20,9 @@ function readinessTone(status: ProductionReadinessCheck["status"]) {
   return "neutral";
 }
 
-function contractTone(status: "Aligned" | "Needs backend confirmation" | "Fallback-ready") {
-  if (status === "Aligned") return "success";
-  if (status === "Needs backend confirmation") return "warning";
+function contractTone(status: "Source mapped" | "Requires qualification" | "Policy blocked") {
+  if (status === "Source mapped") return "info";
+  if (status === "Policy blocked") return "warning";
   return "info";
 }
 
@@ -193,6 +193,8 @@ export function ProductionReadinessView() {
                             <td className="py-3 pr-4 font-mono text-xs text-slate-500">{endpoint.path}</td>
                             <td className="py-3">
                               <Badge variant={contractTone(endpoint.status)}>{endpoint.status}</Badge>
+                              <p className="mt-1 max-w-xs text-xs text-slate-500">{endpoint.expectedOutcome}</p>
+                              <p className="mt-1 max-w-xs text-xs text-slate-500">{endpoint.observedOutcome}</p>
                             </td>
                           </tr>
                         ))}
