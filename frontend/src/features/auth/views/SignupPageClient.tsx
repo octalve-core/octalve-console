@@ -167,6 +167,8 @@ export function SignupPageClient() {
           />
         </div>
 
+        <AuthPasswordStrength password={values.password}/>
+
         <label className={styles.check}>
           <input
             type="checkbox"
@@ -196,7 +198,6 @@ export function SignupPageClient() {
             No referral attribution is sent if you leave this unchecked.</span>
         </label>:null}
 
-        <AuthPasswordStrength password={values.password}/>
         <ApiFormError message={error} fieldErrors={fieldErrors} />
 
         <div className="pt-2">
