@@ -9,6 +9,7 @@ import { AdminHero } from "../components/AdminHero";
 import {AdminQuickActions} from "../components/AdminQuickActions";
 import {AdminOverviewMetrics,type AdminOverviewCounts} from "../components/AdminOverviewMetrics";
 import {Panel} from "@/components/design-system/Panel";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {ActionLink} from "@/components/design-system/ActionLink";
 
 function getListCount(value: unknown) {
@@ -84,7 +85,7 @@ export function AdminOverviewView() {
         <AdminHero name={firstName} />
         <AdminQuickActions/>
         <AdminOverviewMetrics counts={counts} loading={isLoading}/>
-        <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+        <WorkspaceGrid variant="overviewPair">
           <Panel>
             <h2 className="text-lg font-semibold text-console-ink">Invoice management</h2>
             <p className="mt-2 text-sm leading-6 text-console-muted">
@@ -103,7 +104,7 @@ export function AdminOverviewView() {
               View provisioning tasks
             </ActionLink>
           </Panel>
-        </div>
+        </WorkspaceGrid>
       </div>
     </DashboardShell>
   );
