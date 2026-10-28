@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,".."),read=p=>fs.readFileSync(path.join(root,p
 const route=read("src/app/admin/reports/page.tsx");
 const view=read("src/features/admin/reports/views/AdminReportsWorkspaceView.tsx");
 const adapter=read("src/features/admin/reports/lib/report-presentation.ts");
-const module=read("src/features/admin/reports/views/AdminReportsWorkspace.module.css");
+const reportStyles=read("src/features/admin/reports/views/AdminReportsWorkspace.module.css");
 const sheet=read("src/components/design-system/AdaptiveSheet.tsx");
 const sheetCSS=read("src/components/design-system/AdaptiveSheet.module.css");
 const icon=read("src/components/design-system/ConsoleIconTile.tsx");
@@ -30,7 +30,7 @@ for(const forbidden of ["previewInvoices","paymentPreview","Math.random(","sampl
 }
 if(view.includes("total_revenue")||view.includes("currency:\"NGN\"")||view.includes("₦"))
  throw Error("Mixed-currency financial aggregate must not be presented as NGN");
-requireAll("Scoped report CSS",module,[".metrics",".breakdowns",".library",".history"]);
+requireAll("Scoped report CSS",reportStyles,[".metrics",".breakdowns",".library",".history"]);
 if(view.includes('className="grid '))throw Error("Report must not depend on conflicting global .grid");
 requireAll("Native adaptive sheet",sheet,["showModal()","onCancel","aria-labelledby","AdaptiveSheet.module.css"]);
 requireAll("Mobile bottom sheet",sheetCSS,["@media (max-width: 639px)","safe-area-inset-bottom",".sheet::backdrop"]);
