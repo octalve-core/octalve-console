@@ -80,6 +80,7 @@ type BackendUser = {
 
 type SessionCheck = {
   user: BackendUser | null;
+  unavailable?: boolean;
   access?: string;
   refresh?: string;
 };
@@ -287,86 +288,77 @@ function buildLoginRedirect(request: NextRequest) {
   return response;
 }
 
+/** Never confuse an unavailable identity service with a rejected token.
+ * An outage produces 503 without exposing protected content or clearing cookies.
+ */
+class IdentityUnavailable extends Error {}
+function invalidAuth(response: Response): boolean {
+  return response.status === 401 || response.status === 403;
+}
 async function fetchCurrentUser(accessToken: string): Promise<BackendUser | null> {
-  if (!SAFE_API_BASE) return null;
+  if (!SAFE_API_BASE) throw new IdentityUnavailable();
   const response = await fetch(`${SAFE_API_BASE}/auth/users/me/`, {
     method: "GET",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: {Accept: "application/json",Authorization: `Bearer ${accessToken}`},
     cache: "no-store",
+    signal: AbortSignal.timeout(4500),
   });
-
-  if (!response.ok) return null;
-
-  return response.json() as Promise<BackendUser>;
+  if (invalidAuth(response)) return null;
+  if (!response.ok) throw new IdentityUnavailable();
+  const user: unknown = await response.json();
+  if (!user || typeof user !== "object" || Array.isArray(user)) {
+    throw new IdentityUnavailable();
+  }
+  return user as BackendUser;
 }
-
 async function refreshAccessToken(refreshToken: string) {
-  if (!SAFE_API_BASE) return null;
+  if (!SAFE_API_BASE) throw new IdentityUnavailable();
   const response = await fetch(`${SAFE_API_BASE}/auth/jwt/refresh/`, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ refresh: refreshToken }),
+    headers: {Accept: "application/json","Content-Type": "application/json"},
+    body: JSON.stringify({refresh: refreshToken}),
     cache: "no-store",
+    signal: AbortSignal.timeout(4500),
   });
-
-  if (!response.ok) return null;
-
-  const payload = (await response.json()) as {
-    access?: string;
-    refresh?: string;
-  };
-
-  if (!payload.access) return null;
-
-  return {
-    access: payload.access,
-    refresh: payload.refresh,
-  };
+  if (invalidAuth(response)) return null;
+  if (!response.ok) throw new IdentityUnavailable();
+  const payload: unknown = await response.json();
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new IdentityUnavailable();
+  }
+  const record=payload as {access?:unknown;refresh?:unknown};
+  if (typeof record.access!=="string" || !record.access ||
+      (record.refresh!==undefined && typeof record.refresh!=="string")) {
+    throw new IdentityUnavailable();
+  }
+  return {access:record.access,refresh:record.refresh as string|undefined};
 }
 
 async function resolveSession(request: NextRequest): Promise<SessionCheck> {
-  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
-  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
-
-  if (accessToken) {
-    const user = await fetchCurrentUser(accessToken).catch(() => null);
-
-    if (user) {
-      return {
-        user,
-        access: accessToken,
-        refresh: refreshToken,
-      };
+  const accessToken=request.cookies.get(ACCESS_COOKIE)?.value;
+  const refreshToken=request.cookies.get(REFRESH_COOKIE)?.value;
+  try {
+    if (accessToken) {
+      const user=await fetchCurrentUser(accessToken);
+      if (user) return {user,access:accessToken,refresh:refreshToken};
     }
+    if (!refreshToken) return {user:null};
+    const refreshed=await refreshAccessToken(refreshToken);
+    if (!refreshed) return {user:null};
+    const user=await fetchCurrentUser(refreshed.access);
+    if (!user) return {user:null};
+    return {user,access:refreshed.access,refresh:refreshed.refresh??refreshToken};
+  } catch {
+    return {user:null,unavailable:true};
   }
+}
 
-  if (!refreshToken) {
-    return { user: null };
-  }
-
-  const refreshed = await refreshAccessToken(refreshToken).catch(() => null);
-
-  if (!refreshed?.access) {
-    return { user: null };
-  }
-
-  const user = await fetchCurrentUser(refreshed.access).catch(() => null);
-
-  if (!user) {
-    return { user: null };
-  }
-
-  return {
-    user,
-    access: refreshed.access,
-    refresh: refreshed.refresh ?? refreshToken,
-  };
+function unavailableIdentityResponse():NextResponse{
+  return new NextResponse("Account verification is temporarily unavailable. Please try again.",{
+    status:503,
+    headers:{"Cache-Control":"private, no-store","Retry-After":"10",
+             "Content-Type":"text/plain; charset=utf-8"},
+  });
 }
 
 export async function proxy(request: NextRequest) {
@@ -381,6 +373,7 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/") {
     const session = await resolveSession(request);
 
+    if (session.unavailable) return unavailableIdentityResponse();
     const response = session.user
       ? buildRedirect(request, getHomeForRole(normalizeRole(session.user)))
       : buildRedirect(request, "/login");
@@ -393,6 +386,7 @@ export async function proxy(request: NextRequest) {
   if (AUTH_ENTRY_ROUTES.has(pathname)) {
     const session = await resolveSession(request);
 
+    if (session.unavailable) return unavailableIdentityResponse();
     if (!session.user) {
       const response = NextResponse.next();
       clearSessionCookies(response);
@@ -414,6 +408,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const session = await resolveSession(request);
+  if (session.unavailable) return unavailableIdentityResponse();
 
   if (!session.user) {
     return buildLoginRedirect(request);
