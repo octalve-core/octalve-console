@@ -571,3 +571,7 @@ CLOUD_PROVIDER_AUDIT_KEY = env("CLOUD_PROVIDER_AUDIT_KEY",default="")
 # Synthetic/Review-only isolated vault recovery, no browser route or filesystem writes.
 CLOUD_PROVIDER_RECOVERY_KEY = env("CLOUD_PROVIDER_RECOVERY_KEY",default="")
 CLOUD_PROVIDER_SNAPSHOT_REVIEW_ENABLED = env.bool("CLOUD_PROVIDER_SNAPSHOT_REVIEW_ENABLED",default=False)
+
+# B2.7 offline-only audit checkpoint signing; external immutable retention is separate.
+CLOUD_PROVIDER_AUDIT_CHECKPOINT_ENABLED = env.bool("CLOUD_PROVIDER_AUDIT_CHECKPOINT_ENABLED",default=False)
+CLOUD_PROVIDER_CHECKPOINT_KEY = env("CLOUD_PROVIDER_CHECKPOINT_KEY",default="")
