@@ -19,3 +19,6 @@ export type {ConfirmDialogProps} from "./ConfirmDialog";
 export {ResponsiveTable} from "./ResponsiveTable";
 export type {ResponsiveTableProps,ResponsiveColumn} from "./ResponsiveTable";
 export type {ActionSize,ActionVariant} from "./action-styles";
+export {WorkspaceNavTabs} from "./WorkspaceNavTabs";
+export type {WorkspaceNavTab} from "./WorkspaceNavTabs";
+export {WorkspaceContainer,WorkspaceSection} from "./WorkspaceLayout";
