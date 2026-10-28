@@ -6,7 +6,7 @@ function check(file,tokens){const body=src(file);
  for(const token of tokens)if(!body.includes(token))throw Error(file+": missing "+token);
  return body;
 }
-const grid=check("components/design-system/WorkspaceGrid.tsx",["WorkspaceGridVariant","styles[variant]","aria-busy={busy}","aria-label={ariaLabel}","variant===\"filters\""]);
+const grid=check("components/design-system/WorkspaceGrid.tsx",["WorkspaceGridVariant","styles[variant]","aria-busy={busy}","aria-label={ariaLabel}","adminMetrics","staffMetrics","clientMetrics","includes(variant)"]);
 const gridCss=check("components/design-system/WorkspaceGrid.module.css",[".filters",".adminMetrics",".staffMetrics","--console-workspace-gap","@media (min-width: 1536px)"]);
 const icon=check("components/design-system/IconActionButton.tsx",['aria-label={label}','type="button"','focus-visible:ring-console-primary',"disabled:opacity-50"]);
 const tile=check("components/design-system/ConsoleIconTile.tsx",["LucideIcon","tone","rose:"]);
