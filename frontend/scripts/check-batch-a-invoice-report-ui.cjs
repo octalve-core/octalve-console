@@ -50,6 +50,14 @@ if(process.argv.includes("--built")){
  walk(staticRoot);
  if(!css.length)throw Error("Next build did not emit CSS");
  const built=css.map(file=>fs.readFileSync(file,"utf8")).join("\n");
+ const previews=css.map(file=>{
+  const contents=fs.readFileSync(file,"utf8");
+  const terms=["report-column-gap","sheet-elevation","AdminReports","grid-template-columns","overscroll-behavior"];
+  return {asset:path.relative(root,file),bytes:contents.length,
+   terms:Object.fromEntries(terms.map(token=>[token,contents.includes(token)])),
+   head:contents.slice(0,180)};
+ });
+ console.log("Batch A emitted CSS diagnostics:",JSON.stringify(previews));
  // Next.js hashes CSS Module class selectors and may change the naming
  // pattern between webpack/Turbopack versions. Assert emitted CSS behavior,
  // while source checks above verify exact module owner/class bindings.
