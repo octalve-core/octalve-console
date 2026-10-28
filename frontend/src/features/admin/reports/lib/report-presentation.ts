@@ -5,7 +5,7 @@
  */
 export type CategoryCount = { label: string; count: number };
 export type ReportDefinitionCard = {
-  id: string; name: string; description: string; kind: string; active: boolean;
+  id: string; name: string; description: string; kind: string; active: boolean | null;
   frequency: string; lastGenerated: string | null;
 };
 export type ReportInstanceCard = {
@@ -58,7 +58,7 @@ export function parseDefinitions(value: unknown): ReportDefinitionCard[] {
     name:label(x.name,"Unnamed report"),
     description:label(x.description,"Report definition"),
     kind:label(x.report_type_display,label(x.report_type,"Report")),
-    active:x.is_active === true,
+    active:typeof x.is_active === "boolean" ? x.is_active : null,
     frequency:label(x.frequency_display,label(x.frequency,"On demand")),
     lastGenerated:typeof x.last_generated_at==="string"?x.last_generated_at:null,
   }));
