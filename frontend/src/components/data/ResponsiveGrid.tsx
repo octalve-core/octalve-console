@@ -1,28 +1,14 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
-
-type ResponsiveGridProps = {
+import {WorkspaceGrid,type WorkspaceGridVariant} from "@/components/design-system/WorkspaceGrid";
+type ResponsiveGridProps={
   children: ReactNode;
   className?: string;
-  columns?: "2" | "3" | "4";
+  columns?: "2"|"3"|"4";
 };
-
-export function ResponsiveGrid({
-  children,
-  className,
-  columns = "3",
-}: ResponsiveGridProps) {
-  return (
-    <div
-      className={cn(
-        "grid gap-4",
-        columns === "2" && "sm:grid-cols-2",
-        columns === "3" && "sm:grid-cols-2 xl:grid-cols-3",
-        columns === "4" && "sm:grid-cols-2 xl:grid-cols-4",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
+/** Backward-compatible public contract; grid geometry is locally scoped.
+ * No unlayered legacy .grid can override the 640/1280px column breakpoints.
+ */
+export function ResponsiveGrid({children,className,columns="3"}:ResponsiveGridProps){
+  const variant:WorkspaceGridVariant=columns==="2"?"responsive2":columns==="4"?"responsive4":"responsive3";
+  return <WorkspaceGrid variant={variant} className={className}>{children}</WorkspaceGrid>;
 }
