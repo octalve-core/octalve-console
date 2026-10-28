@@ -45,6 +45,18 @@ class BatchARoutedContainmentTests(SimpleTestCase):
         self.check("/api/wallet/my-wallet/update_settings/", "post", 503)
         self.check("/api/wallet/admin/wallets/1/manual_adjust/", "post", 503)
 
+    def test_client_cannot_read_internal_gateway_or_message_templates(self):
+        original = self.admin
+        self.admin = SimpleNamespace(
+            pk=2, is_authenticated=True, is_active=True,
+            is_superuser=False, is_staff=False, role="client",
+        )
+        try:
+            self.check("/api/payments/gateways/", "get", 403)
+            self.check("/api/settings/email-templates/", "get", 403)
+        finally:
+            self.admin = original
+
     def test_settings_and_message_templates_do_not_expose_generic_writes(self):
         for resource in ("settings", "email-templates"):
             with self.subTest(resource=resource):
@@ -93,6 +105,14 @@ class BatchASettingsValueRedactionTests(SimpleTestCase):
         serializer = SettingSerializer()
         self.assertIsNone(serializer.get_current_value(secret))
         self.assertIsNone(serializer.get_default_value(secret))
+
+    def test_wallet_amount_guard_rejects_invalid_internal_adjustments(self):
+        from wallet.models import Wallet
+        for amount in ("0", "-1", "0.001", "NaN", "Infinity"):
+            for action in ("add_balance", "deduct_balance"):
+                with self.subTest(amount=amount, action=action):
+                    with self.assertRaises(ValueError):
+                        getattr(Wallet(), action)(amount, "Synthetic safety check")
 
     def test_setting_audit_does_not_serialize_before_after_values(self):
         record = SimpleNamespace(old_value="private-old", new_value="private-new")
