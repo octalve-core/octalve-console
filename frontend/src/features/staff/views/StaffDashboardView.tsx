@@ -6,6 +6,7 @@ import { StaffHero } from "../components/StaffHero";
 import {StaffQuickActions} from "../components/StaffQuickActions";
 import {StaffOverviewMetrics,type StaffSummaryCounts} from "../components/StaffOverviewMetrics";
 import {StaffRecentPanel} from "../components/StaffRecentPanel";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import { staffResourceConfig } from "../data/staff-resource-config";
 import type { StaffRecord } from "../data/staff-demo-data";
 import { normalizeStaffRecord, unwrapStaffList } from "../utils/staff-record-normalizer";
@@ -61,14 +62,14 @@ export function StaffDashboardView() {
       <StaffHero name={firstName}/>
       <StaffQuickActions/>
       <StaffOverviewMetrics counts={counts} loading={loading}/>
-      <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+      <WorkspaceGrid variant="overviewPair">
         <StaffRecentPanel title="Support workload" description="Customer conversations requiring staff attention."
           href="/staff/tickets" records={tickets}
           state={loading?"loading":counts.tickets===null?"unavailable":"ready"}/>
         <StaffRecentPanel title="Provisioning queue" description="Automation tasks and manual review items."
           href="/staff/provisioning" records={tasks}
           state={loading?"loading":counts.provisioning===null?"unavailable":"ready"}/>
-      </div>
+      </WorkspaceGrid>
     </div>
   </DashboardShell>;
 }
