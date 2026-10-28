@@ -149,6 +149,9 @@ jobs:
       - name: Batch B concurrent ledger and lifecycle qualification on disposable PostgreSQL
         working-directory: backend
         run: python manage.py test tests.test_batch_b_lifecycle --verbosity=2
+      - name: Provider coherent isolated recovery and deployed write-hold on disposable PostgreSQL
+        working-directory: backend
+        run: python manage.py test providers.test_recovery_evidence providers.test_operational_release_hold --verbosity=2
       - name: Collect illustrative PostgreSQL SQL for every blacklist migration
         if: always()
         working-directory: backend
