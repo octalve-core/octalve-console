@@ -66,10 +66,14 @@ export function CatalogAuthorityWorkbench() {
       api.get("/catalog/plans/"),api.get("/catalog/provider-mappings/"),
       api.get("/catalog/offer-drafts/"),
     ]);
-    setProviders(unpack<Provider>(values[0]));setPackages(unpack<Package>(values[1]));
-    setCategories(unpack<Category>(values[2]));setProducts(unpack<Product>(values[3]));
-    setPlans(unpack<Plan>(values[4]));setMappings(unpack<Mapping>(values[5]));
-    setDrafts(unpack<Draft>(values[6]));
+    // Parse all seven responses before committing any state. A malformed
+    // provider envelope must not leave a partially refreshed supplier/pricing UI.
+    const nextProviders=unpack<Provider>(values[0]),nextPackages=unpack<Package>(values[1]);
+    const nextCategories=unpack<Category>(values[2]),nextProducts=unpack<Product>(values[3]);
+    const nextPlans=unpack<Plan>(values[4]),nextMappings=unpack<Mapping>(values[5]);
+    const nextDrafts=unpack<Draft>(values[6]);
+    setProviders(nextProviders);setPackages(nextPackages);setCategories(nextCategories);
+    setProducts(nextProducts);setPlans(nextPlans);setMappings(nextMappings);setDrafts(nextDrafts);
   }
   useEffect(()=>{let live=true;refresh().catch(e=>{if(live)setError(String(e?.message || e));}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};},[]);
   async function execute(task:()=>Promise<unknown>, message:string) {
