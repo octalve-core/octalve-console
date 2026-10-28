@@ -5,11 +5,12 @@ import styles from "./WorkspaceGrid.module.css";
 export type WorkspaceGridVariant="filters"|"adminMetrics"|"staffMetrics"|"clientMetrics"|"quickActions"|"overviewPair"|"directory"|"responsive2"|"responsive3"|"responsive4";
 type Props={
  variant:WorkspaceGridVariant;children:ReactNode;className?:string;
- ariaLabel?:string;busy?:boolean;
+ ariaLabel?:string;busy?:boolean;as?:"div"|"ul";
 };
 /** Responsive shared layout for all Console roles; owns no API, mutation or authentication authority. */
-export function WorkspaceGrid({variant,children,className,ariaLabel,busy}:Props){
+export function WorkspaceGrid({variant,children,className,ariaLabel,busy,as="div"}:Props){
  const css=cn(styles[variant],className);
+ if(as==="ul")return <ul className={css} aria-label={ariaLabel} aria-busy={busy}>{children}</ul>;
  if(!["adminMetrics","staffMetrics","clientMetrics"].includes(variant))return <div className={css}>{children}</div>;
  return <section className={css} aria-label={ariaLabel} aria-busy={busy}>{children}</section>;
 }
