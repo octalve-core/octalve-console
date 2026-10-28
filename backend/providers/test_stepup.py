@@ -4,6 +4,8 @@ from cryptography.fernet import Fernet
 AUDIT_KEY=Fernet.generate_key().decode()
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.db import DatabaseError
+from accounts.models import AuthThrottleBucket
 from django.test import override_settings
 from rest_framework.test import APITestCase
 from providers.connection_models import ProviderVaultAuthenticator,IntegrationConnection
@@ -60,6 +62,27 @@ class ProviderStepupTests(APITestCase):
         with override_settings(CLOUD_PROVIDER_STEPUP_KEY=VAULT_KEY):
             self.assertEqual(self.client.post(route,{"confirm_password":PASSWORD},format="json").status_code,503)
         self.assertFalse(ProviderVaultAuthenticator.objects.exists())
+    def test_shared_database_security_limit_survives_cache_flush(self):
+        route="/api/providers/security/stepup/enroll/"
+        cache.clear()
+        for index in range(10):
+            result=self.client.post(route,{"confirm_password":"wrong"},format="json")
+            self.assertEqual(result.status_code,403,(index,result.data))
+            cache.clear()  # Previous process cache state must be irrelevant.
+        blocked=self.client.post(route,{"confirm_password":"wrong"},format="json")
+        self.assertEqual(blocked.status_code,429,blocked.data)
+        self.assertTrue(AuthThrottleBucket.objects.filter(attempts=10).exists())
+        self.assertFalse(ProviderVaultAuthenticator.objects.exists())
+
+    def test_unavailable_durable_throttle_storage_fails_closed(self):
+        route="/api/providers/security/stepup/enroll/"
+        with patch("providers.connection_views.spend_durable_auth_attempt",
+                   side_effect=DatabaseError("simulated storage outage")):
+            result=self.client.post(route,{"confirm_password":"wrong"},format="json")
+        self.assertEqual(result.status_code,503,result.data)
+        self.assertNotIn("storage outage",str(result.data))
+        self.assertFalse(ProviderVaultAuthenticator.objects.exists())
+
     def test_unenrolled_superadmin_denied_even_with_valid_password(self):
         payload={"adapter_key":"resend","label":"Mail draft","environment":"test",
                  "public_settings":{"sending_domain":"example.com"},

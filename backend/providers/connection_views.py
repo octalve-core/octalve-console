@@ -1,15 +1,15 @@
 """B1 draft connection authority. No vendor HTTP or service provisioning."""
 import re
 from django.conf import settings
-from django.db import transaction
+from django.db import transaction, DatabaseError
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import SimpleRateThrottle
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.throttling import BaseThrottle
+from rest_framework.exceptions import PermissionDenied, ValidationError, Throttled
 
 from catalog.permissions import InternalSupplierAuthority
 from .connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent
@@ -17,18 +17,27 @@ from .connection_specs import SCHEMAS, public_catalog, validate_public_settings,
 from .connection_vault import seal, vault, VaultUnavailable
 from .connection_stepup import check_mutation
 from .connection_audit import audit_key,append_event
+from accounts.security_throttle import _spend as spend_durable_auth_attempt
 
-class VaultMutationThrottle(SimpleRateThrottle):
-    scope = "provider_draft_secrets"
-    def get_rate(self):
-        return "10/hour"
+class VaultMutationThrottle(BaseThrottle):
+    """Cross-instance PostgreSQL security throttle, never process-local DRF cache."""
     def allow_request(self, request, view):
         if request.method=="GET":
             return True
-        return super().allow_request(request, view)
-    def get_cache_key(self, request, view):
         user=request.user
-        return self.cache_format % {"scope":self.scope,"ident":f"user:{user.pk}"}
+        if not user or not user.is_authenticated or not user.is_active:
+            return False
+        try:
+            # Shared by enrollment, confirmation, draft creation, rotation,
+            # and revocation; the same account cannot circumvent the ceiling.
+            retry=spend_durable_auth_attempt(
+                "provider:vault_sensitive_action",str(user.pk),10,3600)
+        except DatabaseError as exc:
+            # Without the shared ledger, we cannot assert rate enforcement.
+            raise VaultUnavailable() from exc
+        if retry:
+            raise Throttled(wait=retry)
+        return True
 
 def require_write_authority(request):
     # Deliberately not an MFA claim. Full MFA verification is a later gate.
