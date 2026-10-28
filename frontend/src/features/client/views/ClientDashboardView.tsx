@@ -11,6 +11,7 @@ import {ClientRecognitionBanner} from "../components/ClientRecognitionBanner";
 import {ClientOverviewActions} from "../components/ClientOverviewActions";
 import {ClientOverviewMetrics} from "../components/ClientOverviewMetrics";
 import {ClientOverviewRecent} from "../components/ClientOverviewRecent";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {useClientSummary} from "../hooks/useClientSummary";
 import {useAutoSync} from "@/lib/hooks/useAutoSync";
 
@@ -32,14 +33,14 @@ export function ClientDashboardView(){
       <ClientRecognitionBanner/>
       <ClientOverviewActions/>
       <ClientOverviewMetrics summary={summary}/>
-      <div className="grid gap-5 xl:grid-cols-2">
+      <WorkspaceGrid variant="overviewPair">
         <ClientOverviewRecent title={m.servicesRecent} description={m.servicesRecentDesc}
           href="/client/services" records={summary.serviceRecords}
           state={waiting?"loading":summary.serviceRecordsAvailable?"ready":"unavailable"}/>
         <ClientOverviewRecent title={m.invoicesRecent} description={m.invoicesRecentDesc}
           href="/client/invoices" records={summary.invoiceRecords}
           state={waiting?"loading":summary.invoiceRecordsAvailable?"ready":"unavailable"}/>
-      </div>
+      </WorkspaceGrid>
     </div>
   </DashboardShell>;
 }
