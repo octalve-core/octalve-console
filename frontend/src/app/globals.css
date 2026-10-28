@@ -557,16 +557,6 @@ button { cursor: pointer; }
   }
 }
 
-.error-alert {
-  border: 1px solid #fecaca;
-  background: #fff1f2;
-  color: #be123c;
-  border-radius: 16px;
-  padding: 12px 14px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
 .oct-topbar {
   position: sticky;
   top: 0;

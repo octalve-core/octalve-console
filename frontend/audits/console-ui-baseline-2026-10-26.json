@@ -5,9 +5,9 @@
   "policy": "Frozen Batch 0 baseline; update only with explicit approved later-batch migration",
   "legacyCss": {
     "path": "frontend/src/app/globals.css",
-    "gitBlobSha": "e1ab22169d6947fad243f8bde9e989c709fbecbd",
-    "lines": 8526,
-    "bytes": 155849
+    "gitBlobSha": "e2d1290908b490f3294fc948c95972fe43d39930",
+    "lines": 8516,
+    "bytes": 155677
   },
   "otherCss": [],
   "routeCounts": {
@@ -140,5 +140,7 @@
       "path": "frontend/src/features/auth/components/AuthLayout.module.css",
       "reason": "AuthLayout and all four auth form views migrated to typed Tailwind utilities, including auth form spacing and field controls; no remaining imports or class consumers."
     }
-  ]
+  ],
+  "legacyCssReviewedAsOf": "2026-10-28",
+  "legacyCssApprovedDelta": "PR #82: delete only the first of two exact, identical .error-alert rule blocks (10 lines). Retain later declaration and all other compatibility rules; no authenticated visual retirement claimed."
 }

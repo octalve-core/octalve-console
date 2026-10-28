@@ -81,6 +81,8 @@ jobs:
         run: node frontend/scripts/audit-legacy-css.cjs --json frontend/.next/batch8-css-audit.json
       - name: Enforce Batch 8 single Tailwind config and legacy CSS safety gate
         run: node frontend/scripts/check-css-retirement-gates.cjs --built
+      - name: Premium UI foundation and reviewed CSS cleanup gate
+        run: node frontend/scripts/check-premium-ui-foundation.cjs --built
       - name: Auth logo parity and shared Tailwind component migration
         run: node frontend/scripts/check-batch8-shared-migration.cjs --built
       - name: Prepare 123-route responsive browser acceptance manifest
