@@ -45,7 +45,7 @@ if(!domainForm.includes('className="grid min-w-0 gap-3 sm:grid-cols-3') ||
 // Batch 5 extracted the forms into typed Tailwind sections. Keep enforcing
 // responsive layout and 48px controls at their actual component boundaries.
 const supportViews=[
- ["features/client/views/ClientSupportTicketEditorView.tsx",["xl:grid-cols-3","xl:col-span-2","SupportRequestFields"]],
+ ["features/client/views/ClientSupportTicketEditorView.tsx",["WorkspaceGrid variant=\"supportColumns\"","xl:col-span-2","SupportRequestFields"]],
  ["features/support/components/SupportRequestFields.tsx",["SelectField","TextField","TextAreaField","min-h-48","sm:w-auto"]],
  ["components/modules/TicketConversationView.tsx",["xl:grid-cols-3","xl:col-span-2","TicketReplyComposer","TicketContextPanels"]],
  ["features/support/components/TicketReplyComposer.tsx",["TextAreaField","min-h-40","sm:w-auto"]],
@@ -60,6 +60,9 @@ for(const [filename,utilities] of supportViews){
  for(const utility of utilities)if(!content.includes(utility))
   throw Error(filename+": missing responsive support form utility "+utility);
 }
+const scoped=fs.readFileSync(path.join(root,"components/design-system/WorkspaceGrid.module.css"),"utf8");
+if(!scoped.includes(".supportColumns")||!scoped.includes("@media (min-width: 1280px)"))
+ throw Error("Client support must retain three-column desktop grid in locally scoped CSS");
 const welcome=fs.readFileSync(path.join(root,"components/data/WorkspaceWelcomePanel.tsx"),"utf8");
 if(!welcome.includes('eyebrow:"Your Octalve Cloud Console"') ||
    /eyebrow:"[^"]*workspace"/i.test(welcome) ||
