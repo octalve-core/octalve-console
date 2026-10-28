@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { authApi } from "@/lib/api/endpoints";
+import {ApiError} from "@/lib/api/client";
 import type {
   AuthSession,
   LoginPayload,
@@ -174,8 +175,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!authenticatedUser.email) throw new Error("No authenticated identity.");
       setUser(authenticatedUser);
       return authenticatedUser;
-    } catch {
-      setUser(null);
+    } catch (error) {
+      // A temporary outage must never destroy a previously authenticated
+      // browser state. Django/BFF 401 or 403 is explicit session rejection.
+      if (error instanceof ApiError && [401,403].includes(error.status)) {
+        setUser(null);
+        return null;
+      }
+      // Preserve identity while the protected-page proxy refuses access
+      // with 503. Never promote an unknown user to authenticated.
       return null;
     } finally {
       setIsLoading(false);
