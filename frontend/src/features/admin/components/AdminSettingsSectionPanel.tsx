@@ -30,6 +30,7 @@ export const adminSettingsManagementLinks: Partial<Record<AdminSettingsKey,Reado
   {label:"Review renewal preflight",href:"/admin/billing/batch",description:"Review eligible renewals without scheduling charges."},
  ],
  invoices: [
+  {label:"Review invoice designs",href:"/admin/invoice-designer",description:"Open approved read-only invoice layouts and sample PDFs; issuance and edits are separate."},
   {label:"View invoices",href:"/admin/billing/invoices",description:"Review invoices and their issued documents."},
   {label:"View print queue",href:"/admin/billing/print-queue",description:"Review the print workflow and its current limitations."},
  ],
