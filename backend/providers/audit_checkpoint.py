@@ -138,6 +138,8 @@ def verify_audit_checkpoint(document):
             current = {str(row.pk): row for row in rows}
             for row in rows:
                 verify_chain(row)
+                if row.audit_sequence < 1 or row.audit_sequence > MAX_CHAIN:
+                    raise VaultUnavailable()
             for entry in payload["connections"]:
                 row = current.get(entry["id"])
                 if row is None or row.audit_sequence < entry["sequence"]:
