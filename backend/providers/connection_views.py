@@ -41,7 +41,8 @@ class VaultMutationThrottle(BaseThrottle):
 
 def require_write_authority(request):
     # Deliberately not an MFA claim. Full MFA verification is a later gate.
-    if not getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False):
+    if (not getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False)
+            or not getattr(settings,"CLOUD_PROVIDER_VAULT_WRITE_RELEASE_APPROVED",False)):
         raise VaultUnavailable()
     user=request.user
     if not user.is_active or not user.is_superuser or user.role!="admin":
