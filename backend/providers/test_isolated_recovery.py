@@ -4,6 +4,7 @@ import uuid
 from cryptography.fernet import Fernet
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.utils import timezone
 from django.test import TestCase,override_settings
 from providers.connection_models import IntegrationConnection,IntegrationCredentialVersion,IntegrationConnectionEvent
 from providers.connection_audit import append_event
@@ -99,6 +100,28 @@ class IsolatedRecoveryTests(TestCase):
         self.row.save(update_fields=["current_version"])
         with self.assertRaises(VaultUnavailable):
             build_isolated_snapshot()
+
+    def test_complete_rotation_and_revocation_history_passes(self):
+        # Version 1 is superseded, version 2 becomes active; both signed events
+        # must be present to accept the replacement snapshot.
+        self.version.revoked_at=timezone.now()
+        self.version.save(update_fields=["revoked_at"])
+        IntegrationCredentialVersion.objects.create(
+            connection=self.row,version=2,key_id="v1",
+            ciphertext=seal("resend",self.row.pk,2,{"api_key":SYNTHETIC+"-rotated"}))
+        self.row.current_version=2
+        self.row.save(update_fields=["current_version"])
+        with transaction.atomic():
+            append_event(self.row,self.actor,"credential_rotated",2)
+        report=verify_isolated_snapshot(build_isolated_snapshot())
+        self.assertEqual((report["versions"],report["events"]),(2,2))
+        IntegrationCredentialVersion.objects.filter(connection=self.row,version=2).update(revoked_at=timezone.now())
+        self.row.state="revoked"
+        self.row.save(update_fields=["state"])
+        with transaction.atomic():
+            append_event(self.row,self.actor,"credential_revoked",2)
+        report=verify_isolated_snapshot(build_isolated_snapshot())
+        self.assertEqual((report["versions"],report["events"]),(2,3))
 
     def test_export_is_default_off_and_requires_independent_key(self):
         with override_settings(CLOUD_PROVIDER_SNAPSHOT_REVIEW_ENABLED=False):
