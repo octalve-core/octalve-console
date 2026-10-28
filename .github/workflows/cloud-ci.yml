@@ -57,6 +57,8 @@ jobs:
         run: node frontend/scripts/audit-console-ui.cjs --check
       - name: Typed Console design-system source contract (Batch 1)
         run: node frontend/scripts/check-console-design-system.cjs
+      - name: Batch B canonical Admin and Staff UI source and CSS retirement contract
+        run: node frontend/scripts/check-batch-b-admin-staff-ui.cjs
       - name: Invoice-style reports and responsive UI safety contract (Batch A)
         run: node frontend/scripts/check-batch-a-invoice-report-ui.cjs
       - name: Report financial count parser truthfulness (Batch A)
@@ -69,6 +71,8 @@ jobs:
         run: node frontend/scripts/check-contrast-safe-cloud-panels.cjs --built
       - name: Console design system emitted Tailwind regression
         run: node frontend/scripts/check-console-design-system.cjs --built
+      - name: Batch B responsive workspace CSS Modules in production output
+        run: node frontend/scripts/check-batch-b-admin-staff-ui.cjs --built
       - name: Report CSS Modules and emitted UI regression (Batch A)
         run: node frontend/scripts/check-batch-a-invoice-report-ui.cjs --built
       - name: Shared Console shell and auth Tailwind contract (Batch 2)
