@@ -40,7 +40,7 @@ class SettingViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
             return Setting.objects.all()
-        return Setting.objects.filter(is_public=True, is_deprecated=False)
+        return Setting.objects.filter(is_public=True, is_deprecated=False, is_encrypted=False).exclude(data_type='password')
     
     # @action(detail=False, methods=['get'])
     def by_group(self, request):
