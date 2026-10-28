@@ -36,8 +36,8 @@ if(tool.includes('className="stat-icon"'))throw Error("Retired stat icon consume
 const global=src("app/globals.css");
 if(/\.stat-icon\s*\{/.test(global))throw Error("Retired .stat-icon global rule reintroduced");
 if(global.split("\n").length!==8502)throw Error("CSS retirement baseline changed without evidence");
-for(const forbidden of [/fetchs*(/,/localStorage/,/axios/]){
- if(forbidden.test(grid+icon+tile))throw Error("Presentation primitive acquired backend/session authority");
+for(const forbidden of ["fetch(", "axios(", "localStorage", "sessionStorage"]){
+ if((grid+icon+tile).includes(forbidden))throw Error("Presentational primitive acquired backend/session authority");
 }
 const files=fs.readdirSync(path.join(root,"src/app/admin"),{withFileTypes:true});
 if(process.argv.includes("--built")){
