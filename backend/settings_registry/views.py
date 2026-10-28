@@ -3,7 +3,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from django.shortcuts import get_object_or_404
 from django.core.cache import cache
 from django.core.mail import send_mail
@@ -28,7 +28,7 @@ class SettingGroupViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['sort_order']
 
 
-class SettingViewSet(viewsets.ModelViewSet):
+class SettingViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for settings"""
     
     serializer_class = SettingSerializer
@@ -73,8 +73,9 @@ class SettingViewSet(viewsets.ModelViewSet):
                 SettingChangeLog.objects.create(
                     setting=setting,
                     changed_by=request.user,
-                    old_value=str(old_value) if old_value else None,
-                    new_value=str(value) if value else None,
+                    # Audit the actor and setting identity, never the value.
+                    old_value=None,
+                    new_value=None,
                     ip_address=request.META.get('REMOTE_ADDR')
                 )
                 
@@ -125,12 +126,21 @@ class SettingViewSet(viewsets.ModelViewSet):
         return Response({'message': f'Reset {reset_count} settings for group {group_key}'})
 
 
-class EmailTemplateViewSet(viewsets.ModelViewSet):
+class CloudEmailTemplateAdminAccess(BasePermission):
+    """Message templates are operational records, not public configuration."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(user and user.is_authenticated and
+                    (user.is_superuser or getattr(user, 'role', None) == 'admin'))
+
+
+class EmailTemplateViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for email templates"""
     
     queryset = EmailTemplate.objects.all()
     serializer_class = EmailTemplateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CloudEmailTemplateAdminAccess]
     filterset_fields = ['category', 'is_active']
     search_fields = ['key', 'name', 'subject']
     
@@ -139,14 +149,6 @@ class EmailTemplateViewSet(viewsets.ModelViewSet):
         if user.role == 'admin' or user.is_superuser:
             return EmailTemplate.objects.all()
         return EmailTemplate.objects.filter(is_active=True)
-    
-    @permission_required('manage_settings')
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-    
-    @permission_required('manage_settings')
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
     
     # @action(detail=False, methods=['post'])
     @permission_required('manage_settings')
