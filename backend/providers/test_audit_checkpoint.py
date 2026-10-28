@@ -84,6 +84,15 @@ class ProviderAuditCheckpointTests(TestCase):
         with self.assertRaises(VaultUnavailable):
             verify_audit_checkpoint(artifact)
 
+    def test_new_unsequenced_connection_after_export_refuses_verification(self):
+        artifact = build_audit_checkpoint()
+        IntegrationConnection.objects.create(
+            adapter_key="resend", label="Unsequenced new record",
+            environment="test", public_settings={"sending_domain": "example.invalid"},
+        )
+        with self.assertRaises(VaultUnavailable):
+            verify_audit_checkpoint(artifact)
+
     def test_forged_body_and_even_resigned_duplicate_ids_fail(self):
         artifact = build_audit_checkpoint()
         envelope = json.loads(artifact)
