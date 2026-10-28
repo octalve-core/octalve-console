@@ -1,5 +1,5 @@
 /* Auth-only design translated from the supplied five-screen HTML, Oct 28.
-   One replaceable background: public/branding/octalve-auth-background.png.
+   One replaceable background: public/branding/octalve-auth-background.webp.
    This module has no global selectors and never handles auth state. */
 .art {
   --auth-brand: #076be7;
@@ -12,7 +12,7 @@
   padding: 38px clamp(30px, 14.1vw, 260px) 38px 30px;
   position: relative;
   isolation: isolate;
-  background: #ebbd3b url("/branding/octalve-auth-background.png") center / cover no-repeat;
+  background: #ebbd3b url("/branding/octalve-auth-background.webp") center / cover no-repeat;
   color: var(--auth-ink);
 }
 .frame {
