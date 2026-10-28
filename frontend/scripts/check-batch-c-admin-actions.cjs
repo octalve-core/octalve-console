@@ -10,7 +10,9 @@ const details=read("features/admin/views/AdminResourceDetailView.tsx");
 const restricted=read("features/admin/views/AdminRestrictedActionView.tsx");
 for(const key of ["orders","invoices","domains","gateways","provisioning"]){
  assert.match(policy,new RegExp("\\b"+key+": \\{"),"Missing authority guard: "+key);
- const block=config.slice(config.indexOf("  "+key+": {"),config.indexOf("  "+key+": {")+900);
+ const start=config.indexOf("  "+key+": {");
+ assert.ok(start>=0,"Missing resource configuration: "+key);
+ const block=config.slice(start,config.indexOf("\n  },",start)+5);
  assert.ok(block&&!block.includes("createHref:"),"Unsafe Create button returned: "+key);
 }
 for(const token of [
