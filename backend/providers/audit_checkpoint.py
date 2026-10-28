@@ -9,6 +9,7 @@ import binascii
 import hashlib
 import hmac
 import json
+import re
 import uuid
 from datetime import datetime
 
@@ -16,7 +17,7 @@ from django.conf import settings
 from django.db import DatabaseError, transaction
 from django.utils import timezone
 
-from .connection_audit import MAX_CHAIN, verify_chain
+from .connection_audit import MAX_CHAIN, audit_key, verify_chain
 from .connection_models import IntegrationConnection, IntegrationConnectionEvent
 from .connection_vault import VaultUnavailable
 
@@ -49,6 +50,13 @@ def _key():
     return material
 
 
+def _scope():
+    name = getattr(settings, "CLOUD_PROVIDER_CHECKPOINT_SCOPE", "")
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_.:/-]{3,128}", name):
+        raise VaultUnavailable()
+    return name
+
+
 def _sign(payload):
     return hmac.new(_key(), DOMAIN + _canonical(payload), hashlib.sha256).hexdigest()
 
@@ -65,9 +73,9 @@ def _decode(document):
         if not isinstance(envelope, dict) or set(envelope) != {"payload", "mac"}:
             raise ValueError("Invalid envelope")
         payload, mac = envelope["payload"], envelope["mac"]
-        if not isinstance(payload, dict) or set(payload) != {"format", "generated_at", "connections"}:
+        if not isinstance(payload, dict) or set(payload) != {"format", "scope", "generated_at", "connections"}:
             raise ValueError("Invalid payload")
-        if payload["format"] != "octalve-provider-audit-checkpoint-v1":
+        if payload["format"] != "octalve-provider-audit-checkpoint-v1" or payload["scope"] != _scope():
             raise ValueError("Unknown checkpoint format")
         if not isinstance(mac, str) or len(mac) != 64 or not hmac.compare_digest(_sign(payload), mac):
             raise ValueError("Checkpoint signature mismatch")
@@ -100,6 +108,8 @@ def build_audit_checkpoint():
     if not getattr(settings, "CLOUD_PROVIDER_AUDIT_CHECKPOINT_ENABLED", False):
         raise VaultUnavailable()
     _key()
+    audit_key()
+    scope = _scope()
     try:
         with transaction.atomic():
             rows = list(IntegrationConnection.objects.select_for_update().order_by("pk")[:MAX_CONNECTIONS + 1])
@@ -116,6 +126,7 @@ def build_audit_checkpoint():
                 })
             payload = {
                 "format": "octalve-provider-audit-checkpoint-v1",
+                "scope": scope,
                 "generated_at": timezone.now().isoformat(),
                 "connections": entries,
             }
@@ -134,6 +145,7 @@ def verify_audit_checkpoint(document):
     to a replaceable local file is not an anti-rollback assurance.
     """
     payload = _decode(document)
+    audit_key()
     try:
         with transaction.atomic():
             rows = list(IntegrationConnection.objects.select_for_update().order_by("pk")[:MAX_CONNECTIONS + 1])
