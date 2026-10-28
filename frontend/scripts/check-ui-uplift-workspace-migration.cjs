@@ -8,6 +8,7 @@ const read=p=>fs.readFileSync(path.join(frontend,"src",p),"utf8");
 function must(p,parts){const c=read(p);for(const item of parts)if(!c.includes(item))throw Error(p+" missing "+item);return c;}
 const grid=must("components/design-system/WorkspaceGrid.tsx",["WorkspaceGridVariant","overviewPair","directory","responsive2","responsive3","responsive4","styles[variant]"]);
 const css=must("components/design-system/WorkspaceGrid.module.css",[".overviewPair",".directory",".responsive2",".responsive3",".responsive4","@media (min-width: 768px)","@media (min-width: 1280px)","minmax(0, 1fr)"]);
+if(!grid.includes('if(as==="ul")return <ul'))throw Error("Settings must remain a semantic ul in the canonical grid");
 if(css.includes(":global("))throw Error("Shared module must not create global selectors");
 const responsive=must("components/data/ResponsiveGrid.tsx",["ResponsiveGrid","children","className","columns=\"3\"","WorkspaceGrid","responsive2","responsive3","responsive4"]);
 for(const removed of ['"grid gap-4"','"sm:grid-cols-2 xl:grid-cols-3"']){
@@ -23,7 +24,7 @@ for(const role of ["admin","staff"]){
  const content=must("features/"+role+"/components/"+filename,["WorkspaceGrid variant=\"quickActions\"","ConsoleIconTile","href={href}","Quick actions"]);
  if(content.includes('className="grid '))throw Error(role+" shortcuts still use global grid");
 }
-const directory=must("features/admin/components/AdminSettingsDirectory.tsx",['<ul aria-label="Administration settings" className={styles.directory}',"item.href","item.key","View section"]);
+const directory=must("features/admin/components/AdminSettingsDirectory.tsx",['<WorkspaceGrid variant="directory" as="ul" ariaLabel="Administration settings"',"item.href","item.key","View section"]);
 if(directory.includes('className="grid '))throw Error("Admin settings still use global grid");
 for(const p of [
  "features/admin/views/AdminOverviewView.tsx","features/staff/views/StaffDashboardView.tsx",
