@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {useSearchParams} from "next/navigation";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import { loadSellablePlans, defaultCycle, type ClientOrderPlan } from "../data/client-order-data";
 import {HostingPlanCards} from "../components/commerce/HostingPlanCards";
 import {HostingOrderSummary} from "../components/commerce/HostingOrderSummary";
@@ -57,12 +58,12 @@ export function ClientOrderView() {
           hosting checkout contract can currently be ordered. You can browse all eligible plans instead.
           <a href="/client/order" className="ml-2 font-semibold text-console-primary underline">Browse plans</a>
         </div> : null}
-      {visiblePlans.length > 0 && <div className="grid min-w-0 gap-5 lg:grid-cols-3">
+      {visiblePlans.length > 0 && <WorkspaceGrid variant="commerceColumns">
         <div className="min-w-0 lg:col-span-2">
           <HostingPlanCards plans={visiblePlans} selectedId={planId} onSelect={selectPlan}/>
         </div>
         <HostingOrderSummary plan={selected} cycleKey={cycleKey} onCycleChange={setCycleKey}/>
-      </div>}
+      </WorkspaceGrid>}
     </DashboardPage>
   </DashboardShell>;
 }
