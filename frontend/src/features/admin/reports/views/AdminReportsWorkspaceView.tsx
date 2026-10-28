@@ -1,5 +1,6 @@
 "use client";
 import {useState} from "react";
+import styles from "./AdminReportsWorkspace.module.css";
 import type {LucideIcon} from "lucide-react";
 import {
  BarChart3,CalendarDays,CheckCircle2,ChevronRight,CreditCard,FileBarChart2,
@@ -97,7 +98,7 @@ function ReportLibrary({definitions}:{definitions:ReportDefinitionCard[]|null}){
  if(definitions===null)return <ErrorState title="Report library unavailable"
   description="We couldn't retrieve your report definitions. Other report sections may still be available."/>;
  if(!definitions.length)return <Panel><p className="text-sm text-console-muted">No report definitions have been published yet.</p></Panel>;
- return <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Available report definitions">
+ return <section className={styles.library} aria-label="Available report definitions">
   {definitions.map((report,index)=><Panel key={report.id} className="flex min-w-0 flex-col gap-5">
    <div className="flex items-start justify-between gap-3">
     <ConsoleIconTile icon={index%2?BarChart3:FileBarChart2} tone={index%2?"violet":"blue"}/>
@@ -117,7 +118,7 @@ function ReportHistory({instances}:{instances:ReportInstanceCard[]|null}){
  if(instances===null)return <ErrorState title="Generated reports unavailable"
   description="We couldn't retrieve the generated-report history."/>;
  if(!instances.length)return <Panel><p className="text-sm text-console-muted">No generated reports are recorded yet.</p></Panel>;
- return <section className="grid min-w-0 gap-3 sm:grid-cols-2" aria-label="Generated report history">
+ return <section className={styles.history} aria-label="Generated report history">
   {instances.map(row=><Panel key={row.id} className="flex min-w-0 flex-col gap-4">
    <div className="flex items-start justify-between gap-3">
     <ConsoleIconTile icon={FileText} tone="blue"/>
@@ -190,10 +191,10 @@ export function AdminReportsWorkspaceView(){
       <span>Some report information is currently unavailable: {errors.join(", ")}. Available sections show only retrieved records.</span>
     </div>:null}
     {section==="overview"?<>
-     <section aria-label="Report metrics" className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+     <section aria-label="Report metrics" className={styles.metrics}>
       {numbers.map(item=><SummaryCard key={item.title} {...item}/>)}
      </section>
-     <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+     <div className={styles.breakdowns}>
       <CountsBreakdown title="Successful payments by gateway"
        description="Number of successful transaction records grouped by gateway during the last 30 days. Amounts are not added across currencies."
        unit="transactions" rows={data.gateways} tone="blue"/>
