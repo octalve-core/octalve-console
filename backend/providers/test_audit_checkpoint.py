@@ -146,16 +146,16 @@ class ProviderAuditCheckpointTests(TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "checkpoint.json")
             with self.assertRaises(CommandError):
-                call_command("provider_audit_checkpoint", output=path, stdout=io.StringIO())
+                call_command("provider_audit_checkpoint", "--output", path, stdout=io.StringIO())
             self.assertFalse(os.path.exists(path))
             call_command(
-                "provider_audit_checkpoint", output=path,
-                confirm="EXPORT-PROVIDER-AUDIT-CHECKPOINT", stdout=io.StringIO(),
+                "provider_audit_checkpoint", "--output", path,
+                "--confirm=EXPORT-PROVIDER-AUDIT-CHECKPOINT", stdout=io.StringIO(),
             )
             self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
-            call_command("provider_audit_checkpoint", verify=path, stdout=io.StringIO())
+            call_command("provider_audit_checkpoint", "--verify", path, stdout=io.StringIO())
             with self.assertRaises(CommandError):
                 call_command(
-                    "provider_audit_checkpoint", output=path,
-                    confirm="EXPORT-PROVIDER-AUDIT-CHECKPOINT", stdout=io.StringIO(),
+                    "provider_audit_checkpoint", "--output", path,
+                    "--confirm=EXPORT-PROVIDER-AUDIT-CHECKPOINT", stdout=io.StringIO(),
                 )
