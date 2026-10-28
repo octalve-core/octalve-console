@@ -2,6 +2,7 @@
 import {useMemo,useState} from "react";
 import {Search,ChevronLeft,ChevronRight} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {TextField} from "@/components/design-system/TextField";
 import {SelectField} from "@/components/design-system/SelectField";
 import {ActionButton} from "@/components/design-system/ActionButton";
@@ -35,14 +36,14 @@ export function AdminGenericDirectory({label,records,emptyTitle,emptyDescription
    href={item.actionHref} size="sm" variant="outline" className="w-full sm:w-auto">View</ActionLink>}]:[])
  ];
  return <Panel padded={false} className="overflow-hidden">
-  <div className="grid gap-4 border-b border-console-line p-4 sm:grid-cols-2 sm:p-5">
+  <WorkspaceGrid variant="filters" className="border-b border-console-line p-4 sm:p-5">
    <TextField label={"Search "+label} value={query} type="search" placeholder="Search records"
     startIcon={<Search aria-hidden="true" className="h-4 w-4"/>}
     onChange={event=>{setQuery(event.target.value);setPage(1);}}/>
    <SelectField label="Status" value={status} options={[{value:"all",label:"All statuses"},
     ...statuses.map(value=>({value,label:formatStatus(value)}))]}
     onChange={event=>{setStatus(event.target.value);setPage(1);}}/>
-  </div>
+  </WorkspaceGrid>
   <div className="min-w-0 p-4 sm:p-5">
    <p className="mb-3 text-xs text-console-muted">{matches.length} results</p>
    <ResponsiveTable caption={label} columns={columns} rows={rows} getRowKey={item=>item.id}
