@@ -1,4 +1,5 @@
 """B1 draft connection authority. No vendor HTTP or service provisioning."""
+import os
 import re
 from django.conf import settings
 from django.db import transaction, DatabaseError
@@ -42,6 +43,13 @@ class VaultMutationThrottle(BaseThrottle):
 def require_write_authority(request):
     # Deliberately not an MFA claim. Full MFA verification is a later gate.
     if not getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False):
+        raise VaultUnavailable()
+    # Interim hard stop: B2.8-B3 source tests do not authorize vendor secrets.
+    # Explicit synthetic test flag is insufficient on deployed or non-debug API.
+    if (not getattr(settings,"CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED",False)
+        or not getattr(settings,"DEBUG",False)
+        or os.getenv("VERCEL_ENV","").lower() in ("production","preview","development")
+        or os.getenv("VERCEL","")=="1"):
         raise VaultUnavailable()
     user=request.user
     if not user.is_active or not user.is_superuser or user.role!="admin":
