@@ -14,6 +14,7 @@ import { adminResourceConfig, type AdminResourceKey } from "../data/admin-resour
 import { adminEditorConfig } from "../data/admin-editor-config";
 import type { AdminRecord } from "../data/admin-demo-data";
 import { normalizeAdminRecord, unwrapAdminList } from "../utils/admin-record-normalizer";
+import {isAdminMutationDisabled} from "../data/admin-action-policy";
 
 type AdminResourceDetailViewProps = {
   resource: AdminResourceKey;
@@ -89,7 +90,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
           <ErrorState title="Record unavailable" description={error || "This record could not be found."}/>
         ) : (
           <AdminRecordDetailPanel record={record}
-            actions={[...(resource==="providers"?[]:[{href:editHref,label:"Edit record",variant:"primary" as const}]),
+            actions={[...(resource==="providers"?[]:isAdminMutationDisabled(resource)?[]:[{href:editHref,label:"Edit record",variant:"primary" as const}]),
               {href:editorConfig.listHref,label:"Back to records",variant:"outline"}]}/>
         )}
       </DashboardPage>
