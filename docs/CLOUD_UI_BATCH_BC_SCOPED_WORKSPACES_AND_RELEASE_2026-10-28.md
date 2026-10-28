@@ -5,7 +5,7 @@ Review base: `8730c3a251d96cf8aab57e4b71d0ef06f9500a24` (merged auth background,
 - Expanded the existing canonical `WorkspaceGrid` with responsive `overviewPair`, `directory`, `responsive2`, `responsive3`, `responsive4` variants. All layout selectors are locally owned in `WorkspaceGrid.module.css`; no extra CSS global file or second grid primitive. The pre-existing `filters`, Admin/Staff/Client metric, and `quickActions` variants remain unchanged.
 - Applied `overviewPair` to actual Admin, Staff and Client overview screens. Admin invoice/provisioning links, Staff support/provisioning state, Client services/invoice readback, loading/error states, API fetch effects and role/locale remain unchanged. One column below 1280px, two at XL with `minmax(0, 1fr)` for overflow-safety.
 - Updated Admin/Staff quick actions to the same two-mobile/four-tablet `quickActions` grid and accessible `ConsoleIconTile` family already used by Client. Preserve exact four role-restricted destination URLs and focus-visible treatment.
-- Replaced Admin settings directory's unlayered generic `.grid` with `styles.directory`, retaining semantic `ul > li`, real settings links, one column on phones, two from 768px and three from 1280px.
+- Replaced Admin settings directory's unlayered generic `.grid` with `WorkspaceGrid variant="directory" as="ul"`, retaining semantic `ul > li`, real settings links, one column on phones, two from 768px and three from 1280px.
 - Refactored existing `ResponsiveGrid` without changing the public `children/className/columns` contract. Its 2/3/4 column breakpoints now use scoped variants, preventing the remaining unlayered `.grid` selectors from hijacking these common layouts.
 
 ## CSS retirement ledger
