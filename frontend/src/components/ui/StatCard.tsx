@@ -12,7 +12,7 @@ export function StatCard({ label, value, icon }: { label: string; value: string;
         <div className="mb-2 text-xs font-medium text-console-muted">{label}</div>
         <div className="break-words text-[1.5625rem] font-semibold leading-tight tracking-[-0.045em] text-console-ink">{value}</div>
       </div>
-      <div className="grid h-[2.625rem] w-[2.625rem] shrink-0 place-items-center rounded-[0.8125rem] bg-[#eaf3ff] text-console-primary">{icon}</div>
+      <div className="flex h-[2.625rem] w-[2.625rem] shrink-0 items-center justify-center rounded-[0.8125rem] bg-[#eaf3ff] text-console-primary">{icon}</div>
     </div>
   );
 }
