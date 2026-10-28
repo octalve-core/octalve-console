@@ -57,6 +57,10 @@ jobs:
         run: node frontend/scripts/audit-console-ui.cjs --check
       - name: Typed Console design-system source contract (Batch 1)
         run: node frontend/scripts/check-console-design-system.cjs
+      - name: Invoice-style reports and responsive UI safety contract (Batch A)
+        run: node frontend/scripts/check-batch-a-invoice-report-ui.cjs
+      - name: Report financial count parser truthfulness (Batch A)
+        run: node --experimental-strip-types --test frontend/scripts/test-batch-a-report-presentation.mjs
       - name: TypeScript
         run: pnpm typecheck:frontend
       - name: Next.js build
@@ -65,6 +69,8 @@ jobs:
         run: node frontend/scripts/check-contrast-safe-cloud-panels.cjs --built
       - name: Console design system emitted Tailwind regression
         run: node frontend/scripts/check-console-design-system.cjs --built
+      - name: Report CSS Modules and emitted UI regression (Batch A)
+        run: node frontend/scripts/check-batch-a-invoice-report-ui.cjs --built
       - name: Shared Console shell and auth Tailwind contract (Batch 2)
         run: node frontend/scripts/check-console-shell.cjs --built
       - name: Client essentials design-system and API authority regression (Batch 3)
