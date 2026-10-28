@@ -18,9 +18,22 @@ for(const file of ["LoginPageClient.tsx","SignupPageClient.tsx","ForgotPasswordP
  if(/className="auth-(?:form|terms|inline|secondary|submit|helper)/.test(body))throw Error(file+": legacy auth form classes still required");
  if(!body.includes("AuthLayout"))throw Error(file+": auth frame missing");
 }
-if(fs.existsSync(path.join(root,"features/auth/components/AuthLayout.module.css")))throw Error("Retired auth CSS Module reappeared");
-for(const file of ["components/layout/DashboardHeader.tsx","components/layout/DashboardSidebar.tsx","components/layout/DashboardShell.tsx","features/auth/components/AuthLayout.tsx","features/auth/components/AuthFormControls.tsx"])
- if(/(?:\bfrom\s*["'][^"']+\.css["']|className="oct-)/.test(read(file)))throw Error(file+": unreviewed CSS dependency");
+// Batch C: approved private auth-frame CSS replaces global .grid dependence.
+const approvedAuthModule="features/auth/components/AuthLayout.module.css";
+if(!fs.existsSync(path.join(root,approvedAuthModule)))throw Error("Approved auth frame CSS Module missing");
+const authCss=read(approvedAuthModule);
+for(const token of [".frame","--console-auth-panel-columns","@media (min-width: 1024px)"])
+ if(!authCss.includes(token))throw Error("Approved auth CSS incomplete: "+token);
+if(authCss.includes(":global("))throw Error("Auth Module must not create global CSS");
+for(const file of ["components/layout/DashboardHeader.tsx","components/layout/DashboardSidebar.tsx","components/layout/DashboardShell.tsx","features/auth/components/AuthLayout.tsx","features/auth/components/AuthFormControls.tsx"]){
+ const source=read(file);
+ const imports=[...source.matchAll(/from\s*["']([^"']+\.css)["']/g)].map(match=>match[1]);
+ const allowed=file==="features/auth/components/AuthLayout.tsx"?["./AuthLayout.module.css"]:[];
+ if(JSON.stringify(imports)!==JSON.stringify(allowed)||source.includes('className="oct-'))
+  throw Error(file+": unreviewed stylesheet import or legacy auth selector");
+ if(file==="features/auth/components/AuthLayout.tsx"&&source.includes('className="grid '))
+  throw Error("Auth frame still relies on conflicting global .grid");
+}
 const navigations=read("lib/navigation/dashboard-nav.ts");
 for(const role of ["adminNavGroups","staffNavGroups","clientNavGroups"])if(!navigations.includes("export const "+role))throw Error("Lost role navigation: "+role);
 if(process.argv.includes("--built")){
