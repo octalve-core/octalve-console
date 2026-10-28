@@ -17,7 +17,7 @@ ensure("features/staff/views/StaffDashboardView.tsx",[
 ]);
 ensure("features/staff/components/StaffOverviewMetrics.tsx",[
  "counts[item.key]","value===null?\"—\":formatNumber(value)",
- "min-h-36","aria-busy={loading}","Panel"
+ "min-h-36","busy={loading}","Panel","WorkspaceGrid","ConsoleIconTile"
 ]);
 ensure("features/staff/components/StaffQuickActions.tsx",[
  "/staff/tickets","/staff/provisioning","/staff/knowledge-base","/staff/orders",

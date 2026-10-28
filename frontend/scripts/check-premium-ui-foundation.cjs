@@ -33,7 +33,10 @@ for (const retired of ["stat-card", "stat-label", "stat-value"]) {
     throw new Error("Retired StatCard selector returned: " + retired);
   }
 }
-if (!css.includes(".stat-icon {")) throw new Error("Still-owned AdminToolPage stat icon style lost");
+if (/\\.stat-icon\\s*\\{/.test(css)) throw new Error("Retired shared stat icon rule returned");
+if (read("src/components/modules/AdminToolPage.tsx").includes('className="stat-icon"')) {
+  throw new Error("Legacy Admin tool stat icon consumer returned");
+}
 const migratedStat = read("src/components/ui/StatCard.tsx");
 for (const token of ["rounded-console-card", "border-console-line", "text-console-muted", "text-console-ink"]) {
   if (!migratedStat.includes(token)) throw new Error("StatCard migration lost " + token);

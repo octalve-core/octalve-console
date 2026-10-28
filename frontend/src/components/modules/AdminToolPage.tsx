@@ -340,8 +340,8 @@ export function AdminToolPage({ tool }: { tool: ToolKey }) {
                 <strong>{stat.value}</strong>
                 <p>{stat.detail}</p>
               </div>
-              <div className="stat-icon">
-                <Icon size={22} />
+              <div className="flex h-[2.625rem] w-[2.625rem] shrink-0 items-center justify-center rounded-[0.8125rem] bg-blue-50 text-console-primary">
+                <Icon size={22} aria-hidden="true" />
               </div>
             </div>
           </Card>
