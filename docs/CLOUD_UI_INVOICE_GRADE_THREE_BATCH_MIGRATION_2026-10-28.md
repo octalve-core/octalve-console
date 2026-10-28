@@ -17,7 +17,7 @@
 
 **Structure:**
 - Existing `frontend/tailwind.config.ts` is current authority for v3; one PostCSS MJS. Adopt canonical `console` color tokens plus opt-in `rem` typography, spacing, layout widths, surfaces and radii. Do not overwrite tested colors or globally adjust all screen margins.
-- Existing `components/design-system` remains the shared source of primitive contracts. Introduce typed, responsive wrappers (WorkspaceContainer/WorkspaceSection) and module-specific `.module.css` ONLY when a specialized visual cannot reasonably use Tailwind classes.
+- Existing `components/design-system` remains the shared source of primitive contracts. Batch 1 now exposes responsive WorkspaceContainer, WorkspaceSection and semantic WorkspaceNavTabs from the same barrel; optional typography tokens cover caption/body/section/page, with the existing palette and spacing tokens. Use feature-specific `.module.css` ONLY when a specialized visual cannot reasonably use Tailwind classes.
 - Existing DashboardShell/Header/Sidebar/MobileDrawer stay the only navigation and role shell; add responsive composition through components rather than separate page implementations.
 - Audit **all** CSS rules with PostCSS, scan all TSX/TS/JSX/JS/MDX source for possible ownership and generate machine-readable `frontend/.next/ui-css-ownership.json`. Mark collisions (`.grid`, `.card`, `.table`, etc.) and dynamic references as manual-review risks.
 - Review representative Client, Staff, Admin and authentication screens at all six widths for use as future golden baselines.
