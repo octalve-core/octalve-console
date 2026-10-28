@@ -25,8 +25,12 @@ export function IntegrationStore(){
   <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
    <p className="text-sm text-console-muted">Supplier operations are disabled. {connectionOverview.status==="ready"
  ? connectionOverview.connections.filter(c=>c.state==="draft").length+" encrypted drafts saved."
- : connectionOverview.status==="unavailable"?"Connection registry is not available yet.":"Checking saved drafts…"}</p>
-   <Link href="/admin/servers" className="text-sm font-semibold text-console-primary hover:underline">Existing provider records</Link>
+: connectionOverview.status==="unavailable"?"Connection registry is not available yet.":"Checking saved drafts…"}</p>
+   <div className="flex flex-wrap items-center gap-3">
+    {connectionOverview.status==="unavailable"?<button type="button" onClick={connectionOverview.retry}
+      className="min-h-10 rounded-xl border border-console-line px-3 py-2 text-xs font-semibold text-console-primary hover:bg-blue-50">Retry connection status</button>:null}
+    <Link href="/admin/servers" className="text-sm font-semibold text-console-primary hover:underline">Existing provider records</Link>
+   </div>
   </div>
   <section aria-label="Integration catalogue" className="overflow-hidden rounded-2xl border border-console-line bg-white">
    <div className="flex flex-col gap-3 border-b border-console-line p-4 md:flex-row md:items-center md:justify-between">
@@ -41,11 +45,11 @@ export function IntegrationStore(){
       className={"min-h-9 rounded-full px-3 py-2 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary "+(category===c?"bg-blue-50 text-console-primary":"bg-slate-100 text-slate-600 hover:bg-slate-200")}>{c}</button>)}
    </div>
    {visible.length?<ul onClickCapture={e=>{const target=e.target;if(target instanceof HTMLElement)opener.current=target.closest("a");}}
-     className="grid min-w-0 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">{visible.map(item=><ProviderCard key={item.slug} item={item} drafts={connectionOverview.connections.filter(c=>c.adapter_key===item.slug)}/>)}</ul>
+     className="grid min-w-0 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">{visible.map(item=><ProviderCard key={item.slug} item={item} overviewStatus={connectionOverview.status} drafts={connectionOverview.connections.filter(c=>c.adapter_key===item.slug)}/>)}</ul>
     :<p role="status" className="p-10 text-center text-sm text-console-muted">No matches. Try another search or category.</p>}
   </section>
   <p className="mt-4 text-xs text-console-muted">A visible vendor is not a connected supplier, an approved reseller or a qualified provisioning adapter.</p>
  </DashboardPage>
- {selected?<ProviderSideSheet key={selected.slug} item={selected} onClose={close} drafts={connectionOverview.connections.filter(c=>c.adapter_key===selected.slug)} draftSchemaAvailable={connectionOverview.supported.has(selected.slug)}/>:null}
+ {selected?<ProviderSideSheet key={selected.slug} item={selected} onClose={close} drafts={connectionOverview.connections.filter(c=>c.adapter_key===selected.slug)} draftSchemaAvailable={connectionOverview.supported.has(selected.slug)} overviewStatus={connectionOverview.status}/>:null}
  </DashboardShell>;
 }

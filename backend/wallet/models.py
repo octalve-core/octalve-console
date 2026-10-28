@@ -34,59 +34,23 @@ class Wallet(models.Model):
         ]
     
     def add_balance(self, amount, description, reference=None, created_by=None, metadata=None):
-        """Add funds to wallet"""
-        amount = Decimal(str(amount))
-        old_balance = self.balance
-        self.balance += amount
-        self.save()
-        
-        WalletLedger.objects.create(
-            wallet=self,
-            user=self.user,
-            transaction_type='credit',
-            amount=amount,
-            balance_before=old_balance,
-            balance_after=self.balance,
-            description=description,
-            reference=reference,
-            created_by=created_by,
-            metadata=metadata or {}
+        """Internal credit with durable, wallet-scoped idempotency and row locking."""
+        from .ledger_authority import post_wallet_entry
+        balance, _created = post_wallet_entry(
+            self, direction="credit", amount=amount, description=description,
+            reference=reference, created_by=created_by, metadata=metadata,
         )
-        
-        # Check if we should send low balance alert (not needed since we're adding)
-        
-        return self.balance
-    
+        return balance
+
     def deduct_balance(self, amount, description, reference=None, created_by=None, metadata=None):
-        """Deduct funds from wallet"""
-        amount = Decimal(str(amount))
-        
-        if self.balance < amount:
-            raise ValueError(f"Insufficient wallet balance. Available: {self.balance}, Required: {amount}")
-        
-        old_balance = self.balance
-        self.balance -= amount
-        self.save()
-        
-        WalletLedger.objects.create(
-            wallet=self,
-            user=self.user,
-            transaction_type='debit',
-            amount=amount,
-            balance_before=old_balance,
-            balance_after=self.balance,
-            description=description,
-            reference=reference,
-            created_by=created_by,
-            metadata=metadata or {}
+        """Internal debit; never performs a blind read/modify/write."""
+        from .ledger_authority import post_wallet_entry
+        balance, _created = post_wallet_entry(
+            self, direction="debit", amount=amount, description=description,
+            reference=reference, created_by=created_by, metadata=metadata,
         )
-        
-        # Check low balance alert
-        if self.balance <= self.low_balance_threshold:
-            self._send_low_balance_alert()
-        
-        return self.balance
-    
+        return balance
+
     def _send_low_balance_alert(self):
         """Send low balance notification"""
         # This would trigger a notification
@@ -112,8 +76,26 @@ class Wallet(models.Model):
 # WALLET LEDGER MODEL
 # ============================================
 
+class AppendOnlyLedgerQuerySet(models.QuerySet):
+    """Prevent ordinary ORM bulk mutation of historical ledger facts."""
+
+    def update(self, **kwargs):
+        raise ValueError("Ledger entries are append-only.")
+
+    def delete(self):
+        raise ValueError("Ledger entries are append-only.")
+
+    def bulk_update(self, *args, **kwargs):
+        raise ValueError("Ledger entries are append-only.")
+
+    def bulk_create(self, *args, **kwargs):
+        raise ValueError("Ledger entries must use the authorized posting path.")
+
+
 class WalletLedger(models.Model):
-    """Wallet transaction ledger - complete history of all wallet movements"""
+    """Append-only application ledger. DB-level retention is a separate gate."""
+
+    objects = models.Manager.from_queryset(AppendOnlyLedgerQuerySet)()
     
     TRANSACTION_TYPES = [
         ('credit', 'Credit'),
@@ -161,6 +143,14 @@ class WalletLedger(models.Model):
             models.Index(fields=['invoice_id']),
         ]
     
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("Ledger entries cannot be edited.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("Ledger entries cannot be deleted.")
+
     def __str__(self):
         return f"{self.user.email} - {self.transaction_type} - {self.amount}"
 

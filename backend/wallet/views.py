@@ -1,6 +1,6 @@
 # wallet/views.py
 
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -43,16 +43,12 @@ class WalletViewSet(viewsets.GenericViewSet):
     
     @action(detail=False, methods=['post'])
     def update_settings(self, request):
-        """Update wallet settings"""
-        wallet = self.get_object()
-        wallet.auto_pay_enabled = request.data.get('auto_pay_enabled', wallet.auto_pay_enabled)
-        wallet.auto_pay_threshold = request.data.get('auto_pay_threshold', wallet.auto_pay_threshold)
-        wallet.low_balance_threshold = request.data.get('low_balance_threshold', wallet.low_balance_threshold)
-        wallet.save()
-        
-        serializer = self.get_serializer(wallet)
-        return Response(serializer.data)
-    
+        """Autopay preferences remain closed until their debit authority is qualified."""
+        return Response(
+            {'detail': 'Wallet payment preferences cannot be changed while automatic settlement is unavailable.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
     @action(detail=False, methods=['get'])
     def ledger(self, request):
         """Get wallet ledger history"""
@@ -76,66 +72,20 @@ class WalletViewSet(viewsets.GenericViewSet):
         })
     
     @action(detail=False, methods=['post'])
-    @transaction.atomic
     def apply_to_invoice(self, request):
-        """Apply wallet balance to an invoice"""
-        serializer = ApplyWalletToInvoiceSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        invoice_id = serializer.validated_data['invoice_id']
-        amount = serializer.validated_data.get('amount')
-        
-        invoice = get_object_or_404(Invoice, id=invoice_id, client=request.user)
-        
-        if invoice.status == 'paid':
-            return Response({'error': 'Invoice already paid'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        if amount is None:
-            amount = invoice.amount_due
-        
-        wallet = self.get_object()
-        
-        if wallet.balance < amount:
-            return Response({'error': 'Insufficient wallet balance'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Deduct from wallet
-        wallet.deduct_balance(
-            amount=amount,
-            description=f"Payment for invoice {invoice.invoice_number}",
-            reference=invoice.invoice_number,
-            created_by=request.user,
-            metadata={'invoice_id': invoice.id}
+        """Do not settle invoices through an unqualified wallet shortcut.
+
+        This endpoint stays present for compatibility but never debits funds,
+        writes a ledger, marks an invoice paid or changes an order.
+        """
+        return Response(
+            {'detail': 'Wallet invoice payments are unavailable until the verified settlement workflow is approved.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-        
-        # Apply payment to invoice
-        invoice.apply_payment(amount)
-        
-        # Create transaction record if invoice is fully paid
-        if invoice.status == 'paid':
-            from payments.models import Transaction
-            Transaction.objects.create(
-                client=request.user,
-                invoice=invoice,
-                gateway=None,
-                reference=f"WALLET-{invoice.invoice_number}",
-                transaction_type='payment',
-                currency=invoice.currency,
-                amount=amount,
-                fee=0,
-                net_amount=amount,
-                status='successful',
-                payment_method='wallet',
-                paid_at=timezone.now()
-            )
-        
-        return Response({
-            'message': f'{amount} applied to invoice {invoice.invoice_number}',
-            'invoice_status': invoice.status,
-            'wallet_balance': wallet.balance
-        })
 
 
-class WithdrawalRequestViewSet(viewsets.ModelViewSet):
+class WithdrawalRequestViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
+                               mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """ViewSet for withdrawal requests"""
     
     serializer_class = WithdrawalRequestSerializer
@@ -208,7 +158,8 @@ class WithdrawalRequestViewSet(viewsets.ModelViewSet):
         return Response({'message': 'Withdrawal request cancelled'})
 
 
-class DepositRequestViewSet(viewsets.ModelViewSet):
+class DepositRequestViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
+                            mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """ViewSet for deposit requests"""
     
     serializer_class = DepositRequestSerializer
@@ -277,30 +228,8 @@ class AdminWalletViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['post'])
     @permission_required('manage_finances')
     def manual_adjust(self, request, pk=None):
-        """Manually adjust wallet balance (admin only)"""
-        wallet = self.get_object()
-        amount = Decimal(str(request.data.get('amount', 0)))
-        operation = request.data.get('operation', 'credit')  # credit or debit
-        reason = request.data.get('reason', 'Manual adjustment')
-        
-        if operation == 'credit':
-            wallet.add_balance(
-                amount=amount,
-                description=reason,
-                created_by=request.user,
-                metadata={'admin_note': reason}
-            )
-            message = f"Credited {amount} to wallet"
-        else:
-            try:
-                wallet.deduct_balance(
-                    amount=amount,
-                    description=reason,
-                    created_by=request.user,
-                    metadata={'admin_note': reason}
-                )
-                message = f"Debited {amount} from wallet"
-            except ValueError as e:
-                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
-        return Response({'message': message, 'new_balance': wallet.balance})
+        """Manual balance changes require a separately reconciled ledger workflow."""
+        return Response(
+            {'detail': 'Manual wallet adjustments are unavailable until financial reconciliation is approved.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )

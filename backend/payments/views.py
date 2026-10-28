@@ -3,7 +3,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.views import APIView
 from django.conf import settings
 from django.shortcuts import get_object_or_404
@@ -22,12 +22,21 @@ from rbac.decorators import permission_required
 import requests
 
 
-class PaymentGatewayViewSet(viewsets.ModelViewSet):
+class CloudGatewayAdminAccess(BasePermission):
+    """Gateway configuration is separate from client checkout options."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(user and user.is_authenticated and
+                    (user.is_superuser or getattr(user, 'role', None) == 'admin'))
+
+
+class PaymentGatewayViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for payment gateways"""
     
     queryset = PaymentGateway.objects.all()
     serializer_class = PaymentGatewaySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CloudGatewayAdminAccess]
     
     def get_queryset(self):
         user = self.request.user
@@ -35,21 +44,6 @@ class PaymentGatewayViewSet(viewsets.ModelViewSet):
             return PaymentGateway.objects.all()
         return PaymentGateway.objects.filter(status='active')
     
-    @permission_required('manage_settings')
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-    
-    @permission_required('manage_settings')
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
-
-    @permission_required('manage_settings')
-    def partial_update(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
-
-    @permission_required('manage_settings')
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
 
 
 class TransactionViewSet(viewsets.ReadOnlyModelViewSet):

@@ -47,6 +47,25 @@ class ServiceViewSet(viewsets.ModelViewSet):
             return [CloudServiceWritePermission()]
         return super().get_permissions()
 
+    @staticmethod
+    def _refuse_unverified_change():
+        return Response(
+            {'detail': 'Service changes require the approved fulfillment and reconciliation workflow.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    def create(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
+    def update(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
+    def partial_update(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
+    def destroy(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
     def get_queryset(self):
         plan_name = Plan.objects.filter(pk=OuterRef('plan_id')).values('name')[:1]
         queryset = Service.objects.annotate(
@@ -115,6 +134,34 @@ class ServiceViewSet(viewsets.ModelViewSet):
             'auto_renew': service.auto_renew,
             'next_due_date': service.next_due_date.isoformat(),
         }, headers={'Cache-Control': 'private, no-store'})
+
+    @action(detail=True, methods=['post'], url_path='request-cancellation')
+    def request_cancellation(self, request, pk=None):
+        """Record a review request, not an executable provider cancellation."""
+        service = self.get_object()  # Owner-scoped lookup before any details.
+        from rest_framework import serializers as drf_serializers
+        from .lifecycle_requests import request_service_cancellation, ServiceRequestRefused
+        class RequestSerializer(drf_serializers.Serializer):
+            reason = drf_serializers.CharField(max_length=500, allow_blank=True, required=False)
+        payload = RequestSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        # Staff may inspect services but may not impersonate a customer's request.
+        if (service.client_id != request.user.pk
+                and not (request.user.is_superuser or request.user.role == "admin")):
+            return Response({"detail": "Not authorized for this service."},
+                            status=status.HTTP_403_FORBIDDEN)
+        try:
+            entry, created = request_service_cancellation(
+                service.pk, actor=request.user,
+                reason=payload.validated_data.get("reason", ""),
+            )
+        except ServiceRequestRefused as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response(
+            {"state": "pending_review", "request_id": entry.pk,
+             "created": created, "provider_action_taken": False},
+            status=status.HTTP_202_ACCEPTED,
+        )
 
     @action(detail=True, methods=['get'])
     def actions(self, request, pk=None):

@@ -25,6 +25,7 @@ class SettingSerializer(serializers.ModelSerializer):
     group_name = serializers.CharField(source='group.name', read_only=True)
     data_type_display = serializers.CharField(source='get_data_type_display', read_only=True)
     current_value = serializers.SerializerMethodField()
+    default_value = serializers.SerializerMethodField()
     
     class Meta:
         model = Setting
@@ -37,7 +38,10 @@ class SettingSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
     
     def get_current_value(self, obj):
-        return obj.get_value()
+        return None if obj.is_encrypted or obj.data_type == 'password' else obj.get_value()
+
+    def get_default_value(self, obj):
+        return None if obj.is_encrypted or obj.data_type == 'password' else obj.default_value
     
     def update(self, instance, validated_data):
         # Handle value separately
@@ -59,6 +63,15 @@ class SettingUpdateSerializer(serializers.Serializer):
 
 
 class SettingChangeLogSerializer(serializers.ModelSerializer):
+    old_value = serializers.SerializerMethodField()
+    new_value = serializers.SerializerMethodField()
+
+    def get_old_value(self, obj):
+        return None
+
+    def get_new_value(self, obj):
+        return None
+
     """Serializer for setting change logs"""
     
     changed_by_name = serializers.CharField(source='changed_by.full_name', read_only=True)

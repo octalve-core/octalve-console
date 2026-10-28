@@ -49,6 +49,22 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Order.objects.all()
         return Order.objects.filter(client=user)
     
+    @staticmethod
+    def _refuse_unverified_change():
+        return Response(
+            {'detail': 'Order changes must use approved checkout and cancellation actions.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    def update(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
+    def partial_update(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
+    def destroy(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
     @action(detail=False, methods=['post'], url_path='quote')
     @transaction.atomic
     def quote(self, request):
@@ -360,6 +376,10 @@ class CouponViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         return super().update(request, *args, **kwargs)
     
+    @permission_required('manage_orders')
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
     @permission_required('manage_orders')
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)

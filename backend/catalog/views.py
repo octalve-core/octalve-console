@@ -67,6 +67,14 @@ class ProductViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
     
+    @permission_required('update_products')
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @permission_required('delete_products')
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=True, methods=['get'])
     def plans(self, request, pk=None):
         """Get all plans for a product"""

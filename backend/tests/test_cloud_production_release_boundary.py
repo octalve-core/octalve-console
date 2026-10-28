@@ -41,7 +41,9 @@ class CloudProductionReleaseBoundaryTests(TestCase):
         self.assertIn("Octalve Cloud API URL is not configured.", client)
         self.assertIn("configured.pathname", client)
         self.assertIn("SAFE_API_BASE", proxy)
-        self.assertIn("if (!SAFE_API_BASE) return null;", proxy)
+        self.assertIn("if (!SAFE_API_BASE) throw new IdentityUnavailable();", proxy)
+        self.assertIn("unavailableIdentityResponse()", proxy)
+        self.assertIn('"Cache-Control":"private, no-store"', proxy)
         self.assertNotIn('||\n  "https://api.cloud.octalve.com/api"', proxy)
 
     def test_bff_protects_tokens_and_origin(self):

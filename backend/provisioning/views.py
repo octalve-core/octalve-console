@@ -35,7 +35,7 @@ class CloudProvisioningManagementAccess(BasePermission):
         ))
 
 
-class ProvisioningTaskViewSet(viewsets.ModelViewSet):
+class ProvisioningTaskViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for provisioning tasks"""
     
     serializer_class = ProvisioningTaskSerializer
@@ -66,51 +66,51 @@ class ProvisioningTaskViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     @permission_required('manage_provisioning')
     def retry(self, request, pk=None):
-        """Retry a failed task"""
+        """Row-locked retry only for read-only inventory synchronization."""
         task = self.get_object()
         serializer = RetryTaskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        if task.action not in ('sync_usage', 'sync_details'):
+        if serializer.validated_data.get("reset_attempts"):
             return Response(
-                {'error': 'Provider-changing operations require manual reconciliation, not retry.'},
+                {"detail": "Retry counters cannot be reset from HTTP."},
                 status=status.HTTP_409_CONFLICT,
             )
-        if task.status not in ['failed', 'retrying']:
-            return Response({'error': 'Only failed tasks can be retried'},
-                            status=status.HTTP_400_BAD_REQUEST)
-        
-        if serializer.validated_data.get('reset_attempts'):
-            task.attempt_count = 0
-        
-        task.status = 'queued'
-        task.scheduled_at = timezone.now()
-        task.save()
-        
-        return Response({'message': 'Task queued for retry'})
-    
+        from .task_transitions import transition_task, TaskTransitionRefused
+        try:
+            result = transition_task(task.pk, decision="retry", actor=request.user)
+        except TaskTransitionRefused as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response({"status": result.status})
+
     @action(detail=True, methods=['post'])
     @permission_required('manage_provisioning')
     def cancel(self, request, pk=None):
-        """Cancel a queued task"""
+        """Refuse cancellation of provider-changing work with unknown outcome."""
         task = self.get_object()
-        
-        if task.status not in ['queued', 'retrying']:
-            return Response({'error': 'Only queued tasks can be cancelled'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        task.mark_cancelled()
-        return Response({'message': 'Task cancelled'})
-    
+        from .task_transitions import transition_task, TaskTransitionRefused
+        try:
+            result = transition_task(task.pk, decision="cancel", actor=request.user)
+        except TaskTransitionRefused as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response({"status": result.status})
+
     @action(detail=True, methods=['post'])
     @permission_required('manage_provisioning')
     def mark_needs_review(self, request, pk=None):
-        """Mark task as needing review"""
         task = self.get_object()
-        reason = request.data.get('reason', '')
-        
-        task.mark_needs_review(reason)
-        return Response({'message': 'Task marked for review'})
-    
+        from rest_framework import serializers as drf_serializers
+        from .task_transitions import transition_task, TaskTransitionRefused
+        reason = drf_serializers.CharField(
+            allow_blank=True, required=False, max_length=240,
+        ).run_validation(request.data.get("reason", ""))
+        try:
+            result = transition_task(
+                task.pk, decision="needs_review", actor=request.user, reason=reason,
+            )
+        except TaskTransitionRefused as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response({"status": result.status})
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Get task statistics"""
@@ -217,7 +217,7 @@ class ProvisioningWebhookAccess(IsAuthenticated):
         ))
 
 
-class ProvisioningWebhookViewSet(viewsets.ModelViewSet):
+class ProvisioningWebhookViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for provisioning webhooks"""
     
     queryset = ProvisioningWebhook.objects.all()

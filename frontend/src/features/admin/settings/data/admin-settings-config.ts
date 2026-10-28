@@ -49,7 +49,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "general",
     title: "General",
-    description: "Review platform identity, public URLs and default preferences; editing requires a verified configuration workflow.",
+    description: "Review Console identity and policies. Proposed changes require separate validation and approval; no configuration is changed here.",
     href: "/admin/settings/general",
     icon: Building2,
     status: "Needs setup",
@@ -101,7 +101,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "providers",
     title: "Providers",
-    description: "Explore vendor integrations and review the connected management areas.",
+    description: "Review vendor connection requirements in Integrations and inspect existing provider records. Supplier execution remains disabled.",
     href: "/admin/settings/providers",
     icon: PlugZap,
     status: "Needs setup",
@@ -166,7 +166,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "invoices",
     title: "Invoices",
-    description: "Review invoice records, PDF templates, queue readiness and billing policy.",
+    description: "Review invoice policies, issued documents and approved PDF template previews. Editing and issuance are not enabled here.",
     href: "/admin/settings/invoices",
     icon: FileText,
     status: "Needs setup",

@@ -44,7 +44,11 @@ requireParts("features/admin/settings/views/AdminSettingsHubView.tsx",[
 requireParts("features/admin/settings/views/AdminSettingsSectionView.tsx",[
  "AdminSettingsSectionPanel","getAdminSettingsItem"]);
 requireParts("features/admin/components/AdminSettingsSectionPanel.tsx",[
- "It does not display live values or confirm that services are enabled.","/admin/servers"]);
+ "AdminSettingsTopics","AdminSettingsActions","/admin/servers"]);
+requireParts("features/admin/settings/components/AdminSettingsTopics.tsx",[
+ "It does not display live values or confirm that services are enabled.","item.fields"]);
+requireParts("features/admin/settings/components/AdminSettingsActions.tsx",[
+ "ActionLink","links.map"]);
 requireParts("features/admin/views/CatalogAuthorityWorkbench.tsx",[
  "AdminCatalogIntro","api.get(\"/catalog/offer-drafts/\")",
  "async function saveDraft()","async function approveSupplierPackage()",

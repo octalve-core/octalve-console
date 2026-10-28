@@ -11,6 +11,7 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { adminResourceConfig, type AdminResourceKey } from "../data/admin-resource-config";
+import {AdminResourceAuthorityGuide} from "../components/AdminResourceAuthorityGuide";
 import type { AdminRecord } from "../data/admin-demo-data";
 
 type AdminResourceListViewProps = {
@@ -121,6 +122,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
 
       >
         <div className="space-y-5">
+          <AdminResourceAuthorityGuide resource={resource}/>
           {isLoading ? (
             <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Preparing your records…" />
           ) : error ? (

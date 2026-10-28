@@ -3,7 +3,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from django.shortcuts import get_object_or_404
 from django.core.cache import cache
 from django.core.mail import send_mail
@@ -28,7 +28,7 @@ class SettingGroupViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['sort_order']
 
 
-class SettingViewSet(viewsets.ModelViewSet):
+class SettingViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for settings"""
     
     serializer_class = SettingSerializer
@@ -40,8 +40,23 @@ class SettingViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
             return Setting.objects.all()
-        return Setting.objects.filter(is_public=True, is_deprecated=False)
+        return Setting.objects.filter(is_public=True, is_deprecated=False, is_encrypted=False).exclude(data_type='password')
     
+    @action(detail=True, methods=["post"], url_path="validate-change")
+    def validate_change(self, request, pk=None):
+        """Review an exact allowlisted value without changing configuration."""
+        user = request.user
+        if not (user.is_active and user.is_superuser and user.role == "admin"):
+            return Response({"detail": "Super Admin approval is required."},
+                            status=status.HTTP_403_FORBIDDEN)
+        from .change_validation import validate_change, SettingChangeRefused
+        record = self.get_object()
+        try:
+            result = validate_change(record, request.data)
+        except SettingChangeRefused as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result, headers={"Cache-Control": "private, no-store"})
+
     # @action(detail=False, methods=['get'])
     def by_group(self, request):
         """Get settings by group key"""
@@ -73,8 +88,9 @@ class SettingViewSet(viewsets.ModelViewSet):
                 SettingChangeLog.objects.create(
                     setting=setting,
                     changed_by=request.user,
-                    old_value=str(old_value) if old_value else None,
-                    new_value=str(value) if value else None,
+                    # Audit the actor and setting identity, never the value.
+                    old_value=None,
+                    new_value=None,
                     ip_address=request.META.get('REMOTE_ADDR')
                 )
                 
@@ -125,12 +141,21 @@ class SettingViewSet(viewsets.ModelViewSet):
         return Response({'message': f'Reset {reset_count} settings for group {group_key}'})
 
 
-class EmailTemplateViewSet(viewsets.ModelViewSet):
+class CloudEmailTemplateAdminAccess(BasePermission):
+    """Message templates are operational records, not public configuration."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(user and user.is_authenticated and
+                    (user.is_superuser or getattr(user, 'role', None) == 'admin'))
+
+
+class EmailTemplateViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for email templates"""
     
     queryset = EmailTemplate.objects.all()
     serializer_class = EmailTemplateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CloudEmailTemplateAdminAccess]
     filterset_fields = ['category', 'is_active']
     search_fields = ['key', 'name', 'subject']
     
@@ -139,14 +164,6 @@ class EmailTemplateViewSet(viewsets.ModelViewSet):
         if user.role == 'admin' or user.is_superuser:
             return EmailTemplate.objects.all()
         return EmailTemplate.objects.filter(is_active=True)
-    
-    @permission_required('manage_settings')
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-    
-    @permission_required('manage_settings')
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
     
     # @action(detail=False, methods=['post'])
     @permission_required('manage_settings')
