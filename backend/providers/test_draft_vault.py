@@ -21,7 +21,8 @@ PASSWORD="ci-only-password-test-0123!"
 
 @override_settings(CLOUD_PROVIDER_VAULT_KEY=KEY,CLOUD_PROVIDER_AUDIT_KEY=AUDIT_KEY,CLOUD_PROVIDER_VAULT_KEY_ID="v1",
                    CLOUD_PROVIDER_STEPUP_KEY=AUTH_KEY, CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED=True,
-                   CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True)
+                   CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True,
+                   CLOUD_PROVIDER_VAULT_WRITE_RELEASE_APPROVED=True)
 class DraftVaultTests(APITestCase):
     def setUp(self):
         cache.clear()  # Each test gets an isolated throttle budget.
