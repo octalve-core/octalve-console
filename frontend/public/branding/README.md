@@ -12,7 +12,7 @@ Do not add separate Octalve Console/Cloud business OS label text.
 ## Five-screen authentication artwork (28 Oct 2026)
 
 The user-approved scenic illustration in the HTML preview is **one image**.
-Upload the optimized WebP file at exactly:
+The approved 273,266-byte WebP was uploaded on 2026-10-28 (commit `dadeaf294eb5ee8a0d7567d819b6785706533106`) at exactly:
 
 `frontend/public/branding/octalve-auth-background.webp`
 
@@ -20,7 +20,7 @@ It is served at `/branding/octalve-auth-background.webp` by Next.js. The
 single `features/auth/components/AuthLayout.module.css` owns its background;
 never inline a multi-megabyte base64 string or import the untrusted preview's
 `<script>` into React. The stylesheet provides a flat gold fallback until
-the artwork is uploaded. For release acceptance, the actual file must return
+the artwork is uploaded. The asset is integrity-checked by `frontend/scripts/check-auth-scenic-artwork.cjs`. For release acceptance, the deployed file must return
 HTTP 200 on the qualified Review deployment, have image MIME type and be
 visually verified at 320, 360, 390, 768, 1024 and 1440 px.
 
