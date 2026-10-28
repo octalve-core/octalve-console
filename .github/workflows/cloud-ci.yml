@@ -63,6 +63,8 @@ jobs:
         run: node frontend/scripts/check-batch-c-client-auth-ui.cjs
       - name: Batch BC scoped dashboard and directory responsive UI source authority
         run: node frontend/scripts/check-ui-uplift-workspace-migration.cjs
+      - name: Client commerce domain support and Admin editor presentation-source qualification
+        run: node frontend/scripts/check-ui-uplift-commercial-domains.cjs
       - name: Five-screen authentic HTML to React production-source and security contract
         run: node frontend/scripts/check-auth-five-screen-ui.cjs
       - name: Approved uploaded auth WebP, exact artifact signature and logo identity
@@ -85,6 +87,8 @@ jobs:
         run: node frontend/scripts/check-batch-c-client-auth-ui.cjs --built
       - name: Batch BC emitted scoped responsive CSS variants
         run: node frontend/scripts/check-ui-uplift-workspace-migration.cjs --built
+      - name: Client commerce domain support and Admin editor emitted CSS
+        run: node frontend/scripts/check-ui-uplift-commercial-domains.cjs --built
       - name: Five-screen auth compiled scoped CSS and scenic image reference
         run: node frontend/scripts/check-auth-five-screen-ui.cjs --built
       - name: Report CSS Modules and emitted UI regression (Batch A)
