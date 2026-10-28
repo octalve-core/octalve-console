@@ -2,7 +2,8 @@
 .filters, .adminMetrics, .staffMetrics {
   display: grid;
   min-width: 0;
-  gap: 1rem;
+  --console-workspace-gap: 1rem;
+  gap: var(--console-workspace-gap);
   grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 640px) {
