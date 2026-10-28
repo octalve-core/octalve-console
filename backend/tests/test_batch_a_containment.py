@@ -42,6 +42,8 @@ class BatchARoutedContainmentTests(SimpleTestCase):
 
     def test_wallet_settlement_is_closed_for_authenticated_admin(self):
         self.check("/api/wallet/my-wallet/apply_to_invoice/", "post", 503)
+        self.check("/api/wallet/my-wallet/update_settings/", "post", 503)
+        self.check("/api/wallet/admin/wallets/1/manual_adjust/", "post", 503)
 
     def test_settings_and_message_templates_do_not_expose_generic_writes(self):
         for resource in ("settings", "email-templates"):
@@ -87,6 +89,7 @@ class BatchASettingsValueRedactionTests(SimpleTestCase):
             default_value="do-not-disclose-this",
             get_value=lambda: "do-not-disclose-that",
         )
+        secret.data_type = "password"
         serializer = SettingSerializer()
         self.assertIsNone(serializer.get_current_value(secret))
         self.assertIsNone(serializer.get_default_value(secret))
