@@ -1,0 +1,21 @@
+/* Owned enterprise layout primitives: no global .grid selector collisions. */
+.filters, .adminMetrics, .staffMetrics {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 640px) {
+  .filters, .adminMetrics, .staffMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1280px) {
+  .adminMetrics, .staffMetrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1536px) {
+  .adminMetrics { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .staffMetrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
