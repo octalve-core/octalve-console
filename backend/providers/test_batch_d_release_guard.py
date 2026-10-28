@@ -12,19 +12,35 @@ class ProviderReleaseInterlockTests(SimpleTestCase):
         self.dummy=SimpleNamespace(user=None,data={})
 
     @override_settings(CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True,
-                       CLOUD_PROVIDER_VAULT_WRITE_RELEASE_APPROVED=False)
+                       CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED=False)
     def test_write_flag_alone_cannot_enable_provider_credential_mutations(self):
         with self.assertRaises(VaultUnavailable):
             require_write_authority(self.dummy)
 
     @override_settings(CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=False,
-                       CLOUD_PROVIDER_VAULT_WRITE_RELEASE_APPROVED=True)
+                       CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED=True)
     def test_approval_flag_alone_cannot_enable_provider_credential_mutations(self):
         with self.assertRaises(VaultUnavailable):
             require_write_authority(self.dummy)
 
+    @override_settings(DEBUG=False,CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True,
+                       CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED=True)
+    def test_non_debug_never_accepts_credentials(self):
+        with self.assertRaises(VaultUnavailable):
+            require_write_authority(self.dummy)
+
+    @override_settings(DEBUG=True,CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True,
+                       CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED=True)
+    def test_deployed_vercel_always_refuses(self):
+        from unittest.mock import patch
+        for env in ({"VERCEL_ENV":"production"},{"VERCEL_ENV":"preview"},
+                    {"VERCEL_ENV":"development"},{"VERCEL":"1"}):
+            with self.subTest(env=env),patch.dict("os.environ",env):
+                with self.assertRaises(VaultUnavailable):
+                    require_write_authority(self.dummy)
+
     @override_settings(CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=False,
-                       CLOUD_PROVIDER_VAULT_WRITE_RELEASE_APPROVED=False)
+                       CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED=False)
     def test_no_flags_is_default_denied(self):
         with self.assertRaises(VaultUnavailable):
             require_write_authority(self.dummy)
