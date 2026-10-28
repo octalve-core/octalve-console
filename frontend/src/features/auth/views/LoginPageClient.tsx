@@ -86,7 +86,6 @@ export function LoginPageClient() {
   const [values, setValues] = useState({
     email: "",
     password: "",
-    remember: true,
   });
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>({});
@@ -96,7 +95,7 @@ export function LoginPageClient() {
     setNextPath(getSafeNextPath());
   }, []);
 
-  function updateField(name: keyof typeof values, value: string | boolean) {
+  function updateField(name: keyof typeof values, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
 
     if (fieldErrors[String(name)]) {
