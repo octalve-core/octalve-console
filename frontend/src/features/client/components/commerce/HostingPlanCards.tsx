@@ -1,12 +1,13 @@
 import {CheckCircle2,ShoppingCart} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {StatusBadge} from "@/components/design-system/StatusBadge";
 import {defaultCycle,formatPlanAmount,type ClientOrderPlan} from "../../data/client-order-data";
 
 export function HostingPlanCards({plans,selectedId,onSelect}:{
  plans:readonly ClientOrderPlan[];selectedId:string;onSelect:(plan:ClientOrderPlan)=>void;
 }){
- return <section aria-label="Available published hosting plans" className="grid min-w-0 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+ return <WorkspaceGrid variant="planCards" as="section" ariaLabel="Available published hosting plans">
   {plans.map(plan=>{
    const selected=plan.id===selectedId,pricing=defaultCycle(plan);
    return <button key={plan.id} type="button" aria-pressed={selected} onClick={()=>onSelect(plan)}
@@ -32,5 +33,5 @@ export function HostingPlanCards({plans,selectedId,onSelect}:{
     </Panel>
    </button>;
   })}
- </section>;
+ </WorkspaceGrid>;
 }
