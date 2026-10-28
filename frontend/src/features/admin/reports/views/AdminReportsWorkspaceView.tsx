@@ -3,7 +3,7 @@ import {useState} from "react";
 import styles from "./AdminReportsWorkspace.module.css";
 import type {LucideIcon} from "lucide-react";
 import {
- BarChart3,CalendarDays,CheckCircle2,ChevronRight,CreditCard,FileBarChart2,
+ BarChart3,CheckCircle2,CreditCard,FileBarChart2,
  FileText,Info,Layers3,RefreshCw,ShieldCheck,WalletCards,
 } from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
@@ -102,13 +102,13 @@ function ReportLibrary({definitions}:{definitions:ReportDefinitionCard[]|null}){
   {definitions.map((report,index)=><Panel key={report.id} className="flex min-w-0 flex-col gap-5">
    <div className="flex items-start justify-between gap-3">
     <ConsoleIconTile icon={index%2?BarChart3:FileBarChart2} tone={index%2?"violet":"blue"}/>
-    <StatusBadge tone={report.active?"success":"neutral"}>{report.active?"Active":"Inactive"}</StatusBadge>
+    <StatusBadge tone={report.active===true?"success":"neutral"}>{report.active===null?"Status unavailable":report.active?"Active":"Inactive"}</StatusBadge>
    </div>
    <div className="min-w-0"><h2 className="break-words text-base font-semibold text-console-ink">{report.name}</h2>
     <p className="mt-2 text-sm leading-6 text-console-muted">{report.description}</p>
    </div>
    <div className="mt-auto flex items-center justify-between gap-3 border-t border-console-line pt-4 text-xs text-console-muted">
-    <span className="truncate">{report.kind} · {report.frequency}</span><ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true"/>
+    <span className="break-words">{report.kind} · {report.frequency}</span>
    </div>
    <p className="text-xs text-console-muted">Last generated: {friendlyDate(report.lastGenerated)}</p>
   </Panel>)}
