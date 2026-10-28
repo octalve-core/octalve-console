@@ -48,9 +48,10 @@ class Command(BaseCommand):
                 output["migration_parity"]="matched" if not missing else "pending"
                 output["unapplied_migration_count"]=len(missing)
                 output["migration_leaf_count"]=len(loader.graph.leaf_nodes())
-            except Exception:
+            except Exception as exc:
                 output["migration_parity"]="unverified"
                 output["migration_inspection_error"]="Migration history readback failed; details redacted."
+                output["migration_error_class"]=type(exc).__name__
             try:
                 output["unpublished_public_hosting_plans"]=Plan.objects.using(alias).filter(
                     status="active",is_public=True,product__status="active",
