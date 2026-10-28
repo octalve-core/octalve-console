@@ -79,6 +79,8 @@ jobs:
         run: node frontend/scripts/check-admin-console.cjs --built
       - name: Audit every route and legacy CSS consumer (Batch 8)
         run: node frontend/scripts/audit-legacy-css.cjs --json frontend/.next/batch8-css-audit.json
+      - name: Conservative CSS selector ownership and collision inventory
+        run: node frontend/scripts/audit-css-ownership.cjs --json frontend/.next/ui-css-ownership.json --check
       - name: Enforce Batch 8 single Tailwind config and legacy CSS safety gate
         run: node frontend/scripts/check-css-retirement-gates.cjs --built
       - name: Premium UI foundation and reviewed CSS cleanup gate

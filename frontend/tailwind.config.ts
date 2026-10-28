@@ -11,6 +11,17 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Semantic, opt-in typography: preserve legacy route font sizes until
+      // individually qualified, but give new primitives one documented scale.
+      fontFamily: {
+        "console": ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
+      fontSize: {
+        "console-caption": ["0.75rem", { lineHeight: "1.125rem" }],
+        "console-body": ["0.875rem", { lineHeight: "1.5rem" }],
+        "console-section": ["1.25rem", { lineHeight: "1.75rem", letterSpacing: "-0.025em" }],
+        "console-page": ["1.875rem", { lineHeight: "2.25rem", letterSpacing: "-0.035em" }],
+      },
       // Opt-in premium layout tokens. Existing utility scales and route sizing
       // stay untouched until authenticated visual parity qualifies migration.
       spacing: {
