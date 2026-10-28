@@ -66,7 +66,7 @@ def validate_readback_contract(path,port,params,headers):
     if set(headers)!={"Accept","Authorization"} or headers.get("Accept")!="application/json":
         raise SupplierEgressDenied()
     auth=headers.get("Authorization")
-    if not isinstance(auth,str) or len(auth)>8192 or any(ord(c)<33 for c in auth):
+    if not isinstance(auth,str) or len(auth)>8192 or any(ord(c)<32 or ord(c)==127 for c in auth):
         # Authorization contains one separator space, so validate below.
         raise SupplierEgressDenied()
     # Standard read-only inventory on DirectAdmin.
