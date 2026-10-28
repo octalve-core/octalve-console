@@ -17,7 +17,7 @@ export function AdminEditorFields({fields,values,fieldErrors,onChange}:{
     error,onChange:(event:React.ChangeEvent<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>)=>onChange(field.name,event.target.value)};
    if(field.type==="textarea")return <div key={field.name} className="min-w-0 md:col-span-2">
     <TextAreaField {...common} rows={5} placeholder={field.placeholder}/>
-   </WorkspaceGrid>;
+   </div>;
    if(field.type==="select")return <div key={field.name} className="min-w-0">
     <SelectField {...common} options={field.options??[]}/>
    </div>;
@@ -26,5 +26,5 @@ export function AdminEditorFields({fields,values,fieldErrors,onChange}:{
      autoComplete={field.type==="password"?"new-password":undefined} spellCheck={field.type==="password"?false:undefined}/>
    </div>;
   })}
- </div>;
+ </WorkspaceGrid>;
 }
