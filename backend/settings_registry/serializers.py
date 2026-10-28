@@ -38,10 +38,10 @@ class SettingSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
     
     def get_current_value(self, obj):
-        return None if obj.is_encrypted else obj.get_value()
+        return None if obj.is_encrypted or obj.data_type == 'password' else obj.get_value()
 
     def get_default_value(self, obj):
-        return None if obj.is_encrypted else obj.default_value
+        return None if obj.is_encrypted or obj.data_type == 'password' else obj.default_value
     
     def update(self, instance, validated_data):
         # Handle value separately
