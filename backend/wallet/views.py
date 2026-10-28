@@ -1,6 +1,6 @@
 # wallet/views.py
 
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -76,66 +76,20 @@ class WalletViewSet(viewsets.GenericViewSet):
         })
     
     @action(detail=False, methods=['post'])
-    @transaction.atomic
     def apply_to_invoice(self, request):
-        """Apply wallet balance to an invoice"""
-        serializer = ApplyWalletToInvoiceSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        invoice_id = serializer.validated_data['invoice_id']
-        amount = serializer.validated_data.get('amount')
-        
-        invoice = get_object_or_404(Invoice, id=invoice_id, client=request.user)
-        
-        if invoice.status == 'paid':
-            return Response({'error': 'Invoice already paid'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        if amount is None:
-            amount = invoice.amount_due
-        
-        wallet = self.get_object()
-        
-        if wallet.balance < amount:
-            return Response({'error': 'Insufficient wallet balance'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Deduct from wallet
-        wallet.deduct_balance(
-            amount=amount,
-            description=f"Payment for invoice {invoice.invoice_number}",
-            reference=invoice.invoice_number,
-            created_by=request.user,
-            metadata={'invoice_id': invoice.id}
+        """Do not settle invoices through an unqualified wallet shortcut.
+
+        This endpoint stays present for compatibility but never debits funds,
+        writes a ledger, marks an invoice paid or changes an order.
+        """
+        return Response(
+            {'detail': 'Wallet invoice payments are unavailable until the verified settlement workflow is approved.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-        
-        # Apply payment to invoice
-        invoice.apply_payment(amount)
-        
-        # Create transaction record if invoice is fully paid
-        if invoice.status == 'paid':
-            from payments.models import Transaction
-            Transaction.objects.create(
-                client=request.user,
-                invoice=invoice,
-                gateway=None,
-                reference=f"WALLET-{invoice.invoice_number}",
-                transaction_type='payment',
-                currency=invoice.currency,
-                amount=amount,
-                fee=0,
-                net_amount=amount,
-                status='successful',
-                payment_method='wallet',
-                paid_at=timezone.now()
-            )
-        
-        return Response({
-            'message': f'{amount} applied to invoice {invoice.invoice_number}',
-            'invoice_status': invoice.status,
-            'wallet_balance': wallet.balance
-        })
 
 
-class WithdrawalRequestViewSet(viewsets.ModelViewSet):
+class WithdrawalRequestViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
+                               mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """ViewSet for withdrawal requests"""
     
     serializer_class = WithdrawalRequestSerializer
@@ -208,7 +162,8 @@ class WithdrawalRequestViewSet(viewsets.ModelViewSet):
         return Response({'message': 'Withdrawal request cancelled'})
 
 
-class DepositRequestViewSet(viewsets.ModelViewSet):
+class DepositRequestViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
+                            mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """ViewSet for deposit requests"""
     
     serializer_class = DepositRequestSerializer
