@@ -39,7 +39,7 @@ for (const token of ["rounded-console-card", "border-console-line", "text-consol
   if (!migratedStat.includes(token)) throw new Error("StatCard migration lost " + token);
 }
 for (const retired of ["stat-card", "stat-label", "stat-value", "stat-icon"]) {
-  if (new RegExp('className=["\\'][^"\\']*' + retired).test(migratedStat)) {
+  if (new RegExp("className=.{0,140}" + retired + "(?![A-Za-z0-9_-])").test(migratedStat)) {
     throw new Error("StatCard still owns legacy class: " + retired);
   }
 }
