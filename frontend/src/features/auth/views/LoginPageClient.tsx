@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, LockKeyhole, Mail } from "lucide-react";
+import styles from "../components/AuthLayout.module.css";
+import {AuthSocialOptions} from "../components/AuthFormControls";
 import { ApiFormError } from "@/components/feedback/ApiFormError";
 import { getRoleDashboard, useAuth } from "@/context/AuthContext";
 import {
@@ -140,7 +142,7 @@ export function LoginPageClient() {
       sideTitle="Manage your cloud services securely."
       sideDescription="Access your Octalve Console to manage hosting, domains, billing, orders, support, and services."
     >
-      <form method="post" onSubmit={handleSubmit} className="grid gap-4 sm:gap-[18px]">
+      <form method="post" onSubmit={handleSubmit} className={styles.form}>
         <AuthInput
           label="Email address"
           name="email"
@@ -165,18 +167,10 @@ export function LoginPageClient() {
           onChange={(event) => updateField("password", event.target.value)}
         />
 
-        <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center sm:gap-4">
-          <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-slate-600">
-            <input
-              type="checkbox"
-              checked={values.remember}
-              onChange={(event) => updateField("remember", event.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 accent-[#0064E0]"
-            />
-            Remember me
-          </label>
+        <div className={styles.options}>
+          <span>Secure account sign-in</span>
 
-          <Link href="/forgot-password" className="text-sm font-medium text-[#0064E0] hover:text-[#0057C2]">
+          <Link href="/forgot-password" className={styles.link}>
             Forgot password?
           </Link>
         </div>
@@ -191,21 +185,13 @@ export function LoginPageClient() {
               Logging in...
             </span>
           ) : (
-            "Login"
+            "Sign in"
           )}
         </AuthButton>
         </div>
 
-        <p className="mb-2 mt-4 text-center text-sm leading-6 text-slate-500">
-          Don&apos;t have an account?
-        </p>
-
-        <Link
-          href="/signup"
-          className="mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-console-primary hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary"
-        >
-          Create account
-        </Link>
+        <AuthSocialOptions/>
+        <p className={styles.footer}>New to Octalve? <Link href="/signup" className={styles.link}>Create account</Link></p>
       </form>
     </AuthLayout>
   );
