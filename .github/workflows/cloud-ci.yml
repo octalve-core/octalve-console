@@ -123,6 +123,8 @@ jobs:
         run: node frontend/scripts/check-batch17-renewal-preflight.cjs
       - name: Batch 18 owner-checked staff overview and private field exclusion
         run: node frontend/scripts/check-batch18-staff-readback.cjs
+      - name: Batch C Admin action authority, invoice navigation and service review
+        run: node frontend/scripts/check-batch-c-admin-actions.cjs
 
   django-check:
     runs-on: ubuntu-latest
