@@ -77,4 +77,4 @@ if(process.argv.includes("--built")){
   if(!output.includes(token))throw Error("Auth design token not emitted: "+token);
 }
 console.log("PASS: five separate real Django-linked auth pages share one responsive React UI; preview-only OTP and old auth CSS retired.");
-console.log("PENDING: upload scenic photo into frontend/public/branding/octalve-auth-background.webp; manual signed browser parity.");
+console.log("PASS: WebP artwork path integrated (exact image integrity checked independently). PENDING: role-authenticated browser parity.");
