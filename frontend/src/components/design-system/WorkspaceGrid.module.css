@@ -55,3 +55,32 @@
   .directory, .responsive3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .responsive4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* Client purchase, domain, support and Admin editor layouts.
+   No unscoped CSS; class ownership is limited to this imported module. */
+.commerceColumns, .supportColumns, .domainFacts, .domainPanels,
+.choiceColumns, .planCards, .editorFields {
+  display: grid;
+  min-width: 0;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+.domainFacts, .choiceColumns { gap: .75rem; }
+.planCards, .editorFields { gap: 1rem; }
+@media (min-width: 640px) {
+  .domainFacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .choiceColumns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 768px) {
+  .planCards, .editorFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .commerceColumns, .domainFacts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .domainPanels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .supportColumns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1536px) {
+  .planCards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
