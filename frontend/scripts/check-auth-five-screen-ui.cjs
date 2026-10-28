@@ -19,7 +19,7 @@ const control=expect(base+"components/AuthFormControls.tsx",[
 ]);
 const css=expect(base+"components/AuthLayout.module.css",[
  ".art",".frame",".fieldShell",".action",".otpRow",
- '@media (max-width:750px)','url("/branding/octalve-auth-background.png")'
+ '@media (max-width:750px)','url("/branding/octalve-auth-background.webp")'
 ]);
 // source CSS only: arbitrary six digits must never verify a production account
 const cases=[
@@ -41,7 +41,7 @@ if(css.includes(":global("))throw Error("Auth module must remain locally owned")
 const retired=["auth-layout","auth-brand","auth-copy","auth-bars","auth-panel","auth-card"];
 const global=read("app/globals.css");
 for(const selector of retired){
- if(new RegExp("\\."+selector+"(?:[\\s:{.#\\[]|$)").test(global))
+ if(global.includes("."+selector))
   throw Error("Retired old auth global selector returned: "+selector);
 }
 const sourceFiles=[];
@@ -73,8 +73,8 @@ if(process.argv.includes("--built")){
  scan(path.resolve(root,"../.next/static"));
  if(!files.length)throw Error("No compiled CSS assets");
  const output=files.map(f=>fs.readFileSync(f,"utf8")).join("\n");
- for(const token of ["octalve-auth-background.png","--auth-brand:","#0874f7"])
+ for(const token of ["octalve-auth-background.webp","--auth-brand:","#0874f7"])
   if(!output.includes(token))throw Error("Auth design token not emitted: "+token);
 }
 console.log("PASS: five separate real Django-linked auth pages share one responsive React UI; preview-only OTP and old auth CSS retired.");
-console.log("PENDING: upload scenic photo into frontend/public/branding/octalve-auth-background.png; manual signed browser parity.");
+console.log("PENDING: upload scenic photo into frontend/public/branding/octalve-auth-background.webp; manual signed browser parity.");
