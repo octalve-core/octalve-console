@@ -32,6 +32,7 @@ RECOVERY = Fernet.generate_key().decode()
     CLOUD_PROVIDER_VAULT_KEY=VAULT, CLOUD_PROVIDER_STEPUP_KEY=STEPUP,
     CLOUD_PROVIDER_RECOVERY_KEY=RECOVERY,
     CLOUD_PROVIDER_AUDIT_CHECKPOINT_ENABLED=True,
+    CLOUD_PROVIDER_CHECKPOINT_SCOPE="octalve-console:ci-synthetic",
 )
 class ProviderAuditCheckpointTests(TestCase):
     def setUp(self):
@@ -110,6 +111,15 @@ class ProviderAuditCheckpointTests(TestCase):
         original["mac"] = _sign(original["payload"])
         with self.assertRaises(VaultUnavailable):
             verify_audit_checkpoint(json.dumps(original).encode())
+
+    def test_cross_environment_scope_substitution_is_rejected(self):
+        artifact = build_audit_checkpoint()
+        with override_settings(CLOUD_PROVIDER_CHECKPOINT_SCOPE="octalve-console:other-environment"):
+            with self.assertRaises(VaultUnavailable):
+                verify_audit_checkpoint(artifact)
+        with override_settings(CLOUD_PROVIDER_CHECKPOINT_SCOPE=""):
+            with self.assertRaises(VaultUnavailable):
+                build_audit_checkpoint()
 
     def test_missing_wrong_reused_key_and_disabled_export_fail_closed(self):
         artifact = build_audit_checkpoint()
