@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 from orders.models import Order, Coupon
 from billing.models import Invoice
 from catalog.models import ProductCategory, Product, Plan, PlanBillingCycle
+from catalog.test_published_fixture import attach_test_published_offer
 
 
 class PremiumCheckoutTests(TestCase):
@@ -33,14 +34,15 @@ class PremiumCheckoutTests(TestCase):
         self.plan=Plan.objects.create(
             product=product,name="Stellar-style Starter",status="active",
             is_public=True,currency="NGN")
-        PlanBillingCycle.objects.create(
+        cycle=PlanBillingCycle.objects.create(
             plan=self.plan,cycle_key="1mo",months=1,is_active=True,
             price=Decimal("2500.00"),setup_fee=Decimal("500.00"))
+        attach_test_published_offer(self.plan,cycle)
 
     def payload(self,key=None,domain="example.com"):
         return {"checkout_id":str(key or uuid4()),
                 "items":[{"plan_id":self.plan.id,"cycle_key":"1mo",
-                          "quantity":1,"domain_name":domain}]}
+                          "quantity":1,"offer_revision":1,"domain_name":domain}]}
 
     def test_quote_is_read_only_and_ignores_browser_total(self):
         payload=self.payload()

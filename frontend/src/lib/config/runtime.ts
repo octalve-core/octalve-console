@@ -13,34 +13,39 @@ export type RuntimeCheck = {
   description: string;
 };
 
+/** Syntactic public configuration only; no authenticated network or database probes. */
+const isSecureUrl=(value:string,expectedSuffix?:string)=>{
+ try {const parsed=new URL(value);return parsed.protocol==="https:" && !parsed.username && !parsed.password && !parsed.hash && !parsed.search && (!expectedSuffix || parsed.pathname.endsWith(expectedSuffix));}
+ catch{return false;}
+};
 export function getRuntimeChecks(): RuntimeCheck[] {
   return [
     {
       key: "api-base-url",
       label: "API base URL",
       value: runtimeConfig.apiBaseUrl || "Missing",
-      ready: Boolean(runtimeConfig.apiBaseUrl),
+      ready: isSecureUrl(runtimeConfig.apiBaseUrl,"/api"),
       description: "Required for Django API communication.",
     },
     {
       key: "app-url",
       label: "App URL",
       value: runtimeConfig.appUrl || "Missing",
-      ready: Boolean(runtimeConfig.appUrl),
+      ready: isSecureUrl(runtimeConfig.appUrl),
       description: "Used for frontend links, redirects, and production configuration.",
     },
     {
       key: "app-version",
       label: "App version",
       value: runtimeConfig.appVersion,
-      ready: Boolean(runtimeConfig.appVersion),
+      ready: Boolean(runtimeConfig.appVersion && runtimeConfig.appVersion !== "development"),
       description: "Optional label for release tracking.",
     },
     {
       key: "node-env",
       label: "Node environment",
       value: runtimeConfig.nodeEnv,
-      ready: Boolean(runtimeConfig.nodeEnv),
+      ready: runtimeConfig.nodeEnv==="production",
       description: "Confirms whether the app is running in development or production mode.",
     },
   ];

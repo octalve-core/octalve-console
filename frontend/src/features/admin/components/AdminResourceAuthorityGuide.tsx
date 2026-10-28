@@ -14,6 +14,7 @@ export function AdminResourceAuthorityGuide({resource}:{resource:AdminResourceKe
     <h2 className="text-sm font-semibold text-console-ink">Review available records</h2>
     <p className="mt-2 text-sm leading-6 text-console-muted">{policy.reason}</p>
     <div className="mt-4 flex flex-wrap gap-2">
+     {resource==="plans"||resource==="products"?<ActionLink href="/admin/catalog/workbench" size="sm" variant="outline">Manage in Catalogue</ActionLink>:null}
      {resource==="invoices"?<ActionLink href="/admin/invoice-designer" size="sm" variant="outline">Invoice designs</ActionLink>:null}
      {resource==="invoices"?<ActionLink href="/admin/settings/invoices" size="sm" variant="outline">Invoice policies</ActionLink>:null}
      {resource==="gateways"||resource==="domains"?<ActionLink href="/admin/integrations" size="sm" variant="outline">Integration Store</ActionLink>:null}

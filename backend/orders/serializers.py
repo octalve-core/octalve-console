@@ -109,10 +109,14 @@ class CreateOrderSerializer(serializers.Serializer):
                     raise serializers.ValidationError('Only hosting plans can be ordered here')
                 # A2 prices are versioned. Reject a stale checkout instead of
                 # silently repricing a customer's previously displayed offer.
-                # Older pre-A2 test/catalog plans remain compatible until migrated.
+                # Unversioned legacy plans are never eligible for new orders.
                 from catalog.models import PublishedCatalogOffer, PlanProviderMapping
                 from providers.models import ProviderPackage
                 published = PublishedCatalogOffer.objects.filter(plan=plan).order_by('-revision').first()
+                if not published:
+                    raise serializers.ValidationError(
+                        'This hosting plan is not approved for checkout. Please choose a published offer.'
+                    )
                 if published:
                     if item.get('offer_revision') != published.revision:
                         raise serializers.ValidationError(

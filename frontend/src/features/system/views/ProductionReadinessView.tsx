@@ -10,40 +10,40 @@ import { MetricCard } from "@/components/data/MetricCard";
 import { ResponsiveGrid } from "@/components/data/ResponsiveGrid";
 import { apiContractSections, getApiContractSummary } from "@/lib/api/contract-registry";
 import { getRuntimeChecks } from "@/lib/config/runtime";
-import { getRouteAccessSummary, routeAccessItems } from "@/lib/navigation/route-access";
+import { routeAccessItems } from "@/lib/navigation/route-access";
+import canonicalRouteManifest from "@/lib/navigation/canonical-routes.json";
 import { productionReadinessChecks, type ProductionReadinessCheck } from "../data/production-readiness";
 
 function readinessTone(status: ProductionReadinessCheck["status"]) {
-  if (status === "Ready") return "success";
+  if (status === "Blocked") return "danger";
   if (status === "Review") return "warning";
   return "neutral";
 }
 
-function contractTone(status: "Aligned" | "Needs backend confirmation" | "Fallback-ready") {
-  if (status === "Aligned") return "success";
-  if (status === "Needs backend confirmation") return "warning";
+function contractTone(status: "Source mapped" | "Requires qualification" | "Policy blocked") {
+  if (status === "Source mapped") return "info";
+  if (status === "Policy blocked") return "warning";
   return "info";
 }
 
 export function ProductionReadinessView() {
   const apiSummary = getApiContractSummary();
-  const routeSummary = getRouteAccessSummary();
+  const sourceRouteCount = canonicalRouteManifest.routes.length;
   const runtimeChecks = getRuntimeChecks();
 
-  const readyChecks = productionReadinessChecks.filter((item) => item.status === "Ready").length;
-  const reviewChecks = productionReadinessChecks.filter((item) => item.status === "Review").length;
+  const pendingChecks = productionReadinessChecks.filter((item) => item.status !== "Review").length;
   const missingRuntime = runtimeChecks.filter((item) => !item.ready).length;
 
   return (
     <DashboardShell
       role="admin"
-      title="Production readiness"
-      description="Final frontend audit for API alignment, route access, environment setup, and release readiness."
+      title="Release qualification"
+      description="Source and release evidence register. This page does not probe live operations."
     >
       <DashboardPage
         eyebrow="Production Readiness"
-        title="Frontend release audit"
-        description="Use this page before merging into main or deploying to production."
+        title="Release evidence and qualification"
+        description="Source mappings are not live probes. Protected actions require independent acceptance."
       >
         <div className="space-y-6">
           <ResponsiveGrid columns="4">
@@ -54,21 +54,21 @@ export function ProductionReadinessView() {
               icon={<Server className="h-5 w-5" />}
             />
             <MetricCard
-              label="Aligned endpoints"
+              label="Source-mapped endpoints"
               value={String(apiSummary.aligned)}
-              description={`${apiSummary.fallbackReady} fallback-ready`}
+              description={`${apiSummary.fallbackReady} not yet live verified`}
               icon={<CheckCircle2 className="h-5 w-5" />}
             />
             <MetricCard
-              label="Routes audited"
-              value={String(routeSummary.total)}
-              description={`${routeSummary.migrated} migrated routes`}
+              label="Pages inventoried"
+              value={String(sourceRouteCount)}
+              description={`${sourceRouteCount * canonicalRouteManifest.expectedViewportWidths.length} visual cases pending`}
               icon={<Route className="h-5 w-5" />}
             />
             <MetricCard
-              label="Readiness checks"
-              value={`${readyChecks}/${productionReadinessChecks.length}`}
-              description={reviewChecks ? `${reviewChecks} need review` : "All clear"}
+              label="Operational gates"
+              value={`0/${productionReadinessChecks.length}`}
+              description={`${pendingChecks} pending or blocked; none certified`}
               icon={<Activity className="h-5 w-5" />}
             />
           </ResponsiveGrid>
@@ -79,7 +79,7 @@ export function ProductionReadinessView() {
             </div>
           ) : (
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
-              Runtime configuration has the required public values.
+              Public configuration values are present; connectivity is not independently certified.
             </div>
           )}
 
@@ -92,7 +92,7 @@ export function ProductionReadinessView() {
                 </div>
 
                 <Badge variant={missingRuntime ? "warning" : "success"}>
-                  {missingRuntime ? "Review" : "Ready"}
+                  {missingRuntime ? "Review" : "Values present"}
                 </Badge>
               </div>
 
@@ -106,7 +106,7 @@ export function ProductionReadinessView() {
                       </div>
 
                       <Badge variant={item.ready ? "success" : "warning"}>
-                        {item.ready ? "Ready" : "Missing"}
+                        {item.ready ? "Present" : "Missing"}
                       </Badge>
                     </div>
 
@@ -137,7 +137,7 @@ export function ProductionReadinessView() {
           </div>
 
           <Card>
-            <h2 className="text-lg font-medium tracking-[-0.03em] text-slate-950">Readiness checklist</h2>
+            <h2 className="text-lg font-medium tracking-[-0.03em] text-slate-950">Release qualification gates</h2>
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {productionReadinessChecks.map((item) => (
@@ -162,7 +162,7 @@ export function ProductionReadinessView() {
               <div>
                 <h2 className="text-lg font-medium tracking-[-0.03em] text-slate-950">API contract alignment</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Main frontend API modules and backend endpoint paths.
+                  Listed frontend API modules and source paths; not tested live responses.
                 </p>
               </div>
 
@@ -193,6 +193,8 @@ export function ProductionReadinessView() {
                             <td className="py-3 pr-4 font-mono text-xs text-slate-500">{endpoint.path}</td>
                             <td className="py-3">
                               <Badge variant={contractTone(endpoint.status)}>{endpoint.status}</Badge>
+                              <p className="mt-1 max-w-xs text-xs text-slate-500">{endpoint.expectedOutcome}</p>
+                              <p className="mt-1 max-w-xs text-xs text-slate-500">{endpoint.observedOutcome}</p>
                             </td>
                           </tr>
                         ))}
@@ -209,11 +211,11 @@ export function ProductionReadinessView() {
               <div>
                 <h2 className="text-lg font-medium tracking-[-0.03em] text-slate-950">Route access snapshot</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Quick view of protected and migrated routes.
+                  Selected navigation examples, not complete browser tests.
                 </p>
               </div>
 
-              <Badge variant="info">{routeSummary.total} routes</Badge>
+              <Badge variant="info">{routeAccessItems.length} navigation entries</Badge>
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -251,7 +253,7 @@ export function ProductionReadinessView() {
 
                 <div className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
                   <Code2 className="h-4 w-4" />
-                  Ready for final schema-to-UI payload pass
+                  Pending authenticated and operational qualification
                 </div>
               </div>
             </div>

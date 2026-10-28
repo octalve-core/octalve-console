@@ -6,6 +6,7 @@ import { api } from "@/lib/api/client";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import {AdminCatalogIntro} from "../components/AdminCatalogIntro";
+import {CatalogProductsPanel} from "../components/CatalogProductsPanel";
 
 type Category = { id: number; name: string };
 type Product = { id: number; name: string; product_type: string; category: number; status: string };
@@ -18,7 +19,16 @@ type Mapping = {plan:number; provider_id:number; provider_package_id:string; is_
 type Draft = {id:number;status:string;product_name:string;provider:string;supplier_package:string;payload:{name:string}};
 const periods = [{key:"1mo",label:"Monthly"},{key:"3mo",label:"Quarterly"},{key:"6mo",label:"Semiannual"},{key:"12mo",label:"Yearly"},{key:"24mo",label:"Two years"},{key:"36mo",label:"Three years"}];
 const blankCycle = (): Cycle => ({cycle_key:"1mo",price:"",setup_fee:"0",regular_price:"",is_default:true});
-const unpack = <T,>(data: unknown): T[] => Array.isArray(data) ? data as T[] : (data && typeof data === "object" && "results" in data && Array.isArray((data as {results: unknown}).results) ? (data as {results:T[]}).results : []);
+/** Reject invalid collection envelopes; never silently replace server errors with empty inventory. */
+const unpack = <T,>(data: unknown): T[] => {
+ const rows=Array.isArray(data)?data:(
+  data && typeof data==="object" && "results" in data
+  ? (data as {results:unknown}).results : null
+ );
+ if(!Array.isArray(rows) || rows.some(row=>!row || typeof row!=="object" || Array.isArray(row)))
+   throw new Error("The catalog returned an unexpected response. Please retry.");
+ return rows as T[];
+};
 
 export function CatalogAuthorityWorkbench() {
   const [providers,setProviders]=useState<Provider[]>([]);
@@ -56,10 +66,14 @@ export function CatalogAuthorityWorkbench() {
       api.get("/catalog/plans/"),api.get("/catalog/provider-mappings/"),
       api.get("/catalog/offer-drafts/"),
     ]);
-    setProviders(unpack<Provider>(values[0]));setPackages(unpack<Package>(values[1]));
-    setCategories(unpack<Category>(values[2]));setProducts(unpack<Product>(values[3]));
-    setPlans(unpack<Plan>(values[4]));setMappings(unpack<Mapping>(values[5]));
-    setDrafts(unpack<Draft>(values[6]));
+    // Parse all seven responses before committing any state. A malformed
+    // provider envelope must not leave a partially refreshed supplier/pricing UI.
+    const nextProviders=unpack<Provider>(values[0]),nextPackages=unpack<Package>(values[1]);
+    const nextCategories=unpack<Category>(values[2]),nextProducts=unpack<Product>(values[3]);
+    const nextPlans=unpack<Plan>(values[4]),nextMappings=unpack<Mapping>(values[5]);
+    const nextDrafts=unpack<Draft>(values[6]);
+    setProviders(nextProviders);setPackages(nextPackages);setCategories(nextCategories);
+    setProducts(nextProducts);setPlans(nextPlans);setMappings(nextMappings);setDrafts(nextDrafts);
   }
   useEffect(()=>{let live=true;refresh().catch(e=>{if(live)setError(String(e?.message || e));}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};},[]);
   async function execute(task:()=>Promise<unknown>, message:string) {
@@ -152,7 +166,7 @@ export function CatalogAuthorityWorkbench() {
       <div className="space-y-6">
         <AdminCatalogIntro/>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/admin/servers/new" className={actionClasses}>Add provider connection</Link>
+          <Link href="/admin/integrations" className={actionClasses}>Browse supplier integrations</Link>
           <Link href="/admin/servers" className="text-sm font-medium text-console-primary">View providers</Link>
           <button type="button" onClick={()=>void execute(async()=>{await refresh();return true;},"Catalog refreshed.")} disabled={busy} className="rounded-xl border px-4 py-2 text-sm">Refresh records</button>
         </div>
@@ -195,19 +209,10 @@ export function CatalogAuthorityWorkbench() {
           </div>)}
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
-          <h2 className="text-lg font-semibold">A2 · Products</h2>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div><label htmlFor="cat" className={label}>New category</label><input id="cat" className={field} value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="Hosting"/>
-            <button disabled={busy||!newCategory.trim()} onClick={()=>void createCategory()} className={actionClasses+" mt-2"}>Create category</button></div>
-            <div className="space-y-2"><label htmlFor="prod-category" className={label}>Product category</label>
-              <select id="prod-category" className={field} value={productCategory} onChange={e=>setProductCategory(e.target.value)}><option value="">Choose category</option>{categories.map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</select>
-              <input className={field} aria-label="New product name" value={newProduct} onChange={e=>setNewProduct(e.target.value)} placeholder="Shared Web Hosting"/>
-              <select className={field} aria-label="Product type" value={productType} onChange={e=>setProductType(e.target.value)}>{["shared_hosting","wordpress_hosting","vps"].map(k=><option key={k} value={k}>{k.replaceAll("_"," ")}</option>)}</select>
-              <button disabled={busy||!productCategory||!newProduct.trim()} onClick={()=>void createProduct()} className={actionClasses}>Create product</button>
-            </div>
-          </div>
-        </section>
+        <CatalogProductsPanel categories={categories} newCategory={newCategory} setNewCategory={setNewCategory}
+          productCategory={productCategory} setProductCategory={setProductCategory}
+          newProduct={newProduct} setNewProduct={setNewProduct} productType={productType}
+          setProductType={setProductType} busy={busy} createCategory={createCategory} createProduct={createProduct}/>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
           <h2 className="text-lg font-semibold">A2 · Draft customer-facing offer</h2>
