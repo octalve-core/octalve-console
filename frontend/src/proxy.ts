@@ -67,6 +67,8 @@ type BackendGroup =
     };
 
 type BackendUser = {
+  id?: number | string;
+  email?: string;
   role?: string | null;
   user_type?: string | null;
   account_type?: string | null;
@@ -309,7 +311,14 @@ async function fetchCurrentUser(accessToken: string): Promise<BackendUser | null
   if (!user || typeof user !== "object" || Array.isArray(user)) {
     throw new IdentityUnavailable();
   }
-  return user as BackendUser;
+  const identity=user as BackendUser;
+  if (!((typeof identity.id==="number"&&Number.isSafeInteger(identity.id)&&identity.id>0) ||
+         (typeof identity.id==="string"&&/^[1-9][0-9]{0,19}$/.test(identity.id))) ||
+      typeof identity.email!=="string" ||
+      !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(identity.email)) {
+    throw new IdentityUnavailable();
+  }
+  return identity;
 }
 async function refreshAccessToken(refreshToken: string) {
   if (!SAFE_API_BASE) throw new IdentityUnavailable();
