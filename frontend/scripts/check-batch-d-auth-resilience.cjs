@@ -61,14 +61,14 @@ async function check(){
  assert.ok(response.location.includes("/login?next="));
  assert.ok(cookies.some(x=>x.name==="octalve_console_access"&&x.config.maxAge===0));
  cookies.length=0;
- fetchImpl=async()=>reply(200,{role:"admin",is_superuser:true});
+ fetchImpl=async()=>reply(200,{id:1,email:"synthetic-admin@example.test",role:"admin",is_superuser:true});
  response=await proxy(request("/admin"));
  assert.equal(response.status,200);
  assert.ok(!cookies.some(x=>x.config.maxAge===0),"valid auth must not clear cookies");
  cookies.length=0;
  fetchImpl=async url=>url.includes("/users/me/")?
   (calls.filter(x=>String(x[0]).includes("/users/me/")).length===1
-  ?reply(401,{}):reply(200,{role:"admin",is_superuser:true}))
+  ?reply(401,{}):reply(200,{id:1,email:"synthetic-admin@example.test",role:"admin",is_superuser:true}))
   :reply(200,{access:"new-access",refresh:"new-refresh"});
  calls.length=0;
  response=await proxy(request("/admin"));
