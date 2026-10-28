@@ -24,6 +24,8 @@
 
 **Retirement:** exact redundant blocks/duplicate configs were already removed in PR #82. Each additional migrated Batch 1 component must retire its verified exclusively owned CSS in that same PR, with explicit audit baseline update; do not claim the remaining 8,516 lines are unused.
 
+**First qualified source-level pilot in PR #83:** the conservative audit identified the legacy `StatCard` component as the sole source owner of `.stat-card`, `.stat-label` and `.stat-value`. The typed component was converted to Tailwind utilities without changing its props, and exactly seven global CSS rules (12 lines) for those selectors were deleted. The `.stat-icon` rules remain because `AdminToolPage` also uses them; the component itself no longer needs that class. Updated protected `globals.css`: **8,504 lines**. This is a source/build qualification, **not authenticated browser screenshot certification**.
+
 **Exit:** no new global CSS, CSS parser and source-owner report in CI, typed components, route/role count checks, frontend emitted CSS, Django and security checks green. Browser evidence remains honestly pending until executed.
 
 ## Batch 2 — Admin and Staff feature migration + deletion
