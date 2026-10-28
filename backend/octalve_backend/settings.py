@@ -551,8 +551,8 @@ CLOUD_PAYMENT_RETURN_URL = env("CLOUD_PAYMENT_RETURN_URL", default="")
 
 # B1 draft vault is inert by default. Never turn on live supplier operations here.
 CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED = env.bool("CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED", default=False)
-# Separate release approval: switching the writes flag alone must never expose secrets.
-CLOUD_PROVIDER_VAULT_WRITE_RELEASE_APPROVED = env.bool("CLOUD_PROVIDER_VAULT_WRITE_RELEASE_APPROVED", default=False)
+# Independent synthetic review hold: deployed credential mutations remain prohibited.
+CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED = env.bool("CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED", default=False)
 CLOUD_PROVIDER_VAULT_KEY = env("CLOUD_PROVIDER_VAULT_KEY", default="")
 CLOUD_PROVIDER_VAULT_KEY_ID = env("CLOUD_PROVIDER_VAULT_KEY_ID", default="v1")
 
