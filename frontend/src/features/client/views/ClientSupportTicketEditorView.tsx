@@ -8,6 +8,7 @@ import {DashboardShell} from "@/components/layout/DashboardShell";
 import {clientApi} from "@/lib/api/endpoints";
 import {SupportRequestFields} from "@/features/support/components/SupportRequestFields";
 import {Panel} from "@/components/design-system/Panel";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {helpApi,asList,type Department,type SupportTopic,type TicketDetail} from "@/lib/api/modules/help-center.api";
 export function ClientSupportTicketEditorView(){
   const router=useRouter();
@@ -38,7 +39,7 @@ export function ClientSupportTicketEditorView(){
   return <DashboardShell role="client" title="Get support" description="Speak with the right Octalve Cloud support team.">
     <DashboardPage eyebrow="Help centre" title="Tell us what you need help with"
       description="Your request goes to the appropriate support specialists and stays visible in your account.">
-      <div className="grid min-w-0 gap-5 xl:grid-cols-3">
+      <WorkspaceGrid variant="supportColumns">
         <Panel className="min-w-0 p-5 sm:p-8 xl:col-span-2">
           <Link href="/client/support" className="inline-flex items-center gap-2 text-sm font-medium text-[#0064E0]"><ArrowLeft className="h-4 w-4"/>My support tickets</Link>
           <h2 className="mt-6 text-xl font-medium text-slate-950">New support request</h2>
@@ -67,7 +68,7 @@ export function ClientSupportTicketEditorView(){
             <Link href="/client/knowledge-base" className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#0064E0]"><BookOpen className="h-4 w-4"/>Explore help guides</Link>
           </section>
         </aside>
-      </div>
+      </WorkspaceGrid>
     </DashboardPage>
   </DashboardShell>;
 }
