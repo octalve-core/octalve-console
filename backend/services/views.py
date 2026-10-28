@@ -47,6 +47,25 @@ class ServiceViewSet(viewsets.ModelViewSet):
             return [CloudServiceWritePermission()]
         return super().get_permissions()
 
+    @staticmethod
+    def _refuse_unverified_change():
+        return Response(
+            {'detail': 'Service changes require the approved fulfillment and reconciliation workflow.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    def create(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
+    def update(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
+    def partial_update(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
+    def destroy(self, request, *args, **kwargs):
+        return self._refuse_unverified_change()
+
     def get_queryset(self):
         plan_name = Plan.objects.filter(pk=OuterRef('plan_id')).values('name')[:1]
         queryset = Service.objects.annotate(
