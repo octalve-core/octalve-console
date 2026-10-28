@@ -1,6 +1,8 @@
 import {UserRound} from "lucide-react";
 import type {FormEvent} from "react";
 import {Panel} from "@/components/design-system/Panel";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
+import {ConsoleIconTile} from "@/components/design-system/ConsoleIconTile";
 import {TextField} from "@/components/design-system/TextField";
 import {ActionButton} from "@/components/design-system/ActionButton";
 import type {AccountProfile,EditableAccountProfile} from "@/lib/api/endpoints";
@@ -23,22 +25,20 @@ export function ClientProfileDetailsForm({profile,draft,name,email,saving,onChan
 }){
  return <Panel>
   <div className="flex min-w-0 items-center gap-3">
-   <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-console-primary">
-    <UserRound className="h-6 w-6"/>
-   </span>
+   <ConsoleIconTile icon={UserRound} tone="blue" size="lg"/>
    <div className="min-w-0">
     <h2 className="truncate text-lg font-semibold text-console-ink">{profile?.full_name||name||"Your details"}</h2>
     <p className="truncate text-sm text-console-muted">{profile?.email||email||"Email unavailable"}</p>
    </div>
   </div>
   {draft?<form onSubmit={onSubmit} className="mt-6 space-y-5">
-   <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+   <WorkspaceGrid variant="filters">
     {fields.map(field=><div key={field.key} className={field.key==="address"?"sm:col-span-2":""}>
      <TextField name={field.key} label={field.label} autoComplete={field.auto}
       maxLength={field.key==="address"?400:255} value={draft[field.key]}
       onChange={event=>onChange(field.key,event.target.value)} disabled={saving}/>
     </div>)}
-   </div>
+   </WorkspaceGrid>
    <ActionButton type="submit" loading={saving} className="w-full sm:w-auto">
     {saving?"Saving…":"Save account details"}
    </ActionButton>
