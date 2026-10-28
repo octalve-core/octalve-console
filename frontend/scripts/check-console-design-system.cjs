@@ -3,7 +3,7 @@ const fs=require("node:fs"),path=require("node:path");
 const root=path.resolve(__dirname,"../src/components/design-system");
 const names=["ActionButton.tsx","ActionLink.tsx","Panel.tsx","SectionHeading.tsx","StatusBadge.tsx",
  "EmptyState.tsx","TextField.tsx","SelectField.tsx","TextAreaField.tsx","ConfirmDialog.tsx",
- "ResponsiveTable.tsx","action-styles.ts","index.ts"];
+ "ResponsiveTable.tsx","WorkspaceNavTabs.tsx","WorkspaceLayout.tsx","action-styles.ts","index.ts"];
 for(const file of names){
  const source=fs.readFileSync(path.join(root,file),"utf8");
  if(!source.trim())throw Error(file+" is empty");
@@ -28,6 +28,9 @@ requires("SelectField.tsx",["useId","htmlFor={controlId}","aria-invalid","option
 requires("TextAreaField.tsx",["useId","htmlFor={controlId}","aria-invalid","min-h-36"]);
 requires("ConfirmDialog.tsx",["showModal()","onCancel","aria-labelledby","onConfirm"]);
 requires("ResponsiveTable.tsx",["md:hidden","md:block",'scope="col"',"getRowKey(row)"]);
+requires("WorkspaceNavTabs.tsx",["aria-current","overflow-x-auto","min-h-11","focus-visible:ring-console-primary","href={tab.href}"]);
+requires("WorkspaceLayout.tsx",["max-w-console-content","px-page-gutter","md:py-section-lg"]);
+
 if(process.argv.includes("--built")){
  const dir=path.resolve(__dirname,"../.next/static");
  const css=[];
