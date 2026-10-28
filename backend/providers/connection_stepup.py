@@ -18,7 +18,12 @@ from .connection_models import ProviderVaultAuthenticator
 
 def cipher():
     key=getattr(settings,"CLOUD_PROVIDER_STEPUP_KEY","")
-    if not key or key in (getattr(settings,"CLOUD_PROVIDER_VAULT_KEY",""),getattr(settings,"ENCRYPTION_KEY","")):
+    if not key or key in (
+            getattr(settings,"CLOUD_PROVIDER_VAULT_KEY",""),
+            getattr(settings,"CLOUD_PROVIDER_AUDIT_KEY",""),
+            getattr(settings,"CLOUD_PROVIDER_RECOVERY_KEY",""),
+            getattr(settings,"CLOUD_PROVIDER_CHECKPOINT_KEY",""),
+            getattr(settings,"ENCRYPTION_KEY","")):
         raise VaultUnavailable()
     try:
         if len(base64.urlsafe_b64decode(key))!=32: raise ValueError("Invalid key size")
