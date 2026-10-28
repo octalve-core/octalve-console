@@ -26,7 +26,7 @@ class SupplierPinnedEgressTests(SimpleTestCase):
         pool=MagicMock()
         pool.request.return_value=raw
         with patch("providers.pinned_egress.urllib3.HTTPSConnectionPool",return_value=pool) as factory:
-            response=pinned_get(URL,params={},headers={"Authorization":"Basic synthetic"},
+            response=pinned_get(URL,params={},headers={"Authorization":"Basic c3ludGhldGlj","Accept":"application/json"},
                                 timeout=4,allow_redirects=False,verify=True)
         self.assertEqual(response.text,"list[]=a")
         self.assertEqual(response.status_code,200)
@@ -74,15 +74,52 @@ class SupplierPinnedEgressTests(SimpleTestCase):
         with patch("providers.pinned_egress.urllib3.HTTPSConnectionPool") as mockpool:
             mockpool.return_value.request.return_value=raw
             with self.assertRaises(SupplierEgressDenied):
-                pinned_get(URL,params={},headers={},timeout=4,allow_redirects=False,verify=True)
+                pinned_get(URL,params={},headers={"Authorization":"Basic c3ludGhldGlj","Accept":"application/json"},timeout=4,allow_redirects=False,verify=True)
         raw.status=200
         raw.headers={"content-length":"1000001"}
         with patch("providers.pinned_egress.urllib3.HTTPSConnectionPool") as mockpool:
             mockpool.return_value.request.return_value=raw
             with self.assertRaises(SupplierEgressDenied):
-                pinned_get(URL,params={},headers={},timeout=4,allow_redirects=False,verify=True)
+                pinned_get(URL,params={},headers={"Authorization":"Basic c3ludGhldGlj","Accept":"application/json"},timeout=4,allow_redirects=False,verify=True)
         raw.release_conn.assert_called()
         raw.close.assert_called()
+
+    def test_only_approved_supplier_readback_operations_can_egress(self):
+        auth={"Authorization":"Basic c3ludGhldGlj","Accept":"application/json"}
+        unsafe=[
+            ("/CMD_API_ACCOUNT_USER",{}),
+            ("/CMD_API_SHOW_USER_CONFIG",{}),
+            ("/CMD_API_PACKAGES_USER",{"action":"delete"}),
+            ("/CMD_API_PACKAGES_USER",{"package":"bad\r\nvalue"}),
+            ("/json-api/listpkgs",{"api.version":"1","want":"creatable"}),
+            ("/json-api/createacct",{"api.version":"1"}),
+            ("/CMD_API_PACKAGES_USER?admin=yes",{}),
+        ]
+        with patch("providers.pinned_egress.urllib3.HTTPSConnectionPool") as pool:
+            for path,params in unsafe:
+                with self.subTest(path=path),self.assertRaises(SupplierEgressDenied):
+                    pinned_get("https://"+HOST+":2222"+path,params=params,headers=auth,
+                               timeout=4,allow_redirects=False,verify=True)
+            pool.assert_not_called()
+
+    def test_whm_and_directadmin_allowed_operations_only(self):
+        from providers.pinned_egress import validate_readback_contract
+        da={"Accept":"application/json","Authorization":"Basic c3ludGhldGlj"}
+        whm={"Accept":"application/json","Authorization":"whm reseller:CI-FAKE-API-TOKEN-123456"}
+        validate_readback_contract("/CMD_API_PACKAGES_USER",2222,{"package":"starter"},da)
+        validate_readback_contract("/CMD_API_SHOW_USER_CONFIG",2222,{"user":"octalvetest"},da)
+        validate_readback_contract("/json-api/listpkgs",2087,
+                                   {"api.version":"1","want":"creatable"},whm)
+        validate_readback_contract("/json-api/accountsummary",2087,
+                                   {"api.version":"1","user":"octalvetest"},whm)
+        for params in ({"api.version":"0","want":"creatable"},
+                       {"api.version":"1","want":"creatable","action":"create"}):
+            with self.assertRaises(SupplierEgressDenied):
+                validate_readback_contract("/json-api/listpkgs",2087,params,whm)
+        with self.assertRaises(SupplierEgressDenied):
+            validate_readback_contract("/json-api/listpkgs",2087,
+                                       {"api.version":"1","want":"creatable"},
+                                       dict(whm,Authorization=whm["Authorization"]+"\r\nX: bad"))
 
     def test_legacy_directadmin_executor_cannot_post(self):
         provider=SimpleNamespace(base_url="https://"+HOST+":2222",timeout_seconds=4,test_mode=True,
