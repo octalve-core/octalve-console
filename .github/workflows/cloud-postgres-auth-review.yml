@@ -146,6 +146,9 @@ jobs:
       - name: Batch 13.2 verified points race and margin guards on disposable PostgreSQL
         working-directory: backend
         run: python manage.py test rewards.test_financial_qualification --verbosity=2
+      - name: Provider B2.8 coherent isolated recovery and deployed hard-stop on disposable PostgreSQL
+        working-directory: backend
+        run: python manage.py test providers.test_recovery_evidence providers.test_operational_release_hold --verbosity=2
       - name: Collect illustrative PostgreSQL SQL for every blacklist migration
         if: always()
         working-directory: backend
