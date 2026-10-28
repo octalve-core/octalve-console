@@ -32,3 +32,26 @@
 @media (min-width: 1536px) {
   .clientMetrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
+
+/* Modernized Admin/Staff/Client shared dashboard and data grids.
+   Scoped selectors supersede the unlayered global .grid collision. */
+.overviewPair, .directory, .responsive2, .responsive3, .responsive4 {
+  display: grid;
+  min-width: 0;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+.directory, .responsive2, .responsive3, .responsive4 { gap: 1rem; }
+@media (min-width: 640px) {
+  .responsive2, .responsive3, .responsive4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 768px) {
+  .directory { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .overviewPair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .directory, .responsive3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .responsive4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
