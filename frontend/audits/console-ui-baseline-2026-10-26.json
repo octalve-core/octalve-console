@@ -5,9 +5,9 @@
   "policy": "Frozen Batch 0 baseline; update only with explicit approved later-batch migration",
   "legacyCss": {
     "path": "frontend/src/app/globals.css",
-    "gitBlobSha": "e2d1290908b490f3294fc948c95972fe43d39930",
-    "lines": 8516,
-    "bytes": 155677
+    "gitBlobSha": "fe3c43002dc068714b379aadf206e3591922e2fa",
+    "lines": 8504,
+    "bytes": 155169
   },
   "otherCss": [],
   "routeCounts": {
@@ -142,5 +142,5 @@
     }
   ],
   "legacyCssReviewedAsOf": "2026-10-28",
-  "legacyCssApprovedDelta": "PR #82: delete only the first of two exact, identical .error-alert rule blocks (10 lines). Retain later declaration and all other compatibility rules; no authenticated visual retirement claimed."
+  "legacyCssApprovedDelta": "PR #83: after StatCard.tsx migration to locally-owned Tailwind, remove exactly seven .stat-card, .stat-label and .stat-value CSS rules (12 lines) with conservative ownership report; preserve .stat-icon, which remains referenced in AdminToolPage.tsx. Authenticated browser parity remains pending."
 }
