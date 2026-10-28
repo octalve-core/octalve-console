@@ -1,5 +1,5 @@
-import { AdminOperationListView } from "@/features/admin/operations/views/AdminOperationListView";
+import {AdminReportsWorkspaceView} from "@/features/admin/reports/views/AdminReportsWorkspaceView";
 
 export default function AdminReportsPage() {
-  return <AdminOperationListView operation="reports" />;
+ return <AdminReportsWorkspaceView/>;
 }
