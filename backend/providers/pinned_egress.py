@@ -85,12 +85,12 @@ def validate_readback_contract(path,port,params,headers):
             raise SupplierEgressDenied()
         return
     if path=="/json-api/listpkgs" and port in (2087,443):
-        if (not re.fullmatch(r"whm [A-Za-z0-9_.-]{1,80}:[^\\r\\n]{12,4096}",auth) or
+        if (not re.fullmatch(r"whm [A-Za-z0-9_.-]{1,80}:[^\r\n]{12,4096}",auth) or
             params!={"api.version":"1","want":"creatable"}):
             raise SupplierEgressDenied()
         return
     if path=="/json-api/accountsummary" and port in (2087,443):
-        if (not re.fullmatch(r"whm [A-Za-z0-9_.-]{1,80}:[^\\r\\n]{12,4096}",auth) or
+        if (not re.fullmatch(r"whm [A-Za-z0-9_.-]{1,80}:[^\r\n]{12,4096}",auth) or
             set(params)!={"api.version","user"} or params.get("api.version")!="1" or
             not isinstance(params.get("user"),str) or
             not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,31}",params["user"])):
