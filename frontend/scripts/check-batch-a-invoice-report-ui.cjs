@@ -8,7 +8,7 @@ const reportStyles=read("src/features/admin/reports/views/AdminReportsWorkspace.
 const sheet=read("src/components/design-system/AdaptiveSheet.tsx");
 const sheetCSS=read("src/components/design-system/AdaptiveSheet.module.css");
 const icon=read("src/components/design-system/ConsoleIconTile.tsx");
-const exports=read("src/components/design-system/index.ts");
+const designExports=read("src/components/design-system/index.ts");
 const pkg=JSON.parse(read("package.json"));
 function requireAll(name,body,tokens){
  for(const token of tokens)if(!body.includes(token))throw Error(name+" missing: "+token);
@@ -35,7 +35,7 @@ if(view.includes('className="grid '))throw Error("Report must not depend on conf
 requireAll("Native adaptive sheet",sheet,["showModal()","onCancel","aria-labelledby","AdaptiveSheet.module.css"]);
 requireAll("Mobile bottom sheet",sheetCSS,["@media (max-width: 639px)","safe-area-inset-bottom",".sheet::backdrop"]);
 requireAll("Shared icon tile",icon,["LucideIcon","strokeWidth={1.9}","aria-hidden"]);
-requireAll("Design system exports",exports,["ConsoleIconTile","AdaptiveSheet"]);
+requireAll("Design system exports",designExports,["ConsoleIconTile","AdaptiveSheet"]);
 if(!pkg.dependencies["lucide-react"])throw Error("Existing shared icon library not available");
 if(process.argv.includes("--built")){
  const staticRoot=path.join(root,".next/static"),css=[];
