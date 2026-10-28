@@ -25,6 +25,24 @@ for (const legacy of [".grid", ".button", ".card", ".table", ".page-container"])
     throw new Error("Legacy selector prematurely removed: " + legacy);
   }
 }
+// One completed ownership migration: the old metric card no longer requires
+// its three dedicated global selectors; .stat-icon is deliberately retained
+// for the independently-owned AdminToolPage until its migration qualifies.
+for (const retired of ["stat-card", "stat-label", "stat-value"]) {
+  if (new RegExp("\\." + retired + "\\s*\\{").test(css)) {
+    throw new Error("Retired StatCard selector returned: " + retired);
+  }
+}
+if (!css.includes(".stat-icon {")) throw new Error("Still-owned AdminToolPage stat icon style lost");
+const migratedStat = read("src/components/ui/StatCard.tsx");
+for (const token of ["rounded-console-card", "border-console-line", "text-console-muted", "text-console-ink"]) {
+  if (!migratedStat.includes(token)) throw new Error("StatCard migration lost " + token);
+}
+for (const retired of ["stat-card", "stat-label", "stat-value", "stat-icon"]) {
+  if (new RegExp('className=["\\'][^"\\']*' + retired).test(migratedStat)) {
+    throw new Error("StatCard still owns legacy class: " + retired);
+  }
+}
 const config = read("tailwind.config.ts");
 for (const token of [
   '"page-gutter": "clamp(1rem, 2vw, 2rem)"',
