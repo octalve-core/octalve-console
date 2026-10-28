@@ -9,7 +9,10 @@
     "lines": 8504,
     "bytes": 155169
   },
-  "otherCss": [],
+  "otherCss": [
+    "frontend/src/components/design-system/AdaptiveSheet.module.css",
+    "frontend/src/features/admin/reports/views/AdminReportsWorkspace.module.css"
+  ],
   "routeCounts": {
     "client": 23,
     "staff": 10,
@@ -142,5 +145,7 @@
     }
   ],
   "legacyCssReviewedAsOf": "2026-10-28",
-  "legacyCssApprovedDelta": "PR #83: after StatCard.tsx migration to locally-owned Tailwind, remove exactly seven .stat-card, .stat-label and .stat-value CSS rules (12 lines) with conservative ownership report; preserve .stat-icon, which remains referenced in AdminToolPage.tsx. Authenticated browser parity remains pending."
+  "legacyCssApprovedDelta": "PR #83: after StatCard.tsx migration to locally-owned Tailwind, remove exactly seven .stat-card, .stat-label and .stat-value CSS rules (12 lines) with conservative ownership report; preserve .stat-icon, which remains referenced in AdminToolPage.tsx. Authenticated browser parity remains pending.",
+  "reviewedCssModulesAsOf": "2026-10-28",
+  "reviewedCssModulesReason": "PR #84: two scoped CSS Modules imported by their owning typed components. No added globally scoped CSS selectors; former legacy root CSS blob unchanged."
 }
