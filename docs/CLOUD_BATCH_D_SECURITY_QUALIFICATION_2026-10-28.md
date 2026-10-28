@@ -14,7 +14,7 @@
 
 ### Provider credential release interlock
 - Existing supplier connection mutations remain default-off, requiring active Super Admin account, current password and a server-verified, replay-limited RFC6238 TOTP code, plus a durable throttle and independently configured keys.
-- A second **default-off** `CLOUD_PROVIDER_VAULT_WRITE_RELEASE_APPROVED` setting now gates sensitive credential mutations. The ordinary `CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED` flag alone is insufficient.
+- A second **default-off, synthetic-only** `CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED` setting now gates sensitive credential mutations. The ordinary `CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED` flag alone is insufficient.
 - This is an additional release interlock, **not proof of a WebAuthn ceremony or external KMS acceptance**. Test-only synthetic writes explicitly configure both gates.
 - Credential submission UI remains disabled. No supplier operations are authorized by storing a draft.
 
