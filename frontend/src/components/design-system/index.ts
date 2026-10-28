@@ -22,3 +22,5 @@ export type {ActionSize,ActionVariant} from "./action-styles";
 export {WorkspaceNavTabs} from "./WorkspaceNavTabs";
 export type {WorkspaceNavTab} from "./WorkspaceNavTabs";
 export {WorkspaceContainer,WorkspaceSection} from "./WorkspaceLayout";
+export {ConsoleIconTile} from "./ConsoleIconTile";
+export {AdaptiveSheet} from "./AdaptiveSheet";
