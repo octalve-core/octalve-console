@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import connections
 from django.db.migrations.loader import MigrationLoader
+from django.db.migrations.recorder import MigrationRecorder
 from catalog.models import Plan
 
 class Command(BaseCommand):
@@ -34,19 +35,28 @@ class Command(BaseCommand):
                 if cursor.fetchone()[0] != 1:
                     raise ValueError("Unexpected database liveness result")
             output["database_connection"]="reachable"
-            loader=MigrationLoader(db)
-            plan=loader.graph.leaf_nodes()
-            applied=loader.applied_migrations
-            missing=set(loader.graph.nodes)-applied
-            output["migration_parity"]="matched" if not missing else "pending"
-            output["unapplied_migration_count"]=len(missing)
-            output["migration_leaf_count"]=len(plan)
-            output["unpublished_public_hosting_plans"]=Plan.objects.using(alias).filter(
-                status="active",is_public=True,
-                product__status="active",product__is_public=True,
-                product__product_type__in=("shared_hosting","wordpress_hosting","vps"),
-            ).exclude(published_versions__isnull=False).count()
         except Exception:
-            output["database_connection"]="failed" if output["database_connection"]!="reachable" else "reachable"
-            output["inspection_error"]="Read-only verification could not complete; details redacted."
+            output["database_connection"]="failed"
+            output["inspection_error"]="Database liveness query failed; details redacted."
+        if output["database_connection"]=="reachable":
+            try:
+                # Load migration GRAPH from source without executing its history
+                # consistency checks. Read applied migration rows separately.
+                loader=MigrationLoader(None)
+                applied=MigrationRecorder(db).applied_migrations()
+                missing=set(loader.graph.nodes)-applied
+                output["migration_parity"]="matched" if not missing else "pending"
+                output["unapplied_migration_count"]=len(missing)
+                output["migration_leaf_count"]=len(loader.graph.leaf_nodes())
+            except Exception:
+                output["migration_parity"]="unverified"
+                output["migration_inspection_error"]="Migration history readback failed; details redacted."
+            try:
+                output["unpublished_public_hosting_plans"]=Plan.objects.using(alias).filter(
+                    status="active",is_public=True,product__status="active",
+                    product__is_public=True,
+                    product__product_type__in=("shared_hosting","wordpress_hosting","vps"),
+                ).exclude(published_versions__isnull=False).count()
+            except Exception:
+                output["catalog_inspection_error"]="Catalog count failed; details redacted."
         self.stdout.write(json.dumps(output,sort_keys=True))
