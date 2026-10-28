@@ -18,6 +18,8 @@ import { adminEditorConfig, type AdminEditorField } from "../data/admin-editor-c
 import type { AdminRecord } from "../data/admin-demo-data";
 import { saveAdminResourceRecord, type AdminSaveMode } from "../data/admin-resource-actions";
 import { findExactAdminRecord, normalizeAdminRecord, unwrapAdminList } from "../utils/admin-record-normalizer";
+import {isAdminMutationDisabled} from "../data/admin-action-policy";
+import {AdminRestrictedActionView} from "./AdminRestrictedActionView";
 
 type AdminResourceEditorViewProps = {
   resource: AdminResourceKey;
@@ -71,7 +73,7 @@ function buildPayload(values: Record<string, string>) {
   );
 }
 
-export function AdminResourceEditorView({ resource, mode = "create" }: AdminResourceEditorViewProps) {
+function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminResourceEditorViewProps) {
   const router = useRouter();
   const params = useParams();
 
@@ -250,4 +252,9 @@ export function AdminResourceEditorView({ resource, mode = "create" }: AdminReso
       </DashboardPage>
     </DashboardShell>
   );
+}
+/** Never render an unqualified mutation form, including direct legacy URLs. */
+export function AdminResourceEditorView(props:AdminResourceEditorViewProps){
+ if(isAdminMutationDisabled(props.resource))return <AdminRestrictedActionView resource={props.resource}/>;
+ return <AuthorizedAdminResourceEditorView {...props}/>;
 }
