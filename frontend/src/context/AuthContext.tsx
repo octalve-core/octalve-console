@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { authApi } from "@/lib/api/endpoints";
+import {ApiError} from "@/lib/api/client";
 import type {
   AuthSession,
   LoginPayload,
@@ -22,6 +23,7 @@ type AuthContextValue = {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  authUnavailable: boolean;
   login: (payload: LoginPayload) => Promise<AuthSession>;
   signup: (payload: SignupPayload) => Promise<AuthSession>;
   logout: () => Promise<void>;
@@ -167,15 +169,25 @@ async function clearBrowserSession() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authUnavailable, setAuthUnavailable] = useState(false);
 
   const refreshUser = useCallback(async () => {
     try {
       const authenticatedUser = normalizeUser(await authApi.me());
       if (!authenticatedUser.email) throw new Error("No authenticated identity.");
       setUser(authenticatedUser);
+      setAuthUnavailable(false);
       return authenticatedUser;
-    } catch {
-      setUser(null);
+    } catch (error) {
+      // A temporary outage must never destroy a previously authenticated
+      // browser state. Django/BFF 401 or 403 is explicit session rejection.
+      if (error instanceof ApiError && [401,403].includes(error.status)) {
+        setUser(null);
+        setAuthUnavailable(false);
+        return null;
+      }
+      // Preserve identity, never render a protected page without a valid user.
+      setAuthUnavailable(true);
       return null;
     } finally {
       setIsLoading(false);
@@ -194,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Server did not verify the authenticated identity.");
     }
     setUser(authenticatedUser);
+    setAuthUnavailable(false);
     return { user: authenticatedUser };
   }, []);
 
@@ -216,6 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       await clearBrowserSession();
       setUser(null);
+      setAuthUnavailable(false);
     }
     if (revokeFailed) {
       throw new Error("Signed out locally; server token revocation could not be verified.");
@@ -227,12 +241,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: Boolean(user),
       isLoading,
+      authUnavailable,
       login,
       signup,
       logout,
       refreshUser,
     }),
-    [user, isLoading, login, signup, logout, refreshUser],
+    [user, isLoading, authUnavailable, login, signup, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

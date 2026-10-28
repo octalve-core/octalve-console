@@ -23,6 +23,7 @@ def backup_cipher():
     if not key or key in (getattr(settings,"CLOUD_PROVIDER_VAULT_KEY",""),
             getattr(settings,"CLOUD_PROVIDER_STEPUP_KEY",""),
             getattr(settings,"CLOUD_PROVIDER_AUDIT_KEY",""),
+            getattr(settings,"CLOUD_PROVIDER_CHECKPOINT_KEY",""),
             getattr(settings,"ENCRYPTION_KEY","")):
         raise VaultUnavailable()
     try:
