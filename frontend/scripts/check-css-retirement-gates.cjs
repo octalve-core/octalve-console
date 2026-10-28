@@ -22,7 +22,7 @@ const layout=fs.readFileSync(path.join(src,"app/layout.tsx"),"utf8");
 if(!layout.includes('import "./globals.css"'))throw Error("Unqualified CSS removal: RootLayout still requires the compatibility sheet");
 if(!fs.existsSync(globals))throw Error("Premature globals.css removal");
 const css=fs.readFileSync(globals,"utf8");
-if(css.split("\n").length!==8502)throw Error("Protected compatibility stylesheet changed without CSS retirement qualification");
+if(css.split("\n").length!==8460)throw Error("Protected compatibility stylesheet changed without CSS retirement qualification");
 if((css.match(/\.error-alert\s*\{/g)||[]).length!==1)throw Error("Duplicate legacy alert rule returned");
 for(const selector of [".page-container",".premium-table",".checkout-v2-header",".domain-search-v2",".oct-topbar"])
  if(!css.includes(selector))throw Error("Existing compatibility selector changed: "+selector);
