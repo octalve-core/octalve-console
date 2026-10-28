@@ -5,6 +5,14 @@
 import type {AdminResourceKey} from "./admin-resource-config";
 
 export const blockedAdminResourceWrites = {
+  products: {
+    reason: "Manage products and category identity through the Catalogue Workbench. This generic editor does not match the Django product schema.",
+    listHref: "/admin/products",
+  },
+  plans: {
+    reason: "Retail plan pricing and billing periods can only be revised through a supplier-backed reviewed offer draft in Catalogue.",
+    listHref: "/admin/plans",
+  },
   orders: {
     reason: "Orders are created through the verified customer checkout process. Manual order creation and status changes are unavailable.",
     listHref: "/admin/orders",
