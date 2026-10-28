@@ -1,5 +1,5 @@
 /* Owned enterprise layout primitives: no global .grid selector collisions. */
-.filters, .adminMetrics, .staffMetrics {
+.filters, .adminMetrics, .staffMetrics, .clientMetrics, .quickActions {
   display: grid;
   min-width: 0;
   --console-workspace-gap: 1rem;
@@ -7,7 +7,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 640px) {
-  .filters, .adminMetrics, .staffMetrics {
+  .filters, .adminMetrics, .staffMetrics, .clientMetrics, .quickActions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -19,4 +19,16 @@
 @media (min-width: 1536px) {
   .adminMetrics { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .staffMetrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+/* Customer actions stay two-up on small phones, four-up above 640px. */
+.quickActions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+@media (min-width: 640px) {
+  .quickActions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .clientMetrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1536px) {
+  .clientMetrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
