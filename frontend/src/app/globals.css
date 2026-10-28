@@ -195,9 +195,6 @@ button { cursor: pointer; }
 .card-title { margin: 0; font-size: 18px; font-weight: 500; letter-spacing: -.02em; }
 .card-sub { color: var(--muted); margin-top: 5px; font-size: 14px; }
 .card-body { padding: 22px; }
-.stat-card { padding: 22px; display: flex; align-items: center; justify-content: space-between; }
-.stat-label { color: var(--muted); margin-bottom: 8px; }
-.stat-value { font-size: 30px; letter-spacing: -.045em; font-weight: 500; }
 .stat-icon { width: 52px; height: 52px; border-radius: 18px; display: grid; place-items: center; background: #eaf3ff; color: var(--blue); }
 .table-wrap { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; min-width: 840px; }
@@ -3837,12 +3834,6 @@ body {
   background: #f8fbff;
 }
 
-.stat-card {
-  border-radius: var(--oct-radius);
-  background:
-    radial-gradient(circle at top right, rgba(0, 100, 224, 0.07), transparent 9rem),
-    #ffffff;
-}
 
 .button {
   border-radius: 16px;
@@ -8489,9 +8480,6 @@ body {
 .card-header, .card-body { padding: 18px; }
 .card-title { font-size: 15px; font-weight: 600; }
 .card-sub { font-size: 12px; line-height: 1.5; }
-.stat-card { padding: 18px; }
-.stat-label { font-size: 12px; }
-.stat-value { font-size: 25px; font-weight: 600; }
 .stat-icon { width: 42px; height: 42px; border-radius: 13px; }
 .table-wrap { max-width: 100%; }
 .table { border-collapse: separate; border-spacing: 0 7px; font-size: 12px; }
