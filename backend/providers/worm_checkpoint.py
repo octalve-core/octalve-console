@@ -17,7 +17,7 @@ _ALLOWED_REGION = re.compile(r"^[a-z0-9-]{5,40}$")
 _ALLOWED_BUCKET = re.compile(r"^(?!.*\.\.)(?!\d+\.\d+\.\d+\.\d+$)[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
 _ALLOWED_ACCOUNT = re.compile(r"^\d{12}$")
 _ALLOWED_KMS = re.compile(r"^arn:aws:kms:[a-z0-9-]+:\d{12}:key/[a-zA-Z0-9-]+$")
-_ALLOWED_VERSION = re.compile(r"^[A-Za-z0-9._~-]{1,256}$")
+_ALLOWED_VERSION = re.compile(r"^[A-Za-z0-9._~+/=-]{1,1024}$")
 _MAX_RETENTION_DAYS = 3650
 
 
@@ -71,7 +71,7 @@ def store_locked_receipt(client, policy, receipt, *, now, explicit_approval=Fals
     policy.validate()
     if not isinstance(receipt, bytes) or not 0 < len(receipt) <= MAX_CHECKPOINT_BYTES:
         raise VaultUnavailable()
-    now_utc = _stamp(now)
+    now_utc = _stamp(now).replace(microsecond=0)
     key, digest = _key_from_digest(receipt)
     retain_until = now_utc + timedelta(days=policy.retention_days)
     try:
