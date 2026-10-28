@@ -22,9 +22,9 @@
 }
 
 /* Customer actions stay two-up on small phones, four-up above 640px. */
-.quickActions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.quickActions { --console-client-shortcut-columns: 2; grid-template-columns: repeat(var(--console-client-shortcut-columns), minmax(0, 1fr)); gap: 0.75rem; }
 @media (min-width: 640px) {
-  .quickActions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .quickActions { --console-client-shortcut-columns: 4; }
 }
 @media (min-width: 1280px) {
   .clientMetrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
