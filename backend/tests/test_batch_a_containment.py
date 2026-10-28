@@ -5,12 +5,22 @@ These tests intentionally use the real Django URL router rather than
 calling isolated class methods which could miss inherited HTTP verbs.
 """
 from types import SimpleNamespace
-from django.test import SimpleTestCase
-from django.urls import resolve
-from rest_framework.test import APIRequestFactory, force_authenticate
-from settings_registry.serializers import SettingSerializer, SettingChangeLogSerializer
+import importlib.util
+import unittest
+
+# The lightweight security workflow intentionally does not install Django.
+# The Django workflow runs these actual routed checks with full dependencies.
+DJANGO_AVAILABLE = importlib.util.find_spec("django") is not None
+if DJANGO_AVAILABLE:
+    from django.test import SimpleTestCase
+    from django.urls import resolve
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    from settings_registry.serializers import SettingSerializer, SettingChangeLogSerializer
+else:
+    SimpleTestCase = unittest.TestCase
 
 
+@unittest.skipUnless(DJANGO_AVAILABLE, 'Django routing checks require Django dependencies')
 class BatchARoutedContainmentTests(SimpleTestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
@@ -69,6 +79,7 @@ class BatchARoutedContainmentTests(SimpleTestCase):
         self.check("/api/services/services/", "post", 503)
 
 
+@unittest.skipUnless(DJANGO_AVAILABLE, 'Settings serialization checks require Django dependencies')
 class BatchASettingsValueRedactionTests(SimpleTestCase):
     def test_encrypted_setting_values_and_defaults_not_serialized(self):
         secret = SimpleNamespace(
