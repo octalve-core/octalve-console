@@ -4,6 +4,7 @@ import {useEffect,useMemo,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {ArrowLeft,ArrowRight,Globe2,Loader2,ShieldCheck} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {TextField} from "@/components/design-system/TextField";
 import {CheckoutProgress} from "../components/commerce/CheckoutProgress";
 import {CheckoutQuoteSummary} from "../components/commerce/CheckoutQuoteSummary";
@@ -135,7 +136,7 @@ export function ClientCheckoutView(){
       {error?<p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
       {loading?<p role="status" className="rounded-2xl bg-white p-6 text-sm text-slate-600">Preparing your selected hosting package…</p>:null}
       {!loading&&(!selected||!cycle)?<Link href="/client/order" className="font-medium text-[#0064E0]">Back to hosting plans</Link>:null}
-      {selected&&cycle&&stage!=="completed"?<div className="grid min-w-0 gap-5 lg:grid-cols-3">
+      {selected&&cycle&&stage!=="completed"?<WorkspaceGrid variant="commerceColumns">
         <Panel className="min-w-0 lg:col-span-2">
           {stage==="domain"?<>
             <div className="flex items-center gap-3"><Globe2 className="h-5 w-5 text-[#0064E0]"/>
@@ -143,7 +144,7 @@ export function ClientCheckoutView(){
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Choose how your website will use a domain. You can connect one after buying hosting.
             </p>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <WorkspaceGrid variant="choiceColumns" className="mt-6">
               {([
                 ["later","Connect later"],
                 ["existing","I own a domain"],
@@ -153,7 +154,7 @@ export function ClientCheckoutView(){
                 aria-pressed={domainChoice===key} onClick={()=>{setDomainChoice(key);setQuote(null);setError("");}}>
                 <span className="mb-2 block">{domainChoice===key?"●":"○"}</span>{label}
               </button>)}
-            </div>
+            </WorkspaceGrid>
             {domainChoice==="existing"?<div className="mt-6">
               <TextField id="existing-domain" label="Your domain name" autoComplete="off"
                 maxLength={253} placeholder="example.com" value={domain}
@@ -226,7 +227,7 @@ export function ClientCheckoutView(){
         <CheckoutQuoteSummary plan={selected} cycleKey={cycleKey} quote={quote}
           coupon={coupon} stage={stage} onCouponChange={value=>{setCoupon(value);setQuote(null);}}
           onChangeRequest={()=>{setStage("domain");setQuote(null);setAgreed(false);}}/>
-      </div>:null}
+      </WorkspaceGrid>:null}
       {stage==="completed"&&confirmation?<div role="status" className="mx-auto max-w-2xl rounded-2xl border border-[#D9E9FA] bg-white p-6 sm:p-9">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-[#0064E0]"><ShieldCheck/></div>
         <h2 className="mt-5 text-2xl font-medium text-slate-950">Your order is recorded</h2>
