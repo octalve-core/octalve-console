@@ -315,7 +315,7 @@ async function fetchCurrentUser(accessToken: string): Promise<BackendUser | null
   if (!((typeof identity.id==="number"&&Number.isSafeInteger(identity.id)&&identity.id>0) ||
          (typeof identity.id==="string"&&/^[1-9][0-9]{0,19}$/.test(identity.id))) ||
       typeof identity.email!=="string" ||
-      !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(identity.email)) {
+      !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(identity.email)) {
     throw new IdentityUnavailable();
   }
   return identity;
