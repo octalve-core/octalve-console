@@ -90,7 +90,7 @@ class SupplierPinnedEgressTests(SimpleTestCase):
             ("/CMD_API_ACCOUNT_USER",{}),
             ("/CMD_API_SHOW_USER_CONFIG",{}),
             ("/CMD_API_PACKAGES_USER",{"action":"delete"}),
-            ("/CMD_API_PACKAGES_USER",{"package":"bad\\r\\nvalue"}),
+            ("/CMD_API_PACKAGES_USER",{"package":"bad\r\nvalue"}),
             ("/json-api/listpkgs",{"api.version":"1","want":"creatable"}),
             ("/json-api/createacct",{"api.version":"1"}),
             ("/CMD_API_PACKAGES_USER?admin=yes",{}),
@@ -119,7 +119,7 @@ class SupplierPinnedEgressTests(SimpleTestCase):
         with self.assertRaises(SupplierEgressDenied):
             validate_readback_contract("/json-api/listpkgs",2087,
                                        {"api.version":"1","want":"creatable"},
-                                       dict(whm,Authorization=whm["Authorization"]+"\\r\\nX: bad"))
+                                       dict(whm,Authorization=whm["Authorization"]+"\r\nX: bad"))
 
     def test_legacy_directadmin_executor_cannot_post(self):
         provider=SimpleNamespace(base_url="https://"+HOST+":2222",timeout_seconds=4,test_mode=True,
