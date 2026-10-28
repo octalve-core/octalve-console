@@ -26,7 +26,7 @@ class SupplierPinnedEgressTests(SimpleTestCase):
         pool=MagicMock()
         pool.request.return_value=raw
         with patch("providers.pinned_egress.urllib3.HTTPSConnectionPool",return_value=pool) as factory:
-            response=pinned_get(URL,params={},headers={"Authorization":"Basic synthetic"},
+            response=pinned_get(URL,params={},headers={"Authorization":"Basic c3ludGhldGlj","Accept":"application/json"},
                                 timeout=4,allow_redirects=False,verify=True)
         self.assertEqual(response.text,"list[]=a")
         self.assertEqual(response.status_code,200)
@@ -74,13 +74,13 @@ class SupplierPinnedEgressTests(SimpleTestCase):
         with patch("providers.pinned_egress.urllib3.HTTPSConnectionPool") as mockpool:
             mockpool.return_value.request.return_value=raw
             with self.assertRaises(SupplierEgressDenied):
-                pinned_get(URL,params={},headers={},timeout=4,allow_redirects=False,verify=True)
+                pinned_get(URL,params={},headers={"Authorization":"Basic c3ludGhldGlj","Accept":"application/json"},timeout=4,allow_redirects=False,verify=True)
         raw.status=200
         raw.headers={"content-length":"1000001"}
         with patch("providers.pinned_egress.urllib3.HTTPSConnectionPool") as mockpool:
             mockpool.return_value.request.return_value=raw
             with self.assertRaises(SupplierEgressDenied):
-                pinned_get(URL,params={},headers={},timeout=4,allow_redirects=False,verify=True)
+                pinned_get(URL,params={},headers={"Authorization":"Basic c3ludGhldGlj","Accept":"application/json"},timeout=4,allow_redirects=False,verify=True)
         raw.release_conn.assert_called()
         raw.close.assert_called()
 
