@@ -1,0 +1,16 @@
+/* Private report layout: prevents global legacy .grid overrides. */
+.metrics,.breakdowns,.library,.history {
+ display: grid;
+ gap: 1rem;
+ min-width: 0;
+}
+.metrics { grid-template-columns: minmax(0,1fr); }
+.breakdowns,.library,.history { grid-template-columns: minmax(0,1fr); }
+@media (min-width: 640px) {
+ .metrics,.library,.history { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (min-width: 1280px) {
+ .metrics { grid-template-columns: repeat(4,minmax(0,1fr)); }
+ .breakdowns { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .library { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
