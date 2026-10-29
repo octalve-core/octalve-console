@@ -184,6 +184,7 @@ export function CatalogAuthorityWorkbench() {
             productCategory={productCategory} setProductCategory={setProductCategory}
             productType={productType} setProductType={setProductType}
             busy={busy} createCategory={createCategory} createProduct={createProduct}
+            onActivate={id=>void execute(()=>api.patch(`/catalog/products/${id}/`,{status:"active",is_public:true}),"Product is ready for offer publication; no customer purchase is enabled until a reviewed plan is published.")}
           />:null}
           {section==="plans"?<CatalogPlansTab
             products={products} plans={plans} packages={packages} revisionPlan={revisionPlan}
