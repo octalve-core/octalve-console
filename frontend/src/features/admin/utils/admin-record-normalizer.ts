@@ -1,7 +1,7 @@
 import type {AdminResourceKey} from "../data/admin-resource-config";
 import type {AdminRecord} from "../data/admin-demo-data";
-export {unwrapAdminList,getAdminRecordId,findExactAdminRecord,readAdminString,getAdminResourceBasePath} from "./admin-record-shared";
-import {getAdminRecordId,readAdminString,getAdminResourceBasePath} from "./admin-record-shared";
+export {unwrapAdminList,getAdminRecordId,findExactAdminRecord,readAdminString,getAdminResourceBasePath} from "./admin-record-shared.ts";
+import {getAdminRecordId,readAdminString,getAdminResourceBasePath} from "./admin-record-shared.ts";
 function finiteMoney(value:unknown):string|undefined{
  if(value===null||value===undefined||value==="")return undefined;
  const n=typeof value==="number"?value:typeof value==="string"?Number(value):NaN;
