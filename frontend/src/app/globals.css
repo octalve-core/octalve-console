@@ -3294,7 +3294,7 @@ body {
   margin: 18px 8px 10px;
   color: #6f86a6;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.28em;
   text-transform: uppercase;
 }
@@ -3510,7 +3510,7 @@ body {
 .oct-topbar-search span {
   color: #a0afc2;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .oct-topbar-actions {
@@ -3553,7 +3553,7 @@ body {
   background: var(--oct-red);
   color: #ffffff;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   border: 3px solid #ffffff;
 }
 
@@ -3601,7 +3601,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .oct-profile-text small {
@@ -3627,7 +3627,7 @@ body {
   padding: 10px 10px 12px;
   color: var(--oct-ink);
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .oct-notification-item {
@@ -3649,7 +3649,7 @@ body {
   display: block;
   color: var(--oct-ink);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .oct-notification-item p,
@@ -3685,7 +3685,7 @@ body {
 }
 
 .oct-profile-card strong {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .oct-dropdown-link {
@@ -3734,12 +3734,12 @@ body {
 .eyebrow {
   color: var(--oct-blue) !important;
   letter-spacing: 0.18em;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .page-title {
   color: var(--oct-ink);
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.055em;
 }
 
@@ -3776,7 +3776,7 @@ body {
 .table th {
   background: #f8fbff;
   color: #52637a;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .table td {
@@ -3794,7 +3794,7 @@ body {
 
 .button {
   border-radius: 16px;
-  font-weight: 600;
+  font-weight: 500;
   transition: 0.18s ease;
 }
 
@@ -3815,7 +3815,7 @@ body {
 }
 
 .badge {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Mobile shell */
@@ -6701,7 +6701,7 @@ body {
   display: block;
   color: rgba(255,255,255,0.82);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
@@ -8429,13 +8429,13 @@ body {
   --radius-sm: 12px;
 }
 .page-container { padding: 24px; }
-.page-title { font-size: clamp(22px, 2.5vw, 28px); letter-spacing: -.035em; font-weight: 600; }
+.page-title { font-size: clamp(22px, 2.5vw, 28px); letter-spacing: -.035em; font-weight: 500; }
 .page-description { font-size: 13px; line-height: 1.55; margin-top: 6px; }
 .page-header { margin-bottom: 20px; }
 .card { border: 1px solid var(--line); box-shadow: var(--shadow); }
 .card.pad { padding: 18px; }
 .card-header, .card-body { padding: 18px; }
-.card-title { font-size: 15px; font-weight: 600; }
+.card-title { font-size: 15px; font-weight: 500; }
 .card-sub { font-size: 12px; line-height: 1.5; }
 .table-wrap { max-width: 100%; }
 .table { border-collapse: separate; border-spacing: 0 7px; font-size: 12px; }
@@ -8449,7 +8449,7 @@ body {
 .badge { border: 0; font-size: 11px; font-weight: 500; min-height: 23px; }
 .tab { background: #F2F4F7; border: 0; font-size: 12px; padding: 8px 13px; }
 .tab.active { background: #EAF3FF; color: #0064E0; }
-.button { min-height: 39px; border-radius: 999px; box-shadow: none; font-size: 12px; font-weight: 600; }
+.button { min-height: 39px; border-radius: 999px; box-shadow: none; font-size: 12px; font-weight: 500; }
 .icon-button { border-radius: 12px; }
 @media (max-width: 680px) {
   .page-container { padding: 16px; }
