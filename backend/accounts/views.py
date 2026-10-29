@@ -420,11 +420,27 @@ class SimpleCustomTokenObtainPairView(TokenObtainPairView):
         )
 
 
+class IsCloudCustomerAdmin(IsAdminUser):
+    """Admin customer reads and writes require the actual Octalve Admin role.
+
+    DRF IsAdminUser alone checks is_staff, which can include operational Staff.
+    This endpoint contains global customer and financial information and is
+    not an assigned-customer feed.
+    """
+
+    def has_permission(self, request, view):
+        return bool(
+            super().has_permission(request, view)
+            and request.user.is_superuser
+            and request.user.role == "admin"
+        )
+
+
 class AdminCustomerListView(generics.ListCreateAPIView):
     """GET /api/auth/customers/ - List customers with filters
        POST /api/auth/customers/ - Create customer manually"""
     
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsCloudCustomerAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['role']
     search_fields = ['email', 'full_name', 'company_name', 'phone_number']
@@ -483,7 +499,7 @@ class AdminCustomerListView(generics.ListCreateAPIView):
 class AdminCustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET/PATCH/DELETE /api/auth/customers/{id}/"""
     
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsCloudCustomerAdmin]
     lookup_field = 'id'
     lookup_url_kwarg = 'id'
 
