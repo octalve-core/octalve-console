@@ -65,6 +65,12 @@ const consumers=[...uses].filter(([,names])=>names.length).map(([file,names])=>(
 const reachableModules=new Set(routes.flatMap(route=>route.modules));
 const reachableConsumers=consumers.filter(x=>reachableModules.has(x.file));
 const orphanConsumers=consumers.filter(x=>!reachableModules.has(x.file));
+const historical=JSON.parse(fs.readFileSync(path.resolve(__dirname,"../audits/legacy-global-selector-inventory-2026-10-29.json"),"utf8"));
+const distinctive=new Set(historical.distinctiveSelectors);
+const routeLegacy=reachableConsumers.map(item=>({
+ file:item.file,classes:item.classes.filter(name=>distinctive.has(name))
+})).filter(item=>item.classes.length);
+
 const group={};
 for(const key of ["admin","client","staff","public/auth"]){
  const x=routes.filter(r=>r.role===key);group[key]={routes:x.length,withLegacy:x.filter(r=>r.classes.length>0).length};
@@ -81,7 +87,7 @@ const report={schemaVersion:1,stylesheet:{path:"src/app/globals.css",lines:css.s
  bytes:Buffer.byteLength(css,"utf8"),classSelectors:selectors.size},
  totals:{routePages:routes.length,sourceFiles:sources.size,directClassConsumers:consumers.length,
  routesWithDirectLegacyClassTokens:routes.filter(x=>x.classes.length>0).length},
- group,top,consumers,reachability:{reachableConsumers:reachableConsumers.length,orphanConsumers:orphanConsumers.length,orphanFiles:orphanConsumers.map(x=>x.file),warning:"Source import-graph reachability is conservative and not proof that a module is unused at runtime."},routeDependencies:routes.map(x=>({file:x.file,route:x.route,
+ group,top,consumers,reachability:{reachableConsumers:reachableConsumers.length,orphanConsumers:orphanConsumers.length,distinctiveRouteConsumerFiles:routeLegacy.length,distinctiveRouteConsumers:routeLegacy,orphanFiles:orphanConsumers.map(x=>x.file),warning:"Source import-graph reachability is conservative and not proof that a module is unused at runtime."},routeDependencies:routes.map(x=>({file:x.file,route:x.route,
  role:x.role,legacyClasses:x.classes,sourceModuleCount:x.modules.length,
  ownerFiles:x.modules.filter(p=>(uses.get(p)||[]).length>0)}))};
 const flag=process.argv.indexOf("--json");
