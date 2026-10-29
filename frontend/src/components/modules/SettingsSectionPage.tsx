@@ -262,71 +262,44 @@ const sections: Record<SettingsSectionKey, SettingsSectionConfig> = {
 
 export function SettingsSectionPage({ section }: { section: SettingsSectionKey }) {
   const config = sections[section];
-
   return (
-    <main className="page-container">
+    <section className="mx-auto w-full max-w-[1520px] min-w-0 space-y-4 px-1 py-2 sm:px-2">
       <PageHeader
         title={config.title}
         description={config.description}
         actions={
-          <>
-            <Button href="/admin/settings/providers" variant="secondary">Providers</Button>
-            <Button href="/admin/settings/api-keys" variant="secondary">API Keys</Button>
-            <Button href="/admin/settings/notifications" variant="secondary">Notifications</Button>
-            <Button>Save Settings</Button>
-          </>
+          <Button href="/admin/settings" variant="secondary">
+            Open settings workspace
+          </Button>
         }
       />
-
-      <div className="tabs">
+      <nav aria-label="Settings categories" className="flex min-w-0 snap-x gap-2 overflow-x-auto border-b border-console-line pb-2">
         {settingLinks.map((item) => (
-          <Link
-            key={item.key}
-            href={item.href}
-            className={item.key === section ? "tab active" : "tab"}
-          >
+          <Link key={item.key} href={item.href} aria-current={item.key === section ? "page" : undefined}
+            className={item.key === section
+              ? "shrink-0 snap-start rounded-lg bg-blue-50 px-3 py-2 text-[13px] font-medium text-console-primary"
+              : "shrink-0 snap-start rounded-lg px-3 py-2 text-[13px] font-medium text-console-muted hover:bg-slate-100 hover:text-console-ink"}>
             {item.label}
           </Link>
         ))}
-      </div>
-
+      </nav>
       <Card padded>
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">System Configuration</p>
-            <h2>{config.label}</h2>
-            <p>These fields are ready for the Django settings registry API.</p>
-          </div>
+        <div className="mb-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-console-primary">Settings overview</p>
+          <h2 className="mt-1 text-base font-medium text-console-ink">{config.label}</h2>
+          <p className="mt-1 text-[13px] leading-5 text-console-muted">
+            These values are for reference only. Changes are unavailable here until the service connection is verified.
+          </p>
         </div>
-
-        <div className="form-grid">
+        <fieldset disabled aria-label={config.label + " read-only settings"} className="grid min-w-0 grid-cols-1 gap-3 opacity-75 md:grid-cols-2">
           {config.fields.map((field) => (
-            <FormField
-              key={`${section}-${field.label}`}
-              {...field}
-            />
+            <FormField key={`${section}-${field.label}`} {...field} />
           ))}
-        </div>
-
-        <div className="page-actions" style={{ marginTop: 20 }}>
-          <Button>Save {config.label}</Button>
+        </fieldset>
+        <div className="mt-4 flex justify-end">
+          <Button href="/admin/settings" variant="secondary">Manage connected settings</Button>
         </div>
       </Card>
-
-      <Card padded>
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Implementation Notes</p>
-            <h2>Backend guidance</h2>
-          </div>
-        </div>
-
-        <ul className="settings-note-list">
-          {config.notes.map((note) => (
-            <li key={note}>{note}</li>
-          ))}
-        </ul>
-      </Card>
-    </main>
+    </section>
   );
 }
