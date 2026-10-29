@@ -14,11 +14,13 @@ class RolePermissionResolutionTests(TestCase):
             role='admin',
         )
         self.role = Role.objects.create(name='Catalog editor QA', key='catalog-editor-qa')
-        self.permission = Permission.objects.create(
-            name='Create products',
+        self.permission, _ = Permission.objects.get_or_create(
             key='create_products',
-            module='products',
-            action='create',
+            defaults={
+                'name': 'Create products',
+                'module': 'products',
+                'action': 'create',
+            },
         )
         self.mapping = RolePermission.objects.create(
             role=self.role, permission=self.permission,
