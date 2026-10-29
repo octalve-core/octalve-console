@@ -21,6 +21,10 @@ class PublicStorefrontTests(TestCase):
         result=self.api.get("/api/storefront/plans/")
         self.assertEqual(len(result.data["plans"]),1)
         self.assertEqual(result.data["plans"][0]["billing_cycles"][0]["total_price"],"8600.00")
+        self.assertEqual(result.data["plans"][0]["product_slug"],self.product.slug)
+        self.assertEqual(result.data["plans"][0]["slug"],self.plan.slug)
+        self.assertEqual(result.data["plans"][0]["published_revision"],1)
+        self.assertNotIn("supplier_inventory_id",str(result.data))
         self.assertNotIn("provider_package",str(result.data))
         self.plan.is_public=False
         self.plan.save(update_fields=["is_public"])
