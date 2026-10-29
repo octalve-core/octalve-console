@@ -166,3 +166,48 @@ class AdminCustomerDirectoryContractTests(APITestCase):
         self.first.refresh_from_db()
         self.assertEqual(self.first.full_name, "Directory First Customer")
         self.assertTrue(self.first.is_active)
+
+    def test_customer_detail_shows_real_related_finances_and_records(self):
+        from orders.models import Order
+
+        active = self._service(self.first, "active")
+        active.status = "active"
+        active.save(update_fields=["status"])
+        self._invoice(self.first, Decimal("130.35"), "paid")
+        late = self._invoice(self.first, Decimal("27.20"), "unpaid")
+        late.due_date = timezone.now() - timedelta(days=1)
+        late.save(update_fields=["due_date"])
+        self._invoice(self.second, Decimal("900.00"), "paid")
+        Order.objects.create(
+            client=self.first,
+            status="pending_payment",
+            subtotal=Decimal("45.00"),
+            total=Decimal("45.00"),
+        )
+        Order.objects.create(
+            client=self.second,
+            status="provisioned",
+            subtotal=Decimal("900.00"),
+            total=Decimal("900.00"),
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(f"/api/auth/customers/{self.first.pk}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        data = response.data
+        summary = data["billing_summary"]
+        self.assertEqual(Decimal(str(summary["invoices"]["total"])), Decimal("157.55"))
+        self.assertEqual(Decimal(str(summary["invoices"]["paid"])), Decimal("130.35"))
+        self.assertEqual(Decimal(str(summary["invoices"]["unpaid"])), Decimal("27.20"))
+        self.assertEqual(Decimal(str(summary["invoices"]["overdue"])), Decimal("27.20"))
+        self.assertEqual(summary["orders"]["total"], 1)
+        self.assertEqual(summary["orders"]["pending"], 1)
+        self.assertEqual(summary["orders"]["completed"], 0)
+        self.assertEqual(summary["services"]["active"], 1)
+        self.assertEqual(data["status"], "overdue")
+        self.assertEqual(len(data["recent_invoices"]), 2)
+        self.assertEqual(len(data["recent_orders"]), 1)
+        self.assertEqual(len(data["recent_services"]), 1)
+        self.assertEqual(Decimal(str(data["wallet_balance"])), Decimal("1520.25"))
+        self.assertEqual(data["wallet_currency"], "NGN")
+        self.assertEqual(late.status, "unpaid", "Viewing an overdue invoice must not mutate it.")
