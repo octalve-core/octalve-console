@@ -65,6 +65,10 @@ jobs:
         run: node frontend/scripts/check-ui-uplift-workspace-migration.cjs
       - name: Client commerce domain support and Admin editor presentation-source qualification
         run: node frontend/scripts/check-ui-uplift-commercial-domains.cjs
+      - name: Catalogue four-tab source and strict purchase validation
+        run: node frontend/scripts/check-catalog-ui-contract.cjs
+      - name: Catalogue supplier, bullet and redirect negative tests
+        run: node --experimental-strip-types --test frontend/tests/catalogue-commerce-contract.test.mjs
       - name: Five-screen authentic HTML to React production-source and security contract
         run: node frontend/scripts/check-auth-five-screen-ui.cjs
       - name: Approved uploaded auth WebP, exact artifact signature and logo identity
@@ -89,6 +93,8 @@ jobs:
         run: node frontend/scripts/check-ui-uplift-workspace-migration.cjs --built
       - name: Client commerce domain support and Admin editor emitted CSS
         run: node frontend/scripts/check-ui-uplift-commercial-domains.cjs --built
+      - name: Catalogue emitted Tailwind and route qualification
+        run: node frontend/scripts/check-catalog-ui-contract.cjs --built
       - name: Five-screen auth compiled scoped CSS and scenic image reference
         run: node frontend/scripts/check-auth-five-screen-ui.cjs --built
       - name: Report CSS Modules and emitted UI regression (Batch A)
