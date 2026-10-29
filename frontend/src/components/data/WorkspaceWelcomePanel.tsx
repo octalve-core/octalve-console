@@ -1,4 +1,3 @@
-import type {ReactNode} from "react";
 type Audience="client"|"staff"|"admin";
 type Content={eyebrow:string;description:string};
 const copy:Record<Audience,Content>={
