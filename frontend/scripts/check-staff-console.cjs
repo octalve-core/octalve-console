@@ -42,12 +42,15 @@ ensure("features/staff/components/StaffSecurityOverview.tsx",[
  "This page does not expose administrative permission","/staff/tickets"
 ]);
 ensure("features/staff/data/staff-resource-config.ts",[
- "loader: () => adminApi.customers()",
+ 'loader: () => Promise.reject(new Error("Staff-scoped customer access is not configured."))',
  "loader: () => schemaApi.orders.orders()",
  "loader: () => schemaApi.provisioning.tasks()",
  "loader: () => supportApi.tickets()",
  "loader: () => adminApi.knowledgeBase()"
 ]);
+// Security regression: operational Staff never fetch the unscoped Admin customer list.
+if(read("features/staff/data/staff-resource-config.ts").includes("loader: () => adminApi.customers()"))
+ throw Error("Staff must not use the Admin-wide customer/financial feed");
 ensure("features/staff/utils/staff-record-normalizer.ts",[
  "if (!id) throw new Error","encodeURIComponent(id)",
  'customers: "/staff/customers"','provisioning: "/staff/provisioning"'
