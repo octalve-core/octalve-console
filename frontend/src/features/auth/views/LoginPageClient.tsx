@@ -120,7 +120,11 @@ export function LoginPageClient() {
         password: values.password,
       });
 
-      router.replace(session.user.role==="client" ? (sanitizeCommerceNext(nextPath)||getRoleDashboard(session.user.role)) : getRoleDashboard(session.user.role));
+      const role=session.user.role;
+      const roleRoot=getRoleDashboard(role);
+      const matchingRoute=nextPath===roleRoot||nextPath.startsWith(roleRoot+"/");
+      const preserved=role==="client"?sanitizeCommerceNext(nextPath):"";
+      router.replace(preserved||(matchingRoute?nextPath:roleRoot));
     } catch (err) {
       const parsed = parseApiValidationError(
         err,
