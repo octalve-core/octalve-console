@@ -30,7 +30,7 @@ export function HostingOrderSummary({plan,cycleKey,onCycleChange}:{
      <dd className="text-right">{formatPlanAmount((cycle?.price??0)+(cycle?.setupFee??0),plan.currency)}</dd>
     </div>
    </dl>
-   {cycle?<ActionLink href={"/client/order/checkout?plan="+encodeURIComponent(plan.id)+"&cycle="+encodeURIComponent(cycle.key)}
+   {cycle?<ActionLink href={"/client/order/checkout?plan="+encodeURIComponent(plan.id)+"&cycle="+encodeURIComponent(cycle.key)+(plan.revision?"&revision="+encodeURIComponent(String(plan.revision)):"")}
     className="mt-6 w-full" size="lg">Connect domain <ArrowRight aria-hidden="true" className="h-4 w-4"/></ActionLink>:null}
   </>:null}
   <p className="mt-4 text-xs leading-5 text-console-muted">Review your order before checkout. You won’t be charged on this page.</p>
