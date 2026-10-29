@@ -44,3 +44,13 @@ This document is a source-backed design and delivery plan, **not** a claim of au
 - Keep per-feature folders for columns, data adapters, hooks, views, actions and tests. Define discriminated unions for status and typed `RecordRow<T>`; never pass raw loosely typed Django payload directly into markup.
 - Existing billing, catalogue, SSO, provider, rewards and role contracts remain authoritative. No unqualified provider/payment activation, database migration or supplier credential handling in UI-only batches.
 - Each batch: separate reviewed PR, exact-head green CI, role/viewport visual acceptance, single guarded merge and controlled Vercel release. Retain prior Production rollback SHA.
+
+
+## UI-01 implementation ledger
+- **Shell:** `DashboardSidebar` and `DashboardShell` hide intrusive scrollbar tracks but preserve keyboard/wheel scrolling, with 28 Tailwind units of mobile bottom-padding for safe navigation.
+- **Mobile:** `ConsoleMobileBottomNav` shows four role-authorized destinations plus More (the existing accessible drawer) at <1024px, and observes safe-area insets. `navigation-icons.ts` is shared with desktop sidebar.
+- **Quick Access:** `WorkspaceQuickActions` owns the single per-role shortcut layout, colors and route list; Admin/Staff/Client wrappers only select their role. Domain search goes to `/client/domains/register`.
+- **KPI:** `WorkspaceMetricTile` provides compact soft-shadow cards with medium-weight values and colored Lucide icon tiles for all three roles. No metric calculation, API, or permission was modified.
+- **Tailwind:** `WorkspaceGrid` now emits one static typed Tailwind variant map; retired `WorkspaceGrid.module.css` was deleted and its old source/emitted-CSS contracts were migrated.
+- **Loading:** `DirectoryLoadingSkeleton` presents neutral responsive row/card placeholders instead of a large central spinner while retaining explicit error and genuine empty states.
+- **Acceptance:** all source checks on exact PR head, plus desktop/mobile visual review required; UI-02 owns directory data/toolbar and UI-03 owns backend performance and 810 authenticated cases. **This batch does not certify all 810 cases or warrant Production rollout.**
