@@ -1,23 +1,13 @@
 "use client";
 import Link from "next/link";
 import {ClientServicesNavigation,ClientDomainsNavigation} from "@/features/shell/components/ClientCatalogNavigation";
-import {
- BarChart3,BookOpen,Boxes,CreditCard,Globe2,LayoutDashboard,LifeBuoy,ListChecks,
- PackageCheck,ReceiptText,Server,Settings,Shield,ShoppingCart,Ticket,UserRound,Users,Bell,UsersRound,
- WalletCards,Zap,Gift,Award,type LucideIcon
-} from "lucide-react";
+import {navigationIcons} from "@/features/shell/lib/navigation-icons";
 import {cn} from "@/lib/utils";
-import type {DashboardNavGroup,DashboardNavIcon,DashboardRole} from "@/lib/navigation/dashboard-nav";
+import type {DashboardNavGroup,DashboardRole} from "@/lib/navigation/dashboard-nav";
 import {useLocale} from "@/lib/i18n/LocaleProvider";
 import {translateNavigationLabel} from "@/lib/i18n/dictionary";
 
-const icons:Record<DashboardNavIcon,LucideIcon>={
- layoutDashboard:LayoutDashboard,users:Users,boxes:Boxes,listChecks:ListChecks,
- receiptText:ReceiptText,creditCard:CreditCard,globe2:Globe2,server:Server,
- zap:Zap,lifeBuoy:LifeBuoy,bookOpen:BookOpen,settings:Settings,shield:Shield,
- barChart3:BarChart3,walletCards:WalletCards,shoppingCart:ShoppingCart,
- userRound:UserRound,ticket:Ticket,packageCheck:PackageCheck,bell:Bell,usersRound:UsersRound,gift:Gift,award:Award
-};
+
 
 export function ConsoleNavigationGroup({group,role,pathname,onNavigate}:{
  group:DashboardNavGroup;role:DashboardRole;pathname:string;onNavigate:()=>void;
@@ -27,7 +17,7 @@ export function ConsoleNavigationGroup({group,role,pathname,onNavigate}:{
   <h2 className="mb-2 px-3 text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">{translateNavigationLabel(group.title,locale)}</h2>
   <ul className="space-y-1">
    {group.items.map(item=>{
-    const Icon=icons[item.icon];
+    const Icon=navigationIcons[item.icon];
     const active=pathname===item.href||(item.href!=="/"+role&&pathname.startsWith(item.href+"/"));
     if (role === "client" && item.href === "/client/services") {
       return <ClientServicesNavigation key={item.href} pathname={pathname} onNavigate={onNavigate}/>;
