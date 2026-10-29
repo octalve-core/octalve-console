@@ -7,16 +7,11 @@ function must(p,parts){
  for(const token of parts)if(!c.includes(token))throw Error(p+" missing "+token);
  return c;
 }
-const css=must("components/design-system/WorkspaceGrid.module.css",[
- ".commerceColumns",".supportColumns",".domainFacts",".domainPanels",
- ".choiceColumns",".planCards",".editorFields",
- "@media (min-width: 640px)","@media (min-width: 768px)",
- "@media (min-width: 1024px)","@media (min-width: 1280px)","@media (min-width: 1536px)"
-]);
-if(css.includes(":global("))throw Error("Client commerce layouts must remain scoped to one CSS module");
+if(fs.existsSync(path.join(root,"components/design-system/WorkspaceGrid.module.css")))
+ throw Error("Obsolete commerce grid CSS Module returned after Tailwind conversion");
 const grid=must("components/design-system/WorkspaceGrid.tsx",[
  "as?:","commerceColumns","supportColumns","domainFacts","domainPanels",
- "choiceColumns","planCards","editorFields",
+ "choiceColumns","planCards","editorFields","variants[variant]",
  'if(as==="dl")return <dl','if(as==="section")return <section'
 ]);
 for(const word of ["fetch(","axios(","localStorage","sessionStorage","authApi.","clientApi.","schemaApi."]){
@@ -67,8 +62,7 @@ if(process.argv.includes("--built")){
  }}
  walk(path.join(front,".next/static"));if(!files.length)throw Error("No compiled stylesheets");
  const out=files.map(p=>fs.readFileSync(p,"utf8")).join("\n");
- for(const token of ["commerceColumns","domainFacts","choiceColumns","planCards","editorFields"])
-  if(!out.includes(token))throw Error("Scoped CSS did not compile: "+token);
+ if(!out.includes("grid-template-columns:repeat(3,minmax(0,1fr))")&&!out.includes("grid-template-columns: repeat(3, minmax(0, 1fr))"))throw Error("Tailwind three-column commerce layout did not compile");
 }
-console.log("PASS: real hosting/checkout/domain/support/Admin editors use scoped grids, with route and business authority preserved.");
-console.log("PENDING: six viewport signed browser acceptance and final zero-consumer global CSS retirement.");
+console.log("PASS: real hosting, checkout, domains, support and Admin editors use typed Tailwind grids.");
+console.log("PENDING: six viewport authenticated browser acceptance.");
