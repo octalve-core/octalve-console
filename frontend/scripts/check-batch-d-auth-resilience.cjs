@@ -10,9 +10,16 @@ const ts=require("typescript");
 const source=fs.readFileSync(path.resolve(__dirname,"../src/proxy.ts"),"utf8");
 const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,
  target:ts.ScriptTarget.ES2022}}).outputText;
+const commerceExports={};
+const commerceSource=fs.readFileSync(path.resolve(__dirname,"../src/lib/commerce/sanitize-commerce-next.ts"),"utf8");
+const commerceJS=ts.transpileModule(commerceSource,{compilerOptions:{
+ module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022
+}}).outputText;
+vm.runInNewContext(commerceJS,{exports:commerceExports,URL,URLSearchParams},{filename:"commerce-sanitizer.test.js",timeout:2000});
 const cookies=[];
 class MockNextResponse{
-  constructor(body="",opts={}){this.body=body;this.status=opts.status||200;this.headers=opts.headers||{};
+  constructor(body="",opts={}){this.body=body;this.status=opts.status||200;this.headers={...(opts.headers||{})};
+    this.headers.set=(key,value)=>{this.headers[key]=value;};
     this.cookies={set:(name,value,config)=>cookies.push({name,value,config})};}
   static redirect(url){const r=new MockNextResponse("",{status:307});r.location=String(url);return r;}
   static next(){return new MockNextResponse("",{status:200});}
@@ -21,7 +28,9 @@ const calls=[];
 let fetchImpl=()=>{throw new Error("Network outage")};
 const context={
   exports:{},
-  require:module=>{if(module==="next/server")return {NextResponse:MockNextResponse};throw Error(module);},
+  require:module=>{if(module==="next/server")return {NextResponse:MockNextResponse};
+    if(module==="./lib/commerce/sanitize-commerce-next")return commerceExports;
+    throw Error(module);},
   process:{env:{NODE_ENV:"test",NEXT_PUBLIC_API_BASE_URL:"https://console-api.example.test/api"}},
   URL,URLSearchParams,AbortSignal,
   fetch:(...args)=>{calls.push(args);return fetchImpl(...args);}
@@ -74,6 +83,15 @@ async function check(){
  response=await proxy(request("/admin"));
  assert.equal(response.status,200,"verified refresh recovers access");
  assert.ok(cookies.some(x=>x.name==="octalve_console_access"&&x.value==="new-access"));
+ fetchImpl=async()=>reply(200,{id:8,email:"synthetic-client@example.test",role:"client"});
+ const continuation="/client/order?product=shared-web-hosting&plan=octalve-business&cycle=12mo&revision=3";
+ response=await proxy(request("/login?next="+encodeURIComponent(continuation)));
+ assert.equal(response.status,307);
+ assert.equal(new URL(response.location).pathname+new URL(response.location).search,continuation,
+  "already signed-in Client must resume the exact validated cart selection");
+ response=await proxy(request("/login?next="+encodeURIComponent("//outside.example.test/admin")));
+ assert.equal(new URL(response.location).pathname,"/login","malicious redirect must be stripped before any signed-in continuation");
+ assert.equal(new URL(response.location).search,"","unsafe next value must not survive in login query");
  console.log("PASS: live middleware outage, rejection, recovery and cookie preservation.");
 }
 check().catch(error=>{console.error(error);process.exitCode=1});

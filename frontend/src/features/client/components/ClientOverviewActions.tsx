@@ -11,7 +11,7 @@ import {messages,translateNavigationLabel} from "@/lib/i18n/dictionary";
 type Shortcut={href:string;label:string;icon:LucideIcon;tone:"blue"|"green"|"rose"|"amber"};
 const shortcuts:readonly Shortcut[]=[
  {href:"/client/order",label:"Order hosting",icon:PackagePlus,tone:"blue"},
- {href:"/client/domains#domain-search",label:"Find a domain",icon:Globe2,tone:"green"},
+ {href:"/client/domains/register",label:"Find a domain",icon:Globe2,tone:"green"},
  {href:"/client/support/new",label:"Open support ticket",icon:LifeBuoy,tone:"rose"},
  {href:"/client/invoices",label:"View invoices",icon:ReceiptText,tone:"amber"}
 ];

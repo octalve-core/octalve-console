@@ -14,7 +14,7 @@ const metrics=has("features/client/components/ClientOverviewMetrics.tsx",[
  "summary.status","summary.wallet===null","formatCurrency","translateNavigationLabel","variant=\"clientMetrics\""
 ]);
 const actions=has("features/client/components/ClientOverviewActions.tsx",[
- "WorkspaceGrid","ConsoleIconTile","variant=\"quickActions\"","/client/order","/client/domains#domain-search","/client/support/new","/client/invoices",
+ "WorkspaceGrid","ConsoleIconTile","variant=\"quickActions\"","/client/order","/client/domains/register","/client/support/new","/client/invoices",
  "translateNavigationLabel"
 ]);
 const billing=has("features/client/components/commerce/BillingRecordDirectory.tsx",[

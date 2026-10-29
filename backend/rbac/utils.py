@@ -5,7 +5,7 @@ from .models import UserRole
 
 def get_user_permissions(user):
     """
-    Get all permissions for a user (cached for performance).
+    Resolve active role permissions without stale authorization decisions.
     """
     if not user.is_authenticated:
         return set()
@@ -15,23 +15,17 @@ def get_user_permissions(user):
         from .models import Permission
         return set(Permission.objects.values_list('key', flat=True))
     
-    # Check cache
-    cache_key = f'user_permissions_{user.id}'
-    permissions = cache.get(cache_key)
-    
-    if permissions is None:
-        # Get permissions from user's roles
-        roles = UserRole.objects.filter(user=user).select_related('role')
-        permissions = set()
-        
-        for user_role in roles:
-            role_permissions = user_role.role.permissions.all()
-            permissions.update(role_permissions.values_list('key', flat=True))
-        
-        # Cache for 5 minutes
-        cache.set(cache_key, permissions, 300)
-    
-    return permissions
+    # Follow the actual RolePermission.permission relationship. This lookup
+    # intentionally reads current grants on each check: cached privileges
+    # must not survive revocation or a role/permission being disabled.
+    from .models import Permission
+    return set(
+        Permission.objects.filter(
+            is_active=True,
+            roles__role__is_active=True,
+            roles__role__users__user=user,
+        ).values_list('key', flat=True).distinct()
+    )
 
 
 def has_permission(user, permission_key):

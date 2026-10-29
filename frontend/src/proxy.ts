@@ -31,6 +31,7 @@ const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
 const PROTECTED_PREFIXES = ["/admin", "/client", "/staff"];
 
 const AUTH_ENTRY_ROUTES = new Set(["/login", "/signup"]);
+import {sanitizeCommerceNext} from "./lib/commerce/sanitize-commerce-next";
 
 const SENSITIVE_QUERY_KEYS = new Set([
   "password",
@@ -266,10 +267,16 @@ function buildSafeQueryRedirect(request: NextRequest) {
   return response;
 }
 
-function buildRedirect(request: NextRequest, pathname: string) {
+function buildRedirect(request: NextRequest, destination: string) {
   const url = request.nextUrl.clone();
-  url.pathname = pathname;
-  url.search = "";
+  // A validated local continuation can contain a query string. Assign
+  // pathname and search independently; otherwise URL encodes "?" into "%3F"
+  // and loses the exact purchased plan and cycle.
+  const safe = sanitizeRedirectValue(destination);
+  const target = new URL(safe || "/login", url.origin);
+  url.pathname = target.pathname;
+  url.search = target.search;
+  url.hash = target.hash;
   return NextResponse.redirect(url);
 }
 
@@ -404,7 +411,9 @@ export async function proxy(request: NextRequest) {
 
     const response = buildRedirect(
       request,
-      getHomeForRole(normalizeRole(session.user)),
+      normalizeRole(session.user)==="client"
+        ? (sanitizeCommerceNext(request.nextUrl.searchParams.get("next"))||getHomeForRole("client"))
+        : getHomeForRole(normalizeRole(session.user)),
     );
 
     applySessionCookies(response, session);

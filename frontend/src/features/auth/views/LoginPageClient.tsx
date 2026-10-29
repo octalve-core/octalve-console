@@ -8,6 +8,7 @@ import styles from "../components/AuthLayout.module.css";
 import {AuthSocialOptions} from "../components/AuthFormControls";
 import { ApiFormError } from "@/components/feedback/ApiFormError";
 import { getRoleDashboard, useAuth } from "@/context/AuthContext";
+import {sanitizeCommerceNext} from "@/lib/commerce/sanitize-commerce-next";
 import {
   getApiFieldError,
   parseApiValidationError,
@@ -119,7 +120,11 @@ export function LoginPageClient() {
         password: values.password,
       });
 
-      router.replace(nextPath || getRoleDashboard(session.user.role));
+      const role=session.user.role;
+      const roleRoot=getRoleDashboard(role);
+      const matchingRoute=nextPath===roleRoot||nextPath.startsWith(roleRoot+"/");
+      const preserved=role==="client"?sanitizeCommerceNext(nextPath):"";
+      router.replace(preserved||(matchingRoute?nextPath:roleRoot));
     } catch (err) {
       const parsed = parseApiValidationError(
         err,
@@ -190,7 +195,7 @@ export function LoginPageClient() {
         </div>
 
         <AuthSocialOptions/>
-        <p className={styles.footer}>New to Octalve? <Link href="/signup" className={styles.link}>Create account</Link></p>
+        <p className={styles.footer}>New to Octalve? <Link href={sanitizeCommerceNext(nextPath)?`/signup?next=${encodeURIComponent(sanitizeCommerceNext(nextPath))}`:"/signup"} className={styles.link}>Create account</Link></p>
       </form>
     </AuthLayout>
   );

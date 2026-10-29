@@ -35,7 +35,7 @@ TECHNICAL = {
 
 class FeatureInput(serializers.Serializer):
     label = serializers.CharField(max_length=100)
-    value = serializers.CharField(max_length=100)
+    value = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
     is_highlighted = serializers.BooleanField(default=False)
 
 
@@ -57,6 +57,7 @@ class OfferInput(serializers.Serializer):
     provider_package_id = serializers.PrimaryKeyRelatedField(queryset=ProviderPackage.objects.select_related('provider').all())
     plan_id = serializers.PrimaryKeyRelatedField(queryset=Plan.objects.all(), required=False, allow_null=True)
     name = serializers.CharField(max_length=100)
+    slug = serializers.SlugField(max_length=100, required=False, allow_blank=True)
     description = serializers.CharField(required=False, allow_blank=True)
     currency = serializers.RegexField(regex=r'^[A-Z]{3}$', max_length=3)
     is_popular = serializers.BooleanField(default=False)
@@ -69,6 +70,17 @@ class OfferInput(serializers.Serializer):
             raise serializers.ValidationError({'billing_cycles': 'Billing periods must be unique.'})
         if sum(bool(c['is_default']) for c in attrs['billing_cycles']) > 1:
             raise serializers.ValidationError({'billing_cycles': 'Only one default billing period is allowed.'})
+        requested_slug = attrs.get('slug') or slugify(attrs['name'])
+        if not requested_slug:
+            raise serializers.ValidationError({'slug': 'A public URL slug is required.'})
+        if attrs.get('plan_id'):
+            if attrs['plan_id'].slug != requested_slug:
+                # Old records can have a name/slug mismatch. Existing public
+                # deep links must not be changed by a marketing rename.
+                if attrs.get('slug') or requested_slug != slugify(attrs['plan_id'].name):
+                    raise serializers.ValidationError({'slug': 'Published plan URL slugs cannot change during a revision.'})
+        elif Plan.objects.filter(product=attrs['product_id'], slug=requested_slug).exists():
+            raise serializers.ValidationError({'slug': 'That plan URL is already in use for this product.'})
         if attrs.get('plan_id') and attrs['plan_id'].product_id != attrs['product_id'].pk:
             raise serializers.ValidationError({'plan_id': 'Plan belongs to a different product.'})
         if attrs['product_id'].product_type not in ('shared_hosting', 'wordpress_hosting', 'vps'):
@@ -82,7 +94,8 @@ def _freeze(validated):
         'product_id': validated['product_id'].pk,
         'provider_package_id': validated['provider_package_id'].pk,
         'plan_id': validated.get('plan_id').pk if validated.get('plan_id') else None,
-        'name': validated['name'], 'description': validated.get('description', ''),
+        'name': validated['name'], 'slug': validated.get('slug') or slugify(validated['name']),
+        'description': validated.get('description', ''),
         'currency': validated['currency'], 'is_popular': validated['is_popular'],
         'features': [dict(x) for x in validated['features']],
         'billing_cycles': [
@@ -231,7 +244,7 @@ class OfferDraftViewSet(viewsets.ViewSet):
             if plan.product_id != product.pk:
                 raise serializers.ValidationError('Draft plan and product do not match.')
         else:
-            slug = slugify(offer['name'])
+            slug = offer.get('slug') or slugify(offer['name'])
             if Plan.objects.filter(product=product, slug=slug).exists():
                 raise serializers.ValidationError('This product already has a plan with that name.')
             plan = Plan(product=product, slug=slug)

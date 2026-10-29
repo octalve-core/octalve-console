@@ -30,6 +30,9 @@ class PublicPublishedPlans(APIView):
         ).distinct().order_by("sort_order", "pk")[:100]
         plans = []
         for plan in qs:
+            revision = plan.published_versions.order_by('-revision').values_list('revision', flat=True).first()
+            if not revision:
+                continue
             cycles = [
                 {"key": c.cycle_key, "months": c.months, "label": c.label,
                  "total_price": str(c.price), "regular_price": str(c.regular_price) if c.regular_price else None,
@@ -40,6 +43,7 @@ class PublicPublishedPlans(APIView):
                 continue
             plans.append({
                 "id": plan.pk, "name": plan.name, "slug": plan.slug,
+                "product_slug": plan.product.slug, "published_revision": revision,
                 "description": plan.description or "",
                 "product_type": plan.product.product_type,
                 "product_name": plan.product.name, "currency": plan.currency,
