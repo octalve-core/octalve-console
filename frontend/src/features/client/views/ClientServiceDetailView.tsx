@@ -80,7 +80,7 @@ export function ClientServiceDetailView(){
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <span className="rounded-xl bg-blue-50 p-3 text-console-primary"><Server className="h-6 w-6" aria-hidden="true"/></span>
-                <div><h2 className="text-lg font-semibold text-console-ink">{data.label}</h2>
+                <div><h2 className="text-lg font-medium text-console-ink">{data.label}</h2>
                 <p className="break-all text-sm text-console-muted">{data.domain||"No domain connected"}</p></div>
               </div>
               <StatusBadge>{data.status.replaceAll("_"," ")}</StatusBadge>
@@ -88,13 +88,13 @@ export function ClientServiceDetailView(){
             <dl className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {info.map(([name,value])=><div key={name} className="rounded-xl bg-slate-50 p-4">
                 <dt className="text-xs font-medium text-console-muted">{name}</dt>
-                <dd className="mt-2 break-words text-sm font-semibold capitalize text-console-ink">{value}</dd>
+                <dd className="mt-2 break-words text-sm font-medium capitalize text-console-ink">{value}</dd>
               </div>)}
             </dl>
           </Panel>
           <div className="grid gap-5 xl:grid-cols-2">
             <Panel>
-              <h2 id="usage" className="scroll-mt-24 text-lg font-semibold text-console-ink">Recorded usage</h2>
+              <h2 id="usage" className="scroll-mt-24 text-lg font-medium text-console-ink">Recorded usage</h2>
               <p className="mt-2 text-xs leading-5 text-console-muted">
                 Usage is based on the latest stored provider snapshot, not a live server reading.
               </p>
@@ -105,7 +105,7 @@ export function ClientServiceDetailView(){
               {usage?.recordedAt?<p className="mt-5 text-xs text-console-muted">Last recorded: {serviceDate(usage.recordedAt)}</p>:null}
             </Panel>
             <Panel>
-              <h2 id="renewal" className="scroll-mt-24 flex items-center gap-2 text-lg font-semibold text-console-ink">
+              <h2 id="renewal" className="scroll-mt-24 flex items-center gap-2 text-lg font-medium text-console-ink">
                 <CalendarClock className="h-5 w-5 text-console-primary" aria-hidden="true"/>Renewal
               </h2>
               <p className="mt-3 text-sm text-console-muted">Next due: {serviceDate(data.nextDueDate)}.</p>
@@ -126,7 +126,7 @@ export function ClientServiceDetailView(){
             </Panel>
           </div>
           <Panel>
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-console-ink">
+            <h2 className="flex items-center gap-2 text-lg font-medium text-console-ink">
               {hosting?<CloudCog className="h-5 w-5 text-console-primary"/>:<ShieldCheck className="h-5 w-5 text-console-primary"/>}
               Manage service
             </h2>
