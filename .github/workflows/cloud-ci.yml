@@ -2,6 +2,7 @@ name: Cloud C1 backend security checks
 on:
   push:
     branches:
+      - main
       - review/cloud
   pull_request:
     paths:
