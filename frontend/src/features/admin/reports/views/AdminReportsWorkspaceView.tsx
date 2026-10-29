@@ -40,7 +40,7 @@ function SummaryCard({title,value,help,icon,tone}:{
  return <Panel className="flex min-h-[10rem] min-w-0 flex-col justify-between gap-4">
   <div className="flex min-w-0 items-start justify-between gap-3">
    <div className="min-w-0"><h2 className="text-xs font-medium leading-5 text-console-muted">{title}</h2>
-    <p className="mt-3 break-words text-2xl font-semibold tracking-tight text-console-ink">{value}</p>
+    <p className="mt-3 break-words text-2xl font-medium tracking-tight text-console-ink">{value}</p>
    </div>
    <ConsoleIconTile icon={icon} tone={tone}/>
   </div>
@@ -56,7 +56,7 @@ function CountsBreakdown({title,description,rows,tone,unit}:{
   <div className="flex items-start gap-3">
    <ConsoleIconTile icon={tone==="blue"?CreditCard:Layers3} tone={tone}/>
    <div className="min-w-0">
-    <h2 className="text-base font-semibold tracking-tight text-console-ink">{title}</h2>
+    <h2 className="text-base font-medium tracking-tight text-console-ink">{title}</h2>
     <p className="mt-1 text-xs leading-5 text-console-muted">{description}</p>
    </div>
   </div>
@@ -68,7 +68,7 @@ function CountsBreakdown({title,description,rows,tone,unit}:{
     {top.map((item,i)=><div role="listitem" key={item.label+"-"+i} className="min-w-0">
      <div className="mb-2 flex min-w-0 items-start justify-between gap-3 text-sm">
       <span className="min-w-0 break-words font-medium text-console-ink">{item.label}</span>
-      <span className="shrink-0 text-xs font-semibold tabular-nums text-console-ink">{item.count.toLocaleString("en-NG")} {unit}</span>
+      <span className="shrink-0 text-xs font-medium tabular-nums text-console-ink">{item.count.toLocaleString("en-NG")} {unit}</span>
      </div>
      <div role="img" aria-label={item.label+": "+item.count+" "+unit}
        className="h-2.5 overflow-hidden rounded-full bg-slate-100">
@@ -104,7 +104,7 @@ function ReportLibrary({definitions}:{definitions:ReportDefinitionCard[]|null}){
     <ConsoleIconTile icon={index%2?BarChart3:FileBarChart2} tone={index%2?"violet":"blue"}/>
     <StatusBadge tone={report.active===true?"success":"neutral"}>{report.active===null?"Status unavailable":report.active?"Active":"Inactive"}</StatusBadge>
    </div>
-   <div className="min-w-0"><h2 className="break-words text-base font-semibold text-console-ink">{report.name}</h2>
+   <div className="min-w-0"><h2 className="break-words text-base font-medium text-console-ink">{report.name}</h2>
     <p className="mt-2 text-sm leading-6 text-console-muted">{report.description}</p>
    </div>
    <div className="mt-auto flex items-center justify-between gap-3 border-t border-console-line pt-4 text-xs text-console-muted">
@@ -124,7 +124,7 @@ function ReportHistory({instances}:{instances:ReportInstanceCard[]|null}){
     <ConsoleIconTile icon={FileText} tone="blue"/>
     <StatusBadge tone={instanceTone(row.status)}>{row.status.replace(/_/g," ")}</StatusBadge>
    </div>
-   <h2 className="min-w-0 break-words text-base font-semibold text-console-ink">{row.title}</h2>
+   <h2 className="min-w-0 break-words text-base font-medium text-console-ink">{row.title}</h2>
    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-console-line pt-3 text-xs text-console-muted">
     <span>{row.format.toUpperCase()}</span>
     <span>{friendlyDate(row.generatedAt)}</span>
@@ -204,7 +204,7 @@ export function AdminReportsWorkspaceView(){
      </div>
      <Panel className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
       <ConsoleIconTile icon={ShieldCheck} tone="slate"/>
-      <div className="min-w-0"><h2 className="text-sm font-semibold text-console-ink">Financial reporting integrity</h2>
+      <div className="min-w-0"><h2 className="text-sm font-medium text-console-ink">Financial reporting integrity</h2>
        <p className="mt-2 text-sm leading-6 text-console-muted">
         Counts are taken from Console's reporting API. Revenue amount totals are withheld here because the current aggregation does not separate currencies. Invoice status is not proof of bank settlement or provider provisioning.
        </p>
