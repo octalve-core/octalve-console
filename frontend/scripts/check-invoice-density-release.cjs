@@ -31,7 +31,7 @@ const directLegacyConsumers=[];
 for(const file of sourceFiles){
  const content=fs.readFileSync(file,"utf8");
  const used=new Set();
- for(const match of content.matchAll(/\\bclassName\\s*=\\s*(?:"([^"]*)"|'([^']*)'|\\{\\s*\x60([^\x60]*)\x60)/g)){
+ for(const match of content.matchAll(/\bclassName\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*\x60([^\x60]*)\x60)/g)){
   for(const word of (match[1]??match[2]??match[3]??"").matchAll(/[A-Za-z_][A-Za-z0-9_-]*/g)){
    if(legacyNames.has(word[0]))used.add(word[0]);
   }
@@ -40,9 +40,9 @@ for(const file of sourceFiles){
   file:path.relative(root,file).replaceAll(path.sep,"/"),names:[...used].sort()
  });
 }
-const oldRules=[...css.replace(/\\/\\*[\\s\\S]*?\\*\\//g,"").matchAll(/([^{}]+)\\{/g)]
+const oldRules=[...css.replace(/\/\*[\s\S]*?\*\//g,"").matchAll(/([^{}]+)\{/g)]
  .filter(x=>!x[1].trim().startsWith("@"))
- .flatMap(x=>[...x[1].matchAll(/(?<!\\\\)\\.([A-Za-z_][A-Za-z0-9_-]*)/g)].map(y=>y[1]));
+ .flatMap(x=>[...x[1].matchAll(/(?<!\\)\.([A-Za-z_][A-Za-z0-9_-]*)/g)].map(y=>y[1]));
 const remainingDistinctive=[...new Set(oldRules.filter(x=>legacyNames.has(x)))].sort();
 const routes=files(path.join(src,"app")).filter(p=>p.endsWith("/page.tsx")).length;
 const problems=[];
