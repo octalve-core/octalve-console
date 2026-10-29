@@ -3,7 +3,7 @@ import type {ReactNode} from "react";
 /** Presentational snapshot of an authorized API row. No business mutation authority. */
 export type DirectoryRow={
  id:string;title:string;subtitle?:string;reference?:string;
- amount?:string;amountLabel?:string;date?:string;dateLabel?:string;
+ amount?:string;amountLabel?:string;date?:string;dateISO?:string;dateLabel?:string;
  status:string;category?:string;icon?:ReactNode;extra?:ReactNode;
  href?:string;searchTerms?:readonly string[];
 };
@@ -17,4 +17,4 @@ export type DirectoryAction={
  onSelect?:(row:DirectoryRow)=>void;
 };
 export type DirectoryCreate={href:string;label:string};
-export type DirectoryFilter={status:string;category:string};
+export type DirectoryFilter={status:string;category:string;from:string;to:string};
