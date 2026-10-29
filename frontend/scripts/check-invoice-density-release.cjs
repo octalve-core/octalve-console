@@ -33,7 +33,7 @@ if(!css.startsWith("@tailwind base;\n@tailwind components;\n@tailwind utilities;
 const report={
  target:"Invoice-density and genuine CSS retirement",mode:process.argv.includes("--enforce")?"enforce":"inventory",
  css:{lines:cssLines,maximum:300,highWeightDeclarations:highWeight,unexpectedGlobal:unexpectedGlobal.map(p=>path.relative(root,p))},
- source:{files:sourceFiles.length,filesWithBoldUtilities:utilitySources.length,remainingBoldUtilities:utilitySources.reduce((n,x)=>n+x.count,0),samples:utilitySources.slice(0,12)},
+ source:{files:sourceFiles.length,filesWithBoldUtilities:utilitySources.length,remainingBoldUtilities:utilitySources.reduce((n,x)=>n+x.count,0),samples:utilitySources.slice(0,12),remainingBoldFilePaths:utilitySources.map(x=>x.file)},
  routes,readyForSourceQualification:problems.length===0,blockers:problems,
  note:"Source pass is not an authenticated browser pass. Never relocate/minify legacy CSS to pass this gate."
 };
