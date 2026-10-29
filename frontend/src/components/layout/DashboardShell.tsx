@@ -5,6 +5,7 @@ import {useAuth} from "@/context/AuthContext";
 import {DashboardHeader} from "@/components/layout/DashboardHeader";
 import {DashboardSidebar} from "@/components/layout/DashboardSidebar";
 import {ConsoleMobileDrawer} from "@/features/shell/components/ConsoleMobileDrawer";
+import {ConsoleMobileBottomNav} from "@/features/shell/components/ConsoleMobileBottomNav";
 import type {DashboardRole} from "@/lib/navigation/dashboard-nav";
 import {useLocale} from "@/lib/i18n/LocaleProvider";
 import {messages} from "@/lib/i18n/dictionary";
@@ -33,11 +34,12 @@ export function DashboardShell({role,title,description,actions,children}:Props){
   <div className="flex min-h-dvh min-w-0 flex-col lg:h-dvh lg:min-h-0 lg:overflow-hidden lg:pl-64">
    <DashboardHeader role={role} onMenuClick={()=>setSidebarOpen(true)}
     onLogout={()=>{void handleLogout();}} loggingOut={loggingOut}/>
-   <main id="console-main" tabIndex={-1} className="mx-auto min-h-0 w-full max-w-[1560px] min-w-0 flex-1 px-4 py-4 sm:px-6 lg:overflow-x-hidden lg:overflow-y-auto lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
+   <main id="console-main" tabIndex={-1} className="mx-auto min-h-0 w-full max-w-[1560px] min-w-0 flex-1 px-4 py-4 sm:px-6 pb-28 lg:pb-4 lg:overflow-x-hidden lg:overflow-y-auto lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
     <span className="sr-only">{role} {title} {description??""}</span>
     {actions?<div className="mb-4 flex flex-wrap justify-end gap-2">{actions}</div>:null}
     {children}
    </main>
   </div>
+  <ConsoleMobileBottomNav role={role} pathname={pathname} onMore={()=>setSidebarOpen(true)}/>
  </div>;
 }
