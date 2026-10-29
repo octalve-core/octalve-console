@@ -23,6 +23,7 @@ class PlanBillingCycleSerializer(serializers.ModelSerializer):
 
 class PlanSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
+    product_slug = serializers.CharField(source='product.slug', read_only=True)
     product_type = serializers.CharField(source='product.product_type', read_only=True)
     category_slug = serializers.CharField(source='product.category.slug', read_only=True)
     category_name = serializers.CharField(source='product.category.name', read_only=True)
@@ -35,11 +36,21 @@ class PlanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Plan
-        fields = ['id', 'product', 'product_name', 'product_type', 'category_slug', 'category_name', 'name', 'slug', 'description', 'currency', 
+        fields = ['id', 'product', 'product_name', 'product_slug', 'product_type', 'category_slug', 'category_name', 'name', 'slug', 'description', 'currency', 
                   'base_price', 'status', 'is_public', 'is_popular', 'sort_order',
                   'features', 'billing_cycles', 'published_revision']
 
 class ProductSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        from django.utils.text import slugify
+        name = attrs.get('name', getattr(self.instance, 'name', ''))
+        candidate = attrs.get('slug') or (getattr(self.instance, 'slug', '') if self.instance else '') or slugify(name)
+        if not candidate:
+            raise serializers.ValidationError({'slug': 'Enter a product name with a valid URL slug.'})
+        if Product.objects.filter(slug=candidate).exclude(pk=getattr(self.instance, 'pk', None)).exists():
+            raise serializers.ValidationError({'slug': 'That product URL slug is already in use.'})
+        return attrs
+
     category_name = serializers.CharField(source='category.name', read_only=True)
     plans = PlanSerializer(many=True, read_only=True)
     
