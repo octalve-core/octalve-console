@@ -31,6 +31,7 @@ const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
 const PROTECTED_PREFIXES = ["/admin", "/client", "/staff"];
 
 const AUTH_ENTRY_ROUTES = new Set(["/login", "/signup"]);
+import {sanitizeCommerceNext} from "./lib/commerce/sanitize-commerce-next";
 
 const SENSITIVE_QUERY_KEYS = new Set([
   "password",
@@ -404,7 +405,9 @@ export async function proxy(request: NextRequest) {
 
     const response = buildRedirect(
       request,
-      getHomeForRole(normalizeRole(session.user)),
+      normalizeRole(session.user)==="client"
+        ? (sanitizeCommerceNext(request.nextUrl.searchParams.get("next"))||getHomeForRole("client"))
+        : getHomeForRole(normalizeRole(session.user)),
     );
 
     applySessionCookies(response, session);
