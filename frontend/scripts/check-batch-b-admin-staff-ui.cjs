@@ -28,8 +28,8 @@ for(const file of [
  "features/admin/components/AdminResourceDirectory.tsx",
  "features/staff/components/StaffOperationalDirectory.tsx"
 ]){
- const body=check(file,['WorkspaceGrid variant="filters"',"ResponsiveTable","StatusBadge","TextField","SelectField","PAGE_SIZE=10","<Panel"]);
- if(body.includes('className="grid '))throw Error(file+" filters still use collision-prone legacy .grid");
+ const body=check(file,["RecordDirectory","DirectoryRow","status","records"]);
+ if(body.includes('className="grid '))throw Error(file+" duplicates legacy layout");
  if(/\b(?:fetch|axios)\s*\(/.test(body))throw Error(file+" acquired data authority");
 }
 const tool=check("components/modules/AdminToolPage.tsx",['text-console-primary','aria-hidden="true"']);
