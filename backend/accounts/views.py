@@ -509,7 +509,7 @@ class AdminCustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
         return CustomerDetailSerializer
 
     def get_queryset(self):
-        return User.objects.filter(role='client').prefetch_related(
+        return User.objects.filter(role='client').select_related('wallet').prefetch_related(
             'invoices', 'orders', 'services'
         )
 
