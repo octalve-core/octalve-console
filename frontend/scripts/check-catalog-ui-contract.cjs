@@ -30,7 +30,8 @@ has("features/client/views/ClientCheckoutView.tsx",["requestedRevision","selecte
 has("lib/commerce/sanitize-commerce-next.ts",["sanitizeCommerceNext","/client/order","/client/domains/register","if(keys.some"]);
 has("features/auth/views/SignupPageClient.tsx",["sanitizeCommerceNext","commerceNext","router.replace"]);
 has("features/auth/views/LoginPageClient.tsx",["sanitizeCommerceNext","matchingRoute","/signup?next="]);
-has("features/client/components/ClientOverviewActions.tsx",["/client/domains/register"]);
+has("features/client/components/ClientOverviewActions.tsx",["WorkspaceQuickActions role=\"client\""]);
+has("components/data/WorkspaceQuickActions.tsx",["/client/domains/register","/client/order","/client/support/new","/client/invoices"]);
 for(const obsolete of ["/client/domains#domain-search","allowed.find(item => item.id === requestedPlan) || allowed[0]"])
  if(workbench.includes(obsolete))throw Error("Disallowed stale route/selection");
 const plans=has("features/client/data/client-order-data.ts",["published_revision","product_slug","slug: p.slug ||","Number.isSafeInteger(p.published_revision)"]);
