@@ -90,7 +90,8 @@ async function check(){
  assert.equal(new URL(response.location).pathname+new URL(response.location).search,continuation,
   "already signed-in Client must resume the exact validated cart selection");
  response=await proxy(request("/login?next="+encodeURIComponent("//outside.example.test/admin")));
- assert.equal(new URL(response.location).pathname,"/client","malicious redirect must fail closed");
+ assert.equal(new URL(response.location).pathname,"/login","malicious redirect must be stripped before any signed-in continuation");
+ assert.equal(new URL(response.location).search,"","unsafe next value must not survive in login query");
  console.log("PASS: live middleware outage, rejection, recovery and cookie preservation.");
 }
 check().catch(error=>{console.error(error);process.exitCode=1});
