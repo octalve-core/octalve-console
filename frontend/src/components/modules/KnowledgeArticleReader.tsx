@@ -40,7 +40,7 @@ export function KnowledgeArticleReader({
           </div>
 
           <article
-            className="prose prose-sm max-w-none break-words text-console-ink"
+            className="min-w-0 break-words text-[13px] leading-6 text-console-ink [&_p]:mb-3 [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-base [&_h2]:font-medium [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:font-medium [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-console-primary [&_a]:underline"
             dangerouslySetInnerHTML={{ __html: article.htmlContent }}
           />
         </Card>
