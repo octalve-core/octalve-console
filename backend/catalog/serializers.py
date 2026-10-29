@@ -47,6 +47,8 @@ class ProductSerializer(serializers.ModelSerializer):
         candidate = attrs.get('slug') or (getattr(self.instance, 'slug', '') if self.instance else '') or slugify(name)
         if not candidate:
             raise serializers.ValidationError({'slug': 'Enter a product name with a valid URL slug.'})
+        if self.instance and candidate != self.instance.slug and self.instance.plans.filter(published_versions__isnull=False).exists():
+            raise serializers.ValidationError({'slug': 'A published product URL slug must remain stable.'})
         if Product.objects.filter(slug=candidate).exclude(pk=getattr(self.instance, 'pk', None)).exists():
             raise serializers.ValidationError({'slug': 'That product URL slug is already in use.'})
         return attrs
