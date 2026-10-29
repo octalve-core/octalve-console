@@ -24,7 +24,6 @@ for(const [index,file] of names.entries()){
   throw Error(file+" retains legacy metric icon/layout styling");
 }
 for(const file of [
- "features/admin/components/AdminGenericDirectory.tsx",
  "features/admin/components/AdminResourceDirectory.tsx",
  "features/staff/components/StaffOperationalDirectory.tsx"
 ]){
@@ -32,6 +31,7 @@ for(const file of [
  if(body.includes('className="grid '))throw Error(file+" duplicates legacy layout");
  if(/\b(?:fetch|axios)\s*\(/.test(body))throw Error(file+" acquired data authority");
 }
+check("features/admin/components/AdminGenericDirectory.tsx",["ResponsiveTable","PAGE_SIZE=10","allowDetails"]);
 const tool=check("components/modules/AdminToolPage.tsx",['text-console-primary','aria-hidden="true"']);
 if(tool.includes('className="stat-icon"'))throw Error("Retired stat icon consumer returned");
 const global=src("app/globals.css");
