@@ -217,14 +217,37 @@ class OfferPublicationTests(TestCase):
         self.assertEqual(PublishedCatalogOffer.objects.get(plan=plan).snapshot['features'][1]['value'],'')
 
     def test_product_slug_collision_rejected_at_serializer_boundary(self):
-        existing=Product.objects.get(pk=self.product.pk)
-        second=self.api.post('/api/catalog/products/',{
-            'name':'Different product','slug':existing.slug,'description':'',
-            'category':self.category.pk,'product_type':'shared_hosting',
-            'status':'inactive','is_public':False,'features':[]
-        },format='json')
-        self.assertEqual(second.status_code,400,second.data)
-        self.assertEqual(Product.objects.filter(slug=existing.slug).count(),1)
+        from rbac.models import Permission, Role, RolePermission, UserRole
+        from rbac.utils import clear_user_permissions_cache
+
+        existing = Product.objects.get(pk=self.product.pk)
+        payload = {
+            'name': 'Different product', 'slug': existing.slug,
+            'description': '', 'category': self.category.pk,
+            'product_type': 'shared_hosting', 'status': 'inactive',
+            'is_public': False, 'features': [],
+        }
+        # A Cloud Admin role alone does not bypass the granular RBAC decorator.
+        # Keep the unauthorized-write check separate from slug validation.
+        denied = self.api.post('/api/catalog/products/', payload, format='json')
+        self.assertEqual(denied.status_code, 403, denied.content.decode())
+
+        role, _ = Role.objects.get_or_create(
+            key='catalog-product-test',
+            defaults={'name': 'Catalogue product permission test'},
+        )
+        permission, _ = Permission.objects.get_or_create(
+            key='create_products',
+            defaults={'name': 'Create products', 'module': 'products', 'action': 'create'},
+        )
+        RolePermission.objects.get_or_create(role=role, permission=permission)
+        UserRole.objects.get_or_create(user=self.admin, role=role)
+        clear_user_permissions_cache(self.admin)
+
+        rejected = self.api.post('/api/catalog/products/', payload, format='json')
+        self.assertEqual(rejected.status_code, 400, rejected.content.decode())
+        self.assertIn('slug', rejected.json())
+        self.assertEqual(Product.objects.filter(slug=existing.slug).count(), 1)
 
     def test_supplier_sync_stages_changed_limits_without_changing_retail_prices(self):
         self.admin.is_superuser=True
