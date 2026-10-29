@@ -27,7 +27,7 @@ const canonical=read("components/design-system/record-directory/RecordDirectory.
 const mobile=read("components/design-system/record-directory/MobileRecordCard.tsx");
 const filters=read("components/design-system/record-directory/DirectoryFilterSheet.tsx");
 for(const token of ["category?:string","extra?:ReactNode"])assert.ok(rowTypes.includes(token),"Shared record contract "+token);
-for(const token of ["setFilter","r.category","r.extra"])assert.ok((canonical+mobile).includes(token),"Shared category/extra UI "+token);
+for(const token of ["setFilter","r.category","row.extra"])assert.ok((canonical+mobile).includes(token),"Shared category/extra UI "+token);
 assert.ok(filters.includes('value={draft.category}'),"Category filter must remain usable");
 assert.ok(directory.includes("<RecordDirectory")&&directory.includes("category:r.category"),"Client record adapter must preserve service category");
 for(const token of ["clientApi.service(id)","clientApi.serviceRenewalStatus(id)",
