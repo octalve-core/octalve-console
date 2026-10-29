@@ -8,6 +8,7 @@ import styles from "../components/AuthLayout.module.css";
 import {AuthPasswordStrength,AuthSocialOptions} from "../components/AuthFormControls";
 import { ApiFormError } from "@/components/feedback/ApiFormError";
 import { getRoleDashboard, useAuth } from "@/context/AuthContext";
+import {sanitizeCommerceNext} from "@/lib/commerce/sanitize-commerce-next";
 import {
   getApiFieldError,
   parseApiValidationError,
@@ -37,9 +38,11 @@ export function SignupPageClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [referralCode,setReferralCode]=useState<string|null>(null);
   const [referralConsent,setReferralConsent]=useState(false);
+  const [commerceNext,setCommerceNext]=useState("");
   useEffect(()=>{
     const value=new URLSearchParams(window.location.search).get("ref")||"";
     setReferralCode(/^[A-Z0-9]{10}$/.test(value)?value:null);
+    setCommerceNext(sanitizeCommerceNext(new URLSearchParams(window.location.search).get("next")));
   },[]);
 
   function updateField(name: keyof typeof values, value: string | boolean) {
@@ -84,7 +87,7 @@ export function SignupPageClient() {
         referral_code: referralConsent?referralCode||undefined:undefined,
       });
 
-      router.replace(getRoleDashboard(session.user.role));
+      router.replace(session.user.role==="client" ? (commerceNext||getRoleDashboard(session.user.role)) : getRoleDashboard(session.user.role));
     } catch (err) {
       const parsed = parseApiValidationError(
         err,
@@ -214,7 +217,7 @@ export function SignupPageClient() {
         </div>
 
         <AuthSocialOptions/>
-        <p className={styles.footer}>Already have an account? <Link href="/login" className={styles.link}>Sign in</Link></p>
+        <p className={styles.footer}>Already have an account? <Link href={commerceNext?`/login?next=${encodeURIComponent(commerceNext)}`:"/login"} className={styles.link}>Sign in</Link></p>
       </form>
     </AuthLayout>
   );
