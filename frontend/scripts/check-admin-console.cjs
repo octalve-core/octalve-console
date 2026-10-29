@@ -11,7 +11,9 @@ requireParts("features/admin/views/AdminOverviewView.tsx",[
  "schemaApi.payments.transactions()","AdminOverviewMetrics","AdminQuickActions"
 ]);
 requireParts("features/admin/components/AdminOverviewMetrics.tsx",[
- "counts[item.key]","value===null","Panel"]);
+ "counts[item.key]","counts[item.key]===null","WorkspaceMetricTile"]);
+requireParts("components/data/WorkspaceMetricTile.tsx",["Panel","ConsoleIconTile","text-xl font-medium"]);
+requireParts("features/admin/components/AdminQuickActions.tsx",['WorkspaceQuickActions role="admin"']);
 requireParts("features/admin/views/AdminResourceListView.tsx",[
  "config.loader()","normalizeRecord(item, config.key)","AdminResourceDirectory"]);
 requireParts("features/admin/components/AdminResourceDirectory.tsx",[
