@@ -58,7 +58,7 @@ for(const [path,parts] of cases){
   throw Error("Migrated feature retained collision-prone unlayered .grid: "+path);
 }
 const state=JSON.parse(fs.readFileSync(path.join(front,"audits/console-ui-baseline-2026-10-26.json"),"utf8"));
-if(state.legacyCss.lines!==8460||state.legacyCss.gitBlobSha!=="4bade3c74196118a0372adc60f94dcd7fa817ad1")
+if(state.legacyCss.lines!==8460||state.legacyCss.gitBlobSha!=="af02677f8f5b1b06afd93be7f852a2071ce77f85")
  throw Error("CSS compatibility fingerprint unexpectedly changed");
 if(process.argv.includes("--built")){
  const files=[];
