@@ -16,7 +16,7 @@ const names=[
  "features/staff/components/StaffOverviewMetrics.tsx"
 ];
 for(const [index,file] of names.entries()){
- const body=check(file,["WorkspaceGrid","ConsoleIconTile","counts[item.key]","value===null","Panel","min-h-36"]);
+ const body=check(file,["WorkspaceGrid","ConsoleIconTile","counts[item.key]","value===null","Panel","min-h-[108px]"]);
  if(!body.includes(index===0?'variant="adminMetrics"':'variant="staffMetrics"'))
   throw Error(file+" uses wrong role-responsive layout variant");
  if(body.includes("item.accent")||body.includes('className="grid '))

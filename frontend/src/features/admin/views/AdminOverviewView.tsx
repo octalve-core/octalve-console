@@ -81,7 +81,7 @@ export function AdminOverviewView() {
       title="Admin overview"
       description="Manage hosting customers, services, billing, providers, and operations."
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
         <AdminHero name={firstName} />
         <AdminQuickActions/>
         <AdminOverviewMetrics counts={counts} loading={isLoading}/>
