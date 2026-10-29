@@ -437,10 +437,42 @@ class AdminCustomerListView(generics.ListCreateAPIView):
         return CustomerListSerializer
     
     def get_queryset(self):
-        return User.objects.filter(role='client').annotate(
-            services_count=Count('services'),
-            total_invoices=Sum('invoices__total'),
-            unpaid_invoices=Sum('invoices__total', filter=Q(invoices__status='unpaid'))
+        # Financial sums must not share a multi-valued join with services.
+        # Separate correlated invoice aggregates prevent service rows from
+        # multiplying invoice amounts. The wallet OneToOne is selected here
+        # so CustomerListSerializer does not issue a query per customer.
+        from decimal import Decimal
+        from django.db.models import DecimalField, OuterRef, Subquery, Value
+        from django.db.models.functions import Coalesce
+        from billing.models import Invoice
+
+        money = DecimalField(max_digits=18, decimal_places=2)
+        invoice_totals = (
+            Invoice.objects.filter(client_id=OuterRef("pk"))
+            .order_by().values("client_id")
+            .annotate(amount=Sum("total")).values("amount")[:1]
+        )
+        unpaid_totals = (
+            Invoice.objects.filter(client_id=OuterRef("pk"), status="unpaid")
+            .order_by().values("client_id")
+            .annotate(amount=Sum("total")).values("amount")[:1]
+        )
+        zero = Value(Decimal("0.00"), output_field=money)
+        return (
+            User.objects.filter(role="client")
+            .select_related("wallet")
+            .annotate(
+                services_count=Count("services", distinct=True),
+                total_invoices=Coalesce(
+                    Subquery(invoice_totals, output_field=money), zero,
+                    output_field=money,
+                ),
+                unpaid_invoices=Coalesce(
+                    Subquery(unpaid_totals, output_field=money),
+                    Value(Decimal("0.00"), output_field=money),
+                    output_field=money,
+                ),
+            )
         )
 
     def perform_create(self, serializer):
