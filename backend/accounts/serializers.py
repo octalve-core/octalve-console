@@ -233,12 +233,11 @@ class CustomerListSerializer(serializers.ModelSerializer):
         return 'active'
 
     def get_wallet_balance(self, obj):
-        try:
-            from wallet.models import Wallet
-            wallet = Wallet.objects.filter(user=obj).first()
-            return float(wallet.balance) if wallet else 0.00
-        except ImportError:
-            return 0.00
+        # AdminCustomerListView selects the reverse OneToOne wallet.
+        # getattr(..., None) handles accounts without a wallet without
+        # triggering a new query for each row in the customer directory.
+        wallet = getattr(obj, "wallet", None)
+        return float(wallet.balance) if wallet is not None else 0.00
 
 
 class CustomerDetailSerializer(serializers.ModelSerializer):
