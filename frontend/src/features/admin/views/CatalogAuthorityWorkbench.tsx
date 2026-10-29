@@ -13,6 +13,7 @@ import {CatalogSuppliersTab} from "../catalog/CatalogSuppliersTab";
 import {CatalogPlansTab} from "../catalog/CatalogPlansTab";
 import {CatalogPublishTab} from "../catalog/CatalogPublishTab";
 import {CatalogWorkspaceNavigation} from "../catalog/CatalogWorkspaceNavigation";
+import {parsePlanFeatureLines,parseSupplierCostLines} from "../catalog/catalogue-input";
 const blankCycle = (): Cycle => ({cycle_key:"1mo",price:"",setup_fee:"0",regular_price:"",is_default:true});
 /** Reject invalid collection envelopes; never silently replace server errors with empty inventory. */
 const unpack = <T,>(data: unknown): T[] => {
@@ -123,12 +124,9 @@ export function CatalogAuthorityWorkbench() {
     setCycles(old=>old.map((c,i)=>i===index?{...c,[key]:value}:c));
   }
   async function saveDraft(){
-    const parsed:Feature[]=[];
-    for(const line of features.split(/\r?\n/).map(v=>v.trim()).filter(Boolean)){
-      const sep=line.indexOf(":");
-      if(sep===0||sep>0&&!line.slice(sep+1).trim()){setError("Provide a valid feature description or Label: value.");return;}
-      parsed.push({label:sep<0?line:line.slice(0,sep).trim(),value:sep<0?"":line.slice(sep+1).trim(),is_highlighted:true});
-    }
+    let parsed:Feature[];
+    try{parsed=parsePlanFeatureLines(features);}
+    catch(e){setError(e instanceof Error?e.message:"Invalid plan features.");return;}
     if(!selectedProduct||!packageId||!name.trim()){setError("Select a product, approved supplier inventory and offer name.");return;}
     if(!cycles.length||cycles.some(c=>!(Number(c.price)>0)||Number(c.setup_fee)<0)){setError("Each billing period needs a valid positive price and nonnegative setup fee.");return;}
     const payload={
@@ -146,15 +144,9 @@ export function CatalogAuthorityWorkbench() {
   async function approveSupplierPackage(){
     if(!supplier){setError("Choose an imported supplier package.");return;}
     const provider=providers.find(p=>p.id===supplier.provider);
-    const costs:Record<string,string>={};
-    for(const line of wholesale.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)){
-      const parts=line.split("=");
-      if(parts.length!==2 || !periods.some(p=>p.key===parts[0].trim()) ||
-         !(Number(parts[1].trim())>0)){
-        setError("Supplier costs must use a valid billing period and positive amount, e.g. 1mo=2000.");return;
-      }
-      costs[parts[0].trim()]=parts[1].trim();
-    }
+    let costs:Record<string,string>;
+    try{costs=parseSupplierCostLines(wholesale);}
+    catch(e){setError(e instanceof Error?e.message:"Supplier rates are invalid.");return;}
     if(provider?.config?.fulfillment_model==="partner_reseller" && Object.keys(costs).length===0){
       setError("Partner resale requires documented supplier costs for each commercial period.");return;
     }
