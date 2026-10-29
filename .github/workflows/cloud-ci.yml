@@ -116,8 +116,8 @@ jobs:
         run: node frontend/scripts/audit-legacy-css.cjs --json frontend/.next/batch8-css-audit.json
       - name: Conservative CSS selector ownership and collision inventory
         run: node frontend/scripts/audit-css-ownership.cjs --json frontend/.next/ui-css-ownership.json --check
-      - name: Invoice density and CSS retirement status (inventory, not release certification)
-        run: node frontend/scripts/check-invoice-density-release.cjs
+      - name: Enforce Invoice medium typography and 300-line global CSS retirement release gate
+        run: node frontend/scripts/check-invoice-density-release.cjs --enforce
       - name: Enforce Batch 8 single Tailwind config and legacy CSS safety gate
         run: node frontend/scripts/check-css-retirement-gates.cjs --built
       - name: Premium UI foundation and reviewed CSS cleanup gate
