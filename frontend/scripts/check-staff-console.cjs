@@ -16,13 +16,12 @@ ensure("features/staff/views/StaffDashboardView.tsx",[
  "counts.provisioning===null?\"unavailable\":\"ready\""
 ]);
 ensure("features/staff/components/StaffOverviewMetrics.tsx",[
- "counts[item.key]","value===null?\"—\":formatNumber(value)",
- "min-h-[108px]","busy={loading}","Panel","WorkspaceGrid","ConsoleIconTile"
+ "counts[item.key]","counts[item.key]===null","formatNumber(counts[item.key]!)",
+ "busy={loading}","WorkspaceGrid","WorkspaceMetricTile"
 ]);
-ensure("features/staff/components/StaffQuickActions.tsx",[
- "/staff/tickets","/staff/provisioning","/staff/knowledge-base","/staff/orders",
- "Panel","LucideIcon","min-h-[88px]"
-]);
+ensure("components/data/WorkspaceMetricTile.tsx",["Panel","ConsoleIconTile","text-xl font-medium"]);
+ensure("features/staff/components/StaffQuickActions.tsx",['WorkspaceQuickActions role="staff"']);
+ensure("components/data/WorkspaceQuickActions.tsx",["/staff/tickets","/staff/provisioning","/staff/knowledge-base","/staff/orders","Panel","LucideIcon"]);
 ensure("features/staff/components/StaffRecentPanel.tsx",[
  "state===\"loading\"","state===\"unavailable\"","records.slice(0,3)",
  "record.actionHref","StatusBadge"
