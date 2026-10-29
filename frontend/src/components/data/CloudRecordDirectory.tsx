@@ -32,7 +32,7 @@ export function CloudRecordDirectory({label,records,actions=[],onOpen,emptyMessa
  }})),[columns,lookup]);
  const mappedActions=useMemo<DirectoryAction[]>(()=>actions.map((a,i)=>({
   key:String(i),label:a.label,icon:Eye,danger:a.danger,
-  available:(r:DirectoryRow)=>{const original=lookup.get(r.id);return Boolean(original)&&a.available?.(original)!==false;},
+  available:(r:DirectoryRow)=>{const original=lookup.get(r.id);return original!==undefined&&a.available?.(original)!==false;},
   onSelect:(r:DirectoryRow)=>{const original=lookup.get(r.id);if(original)a.onSelect(original);}
  })),[actions,lookup]);
  return <RecordDirectory label={label} rows={rows} columns={mappedColumns}
