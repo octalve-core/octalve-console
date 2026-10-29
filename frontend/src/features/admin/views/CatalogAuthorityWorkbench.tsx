@@ -89,7 +89,7 @@ export function CatalogAuthorityWorkbench() {
   async function createProduct(){if(!newProduct.trim()||!productCategory)return;
     const result=await execute(()=>api.post("/catalog/products/",{
       name:newProduct.trim(),category:Number(productCategory),product_type:productType,
-      status:"active",is_public:true,features:[]
+      status:"inactive",is_public:false,features:[]
     }),"Product created. Its packages are not published automatically.");
     if(result)setNewProduct("");
   }
@@ -114,10 +114,10 @@ export function CatalogAuthorityWorkbench() {
   }
   async function saveDraft(){
     const parsed:Feature[]=[];
-    for(const line of features.split("\n").map(v=>v.trim()).filter(Boolean)){
+    for(const line of features.split(/\r?\n/).map(v=>v.trim()).filter(Boolean)){
       const sep=line.indexOf(":");
-      if(sep<=0||!line.slice(sep+1).trim()){setError("Each feature must be written as Label: value.");return;}
-      parsed.push({label:line.slice(0,sep).trim(),value:line.slice(sep+1).trim(),is_highlighted:true});
+      if(sep===0||sep>0&&!line.slice(sep+1).trim()){setError("Provide a valid feature description or Label: value.");return;}
+      parsed.push({label:sep<0?line:line.slice(0,sep).trim(),value:sep<0?"":line.slice(sep+1).trim(),is_highlighted:true});
     }
     if(!selectedProduct||!packageId||!name.trim()){setError("Select a product, approved supplier inventory and offer name.");return;}
     if(!cycles.length||cycles.some(c=>!(Number(c.price)>0)||Number(c.setup_fee)<0)){setError("Each billing period needs a valid positive price and nonnegative setup fee.");return;}
@@ -137,7 +137,7 @@ export function CatalogAuthorityWorkbench() {
     if(!supplier){setError("Choose an imported supplier package.");return;}
     const provider=providers.find(p=>p.id===supplier.provider);
     const costs:Record<string,string>={};
-    for(const line of wholesale.split("\\n").map(x=>x.trim()).filter(Boolean)){
+    for(const line of wholesale.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)){
       const parts=line.split("=");
       if(parts.length!==2 || !periods.some(p=>p.key===parts[0].trim()) ||
          !(Number(parts[1].trim())>0)){
@@ -188,7 +188,7 @@ export function CatalogAuthorityWorkbench() {
           </div>
           <div className="grid gap-2 rounded-xl border border-blue-100 bg-blue-50 p-3 md:grid-cols-3">
             <div><label className={label} htmlFor="wholesale-selected">Supplier package to review</label>
-              <select id="wholesale-selected" className={field} value={packageId} onChange={e=>{const p=packages.find(x=>String(x.id)===e.target.value);setPackageId(e.target.value);setCostCurrency(p?.pricing?.currency||"NGN");setWholesale(Object.entries(p?.pricing?.cycles||{}).map(([k,v])=>`${k}=${v}`).join("\\n"));}}>
+              <select id="wholesale-selected" className={field} value={packageId} onChange={e=>{const p=packages.find(x=>String(x.id)===e.target.value);setPackageId(e.target.value);setCostCurrency(p?.pricing?.currency||"NGN");setWholesale(Object.entries(p?.pricing?.cycles||{}).map(([k,v])=>`${k}=${v}`).join("\n"));}}>
                 <option value="">Choose imported package</option>{packages.filter(p=>!providerId||String(p.provider)===providerId).map(p=><option value={p.id} key={p.id}>{p.name}</option>)}
               </select></div>
             <div><label className={label} htmlFor="cost-currency">Supplier-cost currency</label><input id="cost-currency" className={field} maxLength={3} value={costCurrency} onChange={e=>setCostCurrency(e.target.value.toUpperCase())}/></div>
@@ -203,7 +203,7 @@ export function CatalogAuthorityWorkbench() {
           {packages.filter(p=>!providerId||String(p.provider)===providerId).map(p=><div key={p.id} className="rounded-xl border border-slate-200 p-3 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div><strong>{p.name}</strong> <span className="text-slate-500">· {p.provider_name} · {p.is_active?"Approved inventory":"Needs admin review"}</span></div>
-              <button type="button" disabled={busy} onClick={()=>{setPackageId(String(p.id));setProviderId(String(p.provider));setCostCurrency(p.pricing?.currency||"NGN");setWholesale(Object.entries(p.pricing?.cycles||{}).map(([period,amount])=>`${period}=${amount}`).join("\\n"));}} className="rounded-xl border px-3 py-1 text-xs">Review package and costs</button>
+              <button type="button" disabled={busy} onClick={()=>{setPackageId(String(p.id));setProviderId(String(p.provider));setCostCurrency(p.pricing?.currency||"NGN");setWholesale(Object.entries(p.pricing?.cycles||{}).map(([period,amount])=>`${period}=${amount}`).join("\n"));}} className="rounded-xl border px-3 py-1 text-xs">Review package and costs</button>
             </div>
             <p className="mt-1 break-words text-xs text-slate-600">{Object.entries(p.specs||{}).map(([k,v])=>`${k}: ${v}`).join(" · ")||"No verified specifications"}</p>
           </div>)}
@@ -231,7 +231,7 @@ export function CatalogAuthorityWorkbench() {
             <div className="flex items-center gap-2"><input type="checkbox" checked={popular} onChange={e=>setPopular(e.target.checked)} id="popular"/><label htmlFor="popular" className="text-sm">Featured / popular package</label></div>
           </div>
           <div><label htmlFor="offer-desc" className={label}>Description</label><textarea id="offer-desc" className={field} value={description} onChange={e=>setDescription(e.target.value)} rows={2}/></div>
-          <div><label htmlFor="offer-features" className={label}>Approved features (one Label: Value per line)</label><textarea id="offer-features" className={field} value={features} onChange={e=>setFeatures(e.target.value)} rows={4}/></div>
+          <div><label htmlFor="offer-features" className={label}>Included features (Enter adds a new bullet; Label: value for technical limits)</label><textarea id="offer-features" className={field} value={features} onChange={e=>setFeatures(e.target.value)} rows={4}/></div>
           <h3 className="text-sm font-semibold">Retail billing periods</h3>
           {cycles.map((c,i)=><div key={i} className="grid gap-2 rounded-xl border border-slate-200 p-3 md:grid-cols-5">
             <div><label className={label}>Period</label><select className={field} value={c.cycle_key} onChange={e=>editCycle(i,"cycle_key",e.target.value)}>{periods.map(p=><option value={p.key} key={p.key}>{p.label}</option>)}</select></div>
