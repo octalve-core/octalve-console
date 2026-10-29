@@ -43,6 +43,7 @@ export function ClientCheckoutView(){
     const query=new URLSearchParams(window.location.search);
     const requestedPlan=query.get("plan")||"";
     const requestedCycle=query.get("cycle")||"";
+    const requestedRevision=query.get("revision")||"";
     // The stable checkout key is resolved against the exact cart selection
     // before requesting a quote. Do not bind a new cart to an older key.
     setCheckoutId(crypto.randomUUID());
@@ -53,6 +54,9 @@ export function ClientCheckoutView(){
       const selected=items.find(item=>item.id===requestedPlan);
       const cycle=selected?.cycles.find(item=>item.key===requestedCycle);
       if(!selected||!cycle){setError("The chosen package is unavailable. Return to plans and choose an available offer.");return;}
+      if(requestedRevision && (!/^[1-9][0-9]*$/.test(requestedRevision)||selected.revision!==Number(requestedRevision))){
+        setError("This published offer has changed. Please select the plan again and review its current price.");return;
+      }
       setPlanId(selected.id);setCycleKey(cycle.key);
     }).catch(()=>{if(active)setError("We couldn't load your chosen package. No order was placed.");})
       .finally(()=>{if(active)setLoading(false);});
