@@ -1,18 +1,16 @@
 "use client";
 import {CreditCard,Globe2,PackageCheck,Ticket,WalletCards,type LucideIcon} from "lucide-react";
-import {Panel} from "@/components/design-system/Panel";
 import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
-import {ConsoleIconTile} from "@/components/design-system/ConsoleIconTile";
+import {WorkspaceMetricTile,type MetricTone} from "@/components/data/WorkspaceMetricTile";
 import {formatCurrency} from "@/lib/formatters";
 import {useLocale} from "@/lib/i18n/LocaleProvider";
 import {translateNavigationLabel} from "@/lib/i18n/dictionary";
 import type {ClientSummary} from "../hooks/useClientSummary";
-
-type Metric={label:string;value:string;description:string;icon:LucideIcon;tone:"blue"|"amber"|"violet"|"green"|"rose"};
-export function ClientOverviewMetrics({summary}: {summary:ClientSummary}){
- const {locale}=useLocale();
- const waiting=summary.status==="loading";
- const count=(value:number|null)=>waiting?"…":value===null?"—":new Intl.NumberFormat(locale==="fr"?"fr-FR":"en-NG",{maximumFractionDigits:0}).format(value);
+type Metric={label:string;value:string;description:string;icon:LucideIcon;tone:MetricTone};
+export function ClientOverviewMetrics({summary}:{summary:ClientSummary}){
+ const {locale}=useLocale(),waiting=summary.status==="loading";
+ const count=(value:number|null)=>waiting?"…":value===null?"—":
+  new Intl.NumberFormat(locale==="fr"?"fr-FR":"en-NG",{maximumFractionDigits:0}).format(value);
  const balance=waiting?"…":summary.wallet===null?"—":formatCurrency(summary.wallet);
  const metrics:Metric[]=[
   {label:"Services",value:count(summary.services),description:"Your hosting and cloud services",icon:PackageCheck,tone:"blue"},
@@ -22,14 +20,8 @@ export function ClientOverviewMetrics({summary}: {summary:ClientSummary}){
   {label:"Support tickets",value:count(summary.tickets),description:"Your support requests",icon:Ticket,tone:"rose"}
  ];
  return <WorkspaceGrid variant="clientMetrics" ariaLabel={translateNavigationLabel("Your account summary",locale)} busy={waiting}>
-  {metrics.map(metric=>{return <Panel key={metric.label} className="flex min-h-[108px] flex-col justify-between">
-   <div className="flex items-start justify-between gap-3">
-    <div className="min-w-0"><p className="text-xs font-medium text-console-muted">{translateNavigationLabel(metric.label,locale)}</p>
-     <p className="mt-1 break-words text-xl font-medium tracking-tight text-console-ink">{metric.value}</p>
-    </div>
-    <ConsoleIconTile icon={metric.icon} tone={metric.tone} size="sm"/>
-   </div>
-   <p className="mt-2 text-xs leading-5 text-console-muted">{translateNavigationLabel(metric.description,locale)}</p>
-  </Panel>;})}
+  {metrics.map(item=><WorkspaceMetricTile key={item.label}
+   label={translateNavigationLabel(item.label,locale)} description={translateNavigationLabel(item.description,locale)}
+   icon={item.icon} tone={item.tone} value={item.value}/>)}
  </WorkspaceGrid>;
 }
