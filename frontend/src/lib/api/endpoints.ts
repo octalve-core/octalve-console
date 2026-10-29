@@ -496,6 +496,12 @@ export const adminApi = {
     );
   },
 
+  customer(id: string) {
+    // Detail records must be fetched by exact server-authorized identifier,
+    // never inferred from the first page of a customer list.
+    return api.get<Customer>(byId(apiPaths.admin.customers, id));
+  },
+
   createCustomer(payload: Partial<Customer>) {
     return api.post<Customer>(apiPaths.admin.customers, payload);
   },
