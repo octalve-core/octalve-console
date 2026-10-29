@@ -51,7 +51,11 @@ assert.ok(transfer.includes(key),"Transfer flow "+key);
 assert.ok(!/name=["']epp_code["']/.test(transfer),"Never collect EPP before provider verification");
 assert.ok(register.includes("ClientDomainSearch"));
 assert.ok(model.includes("normalizeDomain")&&model.includes("DomainDns")&&model.includes("dns_records")&&model.includes("nameservers"));
-assert.ok(directory.includes("hasRowActions")&&directory.includes("hasRowActions?<button"));
+const core=read("src/components/design-system/record-directory/RecordDirectory.tsx");
+const mobile=read("src/components/design-system/record-directory/MobileRecordCard.tsx");
+const desktop=read("src/components/design-system/record-directory/DesktopRecordTable.tsx");
+assert.ok(directory.includes("<RecordDirectory")&&core.includes("showActions"),"Domain list must use shared action authority");
+assert.ok(mobile.includes("onActions?")&&desktop.includes("onActions?"),"Both mobile and desktop need accessible action triggers");
 assert.ok(!list.includes("resource===\"domains\"&&<ClientDomainSearch/>"));
 for(const loc of [
  "src/app/client/domains/[id]/page.tsx",
