@@ -15,7 +15,7 @@ export function sanitizeCommerceNext(raw: string | null): string {
   const allowed=url.pathname==="/client/order"
    ? new Set(["product","plan","cycle","revision","category"])
    : new Set(["domain"]);
-  if(keys.some(k=>!allowed.has(k))||keys.length>5)return "";
+  if(keys.some(k=>!allowed.has(k))||keys.length>5||keys.length!==new Set(keys).size)return "";
   if(url.pathname==="/client/order"){
    const product=url.searchParams.get("product"),plan=url.searchParams.get("plan");
    const cycle=url.searchParams.get("cycle"),revision=url.searchParams.get("revision");
