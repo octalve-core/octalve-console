@@ -94,6 +94,9 @@ type ListParams = {
   status?: string;
   page?: number;
   page_size?: number;
+  ordering?: string;
+  date_from?: string;
+  date_to?: string;
 };
 
 const byId = (base: string, id: string) => `${base.replace(/\/+$/, "")}/${encodeURIComponent(id)}/`;
