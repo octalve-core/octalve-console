@@ -18,7 +18,8 @@ const commerceJS=ts.transpileModule(commerceSource,{compilerOptions:{
 vm.runInNewContext(commerceJS,{exports:commerceExports,URL,URLSearchParams},{filename:"commerce-sanitizer.test.js",timeout:2000});
 const cookies=[];
 class MockNextResponse{
-  constructor(body="",opts={}){this.body=body;this.status=opts.status||200;this.headers=opts.headers||{};
+  constructor(body="",opts={}){this.body=body;this.status=opts.status||200;this.headers={...(opts.headers||{})};
+    this.headers.set=(key,value)=>{this.headers[key]=value;};
     this.cookies={set:(name,value,config)=>cookies.push({name,value,config})};}
   static redirect(url){const r=new MockNextResponse("",{status:307});r.location=String(url);return r;}
   static next(){return new MockNextResponse("",{status:200});}
