@@ -25,7 +25,7 @@ export async function loadSellablePlans(): Promise<ClientOrderPlan[]> {
       ? (response as {results: unknown}).results : []);
   if (!Array.isArray(raw)) throw new Error("Catalog returned an invalid plan list.");
   return (raw as ApiPlan[]).filter(p =>
-    p.status === "active" && p.is_public &&
+    p.status === "active" && p.is_public && Number.isSafeInteger(p.published_revision) && Number(p.published_revision)>0 &&
     // Django CreateOrderSerializer currently authorizes these three types only.
     // The dynamic sidebar discovers ALL published categories independently.
     ["shared_hosting", "wordpress_hosting", "vps"].includes(p.product_type)
