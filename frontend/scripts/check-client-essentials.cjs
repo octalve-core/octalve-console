@@ -11,8 +11,9 @@ ensure("features/client/views/ClientDashboardView.tsx",[
  "useClientSummary()","ClientOverviewActions","ClientOverviewMetrics","ClientOverviewRecent","summary.serviceRecordsAvailable","summary.invoiceRecordsAvailable"
 ]);
 ensure("features/client/components/ClientOverviewMetrics.tsx",[
- "summary.services","summary.invoices","summary.domains","summary.wallet","summary.tickets","summary.wallet===null","Panel"
+ "summary.services","summary.invoices","summary.domains","summary.wallet","summary.tickets","summary.wallet===null","WorkspaceMetricTile"
 ]);
+ensure("components/data/WorkspaceMetricTile.tsx",["Panel","ConsoleIconTile","text-xl font-medium"]);
 ensure("features/client/views/ClientResourceListView.tsx",[
  "config.loader()","unwrapClientList(response)","normalizeClientRecord(item, config.key)",
  "setRecords([])","ClientEssentialRecords","resource===\"services\"||resource===\"domains\"","ClientEssentialRecords"

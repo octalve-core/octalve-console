@@ -60,9 +60,11 @@ for(const [filename,utilities] of supportViews){
  for(const utility of utilities)if(!content.includes(utility))
   throw Error(filename+": missing responsive support form utility "+utility);
 }
-const scoped=fs.readFileSync(path.join(root,"components/design-system/WorkspaceGrid.module.css"),"utf8");
-if(!scoped.includes(".supportColumns")||!scoped.includes("@media (min-width: 1280px)"))
- throw Error("Client support must retain three-column desktop grid in locally scoped CSS");
+const grid=fs.readFileSync(path.join(root,"components/design-system/WorkspaceGrid.tsx"),"utf8");
+if(!grid.includes('supportColumns:"grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-3"'))
+ throw Error("Support must retain three-column desktop layout via scoped Tailwind utilities");
+if(fs.existsSync(path.join(root,"components/design-system/WorkspaceGrid.module.css")))
+ throw Error("Old support grid CSS Module unexpectedly returned");
 const welcome=fs.readFileSync(path.join(root,"components/data/WorkspaceWelcomePanel.tsx"),"utf8");
 if(!welcome.includes('eyebrow:"Your Octalve Cloud Console"') ||
    /eyebrow:"[^"]*workspace"/i.test(welcome) ||

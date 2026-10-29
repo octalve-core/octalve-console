@@ -9,7 +9,7 @@ import { DashboardPage } from "@/components/layout/DashboardPage";
 import { useAutoSync } from "@/lib/hooks/useAutoSync";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ErrorState } from "@/components/feedback/ErrorState";
-import { LoadingState } from "@/components/feedback/LoadingState";
+import {DirectoryLoadingSkeleton} from "@/components/design-system/DirectoryLoadingSkeleton";
 import { adminResourceConfig, type AdminResourceKey } from "../data/admin-resource-config";
 import {AdminResourceAuthorityGuide} from "../components/AdminResourceAuthorityGuide";
 import type { AdminRecord } from "../data/admin-demo-data";
@@ -124,7 +124,7 @@ export function AdminResourceListView({ resource }: AdminResourceListViewProps) 
         <div className="space-y-5">
           <AdminResourceAuthorityGuide resource={resource}/>
           {isLoading ? (
-            <LoadingState title={`Loading ${config.title.toLowerCase()}`} description="Preparing your records…" />
+            <DirectoryLoadingSkeleton label={config.title}/>
           ) : error ? (
             <ErrorState description={error} />
           ) : (

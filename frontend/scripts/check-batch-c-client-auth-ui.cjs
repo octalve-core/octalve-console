@@ -7,16 +7,14 @@ function has(file,tokens){
  for(const token of tokens)if(!body.includes(token))throw Error(file+" missing "+token);
  return body;
 }
-const grid=has("components/design-system/WorkspaceGrid.tsx",["clientMetrics","quickActions","styles[variant]"]);
-const gridCSS=has("components/design-system/WorkspaceGrid.module.css",[".clientMetrics",".quickActions","--console-client-shortcut-columns","@media (min-width: 640px)"]);
+const grid=has("components/design-system/WorkspaceGrid.tsx",["clientMetrics","quickActions","variants[variant]","sm:grid-cols-4","2xl:grid-cols-5"]);
+if(fs.existsSync(path.join(root,"src/components/design-system/WorkspaceGrid.module.css")))throw Error("Retired grid module returned");
+const shared=has("components/data/WorkspaceQuickActions.tsx",["ConsoleIconTile","WorkspaceGrid","/client/domains/register","/client/support/new","translateNavigationLabel"]);
 const metrics=has("features/client/components/ClientOverviewMetrics.tsx",[
- "WorkspaceGrid","ConsoleIconTile","summary.services","summary.invoices","summary.domains","summary.wallet","summary.tickets",
- "summary.status","summary.wallet===null","formatCurrency","translateNavigationLabel","variant=\"clientMetrics\""
+ "WorkspaceGrid","WorkspaceMetricTile","summary.services","summary.invoices","summary.domains","summary.wallet","summary.tickets",
+ "summary.status","summary.wallet===null","formatCurrency","translateNavigationLabel",'variant="clientMetrics"'
 ]);
-const actions=has("features/client/components/ClientOverviewActions.tsx",[
- "WorkspaceGrid","ConsoleIconTile","variant=\"quickActions\"","/client/order","/client/domains/register","/client/support/new","/client/invoices",
- "translateNavigationLabel"
-]);
+const actions=has("features/client/components/ClientOverviewActions.tsx",['WorkspaceQuickActions role="client"']);
 const billing=has("features/client/components/commerce/BillingRecordDirectory.tsx",[
  "WorkspaceGrid variant=\"filters\"","ResponsiveTable","StatusBadge","ActionLink",
  "TextField","SelectField","getRowKey={r=>r.id}","setSearch(e.target.value)","setStatus(e.target.value)"
@@ -36,7 +34,7 @@ if(auth.includes('className="grid ')||metrics.includes('className="grid ')||acti
  throw Error("Migrated Client/auth surface still depends on global .grid");
 const bad=["fetch(", "axios(", "window.localStorage","markPaid(", "provision(", "authorizeOpanel("];
 for(const s of bad){
- if((grid+auth+gridCSS+authCss+metrics+actions+billing+profile).includes(s))
+ if((grid+auth+shared+authCss+metrics+actions+billing+profile).includes(s))
   throw Error("Presentation-only migration accidentally acquired business/session authority: "+s);
 }
 const baseline=JSON.parse(read("audits/console-ui-baseline-2026-10-26.json"));
@@ -61,8 +59,8 @@ if(process.argv.includes("--built")){
  scan(path.join(root,".next/static"));
  if(!files.length)throw Error("No compiled CSS");
  const output=files.map(f=>fs.readFileSync(f,"utf8")).join("\n");
- for(const token of ["--console-client-shortcut-columns:","--auth-brand:","--console-workspace-gap:"])
+ for(const token of ["--auth-brand:"])
   if(!output.includes(token))throw Error("Responsive Client/auth CSS Module token was not emitted: "+token);
 }
-console.log("PASS: Batch C Client overview, quick actions, billing, profile and auth use shared scoped layouts with authority unchanged.");
+console.log("PASS: Batch C Client overview, quick actions, billing, profile and auth use typed Tailwind layouts with authority unchanged.");
 console.log("PENDING: 40 Client/public-auth routes x 6 viewports (240) and 810 full signed browser evidence.");
