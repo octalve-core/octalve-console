@@ -151,7 +151,6 @@
     "cols-2",
     "cols-3",
     "cols-4",
-    "compact",
     "compact-select",
     "console-automation-box",
     "console-benefits",
@@ -487,6 +486,7 @@
     "blue",
     "button",
     "card",
+    "compact",
     "danger",
     "dark",
     "good",
@@ -509,5 +509,5 @@
     "textarea",
     "warning"
   ],
-  "note": "Generic status words and Tailwind utility tokens are excluded from direct legacy ownership counts; historical CSS rules still require independent deletion review."
+  "note": "Ambiguous CSS words and Tailwind utility names are excluded from the historical JSX owner match. Route-reachability analysis is required before deleting rules; no unused-code inference alone is sufficient."
 }
