@@ -76,8 +76,7 @@ if (process.argv.includes("--built")) {
   if (!cssAssets.length) throw new Error("Next did not emit CSS");
   const emitted = cssAssets.map(name => fs.readFileSync(name, "utf8")).join("\n");
   for (const rule of [".px-page-gutter", ".max-w-console-content",
-    ".py-section", ".md\\:py-section-lg", ".bg-console-primary",
-    "]) {
+    ".py-section", ".md\\:py-section-lg", ".bg-console-primary"]) {
     if (!emitted.includes(rule)) throw new Error("Emitted CSS missing: " + rule);
   }
 }
