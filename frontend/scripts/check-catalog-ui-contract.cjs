@@ -21,6 +21,7 @@ for(const path of ["features/admin/catalog/CatalogSuppliersTab.tsx",
   if(s.includes(bad))throw Error("Legacy/mock/unqualified stylesheet in "+path+": "+bad);
 }
 has("features/admin/catalog/CatalogSuppliersTab.tsx",["Provider connections","packages.filter","pricing?.cycles","onVerify","onSync","onApprove"]);
+has("features/admin/components/CatalogProductsPanel.tsx",["onActivate(item.id)","Ready for offers","Save unpublished product"]);
 has("features/admin/catalog/CatalogPlansTab.tsx",["Public plan URL slug","Included features","onDefault","onSave","periods"]);
 has("features/admin/catalog/CatalogPublishTab.tsx",["drafts.map","onPublish(d.id)",'d.status==="draft"']);
 has("features/admin/catalog/CatalogWorkspaceNavigation.tsx",['role="tablist"','aria-selected={selected}',"ArrowRight","ArrowLeft","aria-controls"]);
