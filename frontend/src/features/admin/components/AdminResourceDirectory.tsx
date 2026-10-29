@@ -1,63 +1,41 @@
 "use client";
-import {useMemo,useState} from "react";
-import {ChevronLeft,ChevronRight,Search} from "lucide-react";
-import {Panel} from "@/components/design-system/Panel";
-import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
-import {TextField} from "@/components/design-system/TextField";
-import {SelectField} from "@/components/design-system/SelectField";
-import {ActionButton} from "@/components/design-system/ActionButton";
-import {ActionLink} from "@/components/design-system/ActionLink";
-import {ResponsiveTable,type ResponsiveColumn} from "@/components/design-system/ResponsiveTable";
-import {StatusBadge,type StatusTone} from "@/components/design-system/StatusBadge";
-import {getStatusTone,formatStatus} from "@/lib/constants/status";
-import type {AdminRecord} from "../data/admin-demo-data";
+import {useMemo} from "react";
+import {Users,ReceiptText,ShoppingCart,Globe2,PackageCheck,Server,LifeBuoy,Layers3, type LucideIcon} from "lucide-react";
+import {RecordDirectory} from "@/components/design-system/record-directory/RecordDirectory";
+import type {DirectoryColumn,DirectoryCreate,DirectoryRow} from "@/components/design-system/record-directory/types";
 import type {AdminResourceKey} from "../data/admin-resource-config";
-const PAGE_SIZE=10;
-function tone(status:string):StatusTone{const v=getStatusTone(status);return v==="danger"?"error":v;}
-export function AdminResourceDirectory({resource,records,emptyTitle,emptyDescription,detailEnabled=true}:{
- resource:AdminResourceKey;records:readonly AdminRecord[];emptyTitle:string;emptyDescription:string;detailEnabled?:boolean;
-}){
- const [query,setQuery]=useState(""),[status,setStatus]=useState("all"),[page,setPage]=useState(1);
- const statuses=useMemo(()=>[...new Set(records.map(r=>r.status))].sort(),[records]);
- const filtered=useMemo(()=>records.filter(r=>{
-  if(status!=="all"&&r.status!==status)return false;
-  const value=query.trim().toLowerCase();
-  return !value||[r.id,r.title,r.subtitle,r.meta,r.status,r.amount??"",r.date??""].some(x=>x.toLowerCase().includes(value));
- }),[records,status,query]);
- const pages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE)),current=Math.min(page,pages);
- const columns:ResponsiveColumn<AdminRecord>[]=[
-  {key:"name",heading:resource==="customers"?"Customer":resource==="domains"?"Domain":resource==="orders"?"Order":resource==="invoices"?"Invoice":"Record",
-   cell:r=><span className="break-words font-medium text-console-ink">{r.title}</span>},
-  {key:"details",heading:"Details",cell:r=>r.subtitle||"—"},
-  {key:"reference",heading:"Reference / category",cell:r=><span className="break-words text-console-primary">{r.meta||"—"}</span>},
-  {key:"amount",heading:"Amount",cell:r=>r.amount||"—"},
-  {key:"date",heading:"Updated / created",cell:r=>r.date||"—"},
-  {key:"status",heading:"Status",cell:r=><StatusBadge tone={tone(r.status)}>{formatStatus(r.status)}</StatusBadge>},
-  ...(detailEnabled?[{key:"view",heading:"Details",cell:(r:AdminRecord)=><ActionLink size="sm" variant="outline" href={r.actionHref}
-   className="w-full sm:w-auto">View record</ActionLink>}]:[])
- ];
- const visible=filtered.slice((current-1)*PAGE_SIZE,current*PAGE_SIZE);
- return <Panel padded={false} className="overflow-hidden">
-  <WorkspaceGrid variant="filters" className="border-b border-console-line p-4 sm:p-5">
-   <TextField label={"Search "+resource} type="search" placeholder="Search names, references or details"
-    value={query} startIcon={<Search aria-hidden="true" className="h-4 w-4"/>}
-    onChange={event=>{setQuery(event.target.value);setPage(1);}}/>
-   <SelectField label="Status" value={status} options={[{value:"all",label:"All statuses"},
-    ...statuses.map(value=>({value,label:formatStatus(value)}))]}
-    onChange={event=>{setStatus(event.target.value);setPage(1);}}/>
-  </WorkspaceGrid>
-  <div className="min-w-0 p-4 sm:p-5">
-   <p className="mb-3 text-xs text-console-muted">{filtered.length} {resource} found</p>
-   <ResponsiveTable caption={"Admin "+resource} rows={visible} columns={columns} getRowKey={r=>r.id}
-    emptyTitle={filtered.length===0&&records.length>0?"No matching records":emptyTitle}
-    emptyDescription={filtered.length===0&&records.length>0?"Try another search or filter.":emptyDescription}/>
-  </div>
-  <div className="flex items-center justify-between gap-3 border-t border-console-line px-4 py-3 sm:px-5">
-   <ActionButton size="sm" variant="outline" disabled={current===1}
-    leadingIcon={<ChevronLeft aria-hidden="true" className="h-4 w-4"/>} onClick={()=>setPage(n=>Math.max(1,n-1))}>Previous</ActionButton>
-   <p className="text-xs text-console-muted">Page {current} of {pages}</p>
-   <ActionButton size="sm" variant="outline" disabled={current>=pages}
-    trailingIcon={<ChevronRight aria-hidden="true" className="h-4 w-4"/>} onClick={()=>setPage(n=>Math.min(pages,n+1))}>Next</ActionButton>
-  </div>
- </Panel>;
+import type {AdminRecord} from "../data/admin-demo-data";
+const icons:Record<AdminResourceKey,LucideIcon>={
+ customers:Users,products:PackageCheck,plans:Layers3,orders:ShoppingCart,
+ invoices:ReceiptText,domains:Globe2,gateways:LifeBuoy,providers:Server,provisioning:Server
+};
+const generic:DirectoryColumn[]=[
+ {key:"name",label:"Record",render:r=>r.title},
+ {key:"details",label:"Details",render:r=>r.subtitle||"—"},
+ {key:"reference",label:"Reference / category",render:r=>r.reference||r.category||"—"},
+ {key:"amount",label:"Amount",render:r=>r.amount||"—",wideOnly:true},
+ {key:"date",label:"Created / updated",render:r=>r.date||"—"}
+];
+const customerColumns:DirectoryColumn[]=[
+ {key:"name",label:"Customer",render:r=>r.title},
+ {key:"email",label:"Email",render:r=>r.subtitle||"—"},
+ {key:"company",label:"Company",render:r=>r.category||"—"},
+ {key:"date",label:"Joined",render:r=>r.date||"—"}
+];
+export function AdminResourceDirectory({resource,records,emptyTitle,emptyDescription,detailEnabled=true,
+ create}:{resource:AdminResourceKey;records:readonly AdminRecord[];emptyTitle:string;
+ emptyDescription:string;detailEnabled?:boolean;create?:DirectoryCreate}){
+ const Icon=icons[resource];
+ const rows=useMemo<DirectoryRow[]>(()=>records.map(r=>({
+  id:r.id,title:r.title,subtitle:r.subtitle,reference:r.reference||undefined,
+  category:resource==="customers"?r.companyName:r.meta,amount:r.amount||undefined,
+  amountLabel:resource==="customers"?"Wallet balance":"Amount",
+  date:r.date,dateISO:r.dateISO,dateLabel:resource==="customers"?"Joined":"Created",
+  status:r.status,icon:<Icon className="h-5 w-5" strokeWidth={1.7} aria-hidden="true"/>,
+  href:detailEnabled?r.actionHref:undefined,
+  searchTerms:resource==="customers"?[r.companyName||"",r.subtitle]:[r.meta]
+ })),[records,resource,detailEnabled,Icon]);
+ return <RecordDirectory label={resource==="customers"?"Customers":resource.charAt(0).toUpperCase()+resource.slice(1)}
+  rows={rows} columns={resource==="customers"?customerColumns:generic} create={create}
+  emptyMessage={emptyTitle+" — "+emptyDescription}/>;
 }
