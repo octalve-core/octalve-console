@@ -24,15 +24,35 @@ export function ClientOrderView() {
       setPlans(items);
       const params = searchParams;
       const requestedPlan = params.get("plan") || "";
+      const requestedProduct = params.get("product") || "";
+      const requestedRevision = params.get("revision") || "";
       const selectedCategory = params.get("category") || "";
+      const requestedCycle = params.get("cycle") || "";
       setCategorySlug(selectedCategory);
       const allowed = selectedCategory ? items.filter(item => item.categorySlug === selectedCategory) : items;
-      const requestedCycle = params.get("cycle") || "";
-      const chosen = allowed.find(item => item.id === requestedPlan) || allowed[0];
-      setPlanId(chosen?.id || "");
-      setCycleKey(chosen?.cycles.find(c => c.key === requestedCycle)?.key || defaultCycle(chosen)?.key || "");
-      if (requestedPlan && !items.some(item => item.id === requestedPlan)) {
-        setError("That package is no longer available. Please choose a currently published hosting plan.");
+      // Public website uses immutable product+plan slugs; retain numeric plan
+      // IDs only for legacy Console links. Reject ambiguity and mismatches.
+      const chosen = requestedPlan
+        ? allowed.find(item => item.id === requestedPlan ||
+            (requestedProduct && item.productSlug === requestedProduct && item.slug === requestedPlan))
+        : allowed[0];
+      const selectedCycle = requestedCycle
+        ? chosen?.cycles.find(c => c.key === requestedCycle)
+        : defaultCycle(chosen);
+      const mismatch = Boolean(
+        requestedProduct && chosen?.productSlug !== requestedProduct ||
+        requestedPlan && !chosen ||
+        requestedCycle && !selectedCycle ||
+        requestedRevision && (!/^[1-9][0-9]{0,9}$/.test(requestedRevision) ||
+          chosen?.revision !== Number(requestedRevision))
+      );
+      if(mismatch){
+        setPlanId("");setCycleKey("");
+        setError("The selected package, billing period or published offer has changed. Please review and choose an available plan; your cart was not substituted.");
+      }else{
+        setError("");
+        setPlanId(chosen?.id || "");
+        setCycleKey(selectedCycle?.key || "");
       }
     }).catch(() => { if(live) setError("We couldn’t load hosting plans right now. Please try again. No order has been placed."); })
       .finally(() => {if(live) setLoading(false);});
@@ -44,6 +64,7 @@ export function ClientOrderView() {
   function selectPlan(plan: ClientOrderPlan) {
     setPlanId(plan.id);
     setCycleKey(defaultCycle(plan)?.key || "");
+    setError("");
   }
 
   return <DashboardShell role="client" title="Order service" description="Choose an available hosting plan.">
