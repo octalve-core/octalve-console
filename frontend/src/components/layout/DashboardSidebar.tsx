@@ -20,7 +20,7 @@ export function DashboardSidebar({role,pathname,onClose,onLogout,loggingOut}:{
     <X aria-hidden="true" className="h-5 w-5"/>
    </button>
   </div>
-  <nav aria-label={role+" "+m.nav} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3">
+  <nav aria-label={role+" "+m.nav} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
    {getDashboardNavGroups(role).map(group=><ConsoleNavigationGroup key={group.title} group={group}
     role={role} pathname={pathname} onNavigate={onClose}/>)}
   </nav>
