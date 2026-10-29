@@ -20,6 +20,7 @@ const customerColumns:DirectoryColumn[]=[
  {key:"name",label:"Customer",render:r=>r.title},
  {key:"email",label:"Email",render:r=>r.subtitle||"—"},
  {key:"company",label:"Company",render:r=>r.category||"—"},
+ {key:"wallet",label:"Wallet balance",render:r=>r.amount||"—",wideOnly:true},
  {key:"date",label:"Joined",render:r=>r.date||"—"}
 ];
 export function AdminResourceDirectory({resource,records,emptyTitle,emptyDescription,detailEnabled=true,

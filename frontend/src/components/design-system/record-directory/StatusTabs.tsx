@@ -1,4 +1,3 @@
-import {DirectoryStatus} from "./RecordVisual";
 export function StatusTabs({items,value,onChange,label}:{items:readonly string[];value:string;
  onChange:(next:string)=>void;label:string}){
  return <div aria-label={label+" status filters"} className="flex min-w-0 snap-x gap-2 overflow-x-auto border-b border-console-line px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-5">

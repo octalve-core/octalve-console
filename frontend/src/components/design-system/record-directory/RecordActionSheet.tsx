@@ -16,7 +16,7 @@ export function RecordActionSheet({row,actions,onOpen,onClose}:{row:DirectoryRow
      <Eye className="h-4 w-4 text-console-primary" aria-hidden="true"/>View record</button>):null}
    {options.map(action=>{
     const Icon=action.icon,href=action.href?.(row);
-    const content=<><Icon className="h-4 w-4" aria-hidden="true"/><span className="flex-1">{action.label}</span><ChevronRight className="h-4 w-4" aria-hidden="true"/></>;
+    const content=<><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${action.danger?"bg-rose-50 text-rose-600":"bg-blue-50 text-console-primary"}`}><Icon className="h-4 w-4" aria-hidden="true"/></span><span className="flex-1">{action.label}</span><ChevronRight className="h-4 w-4 text-console-muted" aria-hidden="true"/></>;
     const cls=`flex min-h-11 w-full items-center gap-3 rounded-lg bg-slate-50 px-3 text-left text-[13px] font-medium hover:bg-slate-100 ${action.danger?"text-rose-600":"text-console-ink"}`;
     return href?<Link key={action.key} href={href} onClick={onClose} className={cls}>{content}</Link>:
      action.onSelect?<button key={action.key} type="button" className={cls} onClick={()=>{onClose();action.onSelect?.(row);}}>{content}</button>:null;

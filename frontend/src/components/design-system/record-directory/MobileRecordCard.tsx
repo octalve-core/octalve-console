@@ -10,7 +10,7 @@ export function MobileRecordCard({row,onOpen,onActions}:{row:DirectoryRow;
   <span className="min-w-0 flex-1">
    <span className="flex min-w-0 items-baseline justify-between gap-2">
     <span className="min-w-0 truncate text-[13px] font-medium text-console-ink">{row.title}</span>
-    {row.amount?<span className="shrink-0 text-[11px] font-medium text-console-ink">{row.amount}</span>:null}
+    {row.amount?<span aria-label={row.amountLabel?row.amountLabel+": "+row.amount:undefined} className="shrink-0 text-[11px] font-medium text-console-ink">{row.amount}</span>:null}
    </span>
    <span className="mt-1 flex min-w-0 items-center justify-between gap-2">
     <span className="min-w-0 truncate rounded-full bg-white px-2 py-1 text-[10px] text-console-muted">{row.reference||row.subtitle||row.id}</span>
