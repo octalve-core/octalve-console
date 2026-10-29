@@ -1,5 +1,6 @@
 "use client";
 import {CheckCircle2,Plus,Trash2,ShieldCheck,Package,Info} from "lucide-react";
+import type {ReactNode} from "react";
 import {Panel} from "@/components/design-system/Panel";
 import {StatusBadge} from "@/components/design-system/StatusBadge";
 import type {Cycle,Plan,Product,Package as SupplierPackage} from "./catalogue-types";
@@ -16,7 +17,7 @@ type Props={
  onCycle:(index:number,key:keyof Cycle,value:string|boolean)=>void;onDefault:(index:number)=>void;
  onRemove:(index:number)=>void;onAdd:()=>void;busy:boolean;onSave:()=>void;
 };
-function Field({label,children}:{label:string;children:React.ReactNode}){
+function Field({label,children}:{label:string;children:ReactNode}){
  return <label className="block min-w-0 text-xs font-semibold text-console-muted">{label}{children}</label>;
 }
 export function CatalogPlansTab(p:Props){
