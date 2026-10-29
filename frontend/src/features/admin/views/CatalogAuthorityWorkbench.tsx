@@ -109,7 +109,7 @@ export function CatalogAuthorityWorkbench() {
     if(!plan){setSlug("");return;}
     setSelectedProduct(String(plan.product));setName(plan.name);setSlug(plan.slug||"");setDescription(plan.description||"");
     setCurrency(plan.currency);setPopular(plan.is_popular);
-    setFeatures((plan.features||[]).map(f=>`${f.label}: ${f.value}`).join("\n"));
+    setFeatures((plan.features||[]).map(f=>f.value?`${f.label}: ${f.value}`:f.label).join("\n"));
     const existing=(plan.billing_cycles||[]).filter(c=>c.is_active).map(c=>({
       cycle_key:c.cycle_key,price:String(c.price),setup_fee:String(c.setup_fee||"0"),
       regular_price:c.regular_price?String(c.regular_price):"",is_default:c.is_default,
@@ -165,6 +165,7 @@ export function CatalogAuthorityWorkbench() {
   }
 
 
+  const supplier=packages.find(p=>String(p.id)===packageId);
   return <DashboardShell role="admin" title="Hosting catalogue" description="Supplier inventory, products, published prices and offers in one workspace.">
     <DashboardPage eyebrow="Commerce / Hosting catalogue" title="Hosting catalogue"
       description="Connect approved suppliers, organise hosting products, configure retail offers and publish with confidence.">
