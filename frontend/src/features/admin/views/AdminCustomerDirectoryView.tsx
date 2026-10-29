@@ -24,7 +24,7 @@ function parseCustomerPage(value:unknown):CustomerPage{
   !(typeof page.next==="string"||page.next===null)||
   !(typeof page.previous==="string"||page.previous===null))
   throw Error("Unexpected customer page contract");
- return page as CustomerPage;
+ return page as unknown as CustomerPage;
 }
 
 /** The Admin Customer golden master is server-paged; never search only the first API page. */
@@ -43,7 +43,7 @@ export function AdminCustomerDirectoryView(){
   const timer=window.setTimeout(()=>setDebounced(query.trim()),300);
   return ()=>window.clearTimeout(timer);
  },[query]);
- const sourceKey=JSON.stringify([page,debounced,status,filter.from,filter.to,ordering]);
+ const sourceKey=JSON.stringify([page,debounced,status,filter.status,filter.from,filter.to,ordering]);
  useEffect(()=>{
   let active=true;
   setLoading(true);
