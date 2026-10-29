@@ -8,7 +8,7 @@ const fs=require("node:fs");
 const path=require("node:path");
 const root=path.resolve(__dirname,"../src");
 const paths=[
-  ["components/data/WorkspaceWelcomePanel.tsx",["bg-white","text-slate-950"]],
+  ["components/data/WorkspaceWelcomePanel.tsx",["aria-label=\"Console welcome\"","text-console-ink","text-console-muted","font-medium"]],
   ["features/client/components/ClientDomainSearch.tsx",["bg-slate-50","text-slate-950"]],
   ["features/client/components/domain-search/DomainSearchForm.tsx",["items-center","gap-3","focus-within:border-[#0064E0]"]],
   ["features/client/components/KnowledgeBaseHero.tsx",["bg-white","text-slate-950"]],
