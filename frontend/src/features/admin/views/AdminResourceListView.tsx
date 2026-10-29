@@ -20,7 +20,7 @@ export function AdminResourceListView({resource}:{resource:AdminResourceKey}){
   if(!quiet)setIsLoading(true);
   try{
    const response=await config.loader();
-   const apiRecords=unwrapAdminList(response).map(item=>normalizeRecord(item,config.key));
+   const apiRecords=unwrapAdminList(response).map(item=>normalizeRecord(item, config.key));
    setRecords(apiRecords);setError("");
   }catch{
    if(!quiet)setRecords([]);
