@@ -183,6 +183,49 @@ class OfferPublicationTests(TestCase):
         self.assertEqual(published.status_code,400)
         self.assertFalse(Plan.objects.filter(product=vps).exists())
 
+    def test_duplicate_plan_slug_rejected_before_price_publication(self):
+        first=self.api.post('/api/catalog/offer-drafts/',self.payload(slug='octalve-business'),format='json')
+        self.assertEqual(first.status_code,201,first.data)
+        published=self.api.post(f'/api/catalog/offer-drafts/{first.data["id"]}/publish/',{},format='json')
+        self.assertEqual(published.status_code,200,published.data)
+        duplicate=self.api.post('/api/catalog/offer-drafts/',
+                                self.payload(name='Business alternative',slug='octalve-business'),format='json')
+        self.assertEqual(duplicate.status_code,400,duplicate.data)
+        self.assertEqual(PublishedCatalogOffer.objects.count(),1)
+
+    def test_existing_public_slug_cannot_change_on_plan_revision(self):
+        first=self.api.post('/api/catalog/offer-drafts/',self.payload(),format='json')
+        self.assertEqual(first.status_code,201,first.data)
+        published=self.api.post(f'/api/catalog/offer-drafts/{first.data["id"]}/publish/',{},format='json')
+        plan=Plan.objects.get(pk=published.data["plan_id"])
+        change=self.api.post('/api/catalog/offer-drafts/',
+                             self.payload(plan_id=plan.pk,slug='new-address'),format='json')
+        self.assertEqual(change.status_code,400,change.data)
+        self.assertEqual(plan.slug,'octalve-business')
+
+    def test_marketing_feature_line_is_structured_without_fake_supplier_claim(self):
+        features=[
+            {'label':'Storage','value':'10 GB','is_highlighted':True},
+            {'label':'Priority support','value':'','is_highlighted':True},
+        ]
+        created=self.api.post('/api/catalog/offer-drafts/',self.payload(features=features),format='json')
+        self.assertEqual(created.status_code,201,created.data)
+        publish=self.api.post(f'/api/catalog/offer-drafts/{created.data["id"]}/publish/',{},format='json')
+        self.assertEqual(publish.status_code,200,publish.data)
+        plan=Plan.objects.get(pk=publish.data['plan_id'])
+        self.assertEqual(plan.features.get(label='Priority support').value,'')
+        self.assertEqual(PublishedCatalogOffer.objects.get(plan=plan).snapshot['features'][1]['value'],'')
+
+    def test_product_slug_collision_rejected_at_serializer_boundary(self):
+        existing=Product.objects.get(pk=self.product.pk)
+        second=self.api.post('/api/catalog/products/',{
+            'name':'Different product','slug':existing.slug,'description':'',
+            'category':self.category.pk,'product_type':'shared_hosting',
+            'status':'inactive','is_public':False,'features':[]
+        },format='json')
+        self.assertEqual(second.status_code,400,second.data)
+        self.assertEqual(Product.objects.filter(slug=existing.slug).count(),1)
+
     def test_supplier_sync_stages_changed_limits_without_changing_retail_prices(self):
         self.admin.is_superuser=True
         self.admin.save(update_fields=['is_superuser'])
