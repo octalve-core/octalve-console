@@ -1,6 +1,7 @@
 "use client";
 import {useState} from "react";
 import {AdminResourceDirectory} from "../components/AdminResourceDirectory";
+import {AdminCustomerDirectoryView} from "./AdminCustomerDirectoryView";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DirectoryLoadingSkeleton} from "@/components/design-system/DirectoryLoadingSkeleton";
@@ -12,6 +13,10 @@ import {normalizeAdminRecord,unwrapAdminList} from "../utils/admin-record-normal
 import type {AdminRecord} from "../data/admin-demo-data";
 const normalizeRecord=normalizeAdminRecord;
 export function AdminResourceListView({resource}:{resource:AdminResourceKey}){
+ if(resource==="customers")return <AdminCustomerDirectoryView/>;
+ return <OtherAdminResourceListView resource={resource}/>;
+}
+function OtherAdminResourceListView({resource}:{resource:Exclude<AdminResourceKey,"customers">}){
  const config=adminResourceConfig[resource];
  const [records,setRecords]=useState<AdminRecord[]>([]);
  const [isLoading,setIsLoading]=useState(true);
