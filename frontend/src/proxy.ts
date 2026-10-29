@@ -267,10 +267,16 @@ function buildSafeQueryRedirect(request: NextRequest) {
   return response;
 }
 
-function buildRedirect(request: NextRequest, pathname: string) {
+function buildRedirect(request: NextRequest, destination: string) {
   const url = request.nextUrl.clone();
-  url.pathname = pathname;
-  url.search = "";
+  // A validated local continuation can contain a query string. Assign
+  // pathname and search independently; otherwise URL encodes "?" into "%3F"
+  // and loses the exact purchased plan and cycle.
+  const safe = sanitizeRedirectValue(destination);
+  const target = new URL(safe || "/login", url.origin);
+  url.pathname = target.pathname;
+  url.search = target.search;
+  url.hash = target.hash;
   return NextResponse.redirect(url);
 }
 
