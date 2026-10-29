@@ -8,6 +8,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework import generics, filters
+from rest_framework.pagination import PageNumberPagination
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
@@ -436,16 +439,54 @@ class IsCloudCustomerAdmin(IsAdminUser):
         )
 
 
+class AdminCustomerPagination(PageNumberPagination):
+    """Bounded, explicit customer page contract. No default-global API change."""
+
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 50
+
+
 class AdminCustomerListView(generics.ListCreateAPIView):
     """GET /api/auth/customers/ - List customers with filters
        POST /api/auth/customers/ - Create customer manually"""
     
     permission_classes = [IsCloudCustomerAdmin]
+    pagination_class = AdminCustomerPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['role']
     search_fields = ['email', 'full_name', 'company_name', 'phone_number']
     ordering_fields = ['date_joined', 'full_name', 'email']
-    ordering = ['-date_joined']
+    ordering = ['-date_joined', '-pk']
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        params = self.request.query_params
+        state = params.get("status", "").strip().lower()
+        if state and state != "all":
+            if state not in ("active", "inactive", "locked"):
+                raise serializers.ValidationError({"status": "Choose active, inactive or locked."})
+            if state == "inactive":
+                queryset = queryset.filter(is_active=False)
+            elif state == "locked":
+                queryset = queryset.filter(is_active=True, locked_until__gt=timezone.now())
+            else:
+                queryset = queryset.filter(is_active=True).filter(
+                    Q(locked_until__isnull=True) | Q(locked_until__lte=timezone.now())
+                )
+        start = params.get("date_from", "").strip()
+        end = params.get("date_to", "").strip()
+        from_date = parse_date(start) if start else None
+        to_date = parse_date(end) if end else None
+        if (start and from_date is None) or (end and to_date is None):
+            raise serializers.ValidationError({"date": "Use valid ISO dates (YYYY-MM-DD)."})
+        if from_date and to_date and from_date > to_date:
+            raise serializers.ValidationError({"date": "End date must follow start date."})
+        if from_date:
+            queryset = queryset.filter(date_joined__date__gte=from_date)
+        if to_date:
+            queryset = queryset.filter(date_joined__date__lte=to_date)
+        return queryset
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
