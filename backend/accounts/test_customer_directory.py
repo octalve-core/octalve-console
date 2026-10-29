@@ -135,3 +135,34 @@ class AdminCustomerDirectoryContractTests(APITestCase):
         self.client.force_authenticate(user=self.first)
         denied = self.client.get(f"/api/auth/customers/{self.second.pk}/")
         self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_operational_staff_cannot_read_or_mutate_global_customers(self):
+        # DRF IsAdminUser checks is_staff; Octalve Staff is not Super Admin.
+        operational_staff = get_user_model().objects.create_user(
+            email="directory-staff@example.invalid",
+            username="directory_staff",
+            role="staff",
+            is_staff=True,
+            is_superuser=False,
+            password="Directory-Test-Only!2026",
+        )
+        self.client.force_authenticate(user=operational_staff)
+        for endpoint in (
+            "/api/auth/customers/",
+            f"/api/auth/customers/{self.first.pk}/",
+        ):
+            result = self.client.get(endpoint)
+            self.assertEqual(result.status_code, status.HTTP_403_FORBIDDEN)
+        create = self.client.post("/api/auth/customers/", {}, format="json")
+        self.assertEqual(create.status_code, status.HTTP_403_FORBIDDEN)
+        update = self.client.patch(
+            f"/api/auth/customers/{self.first.pk}/",
+            {"full_name": "Unauthorized rename"},
+            format="json",
+        )
+        self.assertEqual(update.status_code, status.HTTP_403_FORBIDDEN)
+        delete = self.client.delete(f"/api/auth/customers/{self.first.pk}/")
+        self.assertEqual(delete.status_code, status.HTTP_403_FORBIDDEN)
+        self.first.refresh_from_db()
+        self.assertEqual(self.first.full_name, "Directory First Customer")
+        self.assertTrue(self.first.is_active)
