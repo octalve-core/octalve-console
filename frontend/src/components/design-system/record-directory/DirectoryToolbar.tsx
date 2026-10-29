@@ -17,7 +17,7 @@ export function DirectoryToolbar({label,count,query,onQuery,onFilters,create,onE
      className="h-10 w-full min-w-0 rounded-lg border border-console-line bg-white pl-9 pr-3 text-[13px] text-console-ink outline-none focus:border-console-primary focus:ring-1 focus:ring-console-primary"/>
    </label>
    <div className="flex items-center gap-2 sm:ml-auto">
-    {onOrdering?<label className="sr-only sm:not-sr-only sm:flex sm:items-center sm:gap-1.5">
+    {onOrdering?<label className="inline-flex min-w-0 items-center gap-1.5">
      <span className="sr-only">Sort {label}</span>
      <select aria-label={"Sort "+label} value={ordering||"-date_joined"} onChange={e=>onOrdering(e.target.value)}
       className="h-10 min-w-0 max-w-32 rounded-lg border border-console-line bg-white px-2 text-xs text-console-ink focus-visible:ring-2 focus-visible:ring-console-primary">
