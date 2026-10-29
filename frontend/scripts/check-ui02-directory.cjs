@@ -26,6 +26,15 @@ async function main(){
  assert.throws(()=>normalizeAdminRecord({...valid,id:null},"customers"),/identifier/i);
  assert.throws(()=>unwrapAdminList({unexpected:[]}),/Invalid authorized API list/);
  assert.equal(unwrapAdminList({results:[valid]}).length,1);
+ const staffUrl=pathToFileURL(path.join(root,"features/staff/utils/staff-record-normalizer.ts")).href;
+ const {normalizeStaffRecord}=await import(staffUrl);
+ const staff=normalizeStaffRecord(valid,"customers");
+ assert.equal(staff.title,valid.full_name);
+ assert.equal(staff.subtitle,valid.email);
+ assert.notEqual(staff.meta,"active","Staff status cannot be repeated as a reference");
+ assert.equal(staff.status,"active");
+ assert.equal(staff.date,valid.date_joined);
+
  const serializer=fs.readFileSync(path.resolve(front,"../backend/accounts/serializers.py"),"utf8");
  const start=serializer.indexOf("class CustomerListSerializer("),end=serializer.indexOf("class CustomerDetailSerializer(");
  if(start<0||end<=start)throw Error("Customer serializer not located");
