@@ -122,3 +122,16 @@ class AdminCustomerDirectoryContractTests(APITestCase):
         self.assertEqual(records[0]["id"], self.first.pk)
         self.assertEqual(records[0]["full_name"], "Directory First Customer")
         self.assertNotIn("password", records[0])
+
+    def test_customer_detail_is_independent_of_list_page_size(self):
+        # Detail access must not depend on whether an ID is in the current page.
+        self.client.force_authenticate(user=self.admin)
+        detail = self.client.get(f"/api/auth/customers/{self.second.pk}/")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK, detail.data)
+        self.assertEqual(detail.data["id"], self.second.pk)
+        self.assertEqual(detail.data["full_name"], "Directory Second Customer")
+        self.assertNotIn("password", detail.data)
+
+        self.client.force_authenticate(user=self.first)
+        denied = self.client.get(f"/api/auth/customers/{self.second.pk}/")
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
