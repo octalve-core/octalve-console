@@ -17,8 +17,8 @@ export function AdminRecordList({records,resource,emptyTitle,emptyDescription}:P
       icon:record.title.includes(".")?<Globe2 className="h-4 w-4"/>:<Server className="h-4 w-4"/>};
   });
   const primary={key:"item",label:resource==="domains"?"Domain":resource==="customers"?"Customer":resource==="plans"?"Plan":resource==="products"?"Product":resource==="providers"?"Provider":"Record",
-    render:(r:CloudRecord)=><span className="font-semibold text-[#142A43]">{r.title}</span>};
-  const reference={key:"reference",label:"Reference",render:(r:CloudRecord)=><span className="font-semibold text-[#0064E0]">{r.reference||r.id}</span>};
+    render:(r:CloudRecord)=><span className="font-medium text-[#142A43]">{r.title}</span>};
+  const reference={key:"reference",label:"Reference",render:(r:CloudRecord)=><span className="font-medium text-[#0064E0]">{r.reference||r.id}</span>};
   const date={key:"date",label:"Updated / created",render:(r:CloudRecord)=>r.date||"—"};
   const amount={key:"amount",label:"Amount",render:(r:CloudRecord)=><strong>{r.amount||"—"}</strong>};
   const metadata={key:"detail",label:resource==="domains"?"Registration details":resource==="providers"?"Adapter":resource==="plans"?"Product":resource==="customers"?"Contact":"Details",

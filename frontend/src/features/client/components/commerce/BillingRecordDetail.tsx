@@ -21,7 +21,7 @@ export function BillingRecordDetail({record,resource,actions}:{
       </span>
       <div className="min-w-0">
        <p className="break-words text-sm text-white/80">{record.meta!=="—"?record.meta:record.id}</p>
-       <h2 className="mt-2 break-words text-2xl font-semibold sm:text-3xl">{record.title}</h2>
+       <h2 className="mt-2 break-words text-2xl font-medium sm:text-3xl">{record.title}</h2>
        <p className="mt-2 break-words text-sm text-white/85">{record.subtitle}</p>
       </div>
      </div>
@@ -36,20 +36,20 @@ export function BillingRecordDetail({record,resource,actions}:{
      {key:"Amount",value:record.amount||"—",icon:CreditCard}
     ].map(item=>{const Meta=item.icon;return <div key={item.key} className="min-w-0 rounded-xl bg-slate-50 p-4">
      <dt className="flex items-center gap-2 text-sm text-console-muted"><Meta aria-hidden="true" className="h-4 w-4"/>{item.key}</dt>
-     <dd className="mt-2 break-words text-sm font-semibold text-console-ink">{item.value}</dd>
+     <dd className="mt-2 break-words text-sm font-medium text-console-ink">{item.value}</dd>
     </div>;})}
    </dl>
   </Panel>
   <div className="grid gap-5 lg:grid-cols-3">
    <Panel className="lg:col-span-2">
-    <h3 className="text-lg font-semibold text-console-ink">Activity</h3>
+    <h3 className="text-lg font-medium text-console-ink">Activity</h3>
     <p className="mt-3 text-sm leading-6 text-console-muted">
      Verified transaction and activity events are not connected to this record view. Payment,
      invoice settlement and provisioning are confirmed independently by Octalve Cloud.
     </p>
    </Panel>
    <Panel>
-    <h3 className="text-lg font-semibold text-console-ink">Quick actions</h3>
+    <h3 className="text-lg font-medium text-console-ink">Quick actions</h3>
     <div className="mt-4 grid gap-3">
      {actions.map(action=><ActionLink key={action.label} href={action.href}
       variant={action.variant} className="w-full">{action.label}</ActionLink>)}

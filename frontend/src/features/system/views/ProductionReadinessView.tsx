@@ -144,7 +144,7 @@ export function ProductionReadinessView() {
                 <div key={`${item.group}-${item.label}`} className="rounded-2xl border border-slate-200 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{item.group}</p>
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">{item.group}</p>
                       <p className="mt-2 text-sm font-medium text-slate-950">{item.label}</p>
                     </div>
 

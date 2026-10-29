@@ -22,7 +22,7 @@ export function ResponsiveTable<Row>({caption,columns,rows,getRowKey,emptyTitle=
   <div className="hidden min-w-0 overflow-x-auto rounded-2xl border border-console-line bg-white md:block">
    <table className="w-full border-collapse text-left text-sm text-console-ink">
     <caption className="sr-only">{caption}</caption>
-    <thead className="bg-slate-50 text-xs font-semibold text-slate-600"><tr>
+    <thead className="bg-slate-50 text-xs font-medium text-slate-600"><tr>
      {columns.map(column=><th key={column.key} scope="col" className="px-4 py-3">{column.heading}</th>)}
     </tr></thead>
     <tbody className="divide-y divide-slate-100">

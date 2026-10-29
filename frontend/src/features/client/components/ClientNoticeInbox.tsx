@@ -54,7 +54,7 @@ export function ClientNoticeInbox(){
   return <Panel>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-console-ink">
+        <h2 className="flex items-center gap-2 text-lg font-medium text-console-ink">
           <Bell className="h-5 w-5 text-console-primary" aria-hidden="true"/>Account notifications</h2>
         <p className="mt-1 text-sm text-console-muted">Due invoices and upcoming domain expirations.</p>
       </div>
@@ -81,7 +81,7 @@ export function ClientNoticeInbox(){
       </p>:rows.map(item=><article key={item.key}
         className="flex flex-col gap-3 rounded-xl border border-console-line bg-slate-50 p-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-console-ink">{item.title}
+          <p className="text-sm font-medium text-console-ink">{item.title}
             {!item.read?<span className="ml-2 inline-block h-2 w-2 rounded-full bg-console-primary" aria-label="Unread"/>:null}
           </p>
           <p className="mt-1 break-words text-sm text-console-muted">{item.description}</p>
@@ -90,7 +90,7 @@ export function ClientNoticeInbox(){
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          <Link href={item.href} className="inline-flex min-h-10 items-center rounded-xl bg-console-primary px-4 text-sm font-semibold text-white">
+          <Link href={item.href} className="inline-flex min-h-10 items-center rounded-xl bg-console-primary px-4 text-sm font-medium text-white">
             {item.kind==="invoice"?"View invoice":"Review domain"}
           </Link>
           {!item.read?<button type="button" onClick={()=>void mark(item)}

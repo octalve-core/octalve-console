@@ -23,8 +23,8 @@ export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescrip
  [records,search,status]);
  const pages=Math.max(1,Math.ceil(matched.length/10)),current=Math.min(page,pages),visible=matched.slice((current-1)*10,current*10);
  const cols:ResponsiveColumn<ClientRecord>[]=[
-  {key:"reference",heading:"Reference",cell:r=><span className="break-words font-semibold text-console-primary">{r.meta!=="—"?r.meta:r.id}</span>},
-  {key:"title",heading:resource==="orders"?"Order":"Invoice",cell:r=><span className="break-words font-semibold text-console-ink">{r.title}</span>},
+  {key:"reference",heading:"Reference",cell:r=><span className="break-words font-medium text-console-primary">{r.meta!=="—"?r.meta:r.id}</span>},
+  {key:"title",heading:resource==="orders"?"Order":"Invoice",cell:r=><span className="break-words font-medium text-console-ink">{r.title}</span>},
   {key:"amount",heading:"Amount",cell:r=>r.amount??"—"},
   {key:"date",heading:resource==="orders"?"Ordered":"Due / issued",cell:r=>r.date??"—"},
   {key:"status",heading:"Status",cell:r=><StatusBadge tone={tone(r.status)}>{formatStatus(r.status)}</StatusBadge>},

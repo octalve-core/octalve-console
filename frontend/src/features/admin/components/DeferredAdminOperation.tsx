@@ -21,7 +21,7 @@ export function DeferredAdminOperation({view}:{view:View}){
     <div aria-hidden="true" className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-console-primary">
      <UsersRound className="h-6 w-6"/>
     </div>
-    <h2 className="mt-5 text-xl font-semibold text-console-ink sm:text-2xl">{item.heading}</h2>
+    <h2 className="mt-5 text-xl font-medium text-console-ink sm:text-2xl">{item.heading}</h2>
     <p className="mt-3 max-w-2xl text-sm leading-7 text-console-muted">
      No customer, referral or commission record will be shown or changed without a verified service response.
     </p>

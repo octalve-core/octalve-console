@@ -27,7 +27,7 @@ export function WorkspaceQuickActions({role}:{role:Role}){
   return <section className="overflow-hidden rounded-[24px] border border-[#E5EBF3] bg-white p-4 shadow-[0_2px_12px_rgba(0,25,62,.03)] sm:p-6">
     <div className="mb-5 flex items-center gap-2">
       <span className="text-base text-amber-500">✦</span>
-      <h2 className="text-base font-bold tracking-tight text-[#142A43]">Quick actions</h2>
+      <h2 className="text-base font-medium tracking-tight text-[#142A43]">Quick actions</h2>
     </div>
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
       {options[role].map(({href,label,icon:Icon,accent})=><Link key={href} href={href}
@@ -35,7 +35,7 @@ export function WorkspaceQuickActions({role}:{role:Role}){
         <span className={`flex h-14 w-14 items-center justify-center rounded-full transition group-hover:scale-105 ${accent}`}>
           <Icon className="h-6 w-6" aria-hidden="true"/>
         </span>
-        <span className="text-[13px] font-semibold leading-5 text-[#24364D]">{label}</span>
+        <span className="text-[13px] font-medium leading-5 text-[#24364D]">{label}</span>
       </Link>)}
     </div>
   </section>;

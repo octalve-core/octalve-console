@@ -18,9 +18,9 @@ export function HostingPlanCards({plans,selectedId,onSelect}:{
        <ShoppingCart className="h-5 w-5"/>
       </span>{plan.popular?<StatusBadge tone="info">Popular</StatusBadge>:null}
      </div>
-     <h2 className="mt-5 text-lg font-semibold text-console-ink">{plan.name}</h2>
+     <h2 className="mt-5 text-lg font-medium text-console-ink">{plan.name}</h2>
      <p className="mt-2 text-sm leading-6 text-console-muted">{plan.description}</p>
-     <p className="mt-5 break-words text-2xl font-bold text-console-ink">
+     <p className="mt-5 break-words text-2xl font-medium text-console-ink">
       {pricing?formatPlanAmount(pricing.price,plan.currency):"—"}
      </p>
      <p className="mt-1 text-xs text-console-muted">{pricing?.label}{pricing?.setupFee?" + setup fee":""}</p>

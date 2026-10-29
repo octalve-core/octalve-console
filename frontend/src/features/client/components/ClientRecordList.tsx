@@ -11,13 +11,13 @@ type DirectoryColumn = { key: string; label: string; render: (record: CloudRecor
 /** Each business record has its own header; never use invoice amounts for domains or tickets. */
 const columnsFor = (resource: ClientResourceKey): DirectoryColumn[] => {
   const name = (label: string): DirectoryColumn => ({
-    key: "name", label, render: r => <span className="font-semibold text-[#10233A]">{r.title}</span>,
+    key: "name", label, render: r => <span className="font-medium text-[#10233A]">{r.title}</span>,
   });
   const reference: DirectoryColumn = { key: "reference", label: "Reference",
-    render: r => <span className="font-semibold text-[#0064E0]">{r.reference || r.id}</span> };
+    render: r => <span className="font-medium text-[#0064E0]">{r.reference || r.id}</span> };
   const date = (label: string): DirectoryColumn => ({ key: "date", label, render: r => r.date || "—" });
   const amount: DirectoryColumn = { key: "amount", label: "Amount",
-    render: r => <span className="font-semibold text-[#10233A]">{r.amount || "—"}</span> };
+    render: r => <span className="font-medium text-[#10233A]">{r.amount || "—"}</span> };
   if (resource === "services") return [name("Service"), { key: "package", label: "Package", render: r => r.subtitle || "—" }, date("Next due")];
   if (resource === "domains") return [name("Domain name"), { key: "registration", label: "Registration", render: r => r.subtitle || "—" }, date("Expires")];
   if (resource === "invoices") return [reference, name("Invoice"), amount, date("Due / issued")];

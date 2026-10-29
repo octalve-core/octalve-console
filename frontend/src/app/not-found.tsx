@@ -11,7 +11,7 @@ export default function NotFound() {
               <ShieldAlert className="h-7 w-7 text-[#4FA3FF]" />
             </div>
 
-            <p className="mt-10 text-xs font-semibold uppercase tracking-[0.35em] text-[#AFC8EF]">
+            <p className="mt-10 text-xs font-medium uppercase tracking-[0.35em] text-[#AFC8EF]">
               Octalve Console
             </p>
 
@@ -44,7 +44,7 @@ export default function NotFound() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center rounded-2xl bg-[#0064E0] px-6 py-4 text-sm font-semibold text-white shadow-[0_16px_40px_rgba(0,100,224,0.24)] transition hover:bg-[#0056C2]"
+                className="inline-flex items-center justify-center rounded-2xl bg-[#0064E0] px-6 py-4 text-sm font-medium text-white shadow-[0_16px_40px_rgba(0,100,224,0.24)] transition hover:bg-[#0056C2]"
               >
                 <Home className="mr-2 h-4 w-4" />
                 Go to login
@@ -52,7 +52,7 @@ export default function NotFound() {
 
               <Link
                 href="/"
-                className="inline-flex items-center justify-center rounded-2xl border border-[#D8E5F7] bg-white px-6 py-4 text-sm font-semibold text-[#06142F] transition hover:border-[#0064E0]/40 hover:text-[#0064E0]"
+                className="inline-flex items-center justify-center rounded-2xl border border-[#D8E5F7] bg-white px-6 py-4 text-sm font-medium text-[#06142F] transition hover:border-[#0064E0]/40 hover:text-[#0064E0]"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to console home

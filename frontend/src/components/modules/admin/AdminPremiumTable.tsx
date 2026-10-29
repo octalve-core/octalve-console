@@ -26,12 +26,12 @@ const statusClasses={
  neutral:"border-slate-200 bg-slate-50 text-slate-600"
 };
 export function PremiumStatusPill({status}:{status:string}){
- return <span className={"inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold capitalize "+statusClasses[getPremiumStatusTone(status)]}>
+ return <span className={"inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium capitalize "+statusClasses[getPremiumStatusTone(status)]}>
   <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-current"/>
   <span className="truncate">{status}</span>
  </span>;
 }
-const linkStyle="inline-flex min-h-10 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-console-primary hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary";
+const linkStyle="inline-flex min-h-10 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-console-primary hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary";
 const dangerStyle="border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100";
 const defaultStyle="border-console-line bg-white text-console-ink hover:bg-slate-50";
 export function AdminPremiumTable<T>({
@@ -58,10 +58,10 @@ export function AdminPremiumTable<T>({
    {primaryAction?<Link href={primaryAction.href(row)} className={linkStyle}>{primaryAction.label}</Link>:null}
    {rowActions.length>0?(mobile?
     rowActions.map(action=>action.href?
-     <Link key={action.label} href={action.href(row)} className={"inline-flex min-h-10 items-center rounded-lg border px-3 text-xs font-semibold "+(action.tone==="danger"?dangerStyle:defaultStyle)}>
+     <Link key={action.label} href={action.href(row)} className={"inline-flex min-h-10 items-center rounded-lg border px-3 text-xs font-medium "+(action.tone==="danger"?dangerStyle:defaultStyle)}>
       {action.label}</Link>:
      <button key={action.label} type="button" onClick={()=>action.onClick?.(row)}
-      className={"min-h-10 rounded-lg border px-3 text-xs font-semibold "+(action.tone==="danger"?dangerStyle:defaultStyle)}>
+      className={"min-h-10 rounded-lg border px-3 text-xs font-medium "+(action.tone==="danger"?dangerStyle:defaultStyle)}>
       {action.label}</button>):
     <div className="relative">
      <button type="button" aria-label={"Actions for "+id} aria-expanded={openRowKey===id}
@@ -86,14 +86,14 @@ export function AdminPremiumTable<T>({
   {stats.length>0?<div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
    {stats.map(stat=><article key={stat.label} className="min-w-0 rounded-2xl border border-console-line bg-white p-5">
     <p className="text-xs font-medium text-console-muted">{stat.label}</p>
-    <p className="mt-2 break-words text-2xl font-semibold text-console-ink">{stat.value}</p>
+    <p className="mt-2 break-words text-2xl font-medium text-console-ink">{stat.value}</p>
     {stat.helper?<p className="mt-2 text-xs leading-5 text-console-muted">{stat.helper}</p>:null}
    </article>)}
   </div>:null}
   <div className="min-w-0 rounded-2xl border border-console-line bg-white shadow-sm">
    <div className="flex min-w-0 flex-col justify-between gap-4 border-b border-console-line p-4 lg:flex-row lg:items-center sm:p-5">
     <div className="min-w-0">
-     <h2 className="break-words text-lg font-semibold text-console-ink">{title}</h2>
+     <h2 className="break-words text-lg font-medium text-console-ink">{title}</h2>
      {description?<p className="mt-1 text-sm leading-6 text-console-muted">{description}</p>:null}
     </div>
     <label className="flex min-h-12 w-full min-w-0 items-center gap-3 rounded-xl border border-console-line px-3 focus-within:border-console-primary focus-within:ring-2 focus-within:ring-blue-100 lg:max-w-xs">
@@ -108,20 +108,20 @@ export function AdminPremiumTable<T>({
      {filters.map(filter=><button key={filter.value} type="button" aria-pressed={activeFilter===filter.value}
       onClick={()=>{setActiveFilter(filter.value);setOpenRowKey(null);}}
       className={activeFilter===filter.value?
-       "min-h-10 rounded-lg bg-console-primary px-3 text-xs font-semibold text-white":
-       "min-h-10 rounded-lg border border-console-line bg-white px-3 text-xs font-semibold text-console-muted hover:bg-blue-50"}>
+       "min-h-10 rounded-lg bg-console-primary px-3 text-xs font-medium text-white":
+       "min-h-10 rounded-lg border border-console-line bg-white px-3 text-xs font-medium text-console-muted hover:bg-blue-50"}>
       {filter.label}</button>)}
     </div>
     <p className="text-xs text-console-muted">{visibleRows.length} result{visibleRows.length===1?"":"s"}</p>
    </div>
    {visibleRows.length===0?<div className="p-8 text-center">
-    <p className="text-base font-semibold text-console-ink">{emptyTitle}</p>
+    <p className="text-base font-medium text-console-ink">{emptyTitle}</p>
     <p className="mt-2 text-sm text-console-muted">{emptyDescription}</p>
    </div>:<>
     <div className="hidden w-full overflow-x-auto lg:block">
      <table className="w-full min-w-[780px] border-collapse text-left text-sm">
       <caption className="sr-only">{title}</caption>
-      <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-console-muted">
+      <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-console-muted">
        <tr>{columns.map(column=><th key={column.label} scope="col" className={"px-4 py-3 "+(column.className??"")}>{column.label}</th>)}
         <th scope="col" className="px-4 py-3">Actions</th></tr>
       </thead>
@@ -139,8 +139,8 @@ export function AdminPremiumTable<T>({
       {columns.map((column,index)=><div key={column.label} className={index===0?
        "min-w-0 border-b border-console-line pb-3":
        "grid min-w-0 grid-cols-[minmax(0,7rem)_minmax(0,1fr)] items-start gap-3"}>
-       <p className="text-xs font-semibold text-console-muted">{column.label}</p>
-       <div className={index===0?"mt-2 break-words text-sm font-semibold text-console-ink":"min-w-0 break-words text-sm text-console-ink"}>
+       <p className="text-xs font-medium text-console-muted">{column.label}</p>
+       <div className={index===0?"mt-2 break-words text-sm font-medium text-console-ink":"min-w-0 break-words text-sm text-console-ink"}>
         {column.render(row)}</div>
       </div>)}
       {(primaryAction||rowActions.length>0)?<div className="border-t border-console-line pt-4">{rowActionsView(row,true)}</div>:null}

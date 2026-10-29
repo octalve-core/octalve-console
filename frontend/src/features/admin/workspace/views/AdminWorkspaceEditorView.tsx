@@ -19,7 +19,7 @@ export function AdminWorkspaceEditorView({workspace}:{workspace:AdminWorkspaceKe
     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-console-primary">
      <ServerCog aria-hidden="true" className="h-6 w-6"/>
     </div>
-    <h2 className="mt-5 text-xl font-semibold text-console-ink">This operation is not available yet</h2>
+    <h2 className="mt-5 text-xl font-medium text-console-ink">This operation is not available yet</h2>
     <p className="mt-3 text-sm leading-7 text-console-muted">
      Creating or editing {config.title.toLowerCase()} requires a verified server-side
      workflow. The Console will not display an unconnected Save button or report

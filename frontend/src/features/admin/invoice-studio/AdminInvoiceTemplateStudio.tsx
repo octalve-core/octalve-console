@@ -49,7 +49,7 @@ export function AdminInvoiceTemplateStudio(){
           <div className="flex items-start gap-3">
             <ShieldCheck aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-console-primary"/>
             <div>
-              <h2 className="text-lg font-semibold text-console-ink">Approved document templates</h2>
+              <h2 className="text-lg font-medium text-console-ink">Approved document templates</h2>
               <p className="mt-2 text-sm leading-6 text-console-muted">
                 Templates control visual presentation only. Invoice totals, status, customer ownership and payments are managed by the verified billing service.
                 Editing and new template activation are not available until document versioning and historical snapshots are approved.
@@ -68,13 +68,13 @@ export function AdminInvoiceTemplateStudio(){
                   <FileText className="h-6 w-6" aria-hidden="true"/>
                 </span>
                 <div>
-                  <h3 className="text-base font-semibold text-console-ink">{template.label}</h3>
+                  <h3 className="text-base font-medium text-console-ink">{template.label}</h3>
                   <p className="mt-1 text-xs text-console-muted">Version {template.version}{template.is_default?" · Current default":""}</p>
                 </div>
               </div>
               <p className="mt-4 text-sm text-console-muted">Approved layout. Existing issued documents remain under server-controlled billing.</p>
               {link?<a href={link} target="_blank" rel="noopener noreferrer"
-                className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-console-primary px-4 py-2 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary">
+                className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-console-primary px-4 py-2 text-sm font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary">
                 Open sample PDF <ExternalLink aria-hidden="true" className="h-4 w-4"/>
               </a>:<p className="mt-4 text-sm text-console-muted">This preview is not available.</p>}
               <p className="mt-3 text-xs text-console-muted">Example only. Not an issued invoice or proof of payment.</p>

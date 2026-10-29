@@ -18,7 +18,7 @@ export default function ClientSettingsPage(){
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel>
           <UserRound className="h-6 w-6 text-console-primary" aria-hidden="true"/>
-          <h2 className="mt-4 text-lg font-semibold text-console-ink">{m.account}</h2>
+          <h2 className="mt-4 text-lg font-medium text-console-ink">{m.account}</h2>
           <p className="mt-2 text-sm leading-6 text-console-muted">
             {m.accountIntro}
           </p>

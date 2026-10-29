@@ -43,7 +43,7 @@ export function AdminPaymentGatewayOverviewView(){
         <CreditCard className="h-6 w-6"/>
        </span>
        <div className="min-w-0">
-        <h2 className="text-lg font-semibold text-console-ink">Gateway record</h2>
+        <h2 className="text-lg font-medium text-console-ink">Gateway record</h2>
         <p className="mt-1 text-sm text-console-muted">Information reported by the Octalve Console API</p>
        </div>
       </div>
@@ -55,9 +55,9 @@ export function AdminPaymentGatewayOverviewView(){
        state.error?<p className="text-sm text-rose-700">{state.error}</p>:
        current?<dl className="grid gap-3 sm:grid-cols-2">
         <div><dt className="text-xs font-medium text-console-muted">Name</dt>
-         <dd className="mt-1 break-words text-sm font-semibold text-console-ink">{current.name}</dd></div>
+         <dd className="mt-1 break-words text-sm font-medium text-console-ink">{current.name}</dd></div>
         <div><dt className="text-xs font-medium text-console-muted">Recorded status</dt>
-         <dd className="mt-1 text-sm font-semibold text-console-ink">{current.status}</dd></div>
+         <dd className="mt-1 text-sm font-medium text-console-ink">{current.status}</dd></div>
        </dl>:
        <p className="text-sm text-console-muted">No Paystack entry was returned in the current gateway list{state.nextPage?". Additional gateway pages may exist.":"."}</p>}
      </div>
@@ -76,7 +76,7 @@ export function AdminPaymentGatewayOverviewView(){
     <Panel className="flex items-start gap-3">
      <ShieldCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-console-primary"/>
      <div>
-      <h3 className="text-sm font-semibold text-console-ink">Credentials stay protected</h3>
+      <h3 className="text-sm font-medium text-console-ink">Credentials stay protected</h3>
       <p className="mt-2 text-sm leading-6 text-console-muted">
        No public or secret keys, webhook secrets, or test card details are displayed here.
        Changes must use verified administrator workflows, not an unconnected Save form.

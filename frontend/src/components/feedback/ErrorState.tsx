@@ -26,7 +26,7 @@ export function ErrorState({
       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-amber-700 ring-1 ring-slate-200">
         <AlertCircle className="h-5 w-5" aria-hidden="true" />
       </div>
-      <h3 className="mt-4 text-base font-semibold text-console-ink">{title}</h3>
+      <h3 className="mt-4 text-base font-medium text-console-ink">{title}</h3>
       <p className="mt-2 max-w-md text-sm leading-6 text-console-muted">{description}</p>
       {action ? <div className="mt-5 flex flex-wrap justify-center gap-2">{action}</div> : null}
     </section>

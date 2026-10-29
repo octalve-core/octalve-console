@@ -25,7 +25,7 @@ export function PageHeader({
     >
       <div className="max-w-3xl">
         {eyebrow ? (
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#0064E0]">
+          <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-[#0064E0]">
             {eyebrow}
           </p>
         ) : null}

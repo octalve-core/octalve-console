@@ -87,7 +87,7 @@ export function AdminOverviewView() {
         <AdminOverviewMetrics counts={counts} loading={isLoading}/>
         <WorkspaceGrid variant="overviewPair">
           <Panel>
-            <h2 className="text-lg font-semibold text-console-ink">Invoice management</h2>
+            <h2 className="text-lg font-medium text-console-ink">Invoice management</h2>
             <p className="mt-2 text-sm leading-6 text-console-muted">
               View issued invoices and their server-confirmed statuses in the billing centre.
             </p>
@@ -96,7 +96,7 @@ export function AdminOverviewView() {
             </ActionLink>
           </Panel>
           <Panel>
-            <h2 className="text-lg font-semibold text-console-ink">Provisioning queue</h2>
+            <h2 className="text-lg font-medium text-console-ink">Provisioning queue</h2>
             <p className="mt-2 text-sm leading-6 text-console-muted">
               Review actual provisioning tasks and operational states before taking any action.
             </p>

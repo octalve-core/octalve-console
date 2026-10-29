@@ -14,7 +14,7 @@ export function DomainSearchForm({domain,onChange,busy,onSubmit}:{
     className="block h-12 min-h-12 w-full min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-base font-medium text-slate-950 placeholder:font-normal placeholder:text-slate-400 focus:outline-none"/>
   </div>
   <button type="submit" disabled={busy}
-   className="inline-flex h-14 w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-[#0064E0] px-8 text-sm font-bold text-white shadow-sm transition hover:bg-[#0052B8] disabled:cursor-not-allowed disabled:opacity-60">
+   className="inline-flex h-14 w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-[#0064E0] px-8 text-sm font-medium text-white shadow-sm transition hover:bg-[#0052B8] disabled:cursor-not-allowed disabled:opacity-60">
    <Search className="h-4 w-4"/>{busy?"Checking domain…":"Search domain"}<ArrowRight className="h-4 w-4"/>
   </button>
  </form>;

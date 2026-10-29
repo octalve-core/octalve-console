@@ -9,7 +9,7 @@ export function WalletBalanceCard({balance,status}:{
   <div className="flex min-w-0 items-start justify-between gap-3">
    <div className="min-w-0">
     <p className="text-sm font-medium text-console-muted">Available balance</p>
-    <p aria-live="polite" className="mt-3 break-words text-3xl font-semibold text-console-ink">{label}</p>
+    <p aria-live="polite" className="mt-3 break-words text-3xl font-medium text-console-ink">{label}</p>
     <p className="mt-3 text-sm text-console-muted">Verified wallet credit</p>
    </div>
    <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-console-primary">

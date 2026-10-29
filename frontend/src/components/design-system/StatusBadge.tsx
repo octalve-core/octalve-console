@@ -10,6 +10,6 @@ const tones:Record<StatusTone,string>={
 };
 export function StatusBadge({tone="neutral",children,className,...props}:
  HTMLAttributes<HTMLSpanElement>&{tone?:StatusTone;children:ReactNode}){
- return <span {...props} className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
+ return <span {...props} className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
   tones[tone],className)}>{children}</span>;
 }

@@ -14,21 +14,21 @@ export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,over
  <header className="flex shrink-0 items-center justify-between gap-3 border-b border-console-line px-5 py-4 sm:px-6">
   <div className="flex min-w-0 items-center gap-3"><ProviderLogo item={item}/><div className="min-w-0">
    <p className="text-xs text-console-muted">{item.category}</p>
-   <h2 id="integration-sheet-title" className="truncate text-lg font-semibold">{item.name}</h2>
+   <h2 id="integration-sheet-title" className="truncate text-lg font-medium">{item.name}</h2>
   </div></div>
   <button type="button" aria-label="Close integration details" onClick={()=>element.current?.close()}
    className="rounded-lg border border-console-line p-2 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary"><X className="h-5 w-5"/></button>
  </header>
  <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
   <div className="rounded-xl bg-blue-50 p-4">
-   <p className="text-sm font-semibold">Prepare your connection</p>
+   <p className="text-sm font-medium">Prepare your connection</p>
    <p className="mt-1 text-xs leading-5 text-slate-700">Review what you need and follow the official setup guide. Secure credential entry is not yet available on this screen.</p>
   </div>
   {overviewStatus!=="ready"?<p role="status" className="rounded-xl border border-console-line bg-slate-50 p-3 text-xs text-console-muted">
    {overviewStatus==="loading"?"Checking saved connection records…":"Connection status is temporarily unavailable. This does not mean a provider is disconnected."}
   </p>:null}
   {drafts.length?<section aria-label="Saved connection drafts" className="space-y-3">
-   <h3 className="text-sm font-semibold">Your saved drafts</h3>
+   <h3 className="text-sm font-medium">Your saved drafts</h3>
    {drafts.map(c=><div key={c.id} className="rounded-xl border border-console-line bg-slate-50 p-3">
     <p className="text-sm font-medium">{c.label}</p>
     <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} configuration · Credential version {c.credential_version} · {c.state==="draft"?"Unverified draft":"Revoked"}</p>
@@ -40,7 +40,7 @@ export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,over
  </div>
  <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-console-line px-5 py-4 sm:px-6">
   <span className="text-xs text-console-muted">Supplier execution disabled</span>
-  <button type="button" onClick={()=>element.current?.close()} className="min-h-11 rounded-xl bg-console-primary px-5 py-2 text-sm font-semibold text-white">Done</button>
+  <button type="button" onClick={()=>element.current?.close()} className="min-h-11 rounded-xl bg-console-primary px-5 py-2 text-sm font-medium text-white">Done</button>
  </footer>
  </div></dialog>;
 }

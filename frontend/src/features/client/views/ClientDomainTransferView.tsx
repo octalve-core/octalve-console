@@ -44,10 +44,10 @@ export function ClientDomainTransferView(){
     <DashboardPage eyebrow="Domains" title="Transfer Domain to Us"
       description="Check the domain extension and review the steps before requesting a transfer.">
       <div className="space-y-5">
-        <Link href="/client/domains" className="inline-flex items-center gap-2 text-sm font-semibold text-console-primary">
+        <Link href="/client/domains" className="inline-flex items-center gap-2 text-sm font-medium text-console-primary">
           <ArrowLeft className="h-4 w-4" aria-hidden="true"/>My Domains</Link>
         <Panel>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-console-ink">
+          <h2 className="flex items-center gap-2 text-lg font-medium text-console-ink">
             <ArrowRightLeft className="h-5 w-5 text-console-primary" aria-hidden="true"/>Domain transfer preflight</h2>
           <p className="mt-2 text-sm text-console-muted">
             Enter your domain name. We won't request your private authorization code
@@ -63,18 +63,18 @@ export function ClientDomainTransferView(){
                 className="h-12 w-full min-w-0 rounded-xl border border-console-line bg-white px-4 text-sm text-console-ink focus:border-console-primary focus:outline-none focus:ring-2 focus:ring-console-primary"/>
             </label>
             <button type="submit" disabled={busy}
-              className="min-h-12 self-end rounded-xl bg-console-primary px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
+              className="min-h-12 self-end rounded-xl bg-console-primary px-5 py-3 text-sm font-medium text-white disabled:opacity-50">
               {busy?"Checking…":"Check transfer"}
             </button>
           </form>
           {error?<p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>:null}
           {status?<div role="status" className="mt-5 rounded-xl border border-console-line bg-slate-50 p-5">
-            <h3 className="break-all text-base font-semibold text-console-ink">{status.domain}</h3>
+            <h3 className="break-all text-base font-medium text-console-ink">{status.domain}</h3>
             <p className="mt-2 text-sm text-console-muted">
               {status.supported?"Your domain extension has a published indicative transfer rate.":
                 "This extension has no published transfer rate currently."}
             </p>
-            {status.indicative_price&&status.currency?<p className="mt-2 text-sm font-semibold text-console-ink">
+            {status.indicative_price&&status.currency?<p className="mt-2 text-sm font-medium text-console-ink">
               Indicative transfer price: {status.currency} {status.indicative_price}
             </p>:null}
             <p className="mt-3 text-sm text-console-muted">
@@ -87,7 +87,7 @@ export function ClientDomainTransferView(){
           </div>:null}
         </Panel>
         <Panel>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-console-ink">
+          <h2 className="flex items-center gap-2 text-lg font-medium text-console-ink">
             <ShieldCheck className="h-5 w-5 text-console-primary" aria-hidden="true"/>Before a domain transfer</h2>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-6 text-console-muted">
             <li>Confirm you own the domain and can receive registrar approval messages.</li>

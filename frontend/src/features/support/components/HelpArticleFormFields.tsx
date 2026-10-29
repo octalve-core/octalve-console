@@ -27,7 +27,7 @@ export function HelpArticleFormFields({form,saving,loading,onChange}:{
    <MarkdownEditor value={form.body_markdown} onChange={value=>onChange({body_markdown:value})}/>
   </Panel>
   <Panel className="h-fit space-y-5 xl:sticky xl:top-24">
-   <h3 className="flex items-center gap-2 text-base font-semibold text-console-ink">
+   <h3 className="flex items-center gap-2 text-base font-medium text-console-ink">
     <ShieldCheck aria-hidden="true" className="h-5 w-5 text-console-primary"/>Publication
    </h3>
    <p className="text-sm leading-6 text-console-muted">Drafts remain private. Only approved published articles appear in the customer help centre.</p>

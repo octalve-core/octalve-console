@@ -5,7 +5,7 @@ import {ActionLink} from "@/components/design-system/ActionLink";
 export type SettingsManagementLink = Readonly<{label:string;href:string;description:string}>;
 export function AdminSettingsActions({links}:{links:readonly SettingsManagementLink[]}){
  return <Panel className="h-fit">
-  <h3 className="flex items-center gap-2 text-lg font-semibold text-console-ink">
+  <h3 className="flex items-center gap-2 text-lg font-medium text-console-ink">
    <Settings2 aria-hidden="true" className="h-5 w-5 text-console-primary"/>
    {links.length?"Related management":"Configuration access"}
   </h3>

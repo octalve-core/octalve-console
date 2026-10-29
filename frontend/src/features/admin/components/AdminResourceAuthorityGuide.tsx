@@ -11,7 +11,7 @@ export function AdminResourceAuthorityGuide({resource}:{resource:AdminResourceKe
   <div className="flex items-start gap-3">
    <ShieldCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-console-primary"/>
    <div className="min-w-0">
-    <h2 className="text-sm font-semibold text-console-ink">Review available records</h2>
+    <h2 className="text-sm font-medium text-console-ink">Review available records</h2>
     <p className="mt-2 text-sm leading-6 text-console-muted">{policy.reason}</p>
     <div className="mt-4 flex flex-wrap gap-2">
      {resource==="plans"||resource==="products"?<ActionLink href="/admin/catalog/workbench" size="sm" variant="outline">Manage in Catalogue</ActionLink>:null}

@@ -12,7 +12,7 @@ function inline(text:string):ReactNode[]{
       try{const url=new URL(match[3]);if(["https:","http:"].includes(url.protocol))
         output.push(<a key={key++} href={url.toString()} rel="noopener noreferrer" target="_blank" className="font-medium text-[#0064E0] underline underline-offset-4">{match[2]}</a>);
       else output.push(match[2]);}catch{output.push(match[2]);}
-    }else if(match[4])output.push(<strong key={key++} className="font-semibold text-slate-900">{match[4]}</strong>);
+    }else if(match[4])output.push(<strong key={key++} className="font-medium text-slate-900">{match[4]}</strong>);
     else if(match[5])output.push(<em key={key++}>{match[5]}</em>);
     else if(match[6])output.push(<code key={key++} className="rounded bg-slate-100 px-1 py-0.5 text-[.9em]">{match[6]}</code>);
     cursor=match.index+match[0].length;

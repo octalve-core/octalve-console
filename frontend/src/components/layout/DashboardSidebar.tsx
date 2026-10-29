@@ -31,7 +31,7 @@ export function DashboardSidebar({role,pathname,onClose,onLogout,loggingOut}:{
     <span><strong className="block text-sm text-white">{m.help}</strong>{m.assistance}</span>
    </Link>
    <button type="button" onClick={onLogout} disabled={loggingOut}
-    className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-semibold text-slate-300 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60">
+    className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-medium text-slate-300 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60">
     <LogOut aria-hidden="true" className="h-4 w-4"/>{loggingOut?m.loggingOut:m.logout}
    </button>
   </div>

@@ -26,7 +26,7 @@ export function AdminGenericDirectory({label,records,emptyTitle,emptyDescription
  const totalPages=Math.max(1,Math.ceil(matches.length/PAGE_SIZE)),current=Math.min(page,totalPages);
  const rows=matches.slice((current-1)*PAGE_SIZE,current*PAGE_SIZE);
  const columns:ResponsiveColumn<AdminDirectoryRecord>[]=[
-  {key:"record",heading:"Record",cell:item=><span className="break-words font-semibold text-console-ink">{item.title}</span>},
+  {key:"record",heading:"Record",cell:item=><span className="break-words font-medium text-console-ink">{item.title}</span>},
   {key:"details",heading:"Details",cell:item=>item.subtitle||"—"},
   {key:"reference",heading:"Reference",cell:item=><span className="break-words text-console-primary">{item.meta||item.id}</span>},
   {key:"amount",heading:"Amount",cell:item=>item.amount||"—"},
