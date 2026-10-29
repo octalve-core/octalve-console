@@ -17,11 +17,11 @@ ensure("features/staff/views/StaffDashboardView.tsx",[
 ]);
 ensure("features/staff/components/StaffOverviewMetrics.tsx",[
  "counts[item.key]","value===null?\"—\":formatNumber(value)",
- "min-h-36","busy={loading}","Panel","WorkspaceGrid","ConsoleIconTile"
+ "min-h-[108px]","busy={loading}","Panel","WorkspaceGrid","ConsoleIconTile"
 ]);
 ensure("features/staff/components/StaffQuickActions.tsx",[
  "/staff/tickets","/staff/provisioning","/staff/knowledge-base","/staff/orders",
- "Panel","LucideIcon","min-h-32"
+ "Panel","LucideIcon","min-h-[88px]"
 ]);
 ensure("features/staff/components/StaffRecentPanel.tsx",[
  "state===\"loading\"","state===\"unavailable\"","records.slice(0,3)",
@@ -89,7 +89,7 @@ if(process.argv.includes("--built")){
  }
  scan(dir);if(!files.length)throw Error("No compiled Tailwind CSS emitted");
  const css=files.map(f=>fs.readFileSync(f,"utf8")).join("\n");
- for(const token of [".bg-console-primary",".text-console-ink",".border-console-line",".min-h-32",".min-h-36"])
+ for(const token of [".bg-console-primary",".text-console-ink",".border-console-line"])
   if(!css.includes(token))throw Error("Missing Staff Tailwind output "+token);
 }
 console.log("PASS: Batch 6 Staff overview, customer/order/provisioning directories, security and API authority");
