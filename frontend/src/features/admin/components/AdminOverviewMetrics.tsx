@@ -16,14 +16,14 @@ const items:readonly {key:Key;label:string;description:string;icon:LucideIcon;to
 export function AdminOverviewMetrics({counts,loading}:{counts:AdminOverviewCounts;loading:boolean}){
  return <WorkspaceGrid variant="adminMetrics" ariaLabel="Admin account summary" busy={loading}>
   {items.map(item=>{const value=counts[item.key];return <Panel key={item.key}
-   className="flex min-h-36 flex-col justify-between">
+   className="flex min-h-[108px] flex-col justify-between">
    <div className="flex min-w-0 items-start justify-between gap-2">
-    <div className="min-w-0"><h2 className="text-sm font-medium text-console-muted">{item.label}</h2>
-     <p className="mt-3 break-words text-2xl font-bold text-console-ink">{loading?"…":value===null?"—":formatNumber(value)}</p>
+    <div className="min-w-0"><h2 className="text-xs font-medium text-console-muted">{item.label}</h2>
+     <p className="mt-1 break-words text-xl font-medium text-console-ink">{loading?"…":value===null?"—":formatNumber(value)}</p>
     </div>
-    <ConsoleIconTile icon={item.icon} tone={item.tone}/>
+    <ConsoleIconTile icon={item.icon} tone={item.tone} size="sm"/>
    </div>
-   <p className="mt-4 text-xs leading-5 text-console-muted">{item.description}</p>
+   <p className="mt-2 text-xs leading-5 text-console-muted">{item.description}</p>
   </Panel>;})}
  </WorkspaceGrid>;
 }

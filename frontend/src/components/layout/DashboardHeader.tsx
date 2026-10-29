@@ -14,8 +14,8 @@ export function DashboardHeader({role,onMenuClick,onLogout,loggingOut}:{
  const [searchOpen,setSearchOpen]=useState(false);
  const {locale}=useLocale(),m=messages(locale);
  const support=role==="admin"?"/admin/support":role==="staff"?"/staff/tickets":"/client/support";
- return <header className="sticky top-0 z-30 border-b border-console-line bg-white">
-  <div className="flex min-h-16 items-center gap-2 px-3 sm:gap-3 sm:px-6">
+ return <header className="sticky top-0 z-30 h-16 min-h-16 shrink-0 border-b border-console-line bg-white">
+  <div className="flex h-16 items-center gap-2 px-3 sm:gap-3 sm:px-6">
    <button type="button" onClick={onMenuClick} aria-label={m.menu}
     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-console-line text-console-ink focus-visible:ring-2 focus-visible:ring-console-primary lg:hidden">
     <Menu aria-hidden="true" className="h-5 w-5"/>

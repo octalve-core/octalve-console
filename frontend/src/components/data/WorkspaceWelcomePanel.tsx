@@ -1,26 +1,17 @@
-import {Cloud, ShieldCheck, Headphones, type LucideIcon} from "lucide-react";
-type Audience = "client" | "staff" | "admin";
-type Content = {eyebrow:string; description:string; icon:LucideIcon};
-const copy:Record<Audience,Content> = {
- client: {eyebrow:"Your Octalve Cloud Console",description:"Manage your services, domains, invoices, wallet and support in one place.",icon:Cloud},
- admin: {eyebrow:"Your Octalve Cloud administration",description:"Keep track of customers, hosting services, invoices, domains and provisioning.",icon:ShieldCheck},
- staff: {eyebrow:"Your Octalve Cloud Console",description:"Follow customer requests, orders, support cases and provisioning.",icon:Headphones},
+import type {ReactNode} from "react";
+type Audience="client"|"staff"|"admin";
+type Content={eyebrow:string;description:string};
+const copy:Record<Audience,Content>={
+ client:{eyebrow:"Your Octalve Cloud Console",description:"Manage your services, domains, invoices, wallet and support in one place."},
+ admin:{eyebrow:"Your Octalve Cloud administration",description:"Keep track of customers, hosting services, invoices, domains and provisioning."},
+ staff:{eyebrow:"Your Octalve Cloud Console",description:"Follow customer requests, orders, support cases and provisioning."},
 };
-/** Deliberately light/legible independent of legacy CSS background rules. */
+/** Invoice-derived compact heading; leaves all account and API authority unchanged. */
 export function WorkspaceWelcomePanel({name,audience}:{name:string;audience:Audience}){
- const data=copy[audience],Icon=data.icon;
- return <section aria-label="Console welcome" className="relative overflow-hidden rounded-2xl border border-slate-200 border-t-4 border-t-blue-600 bg-white px-6 py-6 text-slate-950 shadow-sm sm:px-8 sm:py-8">
-  <div className="relative flex items-start justify-between gap-5">
-   <div className="min-w-0 max-w-3xl">
-    <p className="text-xs font-bold uppercase tracking-widest text-blue-700">{data.eyebrow}</p>
-    <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-      Welcome {name} <span role="img" aria-label="hello">👋</span>
-    </h2>
-    <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">{data.description}</p>
-   </div>
-   <span aria-hidden="true" className="hidden shrink-0 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-blue-700 sm:flex">
-     <Icon className="h-7 w-7"/>
-   </span>
-  </div>
- </section>;
+ const data=copy[audience];
+ return <header aria-label="Console welcome" className="min-w-0 text-console-ink">
+  <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-console-primary">{data.eyebrow}</p>
+  <h1 className="mt-1 text-xl font-medium leading-7 tracking-tight text-console-ink sm:text-2xl">Welcome {name} <span role="img" aria-label="hello">👋</span></h1>
+  <p className="mt-1 max-w-2xl text-[13px] leading-5 text-console-muted">{data.description}</p>
+ </header>;
 }

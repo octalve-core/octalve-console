@@ -20,13 +20,13 @@ export function DashboardSidebar({role,pathname,onClose,onLogout,loggingOut}:{
     <X aria-hidden="true" className="h-5 w-5"/>
    </button>
   </div>
-  <nav aria-label={role+" "+m.nav} className="min-h-0 flex-1 space-y-6 overflow-y-auto px-3 py-5">
+  <nav aria-label={role+" "+m.nav} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3">
    {getDashboardNavGroups(role).map(group=><ConsoleNavigationGroup key={group.title} group={group}
     role={role} pathname={pathname} onNavigate={onClose}/>)}
   </nav>
-  <div className="shrink-0 border-t border-white/10 px-3 py-4">
+  <div className="shrink-0 border-t border-white/10 px-3 py-3">
    <Link href={support} onClick={onClose}
-    className="flex min-h-14 items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white">
+    className="flex min-h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-2 text-xs text-slate-300 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white">
     <span className="rounded-xl bg-white/10 p-2 text-white"><LifeBuoy aria-hidden="true" className="h-5 w-5"/></span>
     <span><strong className="block text-sm text-white">{m.help}</strong>{m.assistance}</span>
    </Link>

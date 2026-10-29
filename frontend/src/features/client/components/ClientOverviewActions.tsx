@@ -18,15 +18,15 @@ const shortcuts:readonly Shortcut[]=[
 export function ClientOverviewActions(){
  const {locale}=useLocale(),m=messages(locale);
  return <Panel>
-  <div className="mb-5 flex items-center gap-2">
+  <div className="mb-3 flex items-center gap-2">
    <Sparkles aria-hidden="true" className="h-5 w-5 text-console-primary"/>
    <SectionHeading title={m.quickActions}/>
   </div>
   <WorkspaceGrid variant="quickActions">
    {shortcuts.map(({href,label,icon:Icon,tone})=><Link key={href} href={href}
-    className="group flex min-h-32 min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-console-line bg-slate-50/70 px-3 py-5 text-center transition-colors hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary">
-    <ConsoleIconTile icon={Icon} tone={tone} size="lg"/>
-    <span className="text-sm font-semibold leading-5 text-console-ink">{translateNavigationLabel(label,locale)}</span>
+    className="group flex min-h-[88px] min-w-0 flex-col items-center justify-center gap-2 rounded-xl px-2 py-3 text-center transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary">
+    <ConsoleIconTile icon={Icon} tone={tone} size="lg" className="rounded-full"/>
+    <span className="text-[13px] font-medium leading-5 text-console-ink">{translateNavigationLabel(label,locale)}</span>
    </Link>)}
   </WorkspaceGrid>
  </Panel>;
