@@ -8,6 +8,9 @@ This is a **stacked draft**, not a replacement for UI-02's acceptance or the ful
 1. `AdminCustomerListView.get_queryset` previously joined `services` and `invoices` in a combined aggregation. For a user with 2 services and 2 invoices, each invoice can be counted twice. Use a distinct services count and separate correlated `Invoice` sum subqueries for total/unpaid sums, with decimal zero defaults. No ledger rows, invoice states, payment gateways or migrations are modified.
 2. `CustomerListSerializer.get_wallet_balance` previously executed `Wallet.objects.filter(user=obj).first()` for every customer. The list queryset now uses `select_related("wallet")`, and the serializer consumes that cached OneToOne relation. Missing wallet continues to show zero.
 3. `AdminResourceDetailView` previously looked up customer IDs in the loaded list, so a paginated response could falsely report a customer missing. Customer details now use the Django `GET /api/auth/customers/<id>/` route with the exact URL-encoded ID and a request-sequence guard to reject stale responses. Other resource detail endpoints are not assumed to exist.
+4. **Security release blocker:** DRF `IsAdminUser` authorizes any `is_staff=True` user, including Octalve Staff. The global Admin Customer list/detail were not assignment-scoped and exposed financial data and mutation methods. Both endpoints now require `is_staff`, `is_superuser` and Octalve `role=admin`. Operational Staff can no longer read or change global customer records.
+5. The Staff Customers UI formerly called `adminApi.customers()` without assignment scope. That unsafe call is removed. Until a reviewed staff-assignment model and least-privilege serializer are available, the page truthfully reports customer-directory access unavailable and directs staff to their authorized support tickets. Do not invent customer assignments from support tickets.
+
 
 Official guidance reviewed:
 - Django ORM multiple annotations: https://docs.djangoproject.com/en/5.2/topics/db/aggregation/
@@ -21,11 +24,14 @@ Official guidance reviewed:
 - Serializer wallet query count for multiple customers
 - Real DRF anonymous/client denial and authorized Admin filtering/search, no password exposure
 - Verified server-side customer detail route, including unauthorized-client denial
+- Operational Staff denied global customer list/detail, POST, PATCH and DELETE; no record changes
 
 The targeted module is included explicitly in `.github/workflows/cloud-ci.yml`. Its passing status must be read from the **exact latest commit**, not presumed from PR #98's green workflow.
 
 ## Not yet qualified / future UI-03 work
 
+- Establish an actual Staff-assigned customer authority and minimal read serializer; Staff Customers is intentionally unavailable until qualified
+- Review remaining Admin endpoints that use DRF `IsAdminUser` for similar role leakage
 - Exact typed request/response mapping for other customer, order, domain, invoice, support and staff endpoints
 - End-to-end server pagination and server-wide search/filter/sort; verify any pagination configuration first
 - Stale-request cancellation and principal-scoped data cache/refresh behavior
