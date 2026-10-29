@@ -211,3 +211,55 @@ class AdminCustomerDirectoryContractTests(APITestCase):
         self.assertEqual(Decimal(str(data["wallet_balance"])), Decimal("1520.25"))
         self.assertEqual(data["wallet_currency"], "NGN")
         self.assertEqual(late.status, "unpaid", "Viewing an overdue invoice must not mutate it.")
+
+    def test_server_pagination_and_search_are_whole_collection(self):
+        User = get_user_model()
+        for index in range(14):
+            User.objects.create_user(
+                email=f"page-{index:02d}@example.invalid",
+                username=f"directory_page_{index:02d}",
+                full_name=f"Directory Page {index:02d}",
+                password=None,
+            )
+        self.client.force_authenticate(user=self.admin)
+        page_one = self.client.get("/api/auth/customers/?page_size=5&page=1")
+        self.assertEqual(page_one.status_code, 200, page_one.data)
+        self.assertEqual(page_one.data["count"], 16)
+        self.assertEqual(len(page_one.data["results"]), 5)
+        self.assertIsNotNone(page_one.data["next"])
+        self.assertIsNone(page_one.data["previous"])
+        page_two = self.client.get("/api/auth/customers/?page_size=5&page=2")
+        self.assertEqual(page_two.status_code, 200, page_two.data)
+        self.assertEqual(len(page_two.data["results"]), 5)
+        self.assertTrue(page_two.data["previous"])
+        self.assertFalse(
+            set(row["id"] for row in page_one.data["results"])
+            & set(row["id"] for row in page_two.data["results"])
+        )
+        found = self.client.get("/api/auth/customers/?search=page-13")
+        self.assertEqual(found.data["count"], 1)
+        self.assertEqual(found.data["results"][0]["email"], "page-13@example.invalid")
+        self.assertLessEqual(
+            len(self.client.get("/api/auth/customers/?page_size=500").data["results"]), 50
+        )
+
+    def test_validated_customer_status_dates_and_sort(self):
+        self.second.is_active = False
+        self.second.save(update_fields=["is_active"])
+        self.client.force_authenticate(user=self.admin)
+        inactive = self.client.get("/api/auth/customers/?status=inactive")
+        self.assertEqual(inactive.status_code, 200, inactive.data)
+        self.assertEqual(inactive.data["count"], 1)
+        self.assertEqual(inactive.data["results"][0]["id"], self.second.pk)
+        active = self.client.get("/api/auth/customers/?status=active")
+        self.assertEqual(active.data["count"], 1)
+        self.assertEqual(active.data["results"][0]["id"], self.first.pk)
+        for query in ("status=unreviewed", "date_from=not-a-date",
+                      "date_from=2026-10-30&date_to=2026-10-29"):
+            rejected = self.client.get("/api/auth/customers/?" + query)
+            self.assertEqual(rejected.status_code, 400, rejected.data)
+        ordered = self.client.get("/api/auth/customers/?ordering=full_name")
+        self.assertEqual(
+            [r["full_name"] for r in ordered.data["results"]],
+            ["Directory First Customer", "Directory Second Customer"],
+        )
