@@ -44,23 +44,23 @@ export function ClientPromoCarousel({ slides }: { slides: PromoSlide[] }) {
 
   return (
     <section
-      className="dashboard-promo-card"
+      className="relative min-w-0 overflow-hidden rounded-2xl bg-console-primary bg-cover bg-center text-white shadow-sm"
       style={{
         backgroundImage: `linear-gradient(90deg, rgba(0,100,224,0.94), rgba(61,111,234,0.86)), url(${active.image})`,
       }}
     >
-      <div className="dashboard-promo-copy">
-        <span className="dashboard-promo-eyebrow">{active.eyebrow}</span>
-        <h2 className="dashboard-promo-title">{active.title}</h2>
-        <p className="dashboard-promo-description">{active.description}</p>
+      <div className="max-w-3xl p-4 sm:p-6">
+        <span className="text-[11px] font-medium uppercase tracking-widest text-white/80">{active.eyebrow}</span>
+        <h2 className="mt-2 text-xl font-medium leading-7 sm:text-2xl">{active.title}</h2>
+        <p className="mt-2 max-w-xl text-[13px] leading-5 text-white/90">{active.description}</p>
 
-        <div className="dashboard-promo-actions">
-          <Link href={active.href} className="dashboard-promo-link">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <Link href={active.href} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-white px-3 py-2 text-[13px] font-medium text-console-primary hover:bg-slate-50">
             {active.ctaLabel}
             <ExternalLink size={16} />
           </Link>
 
-          <div className="dashboard-promo-nav">
+          <div className="flex items-center gap-2 [&_button]:inline-flex [&_button]:h-9 [&_button]:w-9 [&_button]:items-center [&_button]:justify-center [&_button]:rounded-lg [&_button]:border [&_button]:border-white/40 [&_button]:hover:bg-white/20">
             <button
               type="button"
               onClick={goToPrevious}
@@ -74,13 +74,14 @@ export function ClientPromoCarousel({ slides }: { slides: PromoSlide[] }) {
           </div>
         </div>
 
-        <div className="dashboard-promo-dots">
+        <div className="mt-4 flex items-center gap-2 [&_button]:h-2 [&_button]:w-2 [&_button]:rounded-full [&_button]:bg-white/50">
           {slides.map((slide, index) => (
             <button
               key={slide.id}
               type="button"
               aria-label={`Go to banner ${index + 1}`}
-              className={index === activeIndex ? "active" : ""}
+              aria-current={index === activeIndex ? "true" : undefined}
+              className={index === activeIndex ? "!w-5 !bg-white" : ""}
               onClick={() => setActiveIndex(index)}
             />
           ))}

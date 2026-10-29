@@ -108,12 +108,12 @@ export function RichTextEditor({
   }
 
   return (
-    <div className="rich-editor">
-      <div className="rich-editor-top">
-        <span className="form-label">{label}</span>
+    <div className="min-w-0 overflow-hidden rounded-xl border border-console-line bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-console-line px-3 py-2">
+        <span className="text-[13px] font-medium text-console-ink">{label}</span>
         <button
           type="button"
-          className={preview ? "rich-tool active" : "rich-tool"}
+          className={preview ? "inline-flex h-9 items-center gap-1 rounded-lg bg-blue-50 px-3 text-[13px] font-medium text-console-primary" : "inline-flex h-9 items-center gap-1 rounded-lg border border-console-line px-3 text-[13px] font-medium text-console-muted hover:bg-slate-50"}
           onClick={() => setPreview((current) => !current)}
         >
           <Eye size={15} />
@@ -121,14 +121,14 @@ export function RichTextEditor({
         </button>
       </div>
 
-      <div className="rich-toolbar">
+      <div className="flex flex-wrap gap-1 border-b border-console-line px-3 py-2">
         {toolbar.map((item) => {
           const Icon = item.icon;
           return (
             <button
               key={item.action}
               type="button"
-              className="rich-tool"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-console-muted hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-console-primary"
               onClick={() => insert(item.action)}
               title={item.label}
             >
@@ -140,13 +140,13 @@ export function RichTextEditor({
 
       {preview ? (
         <div
-          className="rich-preview"
+          className="min-h-40 break-words p-4 text-[13px] leading-6 text-console-ink [&_p]:mb-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5"
           dangerouslySetInnerHTML={{ __html: value || "<p>Nothing to preview yet.</p>" }}
         />
       ) : (
         <textarea
           ref={textareaRef}
-          className="textarea rich-textarea"
+          className="min-h-48 w-full resize-y border-0 bg-white p-4 text-[13px] leading-6 text-console-ink outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-console-primary"
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder="Write article content. Use the toolbar for bold, italic, underline, lists, links, quotes and alignment."

@@ -371,7 +371,7 @@ export function AdminToolPage({ tool }: { tool: ToolKey }) {
         </Card>
 
         <Card padded>
-          <div className="section-heading">
+          <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-console-primary">Service status</p>
               <h2 className="mt-1 text-lg font-medium text-console-ink">Connection required</h2>
