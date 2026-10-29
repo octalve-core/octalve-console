@@ -53,7 +53,7 @@ export function CatalogAuthorityWorkbench() {
   const [description,setDescription]=useState("");
   const [currency,setCurrency]=useState("NGN");
   const [popular,setPopular]=useState(false);
-  const [features,setFeatures]=useState("Storage: 1 GB\nBandwidth: 10 GB");
+  const [features,setFeatures]=useState("");
   const [cycles,setCycles]=useState<Cycle[]>([blankCycle()]);
   const [loading,setLoading]=useState(true);
   const [section,setSection]=useState<CatalogSection>("suppliers");
