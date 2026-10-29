@@ -42,3 +42,21 @@ The targeted module is included explicitly in `.github/workflows/cloud-ci.yml`. 
 - Owner visual approval, exact-sha review/merge, Vercel rate-limit clearance, controlled Production deployment and rollback verification
 
 **Release hold:** no merge to main, no Production database changes, no Vercel Production deploy until UI-02 and complete UI-03 release gates pass.
+
+
+## Follow-on UI-03 implementation — explicit customer page contract
+
+- `AdminCustomerPagination` caps page size at 50 and defaults to 10. Django now returns `{count,next,previous,results}` for the Admin Customer endpoint while leaving other endpoints' existing responses untouched.
+- API accepts Django's authorized `search`/`ordering` plus validated `status`, `date_from` and `date_to`. Invalid status and ISO date pairs return 400; deleted/foreign records are never supplied. Default ordering includes PK tie-break for repeatable pagination.
+- `AdminCustomerDirectoryView` uses actual server totals, 300ms debounced requests, server paging, and stale-response isolation. Only the Admin Customers resource opts into the new `ServerDirectoryState`; the existing shared `RecordDirectory` preserves local behavior for other API contract shapes.
+- The customer detail and edit screens now both fetch an exact authorized customer ID rather than trusting the first list page; mobile also exposes customer sorting.
+- Isolated Django test coverage now includes page boundaries, disjoint results, search across all server records, verified status/date validation, sorting, Admin/Staff role isolation and financial aggregates.
+
+## Explicit release hold (not waived by source-only checks)
+
+- UI-02 six authenticated golden-master screenshots are not present.
+- The canonical 135-route × 6-width authenticated visual evidence manifest is not present; the existing source-check fixture explicitly says it is NOT real browser evidence.
+- No browser profile is signed into Octalve Console in the available session.
+- Vercel's automated preview build attempts report the daily deployment-rate limit; do not create repeated preview builds. Vercel deployment inspection through temporary protected share links was denied; Production verification remains a separate gate.
+- GitHub Actions success qualifies tested source only. It is not authorization to label these remaining checks complete.
+- No global DRF pagination configuration was changed; order/invoice/domain/service/support directory endpoint contracts require separate source-and-DB qualification.
