@@ -11,9 +11,9 @@ export function AdminSettingsDirectory({items}:{items:readonly AdminSettingsItem
      <div aria-hidden="true" className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-console-primary">
       <Icon className="h-6 w-6"/>
      </div>
-     <h2 className="mt-5 text-lg font-semibold text-console-ink">{item.title}</h2>
+     <h2 className="mt-5 text-lg font-medium text-console-ink">{item.title}</h2>
      <p className="mt-2 text-sm leading-6 text-console-muted">{item.description}</p>
-     <span className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-semibold text-console-primary">
+     <span className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-medium text-console-primary">
       View section <ArrowRight aria-hidden="true" className="h-4 w-4"/>
      </span>
     </Panel>

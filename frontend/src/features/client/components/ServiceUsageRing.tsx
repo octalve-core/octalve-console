@@ -18,12 +18,12 @@ export function ServiceUsageRing({label,used,limit,compact=false}:{
           strokeWidth="5" strokeLinecap="round" fill="none"
           strokeDasharray={circumference} strokeDashoffset={circumference*(1-progress/100)}/>
       </svg>
-      <span className={`absolute inset-0 flex items-center justify-center font-semibold text-console-ink ${compact?"text-[10px]":"text-sm"}`}>
+      <span className={`absolute inset-0 flex items-center justify-center font-medium text-console-ink ${compact?"text-[10px]":"text-sm"}`}>
         {percent}%
       </span>
     </div>
     {!compact?<div className="text-xs text-console-muted">
-      <span className="block font-semibold text-console-ink">{label}</span>
+      <span className="block font-medium text-console-ink">{label}</span>
       {used.toLocaleString("en-NG")} / {limit.toLocaleString("en-NG")} MB
     </div>:null}
   </div>;

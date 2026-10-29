@@ -58,7 +58,7 @@ export function StaffDashboardView() {
   },[user]);
   return <DashboardShell role="staff" title="Staff Console"
     description="Manage customer operations, provisioning, tickets, orders, and knowledge resources.">
-    <div className="space-y-6">
+    <div className="space-y-5">
       <StaffHero name={firstName}/>
       <StaffQuickActions/>
       <StaffOverviewMetrics counts={counts} loading={loading}/>

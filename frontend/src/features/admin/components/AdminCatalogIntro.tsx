@@ -6,7 +6,7 @@ export function AdminCatalogIntro(){
    <ServerCog className="h-5 w-5"/>
   </span>
   <div className="min-w-0">
-   <h2 className="flex items-center gap-2 text-sm font-semibold text-console-ink">
+   <h2 className="flex items-center gap-2 text-sm font-medium text-console-ink">
     <ShieldCheck aria-hidden="true" className="h-4 w-4 text-console-primary"/>
     Verified supplier and retail offers
    </h2>

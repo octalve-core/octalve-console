@@ -95,7 +95,7 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
               <Icon className="h-6 w-6"/>
             </span>
             <div className="min-w-0">
-              <h2 className="break-words text-2xl font-semibold">{config.title}</h2>
+              <h2 className="break-words text-2xl font-medium">{config.title}</h2>
               <p className="mt-2 text-sm leading-6 text-white/85">{config.description}</p>
             </div>
           </div>

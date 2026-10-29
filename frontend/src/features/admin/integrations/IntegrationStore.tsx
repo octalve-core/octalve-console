@@ -28,8 +28,8 @@ export function IntegrationStore(){
 : connectionOverview.status==="unavailable"?"Connection registry is not available yet.":"Checking saved drafts…"}</p>
    <div className="flex flex-wrap items-center gap-3">
     {connectionOverview.status==="unavailable"?<button type="button" onClick={connectionOverview.retry}
-      className="min-h-10 rounded-xl border border-console-line px-3 py-2 text-xs font-semibold text-console-primary hover:bg-blue-50">Retry connection status</button>:null}
-    <Link href="/admin/servers" className="text-sm font-semibold text-console-primary hover:underline">Existing provider records</Link>
+      className="min-h-10 rounded-xl border border-console-line px-3 py-2 text-xs font-medium text-console-primary hover:bg-blue-50">Retry connection status</button>:null}
+    <Link href="/admin/servers" className="text-sm font-medium text-console-primary hover:underline">Existing provider records</Link>
    </div>
   </div>
   <section aria-label="Integration catalogue" className="overflow-hidden rounded-2xl border border-console-line bg-white">
@@ -38,11 +38,11 @@ export function IntegrationStore(){
      <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-console-muted"/>
      <input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search integrations" autoComplete="off"
       className="min-h-11 w-full rounded-xl border border-console-line bg-slate-50 pl-10 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-console-primary"/>
-    </label><p aria-live="polite" className="text-xs font-semibold text-console-muted">{visible.length} integrations</p>
+    </label><p aria-live="polite" className="text-xs font-medium text-console-muted">{visible.length} integrations</p>
    </div>
    <div aria-label="Integration categories" className="flex flex-wrap gap-2 border-b border-console-line p-4">
     {categories.map(c=><button key={c} type="button" onClick={()=>setCategory(c)} aria-pressed={category===c}
-      className={"min-h-9 rounded-full px-3 py-2 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary "+(category===c?"bg-blue-50 text-console-primary":"bg-slate-100 text-slate-600 hover:bg-slate-200")}>{c}</button>)}
+      className={"min-h-9 rounded-full px-3 py-2 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary "+(category===c?"bg-blue-50 text-console-primary":"bg-slate-100 text-slate-600 hover:bg-slate-200")}>{c}</button>)}
    </div>
    {visible.length?<ul onClickCapture={e=>{const target=e.target;if(target instanceof HTMLElement)opener.current=target.closest("a");}}
      className="grid min-w-0 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">{visible.map(item=><ProviderCard key={item.slug} item={item} overviewStatus={connectionOverview.status} drafts={connectionOverview.connections.filter(c=>c.adapter_key===item.slug)}/>)}</ul>

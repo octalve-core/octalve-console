@@ -27,7 +27,7 @@ export function AdminResourceDirectory({resource,records,emptyTitle,emptyDescrip
  const pages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE)),current=Math.min(page,pages);
  const columns:ResponsiveColumn<AdminRecord>[]=[
   {key:"name",heading:resource==="customers"?"Customer":resource==="domains"?"Domain":resource==="orders"?"Order":resource==="invoices"?"Invoice":"Record",
-   cell:r=><span className="break-words font-semibold text-console-ink">{r.title}</span>},
+   cell:r=><span className="break-words font-medium text-console-ink">{r.title}</span>},
   {key:"details",heading:"Details",cell:r=>r.subtitle||"—"},
   {key:"reference",heading:"Reference / category",cell:r=><span className="break-words text-console-primary">{r.meta||"—"}</span>},
   {key:"amount",heading:"Amount",cell:r=>r.amount||"—"},

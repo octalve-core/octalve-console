@@ -28,11 +28,11 @@ export function ClientLanguagePreferences(){
   return <Panel>
     <section lang={locale}>
       <Languages className="h-6 w-6 text-console-primary" aria-hidden="true"/>
-      <h2 className="mt-4 text-lg font-semibold text-console-ink">{m.languageTitle}</h2>
+      <h2 className="mt-4 text-lg font-medium text-console-ink">{m.languageTitle}</h2>
       <p className="mt-2 text-sm leading-6 text-console-muted">{m.languageDescription}</p>
       {!ready?<p role="status" className="mt-4 text-sm text-console-muted">{m.languageLoading}</p>:null}
       {ready&&profile?<div>
-        <label htmlFor="octalve-client-language" className="mt-4 block text-sm font-semibold text-console-ink">{m.currentLanguage}</label>
+        <label htmlFor="octalve-client-language" className="mt-4 block text-sm font-medium text-console-ink">{m.currentLanguage}</label>
         <select id="octalve-client-language" value={chosen} disabled={saving||!profile.enabled}
           onChange={event=>{const next=profile.available_languages.find(p=>p.code===event.target.value);if(next){setChosen(next.code);setNotice("");setError("");}}}
           className="mt-2 w-full rounded-lg border border-console-border bg-white px-3 py-2 text-sm text-console-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-console-primary">

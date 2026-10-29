@@ -319,26 +319,26 @@ export function AdminToolPage({ tool }: { tool: ToolKey }) {
   const Icon = config.icon;
 
   return (
-    <main className="page-container">
+    <section className="mx-auto w-full max-w-[1520px] min-w-0 px-1 py-2 sm:px-2">
       <PageHeader
         title={config.title}
         description={config.description}
         actions={
           <>
-            <Button variant="secondary">Export</Button>
-            <Button>+ Add</Button>
+            <Button variant="secondary" disabled title="Not available until this tool is connected">Export</Button>
+            <Button disabled title="Not available until this tool is connected">+ Add</Button>
           </>
         }
       />
 
-      <div className="grid cols-3">
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3">
         {config.stats.map((stat) => (
           <Card padded key={stat.label}>
-            <div className="tool-stat">
+            <div className="flex min-w-0 items-start justify-between gap-3">
               <div>
-                <span>{stat.label}</span>
-                <strong>{stat.value}</strong>
-                <p>{stat.detail}</p>
+                <span className="block text-xs font-medium text-console-muted">{stat.label}</span>
+                <strong className="mt-1 block text-lg font-medium text-console-ink">Not connected</strong>
+                <p className="mt-2 text-xs text-console-muted">Connect a verified service to enable this operation</p>
               </div>
               <div className="flex h-[2.625rem] w-[2.625rem] shrink-0 items-center justify-center rounded-[0.8125rem] bg-blue-50 text-console-primary">
                 <Icon size={22} aria-hidden="true" />
@@ -348,52 +348,48 @@ export function AdminToolPage({ tool }: { tool: ToolKey }) {
         ))}
       </div>
 
-      <div className="management-grid" style={{ marginTop: 18 }}>
+      <div className="mt-4 grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
         <Card padded>
-          <div className="section-heading">
+          <div className="mb-4 flex min-w-0 flex-col gap-2">
             <div>
-              <p className="eyebrow">Tool Configuration</p>
-              <h2>{config.title} Control</h2>
-              <p>This UI is frontend-ready and mapped to the backend endpoint contract below.</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-console-primary">Tool Configuration</p>
+              <h2 className="mt-1 text-lg font-medium text-console-ink">{config.title} controls</h2>
+              <p className="mt-1 text-[13px] leading-5 text-console-muted">Operations become available once this service is verified and connected.</p>
             </div>
           </div>
 
-          <div className="form-grid">
+          <fieldset disabled className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
             {config.fields.map((field) => (
               <FormField key={field.label} {...field} />
             ))}
-          </div>
+          </fieldset>
 
-          <div className="page-actions" style={{ marginTop: 18 }}>
-            <Button variant="secondary">Reset</Button>
-            <Button>Save</Button>
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" disabled title="This tool is not connected">Reset</Button>
+            <Button disabled title="This tool is not connected">Save</Button>
           </div>
         </Card>
 
         <Card padded>
-          <div className="section-heading">
+          <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <p className="eyebrow">Backend Provision</p>
-              <h2>Expected API Contract</h2>
-              <p>The backend developer should implement these routes under admin permissions.</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-console-primary">Service status</p>
+              <h2 className="mt-1 text-lg font-medium text-console-ink">Connection required</h2>
+              <p className="mt-1 text-[13px] leading-5 text-console-muted">This service is not currently available for administrative changes.</p>
             </div>
           </div>
 
-          <div className="code-box">
-            {config.backend.map((line) => (
-              <div key={line}>{line}</div>
-            ))}
-          </div>
+          <div className="rounded-xl bg-slate-50 p-4 text-[13px] leading-5 text-console-muted" role="status">No active service connection has been confirmed.</div>
 
-          <div className="notice" style={{ marginTop: 18 }}>
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-5 text-amber-900">
             These tools should be protected with admin-only RBAC and every write action should create an audit log.
           </div>
         </Card>
       </div>
 
-      <div style={{ marginTop: 18 }}>
+      <div className="mt-4">
         <DataTable title={`${config.title} Records`} columns={config.columns} rows={config.rows} />
       </div>
-    </main>
+    </section>
   );
 }

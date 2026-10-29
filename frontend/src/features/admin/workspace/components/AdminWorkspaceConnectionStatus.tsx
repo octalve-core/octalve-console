@@ -13,7 +13,7 @@ const billingModules:readonly {label:string;href:string;icon:LucideIcon;descript
  {label:"Support",href:"/admin/support",icon:BookOpen,description:"Billing support conversations"}
 ];
 function RelatedLink({href,label}:{href:string;label:string}){
- return <Link href={href} className="inline-flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-console-line bg-white px-4 text-sm font-semibold text-console-primary hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary sm:w-auto">
+ return <Link href={href} className="inline-flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-console-line bg-white px-4 text-sm font-medium text-console-primary hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary sm:w-auto">
   {label}<ArrowRight aria-hidden="true" className="h-4 w-4"/>
  </Link>;
 }
@@ -25,7 +25,7 @@ export function AdminWorkspaceConnectionStatus({workspace,title}:{workspace:Admi
     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-console-primary">
      <Icon aria-hidden="true" className="h-5 w-5"/>
     </div>
-    <h3 className="mt-4 text-base font-semibold text-console-ink">{label}</h3>
+    <h3 className="mt-4 text-base font-medium text-console-ink">{label}</h3>
     <p className="mt-2 text-sm leading-6 text-console-muted">{description}</p>
     <span className="mt-auto inline-flex items-center gap-2 pt-4 text-sm font-medium text-console-primary">
      Open section<ArrowRight aria-hidden="true" className="h-4 w-4"/>
@@ -42,7 +42,7 @@ export function AdminWorkspaceConnectionStatus({workspace,title}:{workspace:Admi
   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-console-primary">
    {staff?<Users aria-hidden="true" className="h-6 w-6"/>:<ShieldCheck aria-hidden="true" className="h-6 w-6"/>}
   </div>
-  <h2 className="mt-5 text-xl font-semibold text-console-ink">{title} is not connected yet</h2>
+  <h2 className="mt-5 text-xl font-medium text-console-ink">{title} is not connected yet</h2>
   <p className="mt-3 max-w-2xl text-sm leading-7 text-console-muted">
    This section does not currently have a verified record service. No items, balances,
    permissions or operational results are being shown as though they were returned by the server.

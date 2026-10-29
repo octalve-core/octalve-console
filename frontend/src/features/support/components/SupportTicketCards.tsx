@@ -21,11 +21,11 @@ export function SupportTicketCards({role,tickets,emptyTitle="No tickets in this 
      className="group flex min-w-0 flex-col gap-3 rounded-2xl border border-console-line bg-white px-4 py-5 transition-colors hover:border-blue-200 hover:bg-blue-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary sm:flex-row sm:items-center sm:justify-between sm:px-5">
      <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2 text-xs text-console-muted">
-       <span className="font-semibold text-console-primary">{ticket.ticket_number}</span>
+       <span className="font-medium text-console-primary">{ticket.ticket_number}</span>
        <span className="rounded-full bg-slate-100 px-2 py-0.5">{ticket.department_name}</span>
        {role!=="client"?<span className="capitalize">{ticket.priority}</span>:null}
       </div>
-      <h3 className="mt-2 break-words text-sm font-semibold text-console-ink sm:text-base">{ticket.subject}</h3>
+      <h3 className="mt-2 break-words text-sm font-medium text-console-ink sm:text-base">{ticket.subject}</h3>
       {role!=="client"?<p className="mt-1 text-xs text-console-muted">{ticket.client_name} · {ticket.assigned_to_name||"Department queue"}</p>:null}
      </div>
      <div className="flex shrink-0 items-center justify-between gap-3">

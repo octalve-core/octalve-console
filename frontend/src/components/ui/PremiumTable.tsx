@@ -218,15 +218,15 @@ export function PremiumTable<T extends { id: string }>({
           return <article key={row.id} className="rounded-2xl border border-slate-100 bg-[#F7F9FC] p-4">
             <div className="space-y-3">{columns.map((column,index)=>
               <div key={column.key} className={index===0?"border-b border-slate-200 pb-3":"flex items-start justify-between gap-3"}>
-                <span className={index===0?"block text-[10px] font-bold uppercase tracking-wider text-slate-500":"max-w-[40%] shrink-0 text-xs font-medium text-slate-500"}>{column.header}</span>
-                <div className={index===0?"mt-1 text-sm font-bold text-[#142A43]":"min-w-0 text-right text-sm font-semibold text-[#142A43]"}>
+                <span className={index===0?"block text-[10px] font-medium uppercase tracking-wider text-slate-500":"max-w-[40%] shrink-0 text-xs font-medium text-slate-500"}>{column.header}</span>
+                <div className={index===0?"mt-1 text-sm font-medium text-[#142A43]":"min-w-0 text-right text-sm font-medium text-[#142A43]"}>
                   {column.render?column.render(row):column.accessor?String(row[column.accessor]??""):"—"}
                 </div>
               </div>)}</div>
             {actions.length>0&&<div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-3">{actions.map(action=>
-              action.href?<Link key={action.label} href={action.href} className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-[#0064E0]">{action.label}</Link>:
+              action.href?<Link key={action.label} href={action.href} className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-medium text-[#0064E0]">{action.label}</Link>:
                 <button type="button" key={action.label} onClick={()=>action.onClick?.(row)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">{action.label}</button>
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700">{action.label}</button>
             )}</div>}
           </article>;
         })}

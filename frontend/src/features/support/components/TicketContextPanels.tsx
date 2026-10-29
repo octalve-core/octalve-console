@@ -11,7 +11,7 @@ export function TicketContextPanels({ticket,role,eligibleAgents,busy,onAction,on
  if(!ticket)return null;
  return <aside className="h-fit min-w-0 space-y-4 xl:col-span-1">
   <Panel>
-   <h3 className="flex items-center gap-2 text-base font-semibold text-console-ink">
+   <h3 className="flex items-center gap-2 text-base font-medium text-console-ink">
     <ShieldCheck aria-hidden="true" className="h-5 w-5 text-console-primary"/>Ticket details
    </h3>
    <dl className="mt-4 space-y-3 text-sm">
@@ -21,7 +21,7 @@ export function TicketContextPanels({ticket,role,eligibleAgents,busy,onAction,on
    </dl>
   </Panel>
   {role==="admin"?<Panel>
-   <h3 className="flex items-center gap-2 text-sm font-semibold text-console-ink">
+   <h3 className="flex items-center gap-2 text-sm font-medium text-console-ink">
     <Settings2 aria-hidden="true" className="h-4 w-4 text-console-primary"/>Manage assignment
    </h3>
    <p className="mt-2 text-xs leading-5 text-console-muted">Only eligible department specialists can be assigned.</p>
@@ -33,7 +33,7 @@ export function TicketContextPanels({ticket,role,eligibleAgents,busy,onAction,on
    </div>
   </Panel>:null}
   <Panel>
-   <h3 className="flex items-center gap-2 text-sm font-semibold text-console-ink">
+   <h3 className="flex items-center gap-2 text-sm font-medium text-console-ink">
     <MessageCircle aria-hidden="true" className="h-4 w-4 text-console-primary"/>Ticket actions
    </h3>
    <div className="mt-4 grid gap-2">

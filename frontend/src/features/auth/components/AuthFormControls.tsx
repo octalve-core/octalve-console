@@ -67,7 +67,7 @@ export function AuthSocialOptions(){
   <div className={styles.socialRow}>
    {["Google","Apple","Facebook"].map(name=><button key={name} className={styles.social} type="button"
       disabled aria-label={name+" sign-in not available"} title={name+" sign-in not available"}>
-     <span aria-hidden="true" className="text-sm font-bold">{name[0]}</span>
+     <span aria-hidden="true" className="text-sm font-medium">{name[0]}</span>
     </button>)}
   </div>
  </div>;

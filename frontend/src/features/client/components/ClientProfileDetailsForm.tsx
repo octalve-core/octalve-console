@@ -27,7 +27,7 @@ export function ClientProfileDetailsForm({profile,draft,name,email,saving,onChan
   <div className="flex min-w-0 items-center gap-3">
    <ConsoleIconTile icon={UserRound} tone="blue" size="lg"/>
    <div className="min-w-0">
-    <h2 className="truncate text-lg font-semibold text-console-ink">{profile?.full_name||name||"Your details"}</h2>
+    <h2 className="truncate text-lg font-medium text-console-ink">{profile?.full_name||name||"Your details"}</h2>
     <p className="truncate text-sm text-console-muted">{profile?.email||email||"Email unavailable"}</p>
    </div>
   </div>

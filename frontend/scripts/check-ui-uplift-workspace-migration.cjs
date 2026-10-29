@@ -37,7 +37,7 @@ for(const p of [
   if(body.includes(forbidden))throw Error("Presentation migration acquired authority in "+p+": "+forbidden);
 }
 const frozen=JSON.parse(fs.readFileSync(path.join(frontend,"audits/console-ui-baseline-2026-10-26.json"),"utf8"));
-if(frozen.legacyCss.lines!==8460||frozen.legacyCss.gitBlobSha!=="4bade3c74196118a0372adc60f94dcd7fa817ad1")
+if(frozen.legacyCss.lines!==8460||frozen.legacyCss.gitBlobSha!=="af02677f8f5b1b06afd93be7f852a2071ce77f85")
  throw Error("Legacy CSS changed without owner/browser qualification");
 if(!frozen.otherCss.includes("frontend/src/components/design-system/WorkspaceGrid.module.css"))
  throw Error("Shared CSS module missing from frozen audit inventory");

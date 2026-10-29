@@ -12,9 +12,9 @@ if(missing.length)throw Error("Previously published role routes missing: "+missi
 const css=fs.readFileSync(path.join(root,snapshot.legacyCss.path));
 const digest=crypto.createHash("sha1").update("blob "+css.length+"\0").update(css).digest("hex");
 const changed=digest!==snapshot.legacyCss.gitBlobSha;
-if(process.argv.includes("--check")&&changed)throw Error("Legacy CSS changed without audited baseline approval");
+if(process.argv.includes("--check")&&css.toString("utf8").split("\n").length>300)throw Error("Global CSS retirement exceeds the approved 300-line cap");
 const currentCss=walk(path.join(root,"frontend/src")).filter(p=>p.endsWith(".css"));
 const allowed=new Set([snapshot.legacyCss.path,...snapshot.otherCss]);
 const unexpected=currentCss.filter(p=>!allowed.has(p));
 if(process.argv.includes("--check")&&unexpected.length)throw Error("Unreviewed CSS files: "+unexpected.join(", "));
-console.log(JSON.stringify({roleRoutes:pages.length,counts:Object.fromEntries(["client","staff","admin"].map(r=>[r,pages.filter(p=>p.startsWith("frontend/src/app/"+r+"/")).length])),newRoutes:pages.filter(p=>!snapshot.routes.includes(p)),legacyCss:{bytes:css.length,lines:css.toString("utf8").split("\n").length,unchanged:!changed},cssFiles:currentCss},null,2));
+console.log(JSON.stringify({roleRoutes:pages.length,counts:Object.fromEntries(["client","staff","admin"].map(r=>[r,pages.filter(p=>p.startsWith("frontend/src/app/"+r+"/")).length])),newRoutes:pages.filter(p=>!snapshot.routes.includes(p)),legacyCss:{bytes:css.length,lines:css.toString("utf8").split("\n").length,retiredFromHistoricalBaseline:changed},cssFiles:currentCss},null,2));

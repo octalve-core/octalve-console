@@ -27,7 +27,7 @@ export function StaffOperationalDirectory({resource,records,emptyTitle,emptyDesc
  const current=Math.min(page,totalPages),visible=filtered.slice((current-1)*PAGE_SIZE,current*PAGE_SIZE);
  const columns:ResponsiveColumn<StaffRecord>[]=[
   {key:"name",heading:resource==="customers"?"Customer":resource==="orders"?"Order":"Task",
-   cell:r=><span className="break-words font-semibold text-console-ink">{r.title}</span>},
+   cell:r=><span className="break-words font-medium text-console-ink">{r.title}</span>},
   {key:"context",heading:resource==="customers"?"Account":resource==="orders"?"Details":"Provisioning details",
    cell:r=><span className="break-words">{r.subtitle}</span>},
   {key:"reference",heading:"Reference / category",cell:r=><span className="break-words text-console-primary">{r.meta}</span>},

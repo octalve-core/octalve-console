@@ -39,7 +39,7 @@ export function ClientWalletView(){
         </div>}
         <WalletBalanceCard balance={balance} status={status}/>
         <Panel>
-          <h2 className="text-lg font-semibold text-console-ink">Wallet activity</h2>
+          <h2 className="text-lg font-medium text-console-ink">Wallet activity</h2>
           <p className="mt-3 text-sm leading-6 text-console-muted">
             Your payment history will appear here when available. For current invoices, visit your billing page.
           </p>

@@ -13,7 +13,7 @@ export function AdminRestrictedActionView({resource}:{resource:BlockedAdminResou
   <DashboardPage eyebrow="Administration" title={title} description="Review the available records and approved management workflow.">
    <Panel className="mx-auto max-w-3xl">
     <ShieldCheck aria-hidden="true" className="h-10 w-10 text-console-primary"/>
-    <h2 className="mt-4 text-lg font-semibold text-console-ink">This operation is not available</h2>
+    <h2 className="mt-4 text-lg font-medium text-console-ink">This operation is not available</h2>
     <p className="mt-3 text-sm leading-7 text-console-muted">{policy.reason}</p>
     <p className="mt-3 text-sm text-console-muted">No changes have been submitted.</p>
     <div className="mt-6 flex flex-wrap gap-3">

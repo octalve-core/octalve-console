@@ -26,13 +26,13 @@ export function ClientLoginAlerts(){
         <span className="rounded-xl bg-blue-50 p-2.5 text-console-primary">
           <BellRing className="h-5 w-5" aria-hidden="true"/></span>
         <div>
-          <h2 className="font-semibold text-console-ink">You have {critical.length} account reminder{critical.length===1?"":"s"}</h2>
+          <h2 className="font-medium text-console-ink">You have {critical.length} account reminder{critical.length===1?"":"s"}</h2>
           <p className="mt-1 text-sm text-console-muted">
             {urgent?urgent+" need urgent attention. ":""}Review your outstanding invoices and domain expirations.
           </p>
         </div>
       </div>
-      <Link href="/client/notifications" className="inline-flex min-h-10 items-center rounded-xl bg-console-primary px-4 text-sm font-semibold text-white">
+      <Link href="/client/notifications" className="inline-flex min-h-10 items-center rounded-xl bg-console-primary px-4 text-sm font-medium text-white">
         View reminders
       </Link>
     </div>

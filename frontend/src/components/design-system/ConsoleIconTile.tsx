@@ -15,8 +15,8 @@ export function ConsoleIconTile({icon:Icon,tone="blue",size="md",className}:{
  icon:LucideIcon;tone?:Tone;size?:"sm"|"md"|"lg";className?:string;
 }){
  return <span aria-hidden="true" className={cn(
-  "inline-flex shrink-0 items-center justify-center rounded-xl",
-  size==="sm"?"h-9 w-9":size==="lg"?"h-12 w-12":"h-11 w-11",
+  "inline-flex shrink-0 items-center justify-center rounded-lg",
+  size==="sm"?"h-9 w-9":size==="lg"?"h-12 w-12":"h-10 w-10",
   tones[tone],className
  )}><Icon className={size==="sm"?"h-4 w-4":"h-5 w-5"} strokeWidth={1.9}/></span>;
 }

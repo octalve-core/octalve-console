@@ -26,9 +26,9 @@ export function ClientRecognitionBanner(){
   <div className="flex items-start gap-3">
    <Award aria-hidden="true" className="mt-1 h-6 w-6 shrink-0 text-console-primary"/>
    <div className="min-w-0 flex-1">
-    <h2 className="text-base font-semibold text-console-ink">{item.title}</h2>
+    <h2 className="text-base font-medium text-console-ink">{item.title}</h2>
     <p className="mt-1 text-sm leading-6 text-console-muted">{item.message}</p>
-    <Link href="/client/rewards" className="mt-2 inline-flex min-h-10 items-center text-sm font-semibold text-console-primary">
+    <Link href="/client/rewards" className="mt-2 inline-flex min-h-10 items-center text-sm font-medium text-console-primary">
       My rewards
     </Link>
    </div>

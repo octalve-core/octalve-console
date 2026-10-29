@@ -15,10 +15,10 @@ export default function HostedPaymentReturnPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-12 text-slate-900">
       <Panel className="mx-auto max-w-xl p-6 sm:p-10">
-        <div className="mb-6 inline-flex rounded-xl bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
+        <div className="mb-6 inline-flex rounded-xl bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700">
           Octalve Cloud · Secure checkout
         </div>
-        <h1 className="mb-4 text-2xl font-bold tracking-tight sm:text-3xl">
+        <h1 className="mb-4 text-2xl font-medium tracking-tight sm:text-3xl">
           We’re confirming your payment
         </h1>
         <p className="mb-5 text-sm leading-7 text-slate-600">

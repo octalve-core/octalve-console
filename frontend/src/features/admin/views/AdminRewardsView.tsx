@@ -71,12 +71,12 @@ export function AdminRewardsView(){
       ["Awarded points",stats.points_issued],
      ].map(([label,value])=><Panel key={String(label)}>
        <h2 className="text-sm text-console-muted">{label}</h2>
-       <p className="mt-2 text-3xl font-semibold text-console-ink">{value}</p>
+       <p className="mt-2 text-3xl font-medium text-console-ink">{value}</p>
       </Panel>)}
     </div>:null}
     <div className="grid gap-5 xl:grid-cols-2">
      <Panel>
-      <h2 className="text-lg font-semibold text-console-ink">Affiliate applications</h2>
+      <h2 className="text-lg font-medium text-console-ink">Affiliate applications</h2>
       <p className="mt-2 text-sm text-console-muted">Approve after review. Signups alone do not earn commissions.</p>
       <div className="mt-4 space-y-3">
        {applications.length===0?<p className="text-sm text-console-muted">No applications to display.</p>:applications.map(a=>
@@ -93,7 +93,7 @@ export function AdminRewardsView(){
       </div>
      </Panel>
      <Panel>
-      <h2 className="text-lg font-semibold text-console-ink">Verified purchase reward</h2>
+      <h2 className="text-lg font-medium text-console-ink">Verified purchase reward</h2>
       <p className="mt-2 text-sm text-console-muted">Admin-awarded points require a live verified invoice and cannot be awarded twice.</p>
       <form onSubmit={award} className="mt-4 space-y-3">
        <label className="block text-sm font-medium">Paid invoice ID
@@ -107,7 +107,7 @@ export function AdminRewardsView(){
       </form>
      </Panel>
      <Panel>
-      <h2 className="text-lg font-semibold text-console-ink">Private customer appreciation</h2>
+      <h2 className="text-lg font-medium text-console-ink">Private customer appreciation</h2>
       <p className="mt-2 text-sm text-console-muted">Publish a positive thank-you visible only to the selected customer.</p>
       <form onSubmit={recognize} className="mt-4 space-y-3">
        <label className="block text-sm font-medium">Customer ID
@@ -124,19 +124,19 @@ export function AdminRewardsView(){
       </form>
      </Panel>
      <Panel>
-      <h2 className="text-lg font-semibold text-console-ink">Programme safeguards</h2>
+      <h2 className="text-lg font-medium text-console-ink">Programme safeguards</h2>
       <p className="mt-2 text-sm leading-6 text-console-muted">
        Automatic commissions, cash payouts and checkout redemption remain disabled
        until price floors, refunds and settlement reconciliation have been certified.
       </p>
-      <p className="mt-4 text-sm font-semibold text-console-ink">
+      <p className="mt-4 text-sm font-medium text-console-ink">
        Pending commissions: ₦{stats?.pending_commissions_ngn||"0"}
       </p>
       <p className="mt-3 text-xs text-console-muted">No client is publicly ranked or negatively graded.</p>
      </Panel>
     </div>
     {stats&&stats.top_advocates_private.length>0?<Panel>
-     <h2 className="text-lg font-semibold text-console-ink">Customer advocates — Admin-only KPI</h2>
+     <h2 className="text-lg font-medium text-console-ink">Customer advocates — Admin-only KPI</h2>
      <div className="mt-4 space-y-2">{stats.top_advocates_private.map(a=>
       <p key={a.client_id} className="rounded-xl bg-slate-50 p-3 text-sm text-console-ink">
        Customer #{a.client_id} · {a.points} points · {a.events} verified events

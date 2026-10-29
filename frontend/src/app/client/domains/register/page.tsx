@@ -9,7 +9,7 @@ export default function ClientDomainRegistrationPage(){
     <DashboardPage eyebrow="Domains" title="Register New Domain"
       description="Search for your domain and view published registration prices.">
       <div className="space-y-5">
-        <Link href="/client/domains" className="text-sm font-semibold text-console-primary">
+        <Link href="/client/domains" className="text-sm font-medium text-console-primary">
           My Domains
         </Link>
         <ClientDomainSearch/>

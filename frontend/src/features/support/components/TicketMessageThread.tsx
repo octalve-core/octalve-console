@@ -4,7 +4,7 @@ import type {TicketDetail} from "@/lib/api/modules/help-center.api";
 export function TicketMessageThread({ticket}: {ticket:TicketDetail}){
  return <div className="mt-6 space-y-6">
   <div className="flex flex-wrap items-center gap-2 border-b border-console-line pb-5">
-   <span className="text-sm font-semibold text-console-primary">{ticket.ticket_number}</span>
+   <span className="text-sm font-medium text-console-primary">{ticket.ticket_number}</span>
    <StatusBadge tone={ticket.status==="closed"||ticket.status==="resolved"?"success":"info"}>
     {ticket.status.replaceAll("_"," ")}
    </StatusBadge>
@@ -22,7 +22,7 @@ export function TicketMessageThread({ticket}: {ticket:TicketDetail}){
      <div className={agent?"min-w-0 max-w-[85%] rounded-2xl bg-blue-50/70 p-4":
       "min-w-0 max-w-[85%] rounded-2xl bg-slate-50 p-4"}>
       <div className="flex flex-wrap items-center gap-2">
-       <span className="text-xs font-semibold text-console-ink">{item.sender_name_display||item.sender_role}</span>
+       <span className="text-xs font-medium text-console-ink">{item.sender_name_display||item.sender_role}</span>
        {item.is_internal?<StatusBadge tone="warning">Internal note</StatusBadge>:null}
       </div>
       <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-console-ink">{item.message}</p>

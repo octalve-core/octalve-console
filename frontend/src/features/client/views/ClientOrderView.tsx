@@ -72,12 +72,12 @@ export function ClientOrderView() {
       description="Find the right hosting package for your website, with clear pricing and flexible billing.">
       {loading ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Finding hosting plans for you…</div> : null}
       {error ? <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p> : null}
-      {!loading && !error && plans.length === 0 ? <div className="rounded-2xl border border-[#E5EBF3] bg-white p-6 text-sm text-slate-600">We’re preparing our hosting packages. Please check back soon, or <a href="/client/support/new" className="font-semibold text-[#0064E0] underline">contact our team</a> for help choosing a solution.</div> : null}
+      {!loading && !error && plans.length === 0 ? <div className="rounded-2xl border border-[#E5EBF3] bg-white p-6 text-sm text-slate-600">We’re preparing our hosting packages. Please check back soon, or <a href="/client/support/new" className="font-medium text-[#0064E0] underline">contact our team</a> for help choosing a solution.</div> : null}
       {!loading && categorySlug && visiblePlans.length === 0 && !error ?
         <div role="status" className="rounded-2xl border border-console-line bg-white p-6 text-sm text-console-muted">
           No online checkout plans are available in this category yet. Only offers with an approved
           hosting checkout contract can currently be ordered. You can browse all eligible plans instead.
-          <a href="/client/order" className="ml-2 font-semibold text-console-primary underline">Browse plans</a>
+          <a href="/client/order" className="ml-2 font-medium text-console-primary underline">Browse plans</a>
         </div> : null}
       {visiblePlans.length > 0 && <WorkspaceGrid variant="commerceColumns">
         <div className="min-w-0 lg:col-span-2">

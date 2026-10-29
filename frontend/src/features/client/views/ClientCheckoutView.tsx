@@ -19,7 +19,7 @@ type Confirmation={id?:number;order_number?:string;total?:string;currency?:strin
   invoice?:{id:number;invoice_number:string;status:string;amount_due:string}};
 const domainPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/;
 const selectionClass="min-h-24 rounded-xl border px-4 py-4 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary";
-const actionClass="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-console-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-console-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto";
+const actionClass="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-console-primary px-5 py-3 text-sm font-medium text-white transition hover:bg-console-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto";
 
 export function ClientCheckoutView(){
   const [plans,setPlans]=useState<ClientOrderPlan[]>([]);

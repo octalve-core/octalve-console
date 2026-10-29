@@ -84,7 +84,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
     <DashboardPage eyebrow="My Domains" title={domain?.name||"Domain management"}
       description="Only account-authorized domain records are displayed.">
       <div className="space-y-5">
-        <Link href="/client/domains" className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-console-primary">
+        <Link href="/client/domains" className="inline-flex min-h-10 items-center gap-2 text-sm font-medium text-console-primary">
           <ArrowLeft className="h-4 w-4" aria-hidden="true"/>Back to My Domains
         </Link>
         {loading&&!domain?<LoadingState title="Opening domain" description="Checking your account records."/>:null}
@@ -96,7 +96,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
               <div className="flex items-center gap-3">
                 <span className="rounded-xl bg-blue-50 p-3 text-console-primary">
                   <Globe2 className="h-6 w-6" aria-hidden="true"/></span>
-                <div><h2 className="break-all text-lg font-semibold text-console-ink">{domain.name}</h2>
+                <div><h2 className="break-all text-lg font-medium text-console-ink">{domain.name}</h2>
                   <p className="text-sm text-console-muted">Registration and ownership details</p></div>
               </div>
               <StatusBadge>{domain.status.replaceAll("_"," ")}</StatusBadge>
@@ -111,25 +111,25 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
             {mode==="overview"?<WorkspaceGrid variant="domainFacts" as="dl" className="mt-5">
               {info.map(([label,value])=><div key={label} className="rounded-xl bg-slate-50 p-4">
                 <dt className="text-xs text-console-muted">{label}</dt>
-                <dd className="mt-2 break-words text-sm font-semibold text-console-ink">{value}</dd>
+                <dd className="mt-2 break-words text-sm font-medium text-console-ink">{value}</dd>
               </div>)}
             </WorkspaceGrid>:null}
           </Panel>
           {mode==="overview"?<WorkspaceGrid variant="domainPanels">
-            <Panel><h3 className="text-base font-semibold text-console-ink">Domain records</h3>
+            <Panel><h3 className="text-base font-medium text-console-ink">Domain records</h3>
               <p className="mt-2 text-sm text-console-muted">
                 {domain.dnsRecords.length} stored DNS records · {domain.nameservers.length} stored nameservers.
                 Provider changes require confirmation before they appear.
               </p>
               <ActionLink href={prefix+"/dns"} variant="outline" className="mt-4">Manage DNS records</ActionLink>
             </Panel>
-            <Panel><h3 className="text-base font-semibold text-console-ink">Renewal</h3>
+            <Panel><h3 className="text-base font-medium text-console-ink">Renewal</h3>
               <p className="mt-2 text-sm text-console-muted">Expiry: {displayDomainDate(domain.expiryDate)}</p>
               <ActionLink href={prefix+"/renewal"} variant="outline" className="mt-4">Review renewal options</ActionLink>
             </Panel>
           </WorkspaceGrid>:null}
           {mode==="dns"?<div className="space-y-4">
-            <Panel><h3 className="text-base font-semibold text-console-ink">DNS records</h3>
+            <Panel><h3 className="text-base font-medium text-console-ink">DNS records</h3>
               <p className="mt-2 text-sm leading-6 text-console-muted">
                 These are stored records, not a live DNS resolution test. Creating, editing or deleting records
                 becomes available after a verified DNS provider is connected to this domain.
@@ -137,24 +137,24 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
             <CloudRecordDirectory label="DNS records" records={dns}
               emptyMessage="No DNS records are available for this domain."
               columns={[
-                {key:"name",label:"Host",render:r=><span className="break-all font-semibold">{r.title}</span>},
+                {key:"name",label:"Host",render:r=><span className="break-all font-medium">{r.title}</span>},
                 {key:"type",label:"Type",render:r=>r.reference||"—"},
                 {key:"value",label:"Value",render:r=><span className="break-all">{r.subtitle||"—"}</span>},
                 {key:"ttl",label:"TTL",render:r=>r.amount||"—"}
               ]}/>
           </div>:null}
           {mode==="nameservers"?<div className="space-y-4">
-            <Panel><h3 className="text-base font-semibold text-console-ink">Nameservers</h3>
+            <Panel><h3 className="text-base font-medium text-console-ink">Nameservers</h3>
               <p className="mt-2 text-sm text-console-muted">
                 Nameserver changes require a verified registrar and authoritative provider readback.
               </p></Panel>
             <CloudRecordDirectory label="Nameservers" records={nameservers}
               emptyMessage="No verified nameservers are recorded for this domain."
               columns={[{key:"hostname",label:"Nameserver hostname",render:r=>
-                <span className="break-all font-semibold">{r.title}</span>}]}/>
+                <span className="break-all font-medium">{r.title}</span>}]}/>
           </div>:null}
           {mode==="renewal"?<Panel>
-            <h3 className="flex items-center gap-2 text-lg font-semibold text-console-ink">
+            <h3 className="flex items-center gap-2 text-lg font-medium text-console-ink">
               <CalendarClock className="h-5 w-5 text-console-primary" aria-hidden="true"/>Renew your domain</h3>
             <p className="mt-3 text-sm text-console-muted">
               Registered: {displayDomainDate(domain.registrationDate)} · Expires: {displayDomainDate(domain.expiryDate)}
@@ -180,7 +180,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
             </p>
           </Panel>:null}
           <Panel>
-            <h3 className="flex items-center gap-2 text-base font-semibold text-console-ink">
+            <h3 className="flex items-center gap-2 text-base font-medium text-console-ink">
               <ShieldCheck className="h-5 w-5 text-console-primary" aria-hidden="true"/>
               Need help managing this domain?
             </h3>

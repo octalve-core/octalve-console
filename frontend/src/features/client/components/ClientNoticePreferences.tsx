@@ -35,7 +35,7 @@ export function ClientNoticePreferences(){
     finally{setBusy(false);}
   }
   return <Panel>
-    <h2 className="flex items-center gap-2 text-lg font-semibold text-console-ink">
+    <h2 className="flex items-center gap-2 text-lg font-medium text-console-ink">
       <Bell className="h-5 w-5 text-console-primary" aria-hidden="true"/>Notifications</h2>
     <p className="mt-2 text-sm text-console-muted">
       Choose which reminders appear on your dashboard. The Notifications inbox
@@ -46,7 +46,7 @@ export function ClientNoticePreferences(){
         <input type="checkbox" checked={draft[item.key]}
           onChange={e=>setDraft(current=>current?{...current,[item.key]:e.target.checked}:current)}
           className="mt-1 h-4 w-4 accent-blue-600"/>
-        <span><span className="block text-sm font-semibold text-console-ink">{item.title}</span>
+        <span><span className="block text-sm font-medium text-console-ink">{item.title}</span>
           <span className="mt-1 block text-xs leading-5 text-console-muted">{item.note}</span></span>
       </label>)}
       <ActionButton onClick={()=>void save()} disabled={busy||JSON.stringify(draft)===JSON.stringify(saved)}

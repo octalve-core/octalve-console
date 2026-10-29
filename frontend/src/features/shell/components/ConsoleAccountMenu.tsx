@@ -35,7 +35,7 @@ export function ConsoleAccountMenu({role,onLogout,loggingOut}:{
    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-console-primary text-white">
     <UserRound aria-hidden="true" className="h-5 w-5"/>
    </span>
-   <span className="hidden max-w-40 truncate text-sm font-semibold sm:block">{display}</span>
+   <span className="hidden max-w-40 truncate text-sm font-medium sm:block">{display}</span>
    <ChevronDown aria-hidden="true" className="h-4 w-4 text-slate-500"/>
   </button>
   {open?<div ref={menu} id={menuId} aria-label={m.accountOptions}

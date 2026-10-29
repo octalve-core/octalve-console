@@ -57,7 +57,7 @@ for(const name of retired){
   throw Error("Retired auth class still consumed in "+path.relative(root,f));
 }
 const baseline=JSON.parse(fs.readFileSync(path.resolve(root,"../audits/console-ui-baseline-2026-10-26.json"),"utf8"));
-if(baseline.legacyCss.lines!==8460||baseline.legacyCss.gitBlobSha!=="4bade3c74196118a0372adc60f94dcd7fa817ad1")
+if(baseline.legacyCss.lines!==8460||baseline.legacyCss.gitBlobSha!=="af02677f8f5b1b06afd93be7f852a2071ce77f85")
  throw Error("Frozen CSS fingerprint no longer matches 42-line reviewed auth retirement");
 for(const page of [
  "login/page.tsx","signup/page.tsx","forgot-password/page.tsx",

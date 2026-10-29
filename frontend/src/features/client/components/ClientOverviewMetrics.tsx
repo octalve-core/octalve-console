@@ -22,14 +22,14 @@ export function ClientOverviewMetrics({summary}: {summary:ClientSummary}){
   {label:"Support tickets",value:count(summary.tickets),description:"Your support requests",icon:Ticket,tone:"rose"}
  ];
  return <WorkspaceGrid variant="clientMetrics" ariaLabel={translateNavigationLabel("Your account summary",locale)} busy={waiting}>
-  {metrics.map(metric=>{return <Panel key={metric.label} className="flex min-h-36 flex-col justify-between">
+  {metrics.map(metric=>{return <Panel key={metric.label} className="flex min-h-[108px] flex-col justify-between">
    <div className="flex items-start justify-between gap-3">
-    <div className="min-w-0"><p className="text-sm font-medium text-console-muted">{translateNavigationLabel(metric.label,locale)}</p>
-     <p className="mt-2 break-words text-2xl font-bold tracking-tight text-console-ink sm:text-[27px]">{metric.value}</p>
+    <div className="min-w-0"><p className="text-xs font-medium text-console-muted">{translateNavigationLabel(metric.label,locale)}</p>
+     <p className="mt-1 break-words text-xl font-medium tracking-tight text-console-ink">{metric.value}</p>
     </div>
-    <ConsoleIconTile icon={metric.icon} tone={metric.tone}/>
+    <ConsoleIconTile icon={metric.icon} tone={metric.tone} size="sm"/>
    </div>
-   <p className="mt-3 text-xs leading-5 text-console-muted">{translateNavigationLabel(metric.description,locale)}</p>
+   <p className="mt-2 text-xs leading-5 text-console-muted">{translateNavigationLabel(metric.description,locale)}</p>
   </Panel>;})}
  </WorkspaceGrid>;
 }

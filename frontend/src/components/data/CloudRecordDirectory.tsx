@@ -131,7 +131,7 @@ export function CloudRecordDirectory({
       </div>
     </div>
     <div className="flex items-center gap-2 border-b border-[#EFF2F6] px-3 py-3 sm:px-5">
-      <span className="hidden shrink-0 text-xs font-semibold text-[#34465D] sm:inline">{filtered.length} {label.toLowerCase()}</span>
+      <span className="hidden shrink-0 text-xs font-medium text-[#34465D] sm:inline">{filtered.length} {label.toLowerCase()}</span>
       <label className="relative min-w-0 flex-1 sm:max-w-xs">
         <Search size={16} className="absolute left-3 top-3 text-slate-400" />
         <input aria-label={`Search ${label}`} type="search" value={search} onChange={e => {setSearch(e.target.value); setPage(1);}}
@@ -146,7 +146,7 @@ export function CloudRecordDirectory({
       <table className="w-full table-fixed border-separate border-spacing-y-2 text-left text-xs sm:text-sm">
         <thead><tr className="bg-[#F2F5F9] text-[#536782]">
           <th className="w-12 rounded-l-xl px-3 py-3 font-medium" scope="col"><span className="sr-only">Icon</span></th>
-          {cols.map(c => <th key={c.key} scope="col" className="px-3 py-3 font-semibold">{c.label}</th>)}
+          {cols.map(c => <th key={c.key} scope="col" className="px-3 py-3 font-medium">{c.label}</th>)}
           <th scope="col" className="w-28 px-3 py-3 font-medium">Status</th>
           {hasRowActions?<th scope="col" className="w-12 rounded-r-xl px-2 py-3"><span className="sr-only">Options</span></th>:null}
         </tr></thead>
@@ -166,11 +166,11 @@ export function CloudRecordDirectory({
         aria-label={`View ${r.title}`} className="flex min-w-0 flex-1 items-center gap-3 p-4 text-left">
         <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconTone(r.status)}`}>{r.icon || "•"}</span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-start justify-between gap-2"><span className="truncate text-sm font-bold text-[#142A43]">{r.title}</span>{r.amount ? <span className="shrink-0 text-xs font-bold text-[#142A43]">{r.amount}</span> : null}</span>
-          <span className="mt-1 block truncate text-[11px] font-semibold text-[#0064E0]">{r.reference || r.subtitle}</span>
+          <span className="flex items-start justify-between gap-2"><span className="truncate text-sm font-medium text-[#142A43]">{r.title}</span>{r.amount ? <span className="shrink-0 text-xs font-medium text-[#142A43]">{r.amount}</span> : null}</span>
+          <span className="mt-1 block truncate text-[11px] font-medium text-[#0064E0]">{r.reference || r.subtitle}</span>
           {r.subtitle && r.subtitle !== r.title ? <span className="mt-1 block truncate text-[11px] text-slate-500">{r.subtitle}</span> : null}
           {r.extra?<span className="mt-2 block">{r.extra}</span>:null}
-          <span className="mt-2 flex items-center justify-between gap-2"><span className="text-[11px] text-slate-500">{r.date}</span><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(r.status)}`}>{readable(r.status)}</span></span>
+          <span className="mt-2 flex items-center justify-between gap-2"><span className="text-[11px] text-slate-500">{r.date}</span><span className={`rounded-full px-2 py-1 text-[10px] font-medium ${statusClass(r.status)}`}>{readable(r.status)}</span></span>
         </span>
       </button>
       {hasRowActions?<button type="button" aria-label={`More actions for ${r.title}`} onClick={() => setSelected(r)}
@@ -186,10 +186,10 @@ export function CloudRecordDirectory({
     </div>
     {filtersOpen && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-[#06192A]/50 p-0 sm:items-center sm:p-4" onMouseDown={e => {if(e.target === e.currentTarget) setFiltersOpen(false);}}>
       <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Filter records" className="max-h-[90dvh] overflow-y-auto w-full max-w-md rounded-t-[24px] bg-white p-5 shadow-2xl sm:rounded-2xl">
-        <div className="mb-4 flex items-center justify-between"><h2 className="text-base font-semibold">Filter {label}</h2><button aria-label="Close filters" onClick={() => setFiltersOpen(false)}><X size={19}/></button></div>
+        <div className="mb-4 flex items-center justify-between"><h2 className="text-base font-medium">Filter {label}</h2><button aria-label="Close filters" onClick={() => setFiltersOpen(false)}><X size={19}/></button></div>
         <div className="flex flex-wrap gap-2">{["all", ...statuses].map(s => <button key={s} type="button" onClick={() => chooseStatus(s)} className={`rounded-full px-3 py-2 text-xs ${status === s ? "bg-[#EAF3FF] text-[#0064E0]" : "bg-slate-100 text-slate-600"}`}>{readable(s)}</button>)}</div>
         {categories.length?<div className="mt-5">
-          <h3 className="text-xs font-semibold text-console-ink">Service type</h3>
+          <h3 className="text-xs font-medium text-console-ink">Service type</h3>
           <div className="mt-2 flex flex-wrap gap-2">{["all",...categories].map(item=>
             <button type="button" key={item} aria-pressed={category===item}
               onClick={()=>{setCategory(item);setPage(1);}}
@@ -197,14 +197,14 @@ export function CloudRecordDirectory({
               {readable(item)}
             </button>)}</div>
         </div>:null}
-        <button type="button" onClick={() => setFiltersOpen(false)} className="mt-5 w-full rounded-full bg-[#0064E0] py-3 text-sm font-semibold text-white">Done</button>
+        <button type="button" onClick={() => setFiltersOpen(false)} className="mt-5 w-full rounded-full bg-[#0064E0] py-3 text-sm font-medium text-white">Done</button>
       </section>
     </div>}
     {selected && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-[#06192A]/55 sm:items-center sm:p-4" onMouseDown={e => {if(e.target === e.currentTarget) setSelected(null);}}>
       <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Actions for ${selected.title}`} className="max-h-[90dvh] overflow-y-auto w-full max-w-md rounded-t-[28px] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl">
         <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-slate-200 sm:hidden"/>
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
-          <div><h2 className="font-semibold text-[#142A43]">{selected.title}</h2><p className="mt-1 text-xs text-slate-500">{selected.reference || selected.subtitle}</p></div>
+          <div><h2 className="font-medium text-[#142A43]">{selected.title}</h2><p className="mt-1 text-xs text-slate-500">{selected.reference || selected.subtitle}</p></div>
           <button type="button" aria-label="Close actions" onClick={() => setSelected(null)} className="rounded-lg p-2 text-slate-500"><X size={18}/></button>
         </div>
         <div className="mt-3 space-y-1">
@@ -213,7 +213,7 @@ export function CloudRecordDirectory({
             className={`block w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-slate-50 ${a.danger ? "text-red-600" : "text-slate-700"}`}>{a.label}</button>)}
           {!onOpen && chosenActions.length === 0 && <p className="px-3 py-4 text-sm text-slate-500">No actions available.</p>}
         </div>
-        <button type="button" onClick={() => setSelected(null)} className="mt-3 w-full rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
+        <button type="button" onClick={() => setSelected(null)} className="mt-3 w-full rounded-full border border-slate-200 py-3 text-sm font-medium text-slate-600">Cancel</button>
       </section>
     </div>}
   </section>;

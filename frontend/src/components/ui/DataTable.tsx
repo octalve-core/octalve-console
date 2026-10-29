@@ -29,7 +29,7 @@ function RowActions({row}:{row:Row}){
  if(!entries.length)return <span className="text-xs text-console-muted">—</span>;
  return <div className="flex min-w-0 flex-wrap gap-2">
   {entries.map(entry=><Link href={entry.href} key={entry.label}
-   className="inline-flex min-h-10 items-center rounded-lg border border-console-line bg-white px-3 text-xs font-semibold text-console-primary hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary">
+   className="inline-flex min-h-10 items-center rounded-lg border border-console-line bg-white px-3 text-xs font-medium text-console-primary hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary">
    {entry.label}</Link>)}
  </div>;
 }
@@ -37,7 +37,7 @@ function Value({row,column}:{row:Row;column:Column}){
  const value=row[column.accessor];
  if(column.accessor==="status")return <Badge variant={displayedTone(row.tone,String(value??""))}>{String(value??"Unknown")}</Badge>;
  if(column.accessor==="id"&&row.href)return <Link href={row.href}
-  className="break-all font-semibold text-console-primary hover:underline">{String(value??"—")}</Link>;
+  className="break-all font-medium text-console-primary hover:underline">{String(value??"—")}</Link>;
  if(value===null||value===undefined||value==="")return <>—</>;
  return <span className="break-words">{value as ReactNode}</span>;
 }
@@ -46,7 +46,7 @@ export function DataTable({title,subtitle,columns,rows,action}:Props){
  return <section className="min-w-0 overflow-hidden rounded-2xl border border-console-line bg-white shadow-sm">
   <header className="flex min-w-0 flex-col gap-3 border-b border-console-line p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
    <div className="min-w-0">
-    <h2 className="break-words text-lg font-semibold text-console-ink">{title}</h2>
+    <h2 className="break-words text-lg font-medium text-console-ink">{title}</h2>
     {subtitle?<p className="mt-1 text-sm leading-6 text-console-muted">{subtitle}</p>:null}
    </div>
    {action?<div className="flex flex-wrap gap-2">{action}</div>:null}
@@ -64,7 +64,7 @@ export function DataTable({title,subtitle,columns,rows,action}:Props){
    <div className="hidden w-full overflow-x-auto md:block">
     <table className="w-full min-w-[680px] border-collapse text-left text-sm">
      <caption className="sr-only">{title}</caption>
-     <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-console-muted">
+     <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-console-muted">
       <tr>{columns.map(column=><th key={column.accessor} scope="col" className="px-4 py-3">{column.header}</th>)}
        <th scope="col" className="px-4 py-3">Actions</th></tr>
      </thead>

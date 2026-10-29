@@ -5,20 +5,20 @@ import { Card } from "@/components/ui/Card";
 
 export function GatewayCards() {
   return (
-    <div className="grid cols-3">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {gateways.map((gateway) => (
         <Card padded key={gateway.id}>
-          <div className="plan-top">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="card-title">{gateway.name}</h2>
-              <p className="card-sub" style={{ lineHeight: 1.55 }}>{gateway.summary}</p>
+              <h2 className="text-base font-medium text-console-ink">{gateway.name}</h2>
+              <p className="mt-1 text-[13px] leading-5 text-console-muted">{gateway.summary}</p>
             </div>
             <Badge tone={gateway.tone}>{gateway.status}</Badge>
           </div>
-          <ul className="feature-list">
+          <ul className="mt-3 list-inside list-disc space-y-1 text-[13px] leading-5 text-console-muted">
             {gateway.fields.slice(0, 4).map((field) => <li key={field}>{field}</li>)}
           </ul>
-          <div className="page-actions" style={{ marginTop: 18 }}>
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
             <Button href={`/admin/gateways/${gateway.id}`}>Edit Configuration</Button>
           </div>
         </Card>

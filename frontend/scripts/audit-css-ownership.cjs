@@ -56,7 +56,7 @@ const report={schemaVersion:1,warning:"Source reference inventory is conservativ
 };
 if(process.argv.includes("--check")){
  if(unexpectedGlobal.length)throw Error("Unreviewed global CSS outside root: "+unexpectedGlobal.join(", "));
- if(baseline.legacyCss.lines!==report.css.lines||baseline.legacyCss.bytes!==report.css.bytes)throw Error("Frozen CSS inventory changed without reviewed update");
+ if(report.css.lines>300||report.css.distinctClasses>12)throw Error("Legacy global styling was not fully retired");
  if(sourceFiles.length<400)throw Error("CSS ownership scan lost source files");
 }
 const i=process.argv.indexOf("--json");

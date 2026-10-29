@@ -24,11 +24,11 @@ export function ServiceCancellationRequest({serviceId,serviceStatus}:{serviceId:
   }
  }
  return <section aria-label="Cancellation review" className="mt-5 rounded-xl border border-console-line p-4">
-  <h3 className="text-sm font-semibold text-console-ink">Request cancellation review</h3>
+  <h3 className="text-sm font-medium text-console-ink">Request cancellation review</h3>
   <p className="mt-2 text-sm leading-6 text-console-muted">
    You can ask our team to review a cancellation. Your hosting, invoices and access remain unchanged until the required checks and a confirmed provider action are completed.
   </p>
-  {state==="requested"?<p role="status" className="mt-3 text-sm font-semibold text-console-primary">
+  {state==="requested"?<p role="status" className="mt-3 text-sm font-medium text-console-primary">
    Your request is awaiting review. Your service has not been cancelled.
   </p>:null}
   {state!=="requested"&&!expanded?<ActionButton type="button" size="sm" variant="outline"

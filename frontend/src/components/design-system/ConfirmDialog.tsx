@@ -18,7 +18,7 @@ export function ConfirmDialog({open,title,description,confirmLabel,onClose,onCon
   onCancel={event=>{event.preventDefault();if(!busy)onClose();}}
   className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-0 text-console-ink shadow-xl backdrop:bg-slate-950/60">
   <div className="p-6">
-   <h2 id={headingId} className="text-xl font-semibold text-console-ink">{title}</h2>
+   <h2 id={headingId} className="text-xl font-medium text-console-ink">{title}</h2>
    <p id={descriptionId} className="mt-3 text-sm leading-6 text-console-muted">{description}</p>
    {children?<div className="mt-4">{children}</div>:null}
    <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

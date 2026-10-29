@@ -64,7 +64,7 @@ export function ClientEssentialRecords({resource,records,emptyTitle,emptyDescrip
     emptyMessage={records.length===0?emptyTitle+" — "+emptyDescription:"No matching records. Try another filter."}
     columns={[
       {key:"name",label:resource==="domains"?"Domain name":"Service",
-        render:row=><span className="block min-w-0 truncate font-semibold text-console-ink">{row.title}</span>},
+        render:row=><span className="block min-w-0 truncate font-medium text-console-ink">{row.title}</span>},
       {key:"package",label:resource==="domains"?"Registration":"Plan",
         render:row=><span className="text-console-muted">
           {records.find(item=>item.id===row.id)?.service?.planName||row.subtitle||"—"}

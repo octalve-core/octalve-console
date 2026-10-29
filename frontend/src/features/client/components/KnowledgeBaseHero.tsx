@@ -9,8 +9,8 @@ export function KnowledgeBaseHero({query,onQueryChange}:{
        <BookOpen className="h-6 w-6" aria-hidden="true"/>
      </span>
      <div className="min-w-0">
-       <p className="text-xs font-bold uppercase tracking-widest text-blue-700">Octalve guides</p>
-       <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">How can we help you?</h2>
+       <p className="text-xs font-medium uppercase tracking-widest text-blue-700">Octalve guides</p>
+       <h2 className="mt-1 text-2xl font-medium tracking-tight text-slate-950 sm:text-3xl">How can we help you?</h2>
        <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">Find answers about hosting, DNS, domains, payments and your account.</p>
      </div>
    </div>

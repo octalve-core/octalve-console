@@ -24,7 +24,7 @@ export function CatalogWorkspaceNavigation({active,onSelect}:Props){
     onKeyDown={e=>keyDown(e,index)} onClick={()=>onSelect(tab.key)}
     className={`flex min-h-20 min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary focus-visible:ring-offset-2 sm:px-4 ${selected?"bg-console-primary text-white shadow-md":"text-console-muted hover:bg-slate-50"}`}>
     <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${selected?"bg-white/20 text-white":"bg-blue-50 text-console-primary"}`}><Icon aria-hidden="true" className="h-5 w-5"/></span>
-    <span className="min-w-0"><span className="block text-xs font-bold leading-5 sm:text-sm">{tab.label}</span><span className={`mt-0.5 hidden text-[11px] leading-4 sm:block ${selected?"text-blue-100":"text-console-muted"}`}>{tab.caption}</span></span>
+    <span className="min-w-0"><span className="block text-xs font-medium leading-5 sm:text-sm">{tab.label}</span><span className={`mt-0.5 hidden text-[11px] leading-4 sm:block ${selected?"text-blue-100":"text-console-muted"}`}>{tab.caption}</span></span>
    </button>;
   })}
  </div>;

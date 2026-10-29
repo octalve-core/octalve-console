@@ -14,7 +14,7 @@ export default function ClientPurchasesPage(){
       <div className="grid gap-4 md:grid-cols-2">
         <Panel>
           <ShoppingCart aria-hidden="true" className="h-7 w-7 text-console-primary"/>
-          <h2 className="mt-4 text-lg font-semibold text-console-ink">Orders</h2>
+          <h2 className="mt-4 text-lg font-medium text-console-ink">Orders</h2>
           <p className="mt-2 text-sm leading-6 text-console-muted">Check submitted orders and their current progress.</p>
           <ActionLink href={routes.client.orders} variant="outline" className="mt-5 w-full sm:w-auto">
             View orders <ArrowRight aria-hidden="true" className="ml-2 h-4 w-4"/>
@@ -22,7 +22,7 @@ export default function ClientPurchasesPage(){
         </Panel>
         <Panel>
           <ReceiptText aria-hidden="true" className="h-7 w-7 text-console-primary"/>
-          <h2 className="mt-4 text-lg font-semibold text-console-ink">Invoices</h2>
+          <h2 className="mt-4 text-lg font-medium text-console-ink">Invoices</h2>
           <p className="mt-2 text-sm leading-6 text-console-muted">Review current invoices, due dates and payment status.</p>
           <ActionLink href={routes.client.invoices} variant="outline" className="mt-5 w-full sm:w-auto">
             View invoices <ArrowRight aria-hidden="true" className="ml-2 h-4 w-4"/>

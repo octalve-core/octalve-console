@@ -12,7 +12,7 @@ export function SupportRoutingCreateForms({departmentName,name,slug,working,hasD
 }){
  return <Panel className="h-fit min-w-0 space-y-5 xl:col-span-1">
   <div className="border-b border-console-line pb-5">
-   <h2 className="text-base font-semibold text-console-ink">New department</h2>
+   <h2 className="text-base font-medium text-console-ink">New department</h2>
    <form onSubmit={onCreateDepartment} className="mt-4 space-y-3">
     <TextField name="departmentName" label="Department name" required maxLength={100}
      value={departmentName} onChange={event=>onDepartmentNameChange(event.target.value)}
@@ -20,7 +20,7 @@ export function SupportRoutingCreateForms({departmentName,name,slug,working,hasD
     <ActionButton type="submit" variant="outline" className="w-full" disabled={working}>Add department</ActionButton>
    </form>
   </div>
-  <h2 className="flex items-center gap-2 text-base font-semibold text-console-ink">
+  <h2 className="flex items-center gap-2 text-base font-medium text-console-ink">
    <Plus aria-hidden="true" className="h-5 w-5 text-console-primary"/>Add issue topic
   </h2>
   <p className="text-sm leading-6 text-console-muted">

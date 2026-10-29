@@ -17,7 +17,7 @@ export function ClientSectionCard({ title, description, href, records, state = "
     <Card className="border-[#E6EBF2] p-5 shadow-[0_1px_2px_rgba(15,23,42,.035)]">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-base font-semibold tracking-[-0.03em] text-slate-950">{title}</h3>
+          <h3 className="text-base font-medium tracking-[-0.03em] text-slate-950">{title}</h3>
           <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
         </div>
 

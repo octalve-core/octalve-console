@@ -19,17 +19,17 @@ export function StaffOverviewMetrics({counts,loading}:{
  return <WorkspaceGrid variant="staffMetrics" ariaLabel="Staff account summary" busy={loading}>
   {metrics.map(item=>{
    const value=counts[item.key];
-   return <Panel key={item.key} className="flex min-h-36 flex-col justify-between">
+   return <Panel key={item.key} className="flex min-h-[108px] flex-col justify-between">
     <div className="flex min-w-0 items-start justify-between gap-3">
      <div className="min-w-0">
-      <h2 className="text-sm font-medium text-console-muted">{item.label}</h2>
-      <p className="mt-3 break-words text-2xl font-bold text-console-ink" aria-label={item.label+" count"}>
+      <h2 className="text-xs font-medium text-console-muted">{item.label}</h2>
+      <p className="mt-1 break-words text-xl font-medium text-console-ink" aria-label={item.label+" count"}>
        {loading?"…":value===null?"—":formatNumber(value)}
       </p>
      </div>
-     <ConsoleIconTile icon={item.icon} tone={item.tone}/>
+     <ConsoleIconTile icon={item.icon} tone={item.tone} size="sm"/>
     </div>
-    <p className="mt-4 text-xs leading-5 text-console-muted">{item.description}</p>
+    <p className="mt-2 text-xs leading-5 text-console-muted">{item.description}</p>
    </Panel>;
   })}
  </WorkspaceGrid>;

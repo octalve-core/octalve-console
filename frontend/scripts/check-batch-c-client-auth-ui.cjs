@@ -40,7 +40,7 @@ for(const s of bad){
   throw Error("Presentation-only migration accidentally acquired business/session authority: "+s);
 }
 const baseline=JSON.parse(read("audits/console-ui-baseline-2026-10-26.json"));
-if(baseline.legacyCss.lines!==8460||baseline.legacyCss.gitBlobSha!=="4bade3c74196118a0372adc60f94dcd7fa817ad1")
+if(baseline.legacyCss.lines!==8460||baseline.legacyCss.gitBlobSha!=="af02677f8f5b1b06afd93be7f852a2071ce77f85")
  throw Error("Protected CSS fingerprint changed without reviewed retirement");
 if(!baseline.otherCss.includes("frontend/src/features/auth/components/AuthLayout.module.css"))
  throw Error("Authentication CSS Module must be explicitly reviewed in ownership baseline");

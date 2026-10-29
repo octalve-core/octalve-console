@@ -65,7 +65,7 @@ export function DashboardTopbar({
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
-          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[0.65rem] font-semibold text-white">
+          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[0.65rem] font-medium text-white">
             3
           </span>
         </button>

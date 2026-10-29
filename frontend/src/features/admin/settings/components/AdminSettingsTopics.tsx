@@ -9,7 +9,7 @@ export function AdminSettingsTopics({item}:{item:AdminSettingsItem}){
     <Icon className="h-6 w-6"/>
    </span>
    <div className="min-w-0">
-    <h2 className="text-lg font-semibold text-console-ink">{item.title}</h2>
+    <h2 className="text-lg font-medium text-console-ink">{item.title}</h2>
     <p className="text-sm text-console-muted">{item.description}</p>
    </div>
   </div>
