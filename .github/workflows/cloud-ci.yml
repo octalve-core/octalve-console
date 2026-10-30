@@ -134,6 +134,8 @@ jobs:
         run: node frontend/scripts/check-admin-a2-integration-store.cjs
       - name: Admin Settings route and truthful management link contract
         run: node frontend/scripts/check-admin-settings-routing.cjs
+      - name: Certified Console Settings live-API and fail-closed UI contract
+        run: node frontend/scripts/check-console-settings-live.cjs
       - name: Admin A1 nonrouting modular editor and production copy regression
         run: node frontend/scripts/check-admin-a1-structure.cjs
       - name: Admin payment and editor truthfulness integration regression
