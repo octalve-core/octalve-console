@@ -26,7 +26,7 @@ class OrderWriteAuthority(BasePermission):
         if view.action in ("update", "partial_update", "destroy"):
             user = request.user
             return bool(user and user.is_authenticated and
-                        (user.is_superuser or user.role == "admin"))
+                        (user.is_superuser or (user.is_staff and user.role == "admin")))
         return True
 
 
@@ -43,7 +43,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return Order.objects.all()
         # No global Staff read: assignment-scoped access requires a separately
         # certified per-customer grant and cannot use a broad role flag.
@@ -313,7 +313,7 @@ class CouponWriteAuthority(BasePermission):
         if view.action in ("create", "update", "partial_update", "destroy"):
             user = request.user
             return bool(user and user.is_authenticated and
-                        (user.is_superuser or user.role == "admin"))
+                        (user.is_superuser or (user.is_staff and user.role == "admin")))
         return True
 
 
@@ -329,7 +329,7 @@ class CouponViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return Coupon.objects.all()
         return Coupon.objects.filter(is_active=True)
     
