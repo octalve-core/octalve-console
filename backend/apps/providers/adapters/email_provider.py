@@ -4,7 +4,7 @@ from ..contracts import AdapterResult
 
 class EmailProviderAdapter(BaseAdapter):
     def test_connection(self) -> AdapterResult:
-        return AdapterResult(ok=True, message="EmailProviderAdapter configuration accepted. Real API call should be implemented by backend developer.")
+        return AdapterResult(ok=False, message="Live email sender verification is not connected. Configure and certify an outbound provider before activating delivery.")
 
     def provision(self, service) -> AdapterResult:
         return self._not_ready("provision")
