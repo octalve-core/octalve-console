@@ -136,6 +136,7 @@ def business_snapshot(request):
         "overview": {
             "payment_amounts": totals,
             "verified_payment_count_this_month": current_payments.count(),
+            "verified_payment_count_last_month": last_payments.count(),
             "paid_invoices_this_month": paid_current.count(),
             "pending_invoices": invoices.filter(
                 status__in=("unpaid", "partially_paid", "overdue")).count(),
