@@ -1,6 +1,7 @@
 import type {AdminSettingsItem,AdminSettingsKey} from "../settings/data/admin-settings-config";
 import {AdminSettingsTopics} from "../settings/components/AdminSettingsTopics";
 import {AdminSettingsActions} from "../settings/components/AdminSettingsActions";
+import {OperationalSettingsStatus} from "../settings/components/OperationalSettingsStatus";
 
 /** Routes are reviews only, never proof that integration or issuance is enabled. */
 export const adminSettingsManagementLinks: Partial<Record<AdminSettingsKey,ReadonlyArray<{
@@ -41,6 +42,7 @@ export const adminSettingsManagementLinks: Partial<Record<AdminSettingsKey,Reado
 };
 
 export function AdminSettingsSectionPanel({item,section}:{item:AdminSettingsItem;section:AdminSettingsKey}){
+ if(section==="other")return <div className="grid min-w-0 gap-5 xl:grid-cols-3"><OperationalSettingsStatus section={section}/></div>;
  const links=adminSettingsManagementLinks[section]??[];
  return <div className="grid min-w-0 gap-5 xl:grid-cols-3">
   <AdminSettingsTopics item={item}/>
