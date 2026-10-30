@@ -233,7 +233,9 @@ async function request<T>(
   // Only ordinary browser GETs without custom headers may join. Never share
   // writes, token endpoints, custom-auth requests or server-rendered requests.
   if(method!=="GET"||!isBrowser()||options.skipAuth||options.headers){
-    return performRequest<T>(method,path,body,options);
+    const epoch=method==="GET"&&isBrowser()&&!options.skipAuth
+      ?privateQueryGeneration():undefined;
+    return performRequest<T>(method,path,body,options,epoch);
   }
   const key=createUrl(path,options.params);
   const generation=privateQueryGeneration();
