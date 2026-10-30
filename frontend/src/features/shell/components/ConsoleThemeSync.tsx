@@ -3,7 +3,7 @@ import {useEffect} from "react";
 import {api} from "@/lib/api/client";
 /** Applies only validated allowlisted server theme colours to Console semantic tokens. */
 const allowedPrimary=new Set(["#0064E0","#0052B8","#135FC7"]);
-const allowedCanvas=new Set(["#F6F8FB","#FFFFFF","#F2F7FC"]);
+const allowedCanvas=new Set(["#F8FAFC","#F6F8FB","#FFFFFF","#F2F7FC"]);
 export function ConsoleThemeSync(){
  useEffect(()=>{
   let active=true;
