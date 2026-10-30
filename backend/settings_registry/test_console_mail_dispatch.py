@@ -2,7 +2,7 @@
 from datetime import timedelta
 from django.test import TestCase
 from django.utils import timezone
-from settings_registry.models import EmailTemplate,ConsoleMailOutbox,ConsoleMailAttempt
+from settings_registry.models import EmailTemplate,ConsoleMailOutbox,ConsoleMailAttempt,EmailTemplateRevision
 from settings_registry.mail_dispatch import (
     DeliveryResult,deliver_queued_once,quarantine_expired_attempts,MAX_CYCLES
 )
@@ -89,3 +89,19 @@ class MailDispatchTests(TestCase):
   sender=FakeVerifiedSender("smtp_primary","accepted","receipt-5")
   self.assertFalse(deliver_queued_once(self.msg.pk,senders=[sender]))
   self.assertEqual(sender.calls,0)
+
+ def test_delivery_attempt_receipts_and_revision_history_are_append_only(self):
+  attempt=ConsoleMailAttempt.objects.create(
+   outbox=self.msg,provider="smtp_primary",outcome="refused",receipt="")
+  attempt.receipt="forged"
+  with self.assertRaises(ValueError):
+   attempt.save()
+  with self.assertRaises(ValueError):
+   attempt.delete()
+  revision=EmailTemplateRevision.objects.create(
+   template=self.template,revision=1,snapshot={"subject":"Invoice"})
+  revision.snapshot={"subject":"changed"}
+  with self.assertRaises(ValueError):
+   revision.save()
+  with self.assertRaises(ValueError):
+   revision.delete()
