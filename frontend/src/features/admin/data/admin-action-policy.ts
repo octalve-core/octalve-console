@@ -6,31 +6,31 @@ import type {AdminResourceKey} from "./admin-resource-config";
 
 export const blockedAdminResourceWrites = {
   products: {
-    reason: "Manage products and category identity through the Catalogue Workbench. This generic editor does not match the Django product schema.",
+    reason: "Product details can be updated from the Catalogue.",
     listHref: "/admin/products",
   },
   plans: {
-    reason: "Retail plan pricing and billing periods can only be revised through a supplier-backed reviewed offer draft in Catalogue.",
+    reason: "Update plan prices and billing options through the Catalogue.",
     listHref: "/admin/plans",
   },
   orders: {
-    reason: "Orders are created through the verified customer checkout process. Manual order creation and status changes are unavailable.",
+    reason: "New orders are placed through checkout. You can review existing orders here.",
     listHref: "/admin/orders",
   },
   invoices: {
-    reason: "Invoice totals, payment state and issuance belong to the verified billing workflow. Manual invoice writes are unavailable.",
+    reason: "Invoices are issued from customer orders and renewals. Review them in the billing section.",
     listHref: "/admin/billing/invoices",
   },
   domains: {
-    reason: "Domain registration and provider changes require approved registrar authority. Manual domain creation is not available here.",
+    reason: "Register or transfer domains using an available domain service.",
     listHref: "/admin/billing/domains",
   },
   gateways: {
-    reason: "Payment gateway credentials and activation require approved secure connection management. Generic edits are unavailable.",
+    reason: "Payment connection settings are managed in Integrations.",
     listHref: "/admin/gateways",
   },
   provisioning: {
-    reason: "Provisioning execution is disabled until the authorized worker, provider confirmation and reconciliation pass acceptance.",
+    reason: "Service setup will be available when your provider connections are ready.",
     listHref: "/admin/provisioning",
   },
 } as const satisfies Partial<Record<AdminResourceKey,{reason:string;listHref:string}>>;
