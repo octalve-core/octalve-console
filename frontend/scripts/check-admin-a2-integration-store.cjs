@@ -14,7 +14,8 @@ const sections=["hosting","domains","services","email","cloud"];
 const manifest=sections.map(x=>read("features/admin/integrations/catalog/"+x+".ts")).join("\n");
 const slugs=[...manifest.matchAll(/"slug": "([^"]+)"/g)].map(m=>m[1]);
 const guides=[...manifest.matchAll(/"documentation": "([^"]+)"/g)].map(m=>m[1]);
-assert.equal(slugs.length,21);assert.equal(new Set(slugs).size,slugs.length);
+assert.equal(slugs.length,23);assert.equal(new Set(slugs).size,slugs.length);
+assert.ok(slugs.includes("opanel")&&slugs.includes("brevo"),"First-party OPanel and Brevo must remain discoverable");
 assert.equal(guides.length,slugs.length);assert.ok(guides.every(s=>s.startsWith("https://")));
 for(const file of sections)assert.ok(read("features/admin/integrations/catalog/"+file+".ts").split("\n").length<200);
 const list=read("features/admin/data/admin-resource-config.ts");
@@ -35,10 +36,10 @@ for(const key of links){
 }
 const linksFromSettings=read("features/admin/components/AdminSettingsSectionPanel.tsx");
 assert.ok(linksFromSettings.includes('href:"/admin/integrations"'));
-for(const name of ["cpanel","cloudflare","digitalocean","hetzner","namecheap","zoho","googlecloud","letsencrypt","resend","plesk","vultr","proxmox"]){
+for(const name of ["cpanel","cloudflare","digitalocean","hetzner","namecheap","zoho","googlecloud","letsencrypt","resend","plesk","vultr","proxmox","opanel"]){
  const asset=path.join(root,"..","public/integrations",name+".svg");
  assert.ok(fs.existsSync(asset),"Missing local vendor mark "+name);
  const svg=fs.readFileSync(asset,"utf8");
  assert.ok(svg.startsWith("<svg")&&!/script|foreignObject|onload=|href=/.test(svg),"Unsafe vendor mark "+name);
 }
-console.log("PASS: 85 Admin destinations, fixed Category and Integration navigation, 21 unique manifests and valid guides, read-only side sheet, local vetted logos.");
+console.log("PASS: 85 Admin destinations, fixed Category and Integration navigation, 23 unique manifests, first-party logo and valid guides, read-only side sheet, local vetted logos.");
