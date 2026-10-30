@@ -63,6 +63,22 @@ class AccountRegistrationBoundaryTests(TestCase):
         serializer=CustomUserCreateSerializer(data=self.payload(phone_number=""))
         self.assertTrue(serializer.is_valid(),serializer.errors)
 
+    def test_terms_acceptance_records_only_explicit_version(self):
+        accepted=CustomUserCreateSerializer(data=self.payload(
+            email="terms-accepted@example.invalid",accepted_terms_version="2026-10-30"))
+        self.assertTrue(accepted.is_valid(),accepted.errors)
+        result=accepted.save()
+        self.assertEqual(result.metadata["terms_acceptance"]["version"],"2026-10-30")
+        self.assertEqual(result.metadata["terms_acceptance"]["source"],"signup")
+        no_acceptance=CustomUserCreateSerializer(data=self.payload(
+            email="terms-not-claimed@example.invalid"))
+        self.assertTrue(no_acceptance.is_valid(),no_acceptance.errors)
+        self.assertNotIn("terms_acceptance",no_acceptance.save().metadata or {})
+        invalid=CustomUserCreateSerializer(data=self.payload(
+            email="terms-invalid@example.invalid",accepted_terms_version="9999-01-01"))
+        self.assertFalse(invalid.is_valid())
+        self.assertIn("accepted_terms_version",invalid.errors)
+
     def test_privileged_fields_rejected_during_signup(self):
         for name,value in (("role","admin"),("is_superuser",True),
                            ("is_staff",True),("wallet_balance",999999),
