@@ -24,10 +24,10 @@ requireAll("BI view",view,["DashboardShell role=\"admin\"","DashboardPage","useA
  "privateQueryKey","privateQueryRead","privateQueryWrite","parseBIZSnapshot",
  "reportsApi.businessSnapshot(currency)","OverviewPanel","FinancePanel",
  "CustomersPanel","RenewalsPanel","ProvidersPanel","LibraryPanel",
- "reportsApi.definitions()","reportsApi.instances()","business intelligence",
+ "reportsApi.definitions()","reportsApi.instances()","Business Intelligence",
  "section===","currency"]);
 requireAll("BI panels",panels,["ConsoleIconTile","ResponsiveTable","font-medium",
- "settlement","Provider","monthLabel","Report Library","LibraryPanel",
+ "settlement","Provider","monthLabel","Report definitions","LibraryPanel",
  "supplier","No qualifying"]);
 requireAll("Strict decoder",contract,["parseBIZSnapshot","Number.isSafeInteger",
  "settlement_verified!==false","profit_verified!==false","formatMoney",
