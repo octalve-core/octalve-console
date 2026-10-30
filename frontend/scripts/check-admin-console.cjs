@@ -32,7 +32,9 @@ requireParts("features/admin/workspace/views/AdminWorkspaceDetailView.tsx",[
 requireParts("features/admin/operations/views/AdminOperationDetailView.tsx",[
  "config.loader()","readAuthorizedDetail","!record?<ErrorState"]);
 requireParts("features/admin/components/AdminGenericDirectory.tsx",[
- "ResponsiveTable","PAGE_SIZE=10","allowDetails"]);
+ "RecordDirectory","DirectoryRow","allowDetails","href:allowDetails"]);
+if(read("features/admin/components/AdminGenericDirectory.tsx").includes("ResponsiveTable"))
+ throw Error("Legacy Admin directory table reintroduced");
 requireParts("features/admin/views/AdminResourceEditorView.tsx",[
  "AdminResourceEditorForm","saveAdminResourceRecord","parseApiValidationError",
  "setFieldErrors(parsedError.fieldErrors)","buildPayload(submittedValues)"]);
