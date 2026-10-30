@@ -6,7 +6,7 @@ export type BIZSnapshot={
  methodology:{payment_basis:string;settlement_verified:false;profit_verified:false;
   provider_cost_evidence:string;invoice_status_is_settlement:false;currency_policy:string};
  overview:{payment_amounts:{this_month:string;last_month:string;year_to_date:string;refunded_this_month:string};
-  verified_payment_count_this_month:number;paid_invoices_this_month:number;pending_invoices:number;
+  verified_payment_count_this_month:number;verified_payment_count_last_month:number;paid_invoices_this_month:number;pending_invoices:number;
   active_services:number;new_customers_this_month:number;paid_renewal_invoices_this_month:number};
  finance:{payment_amounts:BIZSnapshot["overview"]["payment_amounts"];
   invoice_status:Record<string,number>;paid_before_due_this_month:number;
@@ -70,6 +70,7 @@ export function parseBIZSnapshot(value:unknown):BIZSnapshot{
    invoice_status_is_settlement:false,currency_policy:name(m.currency_policy)},
   overview:{payment_amounts:amounts(o.payment_amounts),
    verified_payment_count_this_month:number(o.verified_payment_count_this_month),
+   verified_payment_count_last_month:number(o.verified_payment_count_last_month),
    paid_invoices_this_month:number(o.paid_invoices_this_month),
    pending_invoices:number(o.pending_invoices),active_services:number(o.active_services),
    new_customers_this_month:number(o.new_customers_this_month),
