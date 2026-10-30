@@ -108,11 +108,25 @@ def save_policy(section, payload, actor, ip=None):
                for key,value in values.items()}
     # Serialize policy revision checks even when records are still missing.
     from .models import SettingGroup
-    group=SettingGroup.objects.select_for_update().get(key=section)
+    # An initial empty registry is valid. Serialize writes by the group row
+    # after creation, but compare the exact user-observed default snapshot.
+    group,_=SettingGroup.objects.get_or_create(key=section,defaults={
+        "name":section.replace("_"," ").title()
+    })
+    group=SettingGroup.objects.select_for_update().get(pk=group.pk)
     records=_records(section,lock=True)
     before=_snapshot(section,records)
     if payload["revision"]!=before["revision"]:
         raise RuntimeError("Settings changed since you opened this page. Reload and review.")
+    # Create default rows only after a matching revision has been approved.
+    # No server-controlled values are accepted from metadata in the request.
+    for key,(label,kind,default,effect) in MANIFEST[section].items():
+        if key not in records:
+            Setting.objects.get_or_create(group=group,key=key,defaults={
+                "name":label,"data_type":"string","default_value":default,
+                "value":default,"is_public":False
+            })
+    records=_records(section,lock=True)
     changed=[]
     audit_ids=[]
     for key,value in validated.items():
