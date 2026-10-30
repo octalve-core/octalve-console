@@ -2,7 +2,7 @@
 
 from django.urls import path, include
 from .console_views import ConsolePolicyView
-from .tax_policy import ConsoleTaxPolicyView
+from .tax_policy import ConsoleTaxPolicyView,ConsoleTaxHistoryView
 from .public_theme import ConsoleThemeView
 from .operational_status import ConsoleStatusView
 from .mail_views import TemplateListView,TemplateDetailView,TemplateDuplicateView,TemplatePreviewView,TemplateRevisionHistoryView,OutboxDashboardView
@@ -24,6 +24,7 @@ urlpatterns = [
     path('console-status/<slug:section>/',ConsoleStatusView.as_view(),name='console-status'),
     path('console-theme/',ConsoleThemeView.as_view(),name='console-theme'),
     path('console-tax/',ConsoleTaxPolicyView.as_view(),name='console-tax'),
+    path('console-tax/history/',ConsoleTaxHistoryView.as_view(),name='console-tax-history'),
     path('console-mail/templates/',TemplateListView.as_view(),name='console-mail-templates'),
     path('console-mail/templates/<int:pk>/',TemplateDetailView.as_view(),name='console-mail-template-detail'),
     path('console-mail/templates/<int:pk>/duplicate/',TemplateDuplicateView.as_view(),name='console-mail-template-duplicate'),
