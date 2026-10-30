@@ -68,6 +68,7 @@ export type SignupPayload = {
   email: string;
   username?: string;
   phone?: string;
+  accepted_terms_version?: string;
   password: string;
   referral_code?: string;
 };
