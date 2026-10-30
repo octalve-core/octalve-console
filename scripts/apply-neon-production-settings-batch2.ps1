@@ -31,9 +31,38 @@ try{
            throw "Settings migration source missing: $m"
         }
     }
-    $python="python"
-    & $python -c "import django,psycopg; print('PASS: Django and psycopg installed')"
-    if($LASTEXITCODE -ne 0){throw "Install reviewed backend/requirements.txt in a local Python 3.12 environment."}
+    # Use the prior Production auth runner's isolated Python 3.12 approach.
+    # This environment lives OUTSIDE Git so the source tree stays clean.
+    if([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)){
+        throw "Windows LOCALAPPDATA is missing. Open PowerShell on your trusted Windows workstation."
+    }
+    $venv=Join-Path $env:LOCALAPPDATA "OctalveCloud\Batch2MigrationPython312"
+    $python=Join-Path $venv "Scripts\python.exe"
+    if(-not (Test-Path $python)){
+        $launcher=Get-Command py -ErrorAction SilentlyContinue
+        if($launcher){
+            # The Python Launcher selects Python 3.12 even if another version is default.
+            & py -3.12 -c "import sys; sys.exit(0 if sys.version_info[:2] == (3,12) else 1)"
+            if($LASTEXITCODE -ne 0){throw "Python 3.12 is required. Install Python 3.12 for Windows and rerun."}
+            & py -3.12 -m venv $venv
+        }else{
+            $candidate=Get-Command python -ErrorAction SilentlyContinue
+            if(-not $candidate){throw "Python 3.12 was not found. Install it and rerun the same script."}
+            & python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3,12) else 1)"
+            if($LASTEXITCODE -ne 0){throw "Python 3.12 is required; the default python is a different version. Install the 3.12 launcher."}
+            & python -m venv $venv
+        }
+        if($LASTEXITCODE -ne 0 -or -not (Test-Path $python)){
+            throw "Could not create isolated Python 3.12 migration environment. Production is unchanged."
+        }
+    }
+    & $python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3,12) else 1)"
+    if($LASTEXITCODE -ne 0){throw "Migration environment is not Python 3.12. Do not reuse it; Production is unchanged."}
+    Write-Host "Preparing pinned Django dependencies in an isolated local environment..."
+    & $python -m pip install --quiet --disable-pip-version-check --no-input -r "backend/requirements.txt"
+    if($LASTEXITCODE -ne 0){throw "Pinned Django dependency setup failed. Production is unchanged. Check Python 3.12 and your network."}
+    & $python -c "import django,psycopg; print('PASS: Django and psycopg ready for isolated migration preflight')"
+    if($LASTEXITCODE -ne 0){throw "The isolated migration environment is incomplete. Production is unchanged."}
     $secure=Read-Host -AsSecureString "Neon Production direct PostgreSQL URL (input hidden)"
     $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
     try{$url=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)}
