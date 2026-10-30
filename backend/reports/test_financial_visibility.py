@@ -29,7 +29,7 @@ class FinancialRoleBoundaryTests(TestCase):
         )
         cls.admin_account = User.objects.create_user(
             email="report-admin@example.invalid", username="report_admin",
-            password="test-password-only", role="admin", is_staff=False,
+            password="test-password-only", role="admin", is_staff=True,
         )
         cls.superuser = User.objects.create_superuser(
             email="report-super@example.invalid", username="report_super",
@@ -70,3 +70,46 @@ class FinancialRoleBoundaryTests(TestCase):
             with self.subTest(endpoint=endpoint):
                 response = api.post(endpoint, {}, format="json")
                 self.assertIn(response.status_code, (403, 405))
+
+    def test_role_spoofed_admin_without_staff_flag_is_rejected(self):
+        untrusted = User.objects.create_user(
+            email="report-spoof@example.invalid", username="report_spoof",
+            password="test-password-only", role="admin", is_staff=False,
+        )
+        api = APIClient()
+        api.force_authenticate(user=untrusted)
+        for endpoint in GLOBAL_REPORT_ENDPOINTS:
+            with self.subTest(endpoint=endpoint):
+                self.assertEqual(api.get(endpoint).status_code, 403)
+
+    def test_reports_metadata_and_exports_do_not_cross_roles(self):
+        endpoints = (
+            "/api/reports/definitions/", "/api/reports/instances/",
+            "/api/reports/widgets/", "/api/reports/filters/",
+            "/api/reports/metrics/",
+        )
+        for user in (self.client_account, self.staff_account):
+            api = APIClient()
+            api.force_authenticate(user=user)
+            for endpoint in endpoints:
+                with self.subTest(role=user.role, endpoint=endpoint):
+                    self.assertEqual(api.get(endpoint).status_code, 403)
+                    self.assertEqual(api.post(endpoint, {}, format="json").status_code, 403)
+
+    def test_unsafe_export_is_closed_even_for_superuser(self):
+        from reports.models import ReportDefinition
+        from django.utils import timezone
+        report = ReportDefinition.objects.create(
+            name="Private export gate", report_type="invoices",
+            created_by=self.superuser,
+        )
+        api = APIClient()
+        api.force_authenticate(user=self.superuser)
+        result = api.post(
+            f"/api/reports/definitions/{report.pk}/generate/",
+            {"period_start": timezone.now().isoformat(),
+             "period_end": timezone.now().isoformat(), "format": "csv"},
+            format="json",
+        )
+        self.assertEqual(result.status_code, 503)
+        self.assertNotIn("download_url", result.data)
