@@ -61,15 +61,10 @@ export function AuthPasswordStrength({password}:{password:string}){
    </div>
  </div>;
 }
+/** OAuth buttons appear only after a verified OIDC/OAuth callback and account-binding flow.
+ * Provider credentials or visual placeholders never create an authentication capability.
+ */
 export function AuthSocialOptions(){
- return <div aria-label="Other sign-in methods are unavailable">
-  <div className={styles.divider}>Other sign-in options</div>
-  <div className={styles.socialRow}>
-   {["Google","Apple","Facebook"].map(name=><button key={name} className={styles.social} type="button"
-      disabled aria-label={name+" sign-in not available"} title={name+" sign-in not available"}>
-     <span aria-hidden="true" className="text-sm font-medium">{name[0]}</span>
-    </button>)}
-  </div>
- </div>;
+ return null;
 }
 export const authFieldIcons={mail:Mail,user:UserRound,phone:Phone};
