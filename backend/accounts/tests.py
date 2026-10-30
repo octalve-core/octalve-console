@@ -19,7 +19,7 @@ class CloudAccountApiTests(APITestCase):
                 "full_name": "Development Test",
                 "password": self.password,
                 "re_password": self.password,
-                "role": "admin",  # Deliberate privilege escalation attempt.
+                # Ordinary registration never requests Admin privileges.
             },
             format="json",
         )
@@ -33,6 +33,19 @@ class CloudAccountApiTests(APITestCase):
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.check_password(self.password))
+
+    def test_signup_rejects_privilege_injection_instead_of_silently_ignoring_it(self):
+        payload={
+            "email": "privilege-injection@example.invalid",
+            "username": "privilege_injection",
+            "full_name": "Privilege Injection",
+            "password": self.password,
+            "re_password": self.password,
+            "role": "admin",
+        }
+        response=self.client.post("/api/auth/register/",payload,format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(get_user_model().objects.filter(email=payload["email"]).exists())
 
     def test_login_then_current_user_via_real_jwt(self):
         self.register()
