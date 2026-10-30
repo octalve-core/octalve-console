@@ -2,10 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {ArrowLeft,RefreshCcw} from "lucide-react";
+import {ArrowLeft} from "lucide-react";
 import {AdminRecordDetailPanel} from "../components/AdminRecordDetailPanel";
 import {ActionLink} from "@/components/design-system/ActionLink";
-import {ActionButton} from "@/components/design-system/ActionButton";
+import {CustomerProfileDetail,type CustomerDetail} from "../components/CustomerProfileDetail";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -34,6 +34,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
   const editorConfig = adminEditorConfig[resource];
 
   const [record, setRecord] = useState<AdminRecord | null>(null);
+  const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const requestSequence = useRef(0);
@@ -51,7 +52,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
         : unwrapAdminList(response).map((item) => normalizeAdminRecord(item, listConfig.key));
       const foundApiRecord = apiRecords.find((item) => item.id === id);
       if (requestId !== requestSequence.current) return;
-
+      setCustomer(resource==="customers"?response as unknown as CustomerDetail:null);
       setRecord(foundApiRecord ?? null);
       if (!foundApiRecord) setError(
         resource === "customers"
@@ -60,7 +61,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
       );
     } catch {
       if (requestId !== requestSequence.current) return;
-      setRecord(null);
+      setRecord(null);setCustomer(null);
       setError("We couldn’t load this record. Try again.");
     } finally {
       if (requestId === requestSequence.current) setIsLoading(false);
@@ -82,26 +83,21 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
       role="admin"
       title={editorConfig.detailLabel}
       description={listConfig.description}
-      actions={
-        <ActionLink href={editorConfig.listHref} variant="outline">
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </ActionLink>
-      }
     >
+      <div className="mb-4"><ActionLink href={editorConfig.listHref} variant="outline">
+       <ArrowLeft className="h-4 w-4" aria-hidden="true"/> Back to {resource==="customers"?"customers":"records"}
+      </ActionLink></div>
       <DashboardPage
         eyebrow={listConfig.eyebrow}
         title={record?.title ?? editorConfig.detailLabel}
         description={record?.subtitle ?? listConfig.description}
-        actions={
-          <ActionButton type="button" variant="outline" onClick={loadRecord}
-            leadingIcon={<RefreshCcw aria-hidden="true" className="h-4 w-4"/>}>Refresh</ActionButton>
-        }
       >
         {isLoading ? (
           <LoadingState title="Loading record" description="Getting the latest details…" />
         ) : !record ? (
           <ErrorState title="Record unavailable" description={error || "This record could not be found."}/>
+        ) : resource==="customers"&&customer ? (
+          <CustomerProfileDetail data={customer} record={record} editHref={editHref}/>
         ) : (
           <AdminRecordDetailPanel record={record}
             actions={[...(resource==="providers"?[]:isAdminMutationDisabled(resource)?[]:[{href:editHref,label:"Edit record",variant:"primary" as const}]),
