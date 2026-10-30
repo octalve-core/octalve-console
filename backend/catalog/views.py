@@ -12,7 +12,7 @@ from .serializers import (
     PlanProviderMappingSerializer
 )
 from rbac.decorators import permission_required
-from .permissions import CatalogPublicationAuthority, InternalSupplierAuthority
+from .permissions import CatalogPublicationAuthority, InternalSupplierAuthority, is_cloud_admin
 
 class ProductCategoryViewSet(viewsets.ModelViewSet):
     """ViewSet for product categories"""
@@ -55,7 +55,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter based on user role"""
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if is_cloud_admin(user):
             return Product.objects.all()
         return Product.objects.filter(status='active', is_public=True)
     
@@ -80,7 +80,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         """Get all plans for a product"""
         product = self.get_object()
         plans = Plan.objects.filter(product=product, status='active')
-        if not (request.user.role == 'admin' or request.user.is_superuser):
+        if not is_cloud_admin(request.user):
             plans = plans.filter(is_public=True, published_versions__isnull=False).distinct()
         serializer = PlanSerializer(plans, many=True)
         return Response(serializer.data)
@@ -99,7 +99,7 @@ class PlanViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter based on user role"""
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if is_cloud_admin(user):
             return Plan.objects.all()
         return Plan.objects.filter(status='active', is_public=True, published_versions__isnull=False, product__status='active', product__is_public=True, product__category__is_active=True).distinct()
     
@@ -131,7 +131,7 @@ class PlanProviderMappingViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Only staff/admin can see mappings"""
         user = self.request.user
-        if user.role in ['admin', 'staff'] or user.is_superuser:
+        if is_cloud_admin(user):
             return PlanProviderMapping.objects.all()
         return PlanProviderMapping.objects.none()
     

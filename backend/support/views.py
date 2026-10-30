@@ -26,20 +26,34 @@ from rbac.decorators import permission_required
 from .routing import choose_staff, eligible_staff
 
 
+def is_support_admin(user):
+    return bool(user.is_authenticated and (
+        user.is_superuser or (user.is_staff and user.role == "admin")
+    ))
+
+
+def is_support_staff(user):
+    return bool(user.is_authenticated and user.is_staff and user.role == "staff")
+
+
+def is_support_agent(user):
+    return is_support_admin(user) or is_support_staff(user)
+
+
 class AdminWriteSupport(BasePermission):
     def has_permission(self, request, view):
         if request.method in ("GET","HEAD","OPTIONS"):
             return True
         user=request.user
-        return bool(user.is_authenticated and (user.is_superuser or user.role=="admin"))
+        return is_support_admin(user)
 
 class SupportAgentsView(APIView):
     permission_classes=[IsAuthenticated,AdminWriteSupport]
     def get(self,request):
-        if request.user.role!="admin" and not request.user.is_superuser:
+        if not is_support_admin(request.user):
             raise PermissionDenied("Only support administrators may manage assignments.")
         from django.contrib.auth import get_user_model
-        users=get_user_model().objects.filter(is_active=True,role__in=["admin","staff"]).order_by("full_name","pk")
+        users=get_user_model().objects.filter(is_active=True,is_staff=True,role__in=["admin","staff"]).order_by("full_name","pk")
         return Response([{"id":user.pk,"full_name":user.full_name,"role":user.role} for user in users[:500]])
 
 
@@ -52,7 +66,7 @@ class SupportRoutingTagViewSet(viewsets.ModelViewSet):
     search_fields=["label","slug"]
     def get_queryset(self):
         qs=super().get_queryset()
-        if self.request.user.role=="client":
+        if not is_support_agent(self.request.user):
             return qs.filter(is_active=True,department__is_active=True)
         return qs
 
@@ -68,7 +82,7 @@ class SupportDepartmentViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role in ['admin', 'staff']:
+        if is_support_agent(user):
             return SupportDepartment.objects.all()
         return SupportDepartment.objects.filter(is_active=True)
     
@@ -90,9 +104,9 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if is_support_admin(user):
             return SupportTicket.objects.all()
-        if user.role == 'staff':
+        if is_support_staff(user):
             # Current department AND topic membership gates every staff read,
             # even if a stale ticket.assignment still points at this agent.
             # A removed skill or department must revoke access immediately.
@@ -167,13 +181,13 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         
         if request.FILES or request.data.get("attachments"):
             raise ValidationError({"attachments":"Attachments require approved private storage."})
-        if request.user.role=="client" and serializer.validated_data.get("is_internal"):
+        if not is_support_agent(request.user) and serializer.validated_data.get("is_internal"):
             raise PermissionDenied("Only support staff can write internal notes.")
         if ticket.status in ("closed","trash"):
             raise ValidationError({"detail":"This ticket is closed."})
         # Determine sender role
-        if request.user.role in ['admin', 'staff']:
-            sender_role = 'admin' if request.user.role == 'admin' else 'staff'
+        if is_support_agent(request.user):
+            sender_role = 'admin' if is_support_admin(request.user) else 'staff'
             # Update status if waiting for customer
             if ticket.status == 'waiting_customer':
                 ticket.status = 'in_progress'
@@ -232,10 +246,10 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         
         action = serializer.validated_data['action']
-        if request.user.role=="client":
+        if not is_support_agent(request.user):
             if action not in ("close","reopen") or ticket.client_id!=request.user.pk:
                 raise PermissionDenied("Only support managers can assign or prioritize tickets.")
-        elif request.user.role=="staff" and action in ("assign","change_priority"):
+        elif not is_support_admin(request.user) and action in ("assign","change_priority"):
             raise PermissionDenied("Only administrators can reassign or reprioritize tickets.")
         
         if action == 'close':
@@ -255,7 +269,7 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
             if staff_id:
                 from django.contrib.auth import get_user_model
                 User = get_user_model()
-                staff = get_object_or_404(User, id=staff_id, role__in=['admin', 'staff'], is_active=True)
+                staff = get_object_or_404(User, id=staff_id, role__in=['admin', 'staff'], is_active=True, is_staff=True)
                 if not eligible_staff(ticket).filter(pk=staff.pk).exists():
                     raise ValidationError({'staff_id':'Select an eligible department specialist.'})
                 ticket.assign(staff)
@@ -277,7 +291,7 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         reason = serializer.validated_data.get("reason", "")
         TicketMessage.objects.create(
             ticket=ticket,sender=request.user,
-            sender_role=request.user.role if request.user.role in ("admin","staff","client") else "system",
+            sender_role="admin" if is_support_admin(request.user) else "staff" if is_support_staff(request.user) else "client",
             sender_name=request.user.full_name,
             message=f"Action: {action}. {reason}"[:1000],
             is_internal=True,
@@ -365,7 +379,7 @@ class PredefinedResponseViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role in ['admin', 'staff']:
+        if is_support_agent(user):
             return PredefinedResponse.objects.all()
         return PredefinedResponse.objects.filter(is_active=True, is_public=True)
     
@@ -386,11 +400,11 @@ class TicketEscalationRuleViewSet(viewsets.ModelViewSet):
     
     queryset = TicketEscalationRule.objects.all()
     serializer_class = TicketEscalationRuleSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,AdminWriteSupport]
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin':
+        if is_support_admin(user):
             return TicketEscalationRule.objects.all()
         return TicketEscalationRule.objects.none()
     

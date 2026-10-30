@@ -1,5 +1,5 @@
 export type Primitive = string | number | boolean | null | undefined;
-import {privateQueryClear} from "./private-query-cache";
+import {privateQueryClear,privateQueryGeneration} from "./private-query-cache";
 
 export type QueryParams = Record<string, Primitive | Primitive[]>;
 
@@ -156,11 +156,21 @@ function getErrorMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-async function request<T>(
-  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
+type HttpVerb = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+
+/** Concurrent identical reads share one network request, never a cached response.
+ * Authenticated BFF cookies remain server-managed. Epochs isolate login/logout,
+ * rejected sessions and mutations, and no response persists across navigation.
+ */
+const pendingReads = new Map<string,{generation:number;promise:Promise<unknown>}>();
+const MAX_PENDING_READS = 60;
+
+async function performRequest<T>(
+  method: HttpVerb,
   path: string,
   body?: unknown,
   options: ApiRequestOptions = {},
+  expectedGeneration?: number,
 ): Promise<T> {
   const headers = new Headers(options.headers);
 
@@ -190,6 +200,13 @@ async function request<T>(
 
   const payload = await parseResponse(response);
 
+  // A response from before logout, role switch or a successful write must not
+  // be delivered into a new account's UI or overwrite newer financial state.
+  if(method==="GET"&&expectedGeneration!==undefined&&
+     privateQueryGeneration()!==expectedGeneration){
+    throw new ApiError("This information changed. Please refresh your view.",409);
+  }
+
   if (!response.ok) {
     // A rejected session or role check must never leave reusable private
     // display records in the query cache. Only Django can authorize access.
@@ -205,6 +222,35 @@ async function request<T>(
   // can authorize a financial or role-changing operation.
   if(method!=="GET")privateQueryClear();
   return payload as T;
+}
+
+async function request<T>(
+  method: HttpVerb,
+  path: string,
+  body?: unknown,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  // Only ordinary browser GETs without custom headers may join. Never share
+  // writes, token endpoints, custom-auth requests or server-rendered requests.
+  if(method!=="GET"||!isBrowser()||options.skipAuth||options.headers){
+    const epoch=method==="GET"&&isBrowser()&&!options.skipAuth
+      ?privateQueryGeneration():undefined;
+    return performRequest<T>(method,path,body,options,epoch);
+  }
+  const key=createUrl(path,options.params);
+  const generation=privateQueryGeneration();
+  const pending=pendingReads.get(key);
+  if(pending&&pending.generation===generation)return pending.promise as Promise<T>;
+  // Bound in-flight memory even if many distinct filter URLs are requested.
+  if(pendingReads.size>=MAX_PENDING_READS){
+    return performRequest<T>(method,path,body,options,generation);
+  }
+  const promise=performRequest<T>(method,path,body,options,generation);
+  pendingReads.set(key,{generation,promise});
+  try{return await promise;}
+  finally{
+    if(pendingReads.get(key)?.promise===promise)pendingReads.delete(key);
+  }
 }
 
 export const api = {
