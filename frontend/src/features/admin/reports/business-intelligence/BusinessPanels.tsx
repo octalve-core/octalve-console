@@ -113,6 +113,21 @@ export function CustomersPanel({data}:{data:BIZSnapshot}){
    {title:"Paying customers · this month",value:fmt(c.paying_customers_this_month),note:"Distinct clients with a webhook-verified payment in this currency",icon:CreditCard,tone:"amber"},
   ]}/>
   <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+   <Panel><h2 className="text-sm font-medium text-console-ink">Customer accounts to review</h2>
+    <div className="mt-4 space-y-4 text-sm">
+     <div className="flex items-center justify-between gap-3 border-b border-console-line pb-4">
+      <span>Two or more failed payment attempts in 14 days</span>
+      <span className="font-medium tabular-nums">{fmt(c.accounts_with_repeat_failed_payments_14d)}</span>
+     </div>
+     <div className="flex items-center justify-between gap-3">
+      <span>Active service records past their renewal date</span>
+      <span className="font-medium tabular-nums">{fmt(c.accounts_with_past_due_services)}</span>
+     </div>
+    </div>
+    <p className="mt-4 text-xs leading-5 text-console-muted">These are review signals, not fraud findings. Verify the underlying account and transaction history before acting.</p>
+   </Panel>
+  </div>
+  <div className="grid min-w-0 gap-4 xl:grid-cols-2">
    <RegistrationTrendChart rows={c.registrations_by_month}/>
    <Panel><h2 className="mb-4 text-sm font-medium">Customer registration records</h2>
     <ResponsiveTable caption="Customer cohorts by registration month" rows={c.registrations_by_month}
