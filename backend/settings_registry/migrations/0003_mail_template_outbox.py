@@ -7,7 +7,7 @@ class Migration(migrations.Migration):
  dependencies=[("settings_registry","0002_console_policy_defaults")]
  operations=[
   migrations.CreateModel(name="EmailTemplateRevision",fields=[
-   ("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False)),
+   ("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False,verbose_name="ID")),
    ("revision",models.PositiveIntegerField()),
    ("snapshot",models.JSONField(default=dict)),
    ("created_at",models.DateTimeField(auto_now_add=True)),
@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
    ("template",models.ForeignKey(to="settings_registry.emailtemplate",on_delete=django.db.models.deletion.PROTECT,related_name="revisions")),
   ]),
   migrations.CreateModel(name="ConsoleMailOutbox",fields=[
-   ("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False)),
+   ("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False,verbose_name="ID")),
    ("idempotency_key",models.CharField(max_length=128,unique=True)),
    ("recipient",models.EmailField(max_length=254)),
    ("subject",models.CharField(max_length=255)),
@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
    ("template",models.ForeignKey(to="settings_registry.emailtemplate",on_delete=django.db.models.deletion.PROTECT)),
   ],options={"indexes":[models.Index(fields=["status","created_at"],name="console_mail_state_ix")]}),
   migrations.CreateModel(name="ConsoleMailAttempt",fields=[
-   ("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False)),
+   ("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False,verbose_name="ID")),
    ("provider",models.CharField(max_length=80)),
    ("outcome",models.CharField(max_length=24,choices=[("accepted","Accepted"),("refused","Refused"),("unknown","Unknown")])),
    ("receipt",models.CharField(max_length=255,blank=True,default="")),
