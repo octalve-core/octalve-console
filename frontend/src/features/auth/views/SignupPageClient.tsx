@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {PHONE_COUNTRIES,suggestPhoneCountry} from "../lib/country-dial-codes";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Phone, UserRound, UserRoundPlus } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, Phone, UserRound, UserRoundPlus, XCircle } from "lucide-react";
 import styles from "../components/AuthLayout.module.css";
 import {AuthPasswordStrength,AuthSocialOptions} from "../components/AuthFormControls";
+import {authApiV2} from "@/lib/api/modules/auth.api";
 import { ApiFormError } from "@/components/feedback/ApiFormError";
 import { getRoleDashboard, useAuth } from "@/context/AuthContext";
 import {sanitizeCommerceNext} from "@/lib/commerce/sanitize-commerce-next";
@@ -37,6 +38,7 @@ export function SignupPageClient() {
     acceptedTerms: false,
   });
   const [error, setError] = useState("");
+  const [usernameAvailability,setUsernameAvailability]=useState<"idle"|"checking"|"available"|"taken">("idle");
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [referralCode,setReferralCode]=useState<string|null>(null);
@@ -49,6 +51,21 @@ export function SignupPageClient() {
     const intl=Intl.DateTimeFormat().resolvedOptions();
     setValues(current=>({...current,phone_country:suggestPhoneCountry(navigator.language,intl.timeZone||"")}));
   },[]);
+
+  useEffect(()=>{
+    const username=values.username.trim().toLowerCase();
+    if(!username||!/^[a-z][a-z0-9_]{2,29}$/.test(username)){
+      setUsernameAvailability("idle");return;
+    }
+    let active=true;
+    setUsernameAvailability("checking");
+    const timer=window.setTimeout(()=>{
+      void authApiV2.checkUsername(username).then(result=>{
+        if(active)setUsernameAvailability(result.available?"available":"taken");
+      }).catch(()=>{if(active)setUsernameAvailability("idle");});
+    },650);
+    return()=>{active=false;window.clearTimeout(timer);};
+  },[values.username]);
 
   function updateField(name: keyof typeof values, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -67,6 +84,9 @@ export function SignupPageClient() {
     setError("");
     setFieldErrors({});
 
+    if(usernameAvailability==="taken"&&values.username.trim()){
+      setFieldErrors({username:["Choose another username."]});return;
+    }
     if (values.password !== values.confirmPassword) {
       setFieldErrors({
         confirmPassword: ["Passwords do not match."],
@@ -174,6 +194,11 @@ export function SignupPageClient() {
           error={getApiFieldError(fieldErrors, "username")}
           onChange={(event) => updateField("username", event.target.value)}
         />
+        <p role="status" aria-live="polite" className="-mt-2 flex min-h-5 items-center gap-1.5 text-xs" data-username-availability>
+          {usernameAvailability==="checking"?<span className="text-slate-500">Checking username…</span>:
+           usernameAvailability==="available"?<span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 aria-hidden="true" className="h-4 w-4"/>Available</span>:
+           usernameAvailability==="taken"?<span className="inline-flex items-center gap-1 text-rose-700"><XCircle aria-hidden="true" className="h-4 w-4"/>Username taken</span>:null}
+        </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
           <div className="min-w-0">
             <label htmlFor="phone-country" className={styles.fieldLabel}>Country calling code</label>
