@@ -19,6 +19,7 @@ import type { AdminRecord } from "../data/admin-demo-data";
 import { saveAdminResourceRecord, type AdminSaveMode } from "../data/admin-resource-actions";
 import { findExactAdminRecord, normalizeAdminRecord, unwrapAdminList } from "../utils/admin-record-normalizer";
 import {isAdminMutationDisabled} from "../data/admin-action-policy";
+import {adminApi} from "@/lib/api/endpoints";
 import {AdminRestrictedActionView} from "./AdminRestrictedActionView";
 
 type AdminResourceEditorViewProps = {
@@ -139,8 +140,12 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
       setError("");
 
       try {
-        const response = await listConfig.loader();
-        const authorizedRows = unwrapAdminList(response);
+        const response = resource==="customers"
+          ? await adminApi.customer(activeId)
+          : await listConfig.loader();
+        const authorizedRows = resource==="customers"
+          ? [response as unknown as Record<string,unknown>]
+          : unwrapAdminList(response);
         const exactRecord = findExactAdminRecord(authorizedRows, activeId);
         const foundApiRecord = exactRecord ? normalizeAdminRecord(exactRecord, listConfig.key) : null;
 

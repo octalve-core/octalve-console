@@ -94,6 +94,9 @@ type ListParams = {
   status?: string;
   page?: number;
   page_size?: number;
+  ordering?: string;
+  date_from?: string;
+  date_to?: string;
 };
 
 const byId = (base: string, id: string) => `${base.replace(/\/+$/, "")}/${encodeURIComponent(id)}/`;
@@ -494,6 +497,12 @@ export const adminApi = {
         params,
       },
     );
+  },
+
+  customer(id: string) {
+    // Detail records must be fetched by exact server-authorized identifier,
+    // never inferred from the first page of a customer list.
+    return api.get<Customer>(byId(apiPaths.admin.customers, id));
   },
 
   createCustomer(payload: Partial<Customer>) {

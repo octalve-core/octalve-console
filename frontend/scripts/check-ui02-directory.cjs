@@ -42,7 +42,7 @@ async function main(){
  for(const name of ["full_name","company_name","email","date_joined","wallet_balance","status","services_count"])
   if(!section.includes("'"+name+"'")&&!section.includes(" "+name+" ="))throw Error("Django customer field missing: "+name);
  const view=fs.readFileSync(path.resolve(front,"../backend/accounts/views.py"),"utf8");
- if(!view.includes("class AdminCustomerListView(")||!view.includes("permission_classes = [IsAdminUser]"))
+ if(!view.includes("class AdminCustomerListView(")||!view.includes("class IsCloudCustomerAdmin(IsAdminUser)")||!view.includes("permission_classes = [IsCloudCustomerAdmin]"))
   throw Error("Backend customer privilege boundary missing");
  const files=["types.ts","RecordDirectory.tsx","DirectoryToolbar.tsx","StatusTabs.tsx",
   "DesktopRecordTable.tsx","MobileRecordCard.tsx","RecordActionSheet.tsx","DirectoryFilterSheet.tsx","DirectoryPagination.tsx"];

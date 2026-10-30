@@ -26,7 +26,9 @@ export const staffResourceConfig: Record<StaffResourceKey, StaffResourceConfig> 
     emptyTitle: "No assigned customers found",
     emptyDescription: "Assigned customers will appear here when the backend returns staff-scoped data.",
     fallback: getFallbackData(staffDemo.customers),
-    loader: () => adminApi.customers(),
+    // There is no verified assignment-scoped staff customer API yet.
+    // Do not send Staff to the global admin customer/financial endpoint.
+    loader: () => Promise.reject(new Error("Staff-scoped customer access is not configured.")),
   },
   orders: {
     key: "orders",

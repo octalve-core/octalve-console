@@ -18,3 +18,13 @@ export type DirectoryAction={
 };
 export type DirectoryCreate={href:string;label:string};
 export type DirectoryFilter={status:string;category:string;from:string;to:string};
+
+/** Optional authoritative server page. Other directories remain local-only. */
+export type ServerDirectoryState={
+ count:number;page:number;pageSize:number;
+ query:string;status:string;filter:DirectoryFilter;ordering:string;
+ statuses:readonly string[];
+ onQuery:(next:string)=>void;onStatus:(next:string)=>void;
+ onFilter:(next:DirectoryFilter)=>void;onPage:(next:number)=>void;
+ onOrdering:(next:string)=>void;
+};

@@ -35,7 +35,9 @@ export function StaffResourceListView({ resource }: StaffResourceListViewProps) 
       setRecords(apiRecords);
     } catch {
       setRecords([]);
-      setError("We couldn’t load your records. Please try again.");
+      setError(resource === "customers"
+        ? "Customer access is not yet available in your workspace. You can continue helping customers through your assigned support tickets."
+        : "We couldn’t load your records. Please try again.");
     } finally {
       setIsLoading(false);
     }

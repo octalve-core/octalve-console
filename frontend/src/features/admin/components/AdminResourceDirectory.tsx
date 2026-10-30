@@ -2,7 +2,7 @@
 import {useMemo} from "react";
 import {Users,ReceiptText,ShoppingCart,Globe2,PackageCheck,Server,LifeBuoy,Layers3, type LucideIcon} from "lucide-react";
 import {RecordDirectory} from "@/components/design-system/record-directory/RecordDirectory";
-import type {DirectoryColumn,DirectoryCreate,DirectoryRow} from "@/components/design-system/record-directory/types";
+import type {DirectoryColumn,DirectoryCreate,DirectoryRow,ServerDirectoryState} from "@/components/design-system/record-directory/types";
 import type {AdminResourceKey} from "../data/admin-resource-config";
 import type {AdminRecord} from "../data/admin-demo-data";
 const icons:Record<AdminResourceKey,LucideIcon>={
@@ -24,8 +24,8 @@ const customerColumns:DirectoryColumn[]=[
  {key:"date",label:"Joined",render:r=>r.date||"—"}
 ];
 export function AdminResourceDirectory({resource,records,emptyTitle,emptyDescription,detailEnabled=true,
- create}:{resource:AdminResourceKey;records:readonly AdminRecord[];emptyTitle:string;
- emptyDescription:string;detailEnabled?:boolean;create?:DirectoryCreate}){
+ create,server}:{resource:AdminResourceKey;records:readonly AdminRecord[];emptyTitle:string;
+ emptyDescription:string;detailEnabled?:boolean;create?:DirectoryCreate;server?:ServerDirectoryState}){
  const Icon=icons[resource];
  const rows=useMemo<DirectoryRow[]>(()=>records.map(r=>({
   id:r.id,title:r.title,subtitle:r.subtitle,reference:r.reference||undefined,
@@ -37,6 +37,6 @@ export function AdminResourceDirectory({resource,records,emptyTitle,emptyDescrip
   searchTerms:resource==="customers"?[r.companyName||"",r.subtitle]:[r.meta]
  })),[records,resource,detailEnabled,Icon]);
  return <RecordDirectory label={resource==="customers"?"Customers":resource.charAt(0).toUpperCase()+resource.slice(1)}
-  rows={rows} columns={resource==="customers"?customerColumns:generic} create={create}
+  rows={rows} columns={resource==="customers"?customerColumns:generic} create={create} server={server}
   emptyMessage={emptyTitle+" — "+emptyDescription}/>;
 }

@@ -8,6 +8,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework import generics, filters
+from rest_framework.pagination import PageNumberPagination
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
@@ -420,16 +423,70 @@ class SimpleCustomTokenObtainPairView(TokenObtainPairView):
         )
 
 
+class IsCloudCustomerAdmin(IsAdminUser):
+    """Admin customer reads and writes require the actual Octalve Admin role.
+
+    DRF IsAdminUser alone checks is_staff, which can include operational Staff.
+    This endpoint contains global customer and financial information and is
+    not an assigned-customer feed.
+    """
+
+    def has_permission(self, request, view):
+        return bool(
+            super().has_permission(request, view)
+            and request.user.is_superuser
+            and request.user.role == "admin"
+        )
+
+
+class AdminCustomerPagination(PageNumberPagination):
+    """Bounded, explicit customer page contract. No default-global API change."""
+
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 50
+
+
 class AdminCustomerListView(generics.ListCreateAPIView):
     """GET /api/auth/customers/ - List customers with filters
        POST /api/auth/customers/ - Create customer manually"""
     
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsCloudCustomerAdmin]
+    pagination_class = AdminCustomerPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['role']
     search_fields = ['email', 'full_name', 'company_name', 'phone_number']
     ordering_fields = ['date_joined', 'full_name', 'email']
-    ordering = ['-date_joined']
+    ordering = ['-date_joined', '-pk']
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        params = self.request.query_params
+        state = params.get("status", "").strip().lower()
+        if state and state != "all":
+            if state not in ("active", "inactive", "locked"):
+                raise serializers.ValidationError({"status": "Choose active, inactive or locked."})
+            if state == "inactive":
+                queryset = queryset.filter(is_active=False)
+            elif state == "locked":
+                queryset = queryset.filter(is_active=True, locked_until__gt=timezone.now())
+            else:
+                queryset = queryset.filter(is_active=True).filter(
+                    Q(locked_until__isnull=True) | Q(locked_until__lte=timezone.now())
+                )
+        start = params.get("date_from", "").strip()
+        end = params.get("date_to", "").strip()
+        from_date = parse_date(start) if start else None
+        to_date = parse_date(end) if end else None
+        if (start and from_date is None) or (end and to_date is None):
+            raise serializers.ValidationError({"date": "Use valid ISO dates (YYYY-MM-DD)."})
+        if from_date and to_date and from_date > to_date:
+            raise serializers.ValidationError({"date": "End date must follow start date."})
+        if from_date:
+            queryset = queryset.filter(date_joined__date__gte=from_date)
+        if to_date:
+            queryset = queryset.filter(date_joined__date__lte=to_date)
+        return queryset
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -437,10 +494,42 @@ class AdminCustomerListView(generics.ListCreateAPIView):
         return CustomerListSerializer
     
     def get_queryset(self):
-        return User.objects.filter(role='client').annotate(
-            services_count=Count('services'),
-            total_invoices=Sum('invoices__total'),
-            unpaid_invoices=Sum('invoices__total', filter=Q(invoices__status='unpaid'))
+        # Financial sums must not share a multi-valued join with services.
+        # Separate correlated invoice aggregates prevent service rows from
+        # multiplying invoice amounts. The wallet OneToOne is selected here
+        # so CustomerListSerializer does not issue a query per customer.
+        from decimal import Decimal
+        from django.db.models import DecimalField, OuterRef, Subquery, Value
+        from django.db.models.functions import Coalesce
+        from billing.models import Invoice
+
+        money = DecimalField(max_digits=18, decimal_places=2)
+        invoice_totals = (
+            Invoice.objects.filter(client_id=OuterRef("pk"))
+            .order_by().values("client_id")
+            .annotate(amount=Sum("total")).values("amount")[:1]
+        )
+        unpaid_totals = (
+            Invoice.objects.filter(client_id=OuterRef("pk"), status="unpaid")
+            .order_by().values("client_id")
+            .annotate(amount=Sum("total")).values("amount")[:1]
+        )
+        zero = Value(Decimal("0.00"), output_field=money)
+        return (
+            User.objects.filter(role="client")
+            .select_related("wallet")
+            .annotate(
+                services_count=Count("services", distinct=True),
+                total_invoices=Coalesce(
+                    Subquery(invoice_totals, output_field=money), zero,
+                    output_field=money,
+                ),
+                unpaid_invoices=Coalesce(
+                    Subquery(unpaid_totals, output_field=money),
+                    Value(Decimal("0.00"), output_field=money),
+                    output_field=money,
+                ),
+            )
         )
 
     def perform_create(self, serializer):
@@ -451,7 +540,7 @@ class AdminCustomerListView(generics.ListCreateAPIView):
 class AdminCustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET/PATCH/DELETE /api/auth/customers/{id}/"""
     
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsCloudCustomerAdmin]
     lookup_field = 'id'
     lookup_url_kwarg = 'id'
 
@@ -461,7 +550,7 @@ class AdminCustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
         return CustomerDetailSerializer
 
     def get_queryset(self):
-        return User.objects.filter(role='client').prefetch_related(
+        return User.objects.filter(role='client').select_related('wallet').prefetch_related(
             'invoices', 'orders', 'services'
         )
 

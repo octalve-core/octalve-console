@@ -233,12 +233,11 @@ class CustomerListSerializer(serializers.ModelSerializer):
         return 'active'
 
     def get_wallet_balance(self, obj):
-        try:
-            from wallet.models import Wallet
-            wallet = Wallet.objects.filter(user=obj).first()
-            return float(wallet.balance) if wallet else 0.00
-        except ImportError:
-            return 0.00
+        # AdminCustomerListView selects the reverse OneToOne wallet.
+        # getattr(..., None) handles accounts without a wallet without
+        # triggering a new query for each row in the customer directory.
+        wallet = getattr(obj, "wallet", None)
+        return float(wallet.balance) if wallet is not None else 0.00
 
 
 class CustomerDetailSerializer(serializers.ModelSerializer):
@@ -298,112 +297,86 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
         if getattr(obj, 'is_locked', False):
             return 'locked'
         if self.get_role(obj) == 'client':
-            try:
-                from billing.models import Invoice
-                if Invoice.objects.filter(
-                    user=obj, status='unpaid', due_date__lt=timezone.now()
-                ).exists():
-                    return 'overdue'
-            except Exception:
-                pass
+            from billing.models import Invoice
+            if Invoice.objects.filter(
+                client=obj, status='unpaid', due_date__lt=timezone.now()
+            ).exists():
+                return 'overdue'
         return 'active'
 
     def get_billing_summary(self, obj):
         if self.get_role(obj) != 'client':
             return None
-        try:
-            from billing.models import Invoice, Order
-            from services.models import Service
+        from billing.models import Invoice
+        from orders.models import Order
+        from services.models import Service
 
-            invoices = Invoice.objects.filter(user=obj)
-            total_invoiced = invoices.aggregate(t=Sum('total'))['t'] or 0
-            total_paid = invoices.filter(status='paid').aggregate(t=Sum('total'))['t'] or 0
-            total_unpaid = invoices.filter(status='unpaid').aggregate(t=Sum('total'))['t'] or 0
-            total_overdue = invoices.filter(
-                status='unpaid', due_date__lt=timezone.now()
-            ).aggregate(t=Sum('total'))['t'] or 0
-
-            orders = Order.objects.filter(user=obj)
-            services = Service.objects.filter(user=obj)
-
-            return {
-                'invoices': {
-                    'total': float(total_invoiced),
-                    'paid': float(total_paid),
-                    'unpaid': float(total_unpaid),
-                    'overdue': float(total_overdue),
-                },
-                'orders': {
-                    'total': orders.count(),
-                    'pending': orders.filter(status='pending').count(),
-                    'completed': orders.filter(status='completed').count(),
-                    'cancelled': orders.filter(status='cancelled').count(),
-                },
-                'services': {
-                    'active': services.filter(status='active').count(),
-                    'suspended': services.filter(status='suspended').count(),
-                    'terminated': services.filter(status='terminated').count(),
-                },
-            }
-        except Exception:
-            return {
-                'invoices': {'total': 0, 'paid': 0, 'unpaid': 0, 'overdue': 0},
-                'orders': {'total': 0, 'pending': 0, 'completed': 0, 'cancelled': 0},
-                'services': {'active': 0, 'suspended': 0, 'terminated': 0},
-            }
+        # These ForeignKeys are named client, not user. Never substitute
+        # fabricated zeroes when a real database/serializer error occurs.
+        invoices = Invoice.objects.filter(client=obj)
+        total_invoiced = invoices.aggregate(t=Sum('total'))['t'] or 0
+        total_paid = invoices.filter(status='paid').aggregate(t=Sum('total'))['t'] or 0
+        total_unpaid = invoices.filter(status='unpaid').aggregate(t=Sum('total'))['t'] or 0
+        total_overdue = invoices.filter(
+            status='unpaid', due_date__lt=timezone.now()
+        ).aggregate(t=Sum('total'))['t'] or 0
+        orders = Order.objects.filter(client=obj)
+        services = Service.objects.filter(client=obj)
+        return {
+            'invoices': {
+                'total': float(total_invoiced),
+                'paid': float(total_paid),
+                'unpaid': float(total_unpaid),
+                'overdue': float(total_overdue),
+            },
+            'orders': {
+                'total': orders.count(),
+                'pending': orders.filter(status__in=('draft', 'pending_payment', 'needs_review')).count(),
+                'completed': orders.filter(status='provisioned').count(),
+                'cancelled': orders.filter(status='cancelled').count(),
+            },
+            'services': {
+                'active': services.filter(status='active').count(),
+                'suspended': services.filter(status='suspended').count(),
+                'terminated': services.filter(status='terminated').count(),
+            },
+        }
 
     def get_recent_invoices(self, obj):
         if self.get_role(obj) != 'client':
             return []
-        try:
-            from billing.models import Invoice
-            from billing.serializers import InvoiceListSerializer
-            qs = Invoice.objects.filter(user=obj).order_by('-created_at')[:5]
-            return InvoiceListSerializer(qs, many=True).data
-        except Exception:
-            return []
+        from billing.models import Invoice
+        from billing.serializers import InvoiceSerializer
+        qs = Invoice.objects.filter(client=obj).order_by('-created_at')[:5]
+        return InvoiceSerializer(qs, many=True).data
 
     def get_recent_orders(self, obj):
         if self.get_role(obj) != 'client':
             return []
-        try:
-            from orders.models import Order
-            from orders.serializers import OrderListSerializer
-            qs = Order.objects.filter(user=obj).order_by('-created_at')[:5]
-            return OrderListSerializer(qs, many=True).data
-        except Exception:
-            return []
+        from orders.models import Order
+        from orders.serializers import OrderSerializer
+        qs = Order.objects.filter(client=obj).order_by('-created_at')[:5]
+        return OrderSerializer(qs, many=True).data
 
     def get_recent_services(self, obj):
         if self.get_role(obj) != 'client':
             return []
-        try:
-            from services.models import Service
-            from services.serializers import ServiceListSerializer
-            qs = Service.objects.filter(user=obj).order_by('-created_at')[:5]
-            return ServiceListSerializer(qs, many=True).data
-        except Exception:
-            return []
+        from services.models import Service
+        from services.serializers import ServiceSerializer
+        qs = Service.objects.filter(client=obj).order_by('-created_at')[:5]
+        return ServiceSerializer(qs, many=True).data
 
     def get_wallet_balance(self, obj):
         if self.get_role(obj) != 'client':
             return None
-        try:
-            from wallet.models import Wallet
-            w = Wallet.objects.filter(user=obj).first()
-            return float(w.balance) if w else 0.00
-        except Exception:
-            return 0.00
+        wallet = getattr(obj, 'wallet', None)
+        return float(wallet.balance) if wallet is not None else 0.00
 
     def get_wallet_currency(self, obj):
         if self.get_role(obj) != 'client':
             return None
-        try:
-            from wallet.models import Wallet
-            w = Wallet.objects.filter(user=obj).first()
-            return w.currency if w else 'NGN'
-        except Exception:
-            return 'NGN'
+        wallet = getattr(obj, 'wallet', None)
+        return wallet.currency if wallet is not None else 'NGN'
 
     def get_notes(self, obj):
         role = self.get_role(obj)

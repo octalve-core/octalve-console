@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {ArrowLeft,RefreshCcw} from "lucide-react";
 import {AdminRecordDetailPanel} from "../components/AdminRecordDetailPanel";
 import {ActionLink} from "@/components/design-system/ActionLink";
@@ -14,6 +14,7 @@ import { adminResourceConfig, type AdminResourceKey } from "../data/admin-resour
 import { adminEditorConfig } from "../data/admin-editor-config";
 import type { AdminRecord } from "../data/admin-demo-data";
 import { normalizeAdminRecord, unwrapAdminList } from "../utils/admin-record-normalizer";
+import {adminApi} from "@/lib/api/endpoints";
 import {isAdminMutationDisabled} from "../data/admin-action-policy";
 
 type AdminResourceDetailViewProps = {
@@ -35,27 +36,40 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
   const [record, setRecord] = useState<AdminRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const requestSequence = useRef(0);
   async function loadRecord() {
+    const requestId = ++requestSequence.current;
     setIsLoading(true);
     setError("");
 
     try {
-      const response = await listConfig.loader();
-      const apiRecords = unwrapAdminList(response).map((item) => normalizeAdminRecord(item, listConfig.key));
+      const response = resource === "customers"
+        ? await adminApi.customer(id)
+        : await listConfig.loader();
+      const apiRecords = resource === "customers"
+        ? [normalizeAdminRecord(response, "customers")]
+        : unwrapAdminList(response).map((item) => normalizeAdminRecord(item, listConfig.key));
       const foundApiRecord = apiRecords.find((item) => item.id === id);
+      if (requestId !== requestSequence.current) return;
 
       setRecord(foundApiRecord ?? null);
-      if (!foundApiRecord) setError("This record was not found in the authorized response.");
+      if (!foundApiRecord) setError(
+        resource === "customers"
+          ? "The customer record could not be verified."
+          : "This record is not on the loaded page. Return to the directory."
+      );
     } catch {
+      if (requestId !== requestSequence.current) return;
       setRecord(null);
       setError("We couldn’t load this record. Try again.");
     } finally {
-      setIsLoading(false);
+      if (requestId === requestSequence.current) setIsLoading(false);
     }
   }
 
   useEffect(() => {
-    loadRecord();
+    void loadRecord();
+    return () => {requestSequence.current += 1;};
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource, id]);
 
