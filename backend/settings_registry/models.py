@@ -228,26 +228,17 @@ class EmailTemplate(models.Model):
         ]
     
     def render_subject(self, context):
-        """Render subject with context variables"""
-        subject = self.subject
-        for key, value in context.items():
-            subject = subject.replace(f'{{{{ {key} }}}}', str(value))
-        return subject
-    
+        from .mail_authority import render
+        return render(self, context)["subject"]
+
     def render_html(self, context):
-        """Render HTML body with context variables"""
-        html = self.body_html
-        for key, value in context.items():
-            html = html.replace(f'{{{{ {key} }}}}', str(value))
-        return html
-    
+        from .mail_authority import render
+        return render(self, context)["body_html"]
+
     def render_text(self, context):
-        """Render text body with context variables"""
-        text = self.body_text
-        for key, value in context.items():
-            text = text.replace(f'{{{{ {key} }}}}', str(value))
-        return text
-    
+        from .mail_authority import render
+        return render(self, context)["body_text"]
+
     def __str__(self):
         return self.name
 
