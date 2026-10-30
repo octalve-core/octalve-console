@@ -48,7 +48,7 @@ export const authApiV2 = {
     const requestPayload = {
       full_name: payload.full_name,
       email: payload.email,
-      username: payload.email.split("@")[0],
+      username: payload.username?.trim() || undefined,
       phone_number: payload.phone || "",
       referral_code: payload.referral_code || "",
       password: payload.password,
