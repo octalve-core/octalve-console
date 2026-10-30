@@ -28,7 +28,7 @@ class CloudServiceWritePermission(BasePermission):
     """Creating and editing commercial service state is admin-only."""
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated and
-                    (request.user.is_superuser or request.user.role == 'admin'))
+                    (request.user.is_superuser or (request.user.is_staff and request.user.role == 'admin')))
 
 
 class ServiceViewSet(viewsets.ModelViewSet):
@@ -76,7 +76,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
             to_attr='latest_usage_prefetch',
         ))
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return queryset
         # Staff retain only their personal client services. No assignment
         # graph exists yet to authorize another customer's technical data.
@@ -94,7 +94,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def update_credentials(self, request, pk=None):
         """No browser may write provider passwords or privileged API keys."""
-        if not (request.user.is_superuser or request.user.role == 'admin'):
+        if not (request.user.is_superuser or (request.user.is_staff and request.user.role == 'admin')):
             return Response({"detail": "Not authorised."}, status=status.HTTP_403_FORBIDDEN)
         self.get_object()
         return Response(
@@ -147,7 +147,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
         payload.is_valid(raise_exception=True)
         # Staff may inspect services but may not impersonate a customer's request.
         if (service.client_id != request.user.pk
-                and not (request.user.is_superuser or request.user.role == "admin")):
+                and not (request.user.is_superuser or (request.user.is_staff and request.user.role == "admin"))):
             return Response({"detail": "Not authorized for this service."},
                             status=status.HTTP_403_FORBIDDEN)
         try:
