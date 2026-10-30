@@ -71,3 +71,40 @@ def queue_templated_message(*,event_key,template_key,recipient,context,marketing
     if not created and (outbox.template_id!=template.pk or outbox.recipient!=recipient):
         raise ValueError("Conflicting idempotency key.")
     return outbox,created
+
+
+def queue_invoice_issued(invoice):
+    """Atomically record an invoice event if its approved template is active.
+
+    Never permit an email configuration error to mutate an issued invoice or
+    block checkout. No transport is called, and a failed enqueue is logged.
+    """
+    import logging
+    from django.utils import timezone
+    if not EmailTemplate.objects.filter(key="invoice_issued",is_active=True).exists():
+        return False
+    user=invoice.client
+    name=(user.full_name or "").strip()
+    context={
+        "customer.first_name":name.split()[0] if name else "Customer",
+        "customer.full_name":name or user.email,
+        "invoice.number":str(invoice.invoice_number),
+        "invoice.due_date":timezone.localtime(invoice.due_date).strftime("%d %b %Y"),
+        "company.name":"Octalve Cloud",
+        "year":str(timezone.now().year),
+    }
+    try:
+        # Nested atomic block uses a savepoint when checkout already owns one.
+        with transaction.atomic():
+            _,created=queue_templated_message(
+                event_key=f"invoice:{invoice.pk}:issued",
+                template_key="invoice_issued",recipient=user.email,
+                context=context
+            )
+        return created
+    except (ValueError, DjangoValidationError):
+        logging.getLogger(__name__).warning(
+            "Active invoice email template rejected; delivery queued status unchanged",
+            extra={"invoice_id":invoice.pk}
+        )
+        return False
