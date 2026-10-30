@@ -45,8 +45,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
             return Order.objects.all()
+        # No global Staff read: assignment-scoped access requires a separately
+        # certified per-customer grant and cannot use a broad role flag.
         if user.role == 'staff':
-            return Order.objects.all()
+            return Order.objects.filter(client=user)
         return Order.objects.filter(client=user)
     
     @staticmethod

@@ -62,7 +62,7 @@ class OfferPublicationTests(TestCase):
     def setUpTestData(cls):
         cls.admin = get_user_model().objects.create_user(
             email='admin@example.test', username='operator', password='StrongPassword123!',
-            role='admin'
+            role='admin', is_staff=True
         )
         cls.client_user = get_user_model().objects.create_user(
             email='client@example.test', username='buyer', password='StrongPassword123!',

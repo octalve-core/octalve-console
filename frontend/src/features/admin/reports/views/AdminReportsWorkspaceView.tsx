@@ -4,7 +4,7 @@ import styles from "./AdminReportsWorkspace.module.css";
 import type {LucideIcon} from "lucide-react";
 import {
  BarChart3,CheckCircle2,CreditCard,FileBarChart2,
- FileText,Info,Layers3,RefreshCw,ShieldCheck,WalletCards,
+ FileText,Info,Layers3,ShieldCheck,WalletCards,
 } from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
@@ -17,6 +17,8 @@ import {LoadingState} from "@/components/feedback/LoadingState";
 import {ErrorState} from "@/components/feedback/ErrorState";
 import {useAutoSync} from "@/lib/hooks/useAutoSync";
 import {reportsApi} from "@/lib/api/modules/reports.api";
+import {useAuth} from "@/context/AuthContext";
+import {privateQueryKey,privateQueryRead,privateQueryWrite} from "@/lib/api/private-query-cache";
 import {
  parsePaidInvoiceCount,parseGatewayCounts,parseProductCounts,parseDefinitions,parseInstances,
  type CategoryCount,type ReportDefinitionCard,type ReportInstanceCard,
@@ -133,13 +135,19 @@ function ReportHistory({instances}:{instances:ReportInstanceCard[]|null}){
  </section>;
 }
 export function AdminReportsWorkspaceView(){
+ const {user}=useAuth();
+ const cacheKey=user?privateQueryKey("admin-report-workspace",user.id,user.role,{}):"";
  const [section,setSection]=useState<ReportSection>("overview");
  const [data,setData]=useState<ReportState>(initial);
  const [loading,setLoading]=useState(true);
  const [errors,setErrors]=useState<string[]>([]);
  const [methodologyOpen,setMethodologyOpen]=useState(false);
  async function load(quiet=false){
-  if(!quiet)setLoading(true);
+  const cached=cacheKey?privateQueryRead<{state:ReportState;errors:string[]}>(cacheKey):null;
+  if(cached){
+   setData(cached.value.state);setErrors(cached.value.errors);setLoading(false);
+   if(cached.fresh)return;
+  }else if(!quiet)setLoading(true);
   const requests=[
    reportsApi.revenueSummary({period:"day"}),
    reportsApi.revenueByGateway(),reportsApi.revenueByProduct(),
@@ -161,9 +169,10 @@ export function AdminReportsWorkspaceView(){
    definitions:convert(3,"Report definitions",parseDefinitions),
    instances:convert(4,"Generated reports",parseInstances),
   };
+  if(cacheKey)privateQueryWrite(cacheKey,{state:next,errors:unavailable});
   setData(next);setErrors(unavailable);setLoading(false);
  }
- useAutoSync(load,"admin-report-workspace");
+ useAutoSync(load,"admin-report-workspace:"+cacheKey);
  const numbers=[
   {title:"Paid invoices",value:data.paidInvoiceCount===null?"—":data.paidInvoiceCount.toLocaleString("en-NG"),help:"Paid invoice records · last 30 days",icon:FileText,tone:"blue" as const},
   {title:"Gateway categories",value:data.gateways===null?"—":String(data.gateways.length),help:"Gateways with successful transactions · last 30 days",icon:WalletCards,tone:"green" as const},
@@ -175,8 +184,7 @@ export function AdminReportsWorkspaceView(){
    actions={<div className="flex flex-wrap items-center gap-2">
     <ActionButton variant="outline" size="sm" onClick={()=>setMethodologyOpen(true)}
       leadingIcon={<Info className="h-4 w-4" aria-hidden="true"/>}>About these figures</ActionButton>
-    <ActionButton variant="primary" size="sm" onClick={()=>void load(false)} disabled={loading}
-      leadingIcon={<RefreshCw className="h-4 w-4" aria-hidden="true"/>}>Refresh</ActionButton>
+
    </div>}>
    {loading?<LoadingState title="Preparing reports" description="Retrieving available report information."/>:
    <div className="min-w-0 space-y-6">

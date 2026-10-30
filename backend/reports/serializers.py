@@ -38,7 +38,7 @@ class ReportInstanceSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'definition', 'definition_name', 'generated_by', 'generated_by_name',
             'title', 'period_start', 'period_end', 'filters_used', 'status',
-            'status_display', 'error_message', 'file_format', 'file_url',
+            'status_display', 'file_format',
             'file_size', 'row_count', 'generated_at', 'completed_at'
         ]
         # read_only_fields = '__all__'

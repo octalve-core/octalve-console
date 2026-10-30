@@ -11,7 +11,7 @@ class CatalogAuthorityTests(SimpleTestCase):
         users = {
             "client": SimpleNamespace(is_authenticated=True, role="client", is_superuser=False),
             "staff": SimpleNamespace(is_authenticated=True, role="staff", is_superuser=False),
-            "admin": SimpleNamespace(is_authenticated=True, role="admin", is_superuser=False),
+            "admin": SimpleNamespace(is_authenticated=True, role="admin", is_superuser=False, is_staff=True),
         }
         for method in ("POST", "PUT", "PATCH", "DELETE"):
             for role in ("client", "staff"):
@@ -24,9 +24,18 @@ class CatalogAuthorityTests(SimpleTestCase):
             self.assertTrue(CatalogPublicationAuthority().has_permission(
                 SimpleNamespace(user=users[role], method="GET"), SimpleNamespace()))
 
+    def test_role_string_cannot_grant_admin_without_staff_flag(self):
+        spoofed=SimpleNamespace(
+            is_authenticated=True, role="admin", is_superuser=False, is_staff=False)
+        for method in ("GET","POST","PATCH"):
+            request=SimpleNamespace(user=spoofed,method=method)
+            self.assertFalse(InternalSupplierAuthority().has_permission(request,SimpleNamespace()))
+            if method!="GET":
+                self.assertFalse(CatalogPublicationAuthority().has_permission(request,SimpleNamespace()))
+
     def test_supplier_costs_are_never_client_accessible(self):
         for role in ("client", "staff", "admin"):
-            user = SimpleNamespace(is_authenticated=True, role=role, is_superuser=False)
+            user = SimpleNamespace(is_authenticated=True, role=role, is_superuser=False, is_staff=(role == 'admin'))
             for method in ("GET", "POST", "PATCH"):
                 allowed = InternalSupplierAuthority().has_permission(
                     SimpleNamespace(user=user, method=method), SimpleNamespace())

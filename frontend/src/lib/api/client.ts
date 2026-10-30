@@ -1,4 +1,5 @@
 export type Primitive = string | number | boolean | null | undefined;
+import {privateQueryClear} from "./private-query-cache";
 
 export type QueryParams = Record<string, Primitive | Primitive[]>;
 
@@ -190,6 +191,9 @@ async function request<T>(
   const payload = await parseResponse(response);
 
   if (!response.ok) {
+    // A rejected session or role check must never leave reusable private
+    // display records in the query cache. Only Django can authorize access.
+    if(response.status===401||response.status===403)privateQueryClear();
     throw new ApiError(
       getErrorMessage(payload, `Request failed with status ${response.status}`),
       response.status,
@@ -197,6 +201,9 @@ async function request<T>(
     );
   }
 
+  // Any accepted mutation invalidates cached display rows. No cache value
+  // can authorize a financial or role-changing operation.
+  if(method!=="GET")privateQueryClear();
   return payload as T;
 }
 

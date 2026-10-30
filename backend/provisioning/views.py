@@ -29,8 +29,10 @@ class CloudProvisioningManagementAccess(BasePermission):
     def has_permission(self, request, view):
         from rbac.utils import has_permission
         user = request.user
+        # Until certified per-customer operator assignments exist, role=staff
+        # is insufficient to read every provider task or sensitive task payload.
         return bool(user and user.is_authenticated and (
-            user.is_superuser or (user.role in ('admin', 'staff')
+            user.is_superuser or (user.is_staff and user.role == 'admin'
                                   and has_permission(user, 'manage_provisioning'))
         ))
 
@@ -51,7 +53,7 @@ class ProvisioningTaskViewSet(viewsets.ReadOnlyModelViewSet):
         if user.role == 'admin' or user.is_superuser:
             return ProvisioningTask.objects.all()
         if user.role == 'staff':
-            return ProvisioningTask.objects.all()
+            return ProvisioningTask.objects.none()
         return ProvisioningTask.objects.filter(service__client=user)
     
     @permission_required('manage_provisioning')
@@ -212,7 +214,7 @@ class ProvisioningWebhookAccess(IsAuthenticated):
         user = request.user
         return bool(super().has_permission(request, view) and (
             user.is_superuser or (
-                user.role in ('admin', 'staff') and has_permission(user, 'manage_provisioning')
+                user.is_staff and user.role == 'admin' and has_permission(user, 'manage_provisioning')
             )
         ))
 

@@ -78,8 +78,8 @@ class ServiceViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'admin' or user.is_superuser:
             return queryset
-        if user.role == 'staff':
-            return queryset
+        # Staff retain only their personal client services. No assignment
+        # graph exists yet to authorize another customer's technical data.
         return queryset.filter(client=user)
     
     @action(detail=True, methods=['get'])
@@ -304,7 +304,7 @@ class ServiceChangeRequestViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role in ['admin', 'staff']:
+        if user.is_superuser or (user.role == 'admin' and user.is_staff):
             return ServiceChangeRequest.objects.all()
         return ServiceChangeRequest.objects.filter(service__client=user)
 

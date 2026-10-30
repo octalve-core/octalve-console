@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import {PHONE_COUNTRIES,suggestPhoneCountry} from "../lib/country-dial-codes";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail, Phone, UserRound, UserRoundPlus } from "lucide-react";
 import styles from "../components/AuthLayout.module.css";
@@ -27,6 +28,8 @@ export function SignupPageClient() {
 
   const [values, setValues] = useState({
     full_name: "",
+    username: "",
+    phone_country: "NG",
     email: "",
     phone: "",
     password: "",
@@ -43,6 +46,8 @@ export function SignupPageClient() {
     const value=new URLSearchParams(window.location.search).get("ref")||"";
     setReferralCode(/^[A-Z0-9]{10}$/.test(value)?value:null);
     setCommerceNext(sanitizeCommerceNext(new URLSearchParams(window.location.search).get("next")));
+    const intl=Intl.DateTimeFormat().resolvedOptions();
+    setValues(current=>({...current,phone_country:suggestPhoneCountry(navigator.language,intl.timeZone||"")}));
   },[]);
 
   function updateField(name: keyof typeof values, value: string | boolean) {
@@ -75,13 +80,36 @@ export function SignupPageClient() {
       return;
     }
 
+    const selected=PHONE_COUNTRIES.find(country=>country.iso===values.phone_country);
+    const typed=values.phone.trim().replace(/[\s().-]/g,"");
+    // '+' means user entered a complete international number. Country selection
+    // only prefixes national digits, never overrides an explicitly chosen code.
+    const domestic=typed.replace(/[^0-9]/g,"");
+    const prefix=selected?.dial||"+234";
+    const internationalPhone=typed.startsWith("+")
+      ? typed
+      : typed ? prefix+((["NG","GB"].includes(values.phone_country))?domestic.replace(/^0/,""):domestic) : "";
+    if(internationalPhone&&!/^\+[1-9][0-9]{7,14}$/.test(internationalPhone)){
+      setFieldErrors({phone:["Enter a valid international number including country code."]});
+      return;
+    }
+    if(values.username.trim()&&!/^[a-z][a-z0-9_]{2,29}$/.test(values.username.trim().toLowerCase())){
+      setFieldErrors({username:["Start with a letter; use 3–30 letters, numbers or underscores."]});
+      return;
+    }
+    if(values.email.trim()!==values.email||!/^\S+@\S+\.\S+$/.test(values.email.trim())){
+      setFieldErrors({email:["Enter a valid email address."]});
+      return;
+    }
     setIsSubmitting(true);
 
     try {
       const session = await signup({
         full_name: values.full_name,
-        email: values.email,
-        phone: values.phone,
+        email: values.email.trim().toLowerCase(),
+        username: values.username.trim().toLowerCase()||undefined,
+        accepted_terms_version: "2026-10-30",
+        phone: internationalPhone,
         password: values.password,
         // Explicit link attribution only: no tracking cookie or background profile.
         referral_code: referralConsent?referralCode||undefined:undefined,
@@ -136,15 +164,41 @@ export function SignupPageClient() {
         />
 
         <AuthInput
-          label="Phone number"
-          name="phone"
-          icon={Phone}
-          placeholder="+234..."
-          value={values.phone}
-          autoComplete="tel"
-          error={getApiFieldError(fieldErrors, "phone", ["phone_number"])}
-          onChange={(event) => updateField("phone", event.target.value)}
+          label="Username (optional)"
+          name="username"
+          icon={UserRound}
+          placeholder="Choose a unique username"
+          value={values.username}
+          maxLength={30}
+          autoComplete="username"
+          error={getApiFieldError(fieldErrors, "username")}
+          onChange={(event) => updateField("username", event.target.value)}
         />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
+          <div className="min-w-0">
+            <label htmlFor="phone-country" className={styles.fieldLabel}>Country calling code</label>
+            <select id="phone-country" name="phone_country" value={values.phone_country}
+              onChange={event=>updateField("phone_country",event.target.value)}
+              className="h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-900 focus-visible:outline-2 focus-visible:outline-console-primary">
+              {PHONE_COUNTRIES.map(country=><option key={country.iso} value={country.iso}>
+                {country.name} ({country.dial})
+              </option>)}
+            </select>
+          </div>
+          <AuthInput
+            label="Phone number (optional)"
+            name="phone"
+            type="tel"
+            icon={Phone}
+            placeholder="National number"
+            value={values.phone}
+            autoComplete="tel-national"
+            inputMode="tel"
+            error={getApiFieldError(fieldErrors, "phone", ["phone_number"])}
+            onChange={(event) => updateField("phone", event.target.value)}
+          />
+        </div>
+        <p className="-mt-2 text-xs text-slate-500">Country is suggested from your browser language and time zone; you can change it. Your number is not verified until an approved OTP service confirms it.</p>
 
         <div className={styles.twoFields}>
           <AuthPasswordInput

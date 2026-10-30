@@ -186,7 +186,8 @@ export const authApi = {
     const signupData = {
       full_name: payload.full_name,
       email: payload.email,
-      username: payload.email.split("@")[0],
+      username: payload.username?.trim() || undefined,
+      accepted_terms_version: payload.accepted_terms_version,
       phone_number: payload.phone || "",
       referral_code: payload.referral_code || "",
       password: payload.password,
