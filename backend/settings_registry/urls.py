@@ -5,7 +5,7 @@ from .console_views import ConsolePolicyView
 from .tax_policy import ConsoleTaxPolicyView
 from .public_theme import ConsoleThemeView
 from .operational_status import ConsoleStatusView
-from .mail_views import TemplateListView,TemplateDetailView,TemplateDuplicateView,TemplatePreviewView,OutboxDashboardView
+from .mail_views import TemplateListView,TemplateDetailView,TemplateDuplicateView,TemplatePreviewView,TemplateRevisionHistoryView,OutboxDashboardView
 from rest_framework.routers import DefaultRouter
 from .views import (
     SettingGroupViewSet, SettingViewSet, EmailTemplateViewSet,
@@ -29,6 +29,7 @@ urlpatterns = [
     path('console-mail/templates/<int:pk>/duplicate/',TemplateDuplicateView.as_view(),name='console-mail-template-duplicate'),
     path('console-mail/templates/<int:pk>/preview/',TemplatePreviewView.as_view(),name='console-mail-template-preview'),
     path('console-mail/outbox/',OutboxDashboardView.as_view(),name='console-mail-outbox'),
+    path('console-mail/templates/<int:pk>/history/',TemplateRevisionHistoryView.as_view(),name='console-mail-template-history'),
     path('console-policy/<slug:section>/', ConsolePolicyView.as_view(), name='console-policy'),
     path('', include(router.urls)),
 ]
