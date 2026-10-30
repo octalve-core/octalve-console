@@ -12,6 +12,9 @@ type ListParams = {
 };
 
 export const reportsApi = {
+  businessSnapshot(currency: string) {
+    return api.get<unknown>(apiPaths.reports.businessSnapshot, {params: {currency}});
+  },
   definitions(params?: ListParams) {
     return api.get<unknown[]>(apiPaths.reports.definitions, { params });
   },
