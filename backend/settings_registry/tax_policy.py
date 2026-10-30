@@ -52,8 +52,11 @@ class ConsoleTaxPolicyView(APIView):
     existing=TaxSettings.objects.filter(pk=1).first()
     if existing is None and data["revision"]!="uninitialized":
         return Response({"detail":"Tax policy changed. Reload before saving."},status=409)
-    obj,_=TaxSettings.objects.get_or_create(pk=1)
+    obj,created=TaxSettings.objects.get_or_create(pk=1)
     obj=TaxSettings.objects.select_for_update().get(pk=obj.pk)
+    # A second concurrent initialization may not overwrite the first write.
+    if existing is None and not created:
+        return Response({"detail":"Tax policy was initialized elsewhere. Reload before saving."},status=409)
     if existing is not None and data["revision"]!=_version(obj):
         return Response({"detail":"Tax policy changed. Reload before saving."},status=409)
     for key,value in changes.items():setattr(obj,key,value)
