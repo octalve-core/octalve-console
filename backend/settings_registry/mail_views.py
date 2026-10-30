@@ -88,14 +88,14 @@ class TemplateDetailView(APIView):
         body=values.get("body_text",obj.body_text)
         try:validate_content(subject,body)
         except ValueError as exc:return Response({"detail":str(exc)},status=400)
-        before={"name":obj.name,"category":obj.category,"subject":obj.subject,"body_text":obj.body_text,"is_active":obj.is_active}
         for key,value in values.items():setattr(obj,key,value)
         obj.body_html="" # force safe render from text; never retain untrusted arbitrary HTML
         obj.save()
         latest=obj.revisions.order_by("-revision").first()
         EmailTemplateRevision.objects.create(template=obj,actor=request.user,
             revision=(latest.revision if latest else 0)+1,
-            snapshot=before)
+            snapshot={"name":obj.name,"category":obj.category,"subject":obj.subject,
+                      "body_text":obj.body_text,"is_active":obj.is_active})
     return Response(serialize(obj),headers={"Cache-Control":"private, no-store"})
 
 class TemplateDuplicateView(APIView):
@@ -110,7 +110,8 @@ class TemplateDuplicateView(APIView):
             description=source.description,subject=source.subject,body_text=source.body_text,
             body_html="",is_active=False,is_system=False)
         EmailTemplateRevision.objects.create(template=clone,revision=1,actor=request.user,
-            snapshot={"duplicated_from":source.pk})
+            snapshot={"duplicated_from":source.pk,"name":clone.name,"category":clone.category,
+                      "subject":clone.subject,"body_text":clone.body_text,"is_active":False})
     return Response(serialize(clone),status=201)
 
 class TemplatePreviewView(APIView):
@@ -133,3 +134,14 @@ class OutboxDashboardView(APIView):
       "created_at":i.created_at,"sent_at":i.sent_at,
     } for i in rows],"sender_ready":False,"message":"Delivery requires verified sender certification."},
     headers={"Cache-Control":"private, no-store"})
+
+
+class TemplateRevisionHistoryView(APIView):
+ permission_classes=[IsAuthenticated,SuperAdminSettings]
+ def get(self,request,pk):
+    template=get_object_or_404(EmailTemplate,pk=pk)
+    rows=template.revisions.order_by("-revision")[:30]
+    return Response({"template_id":template.pk,"revisions":[{
+      "id":item.pk,"revision":item.revision,"created_at":item.created_at,
+      "actor_id":item.actor_id,"snapshot":item.snapshot,
+    } for item in rows]},headers={"Cache-Control":"private, no-store"})
