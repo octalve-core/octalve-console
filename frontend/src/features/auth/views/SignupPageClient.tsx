@@ -164,7 +164,7 @@ export function SignupPageClient() {
         />
 
         <AuthInput
-          label="Username (optional)"
+          label="Username"
           name="username"
           icon={UserRound}
           placeholder="Choose a unique username"
@@ -186,7 +186,7 @@ export function SignupPageClient() {
             </select>
           </div>
           <AuthInput
-            label="Phone number (optional)"
+            label="Phone number"
             name="phone"
             type="tel"
             icon={Phone}
@@ -198,7 +198,6 @@ export function SignupPageClient() {
             onChange={(event) => updateField("phone", event.target.value)}
           />
         </div>
-        <p className="-mt-2 text-xs text-slate-500">Country is suggested from your browser language and time zone; you can change it. Your number is not verified until an approved OTP service confirms it.</p>
 
         <div className={styles.twoFields}>
           <AuthPasswordInput
