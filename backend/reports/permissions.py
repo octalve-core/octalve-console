@@ -15,5 +15,5 @@ class IsConsoleFinancialAdmin(BasePermission):
         return bool(
             user
             and user.is_authenticated
-            and (user.is_superuser or getattr(user, "role", None) == "admin")
+            and (user.is_superuser or (getattr(user, "is_staff", False) and getattr(user, "role", None) == "admin"))
         )
