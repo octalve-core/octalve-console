@@ -4,7 +4,7 @@ import {Eye,EyeOff,ShieldCheck,WalletCards,UserRound,ReceiptText,PackageCheck} f
 import {ActionLink} from "@/components/design-system/ActionLink";
 import type {AdminRecord} from "../data/admin-demo-data";
 
-type CustomerDetail={
+export type CustomerDetail={
  id:number|string;full_name?:string;email?:string;username?:string;phone_number?:string;
  company_name?:string;address_line1?:string;city?:string;state?:string;country?:string;
  postal_code?:string;tax_id?:string;status?:string;role?:string;
