@@ -464,10 +464,12 @@ class AdminCustomerListView(generics.ListCreateAPIView):
         params = self.request.query_params
         state = params.get("status", "").strip().lower()
         if state and state != "all":
-            if state not in ("active", "inactive", "locked"):
-                raise serializers.ValidationError({"status": "Choose active, inactive or locked."})
+            if state not in ("active", "inactive", "suspended", "locked"):
+                raise serializers.ValidationError({"status": "Choose active, inactive, suspended or locked."})
             if state == "inactive":
-                queryset = queryset.filter(is_active=False)
+                queryset = queryset.filter(is_active=False).exclude(metadata__account_suspended=True)
+            elif state == "suspended":
+                queryset = queryset.filter(is_active=False, metadata__account_suspended=True)
             elif state == "locked":
                 queryset = queryset.filter(is_active=True, locked_until__gt=timezone.now())
             else:
