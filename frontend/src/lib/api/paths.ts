@@ -104,6 +104,7 @@ export const apiPaths = {
     financialRevenueByGateway: "/reports/financial/revenue_by_gateway/",
     financialRevenueByProduct: "/reports/financial/revenue_by_product/",
     financialRevenueSummary: "/reports/financial/revenue_summary/",
+    businessSnapshot: "/reports/business-intelligence/",
   },
 
   services: {
