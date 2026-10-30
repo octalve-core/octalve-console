@@ -84,8 +84,27 @@ try{
     }finally{Pop-Location}
     if($PlanOnly){Write-Host "PASS: read-only production preflight complete. No DB writes.";return}
 
-    foreach($cmd in @("pg_dump","pg_restore")){
-        if(-not (Get-Command $cmd -ErrorAction SilentlyContinue)){throw "Install PostgreSQL client tools ($cmd) to make a real local backup."}
+    # Windows PostgreSQL installers often do not add their bin directory to PATH.
+    # Discover the matching pg_dump/pg_restore pair without changing global PATH.
+    $pgDump=Get-Command pg_dump -ErrorAction SilentlyContinue
+    $pgRestore=Get-Command pg_restore -ErrorAction SilentlyContinue
+    if(-not $pgDump -or -not $pgRestore){
+        $pgBase=Join-Path $env:ProgramFiles "PostgreSQL"
+        if(Test-Path $pgBase){
+            $releases=@(Get-ChildItem -Path $pgBase -Directory | Sort-Object Name -Descending)
+            foreach($release in $releases){
+                $dumpCandidate=Join-Path $release.FullName "bin\pg_dump.exe"
+                $restoreCandidate=Join-Path $release.FullName "bin\pg_restore.exe"
+                if((Test-Path $dumpCandidate) -and (Test-Path $restoreCandidate)){
+                    $pgDump=$dumpCandidate
+                    $pgRestore=$restoreCandidate
+                    break
+                }
+            }
+        }
+    }
+    if(-not $pgDump -or -not $pgRestore){
+        throw "Install PostgreSQL client tools (pg_dump and pg_restore). No backup or migration was attempted. See https://www.postgresql.org/download/windows/."
     }
     $dburi=[Uri]$url
     $parts=$dburi.UserInfo.Split(":",2)
@@ -99,9 +118,9 @@ try{
     $folder=Join-Path $env:LOCALAPPDATA "OctalveCloud\ProtectedDatabaseBackups"
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
     $archive=Join-Path $folder ("pre-settings-batch2-"+(Get-Date -Format "yyyyMMdd-HHmmss")+".dump")
-    & pg_dump --format=custom --no-owner --no-privileges --file="$archive"
+    & $pgDump --format=custom --no-owner --no-privileges --file="$archive"
     if($LASTEXITCODE -ne 0){throw "Production backup failed. Migration refused."}
-    $toc=@(& pg_restore --list "$archive")
+    $toc=@(& $pgRestore --list "$archive")
     if($LASTEXITCODE -ne 0 -or $toc.Count -lt 100){throw "Backup archive could not be listed reliably. Migration refused."}
     $info=Get-Item $archive
     if($info.Length -lt 10000){throw "Suspiciously small backup. Migration refused."}
