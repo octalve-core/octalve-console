@@ -3,7 +3,6 @@ import {ArrowLeft} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {ActionLink} from "@/components/design-system/ActionLink";
-import {AdminSettingsSectionPanel} from "../../components/AdminSettingsSectionPanel";
 import {ConsolePolicyEditor} from "../components/ConsolePolicyEditor";
 import {MailTemplateWorkbench} from "../components/MailTemplateWorkbench";
 import {ConsoleTaxEditor} from "../components/ConsoleTaxEditor";
@@ -19,7 +18,7 @@ export function AdminSettingsSectionView({section}:{section:AdminSettingsKey}){
    <div className="grid min-w-0 gap-5 xl:grid-cols-3">
     {["general","theme","invoices","mail"].includes(section)?
       <ConsolePolicyEditor section={section}/>:
-      section==="tax"?<ConsoleTaxEditor/>:section==="notifications"?null:section==="other"?<AdminSettingsSectionPanel item={item} section={section}/>:<OperationalSettingsStatus section={section}/>}
+      section==="tax"?<ConsoleTaxEditor/>:section==="notifications"?null:<OperationalSettingsStatus section={section}/>}
     {(section==="mail"||section==="notifications")?<MailTemplateWorkbench/>:null}
    </div>
   </DashboardPage>
