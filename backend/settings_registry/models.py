@@ -432,3 +432,24 @@ class ConsoleMailAttempt(models.Model):
 
     def delete(self,*args,**kwargs):
         raise ValueError("Delivery attempt receipts cannot be deleted.")
+
+class TaxPolicyRevision(models.Model):
+    """Versioned operator tax preferences. Does not change checkout authority."""
+    policy = models.ForeignKey("settings_registry.TaxSettings", on_delete=models.PROTECT,
+                               related_name="policy_revisions")
+    revision = models.PositiveIntegerField()
+    actor = models.ForeignKey("accounts.CustomUser", on_delete=models.SET_NULL,
+                              null=True, blank=True)
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["policy", "revision"],
+                                               name="console_tax_policy_revision_uniq")]
+
+    def save(self,*args,**kwargs):
+        if self.pk is not None and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("Tax policy revision cannot be overwritten.")
+        return super().save(*args,**kwargs)
+
+    def delete(self,*args,**kwargs):
+        raise ValueError("Tax policy revision cannot be deleted.")
