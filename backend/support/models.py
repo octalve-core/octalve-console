@@ -145,13 +145,13 @@ class SupportTicket(models.Model):
     def has_unread_messages(self, user):
         """Check if there are unread messages for user"""
         unread = self.messages.filter(is_read=False)
-        if user.role in ['admin', 'staff']:
+        if user.is_staff and user.role in ['admin', 'staff'] or user.is_superuser:
             return unread.filter(sender_role='client').exists()
         return unread.filter(sender_role__in=['admin', 'staff']).exists()
     
     def mark_as_read(self, user):
         """Mark all messages as read for user"""
-        if user.role in ['admin', 'staff']:
+        if user.is_staff and user.role in ['admin', 'staff'] or user.is_superuser:
             self.messages.filter(sender_role='client', is_read=False).update(is_read=True)
         else:
             self.messages.filter(sender_role__in=['admin', 'staff'], is_read=False).update(is_read=True)
