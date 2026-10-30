@@ -1,6 +1,7 @@
 # settings_registry/urls.py
 
 from django.urls import path, include
+from .console_views import ConsolePolicyView
 from rest_framework.routers import DefaultRouter
 from .views import (
     SettingGroupViewSet, SettingViewSet, EmailTemplateViewSet,
@@ -16,5 +17,6 @@ router.register(r'tax', TaxSettingsViewSet, basename='tax-settings')
 router.register(r'system', SystemConfigViewSet, basename='system-config')
 
 urlpatterns = [
+    path('console-policy/<slug:section>/', ConsolePolicyView.as_view(), name='console-policy'),
     path('', include(router.urls)),
 ]
