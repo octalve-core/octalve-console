@@ -35,6 +35,8 @@ MANIFEST = {
  "mail": {
   "sender_name": ("Sender display name", "text", "Octalve Cloud", "draft_only"),
   "reply_to": ("Reply-to address", "email", "support@octalve.com", "draft_only"),
+  "primary_sender": ("Preferred email sender", "select:brevo,resend", "brevo", "draft_only"),
+  "fallback_sender": ("Backup email sender", "select:resend,brevo,none", "resend", "draft_only"),
  },
 }
 
@@ -106,6 +108,11 @@ def save_policy(section, payload, actor, ip=None):
         raise ValueError("This field is not editable.")
     validated={key:_validated(MANIFEST[section][key][1],value)
                for key,value in values.items()}
+    if section=="mail":
+        persisted={item["key"]:item["value"] for item in read_policy("mail")["fields"]}
+        effective={**persisted,**validated}
+        if effective["primary_sender"]==effective["fallback_sender"]:
+            raise ValueError("Select a different backup sender or disable fallback.")
     # Serialize policy revision checks even when records are still missing.
     from .models import SettingGroup
     # An initial empty registry is valid. Serialize writes by the group row
