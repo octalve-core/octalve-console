@@ -14,7 +14,10 @@ class ConsolePolicyBoundaries(TestCase):
   self.assertEqual(self.api.get("/api/settings/console-tax/").status_code,403)
   self.assertEqual(self.api.patch("/api/settings/console-tax/",{},format="json").status_code,403)
   self.api.force_authenticate(user=self.admin)
+  from settings_registry.models import TaxSettings,TaxPolicyRevision
+  before_count=TaxSettings.objects.count()
   response=self.api.get("/api/settings/console-tax/")
+  self.assertEqual(TaxSettings.objects.count(),before_count,"Reading policy must not initialize a row")
   self.assertEqual(response.status_code,200,response.data)
   self.assertFalse(response.data["checkout_active"])
   revision=response.data["revision"]
@@ -28,6 +31,14 @@ class ConsolePolicyBoundaries(TestCase):
       "changes":{"vat_number":"REG-2026","default_tax_rate":"7.50"}},format="json")
   self.assertEqual(saved.status_code,200,saved.data)
   self.assertIsNotNone(saved.data.get("audit_id"))
+  self.assertEqual(saved.data.get("tax_revision"),1)
+  self.assertEqual(TaxPolicyRevision.objects.filter(policy_id=1).count(),1)
+  history=self.api.get("/api/settings/console-tax/history/")
+  self.assertEqual(history.status_code,200,history.data)
+  self.assertEqual(history.data["revisions"][0]["snapshot"]["default_tax_rate"],"7.50")
+  self.api.force_authenticate(user=self.customer)
+  self.assertEqual(self.api.get("/api/settings/console-tax/history/").status_code,403)
+  self.api.force_authenticate(user=self.admin)
   self.assertFalse(saved.data["checkout_active"])
   stale=self.api.patch("/api/settings/console-tax/",{"revision":revision,
       "changes":{"enable_tax":False}},format="json")
