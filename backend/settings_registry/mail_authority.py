@@ -83,17 +83,20 @@ def queue_invoice_issued(invoice):
     from django.utils import timezone
     if not EmailTemplate.objects.filter(key="invoice_issued",is_active=True).exists():
         return False
-    user=invoice.client
-    name=(user.full_name or "").strip()
-    context={
-        "customer.first_name":name.split()[0] if name else "Customer",
-        "customer.full_name":name or user.email,
-        "invoice.number":str(invoice.invoice_number),
-        "invoice.due_date":timezone.localtime(invoice.due_date).strftime("%d %b %Y"),
-        "company.name":"Octalve Cloud",
-        "year":str(timezone.now().year),
-    }
     try:
+        user=invoice.client
+        name=(user.full_name or "").strip()
+        due_date=invoice.due_date
+        if timezone.is_naive(due_date):
+            due_date=timezone.make_aware(due_date)
+        context={
+            "customer.first_name":name.split()[0] if name else "Customer",
+            "customer.full_name":name or user.email,
+            "invoice.number":str(invoice.invoice_number),
+            "invoice.due_date":timezone.localtime(due_date).strftime("%d %b %Y"),
+            "company.name":"Octalve Cloud",
+            "year":str(timezone.now().year),
+        }
         # Nested atomic block uses a savepoint when checkout already owns one.
         with transaction.atomic():
             _,created=queue_templated_message(
