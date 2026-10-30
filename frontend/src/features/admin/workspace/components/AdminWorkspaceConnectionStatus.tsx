@@ -6,7 +6,7 @@ import type {AdminWorkspaceKey} from "../data/admin-workspace-config";
 
 const billingModules:readonly {label:string;href:string;icon:LucideIcon;description:string}[]=[
  {label:"Invoices",href:"/admin/billing/invoices",icon:FileText,description:"Issued invoices and outstanding balances"},
- {label:"Transactions",href:"/admin/billing/transactions",icon:CreditCard,description:"Server-reported payment transactions"},
+ {label:"Transactions",href:"/admin/billing/transactions",icon:CreditCard,description:"Payment history and transaction details"},
  {label:"Billable services",href:"/admin/billing/services",icon:Server,description:"Service billing and renewals"},
  {label:"Domains",href:"/admin/billing/domains",icon:Globe2,description:"Domain records and billing status"},
  {label:"Payment gateways",href:"/admin/gateways",icon:ShieldCheck,description:"Configured gateway records"},
@@ -44,12 +44,11 @@ export function AdminWorkspaceConnectionStatus({workspace,title}:{workspace:Admi
   </div>
   <h2 className="mt-5 text-xl font-medium text-console-ink">{title} is not connected yet</h2>
   <p className="mt-3 max-w-2xl text-sm leading-7 text-console-muted">
-   This section does not currently have a verified record service. No items, balances,
-   permissions or operational results are being shown as though they were returned by the server.
+   This section is being prepared. You can continue using the available management tools below.
   </p>
   <p className="mt-3 flex items-start gap-2 text-sm leading-6 text-console-muted">
    <CheckCircle2 aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-console-primary"/>
-   Existing connected Console features remain available using the links below.
+   Explore the available tools below.
   </p>
   <div className="mt-6 flex flex-col gap-3 sm:flex-row">
    <RelatedLink href={related.href} label={related.label}/>

@@ -1,4 +1,7 @@
 import type {LucideIcon} from "lucide-react";
+import {MetricKpiCard,metricTrend,type MetricKpiTrend} from "@/components/design-system/MetricKpiCard";
+import {MonthlyPaymentsChart,RegistrationTrendChart,InvoiceStatusChart} from "./InsightCharts";
+import Link from "next/link";
 import {Activity,CalendarClock,CircleDollarSign,CreditCard,FileCheck2,
  Globe2,Layers3,ReceiptText,ShieldCheck,TrendingUp,Users2,WalletCards} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
@@ -10,17 +13,8 @@ import type {ReportDefinitionCard,ReportInstanceCard} from "../lib/report-presen
 
 const fmt=(n:number)=>n.toLocaleString("en-NG");
 type Tone="blue"|"green"|"amber"|"violet"|"rose"|"slate";
-function KPI({title,value,note,icon,tone="blue"}:{title:string;value:string;note:string;icon:LucideIcon;tone?:Tone}){
- return <Panel className="flex min-h-36 flex-col justify-between gap-3 shadow-sm">
-  <div className="flex items-start justify-between gap-3">
-   <div className="min-w-0"><p className="text-xs font-medium text-console-muted">{title}</p>
-    <p className="mt-2 break-words text-xl font-medium tracking-tight text-console-ink sm:text-2xl">{value}</p></div>
-   <ConsoleIconTile icon={icon} tone={tone}/>
-  </div><p className="text-xs leading-5 text-console-muted">{note}</p>
- </Panel>;
-}
-function KPIs({items}:{items:readonly {title:string;value:string;note:string;icon:LucideIcon;tone?:Tone}[]}){
- return <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{items.map(item=><KPI key={item.title} {...item}/>)}</div>;
+function KPIs({items}:{items:readonly {title:string;value:string;note:string;icon:LucideIcon;tone?:Tone;trend?:MetricKpiTrend}[]}){
+ return <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{items.map(item=><MetricKpiCard key={item.title} {...item}/>)}</div>;
 }
 function Explanation({title,body,warning=false}:{title:string;body:string;warning?:boolean}){
  return <Panel className={warning?"border-amber-200 bg-amber-50/40":""}>
@@ -52,12 +46,25 @@ export function OverviewPanel({data}:{data:BIZSnapshot}){
    {title:"Verified payment records · this month",value:formatMoney(x.payment_amounts.this_month,c),note:"Gateway webhook verified; bank settlement not established",icon:WalletCards,tone:"blue"},
    {title:"Verified payment records · last month",value:formatMoney(x.payment_amounts.last_month,c),note:"Same currency and verification rule",icon:TrendingUp,tone:"violet"},
    {title:"Verified payment records · this year",value:formatMoney(x.payment_amounts.year_to_date,c),note:"Year to date; not accounting profit",icon:CircleDollarSign,tone:"green"},
-   {title:"New customers · this month",value:fmt(x.new_customers_this_month),note:"New non-staff account registrations",icon:Users2,tone:"amber"},
+   {title:"New customers · this month",value:fmt(x.new_customers_this_month),note:"Compared with the prior calendar month",icon:Users2,tone:"amber",trend:metricTrend(x.new_customers_this_month,data.customers.registered_last_month)},
    {title:"Paid invoice records · this month",value:fmt(x.paid_invoices_this_month),note:"Invoice state; not settlement evidence",icon:FileCheck2},
    {title:"Invoices awaiting resolution",value:fmt(x.pending_invoices),note:"Unpaid, partially paid and overdue",icon:ReceiptText,tone:"amber"},
    {title:"Active service records",value:fmt(x.active_services),note:"Local service lifecycle state",icon:Layers3,tone:"violet"},
    {title:"Paid renewal invoices · this month",value:fmt(x.paid_renewal_invoices_this_month),note:"Tagged renewal invoices, based on status",icon:CalendarClock,tone:"green"},
   ]}/>
+  <div className="grid min-w-0 gap-4 xl:grid-cols-[1.6fr_1fr]">
+   <MonthlyPaymentsChart rows={data.finance.payment_months} currency={data.currency}/>
+   <InvoiceStatusChart statuses={data.finance.invoice_status}/>
+  </div>
+  <div className="grid min-w-0 gap-4 xl:grid-cols-[1.6fr_1fr]">
+   <RegistrationTrendChart rows={data.customers.registrations_by_month}/>
+   <Panel><h2 className="text-sm font-medium text-console-ink">Requires your attention</h2>
+    <div className="mt-4 space-y-4 text-sm"><Link href="/admin/billing/invoices" className="flex items-center justify-between gap-3 border-b border-console-line pb-4 text-console-ink hover:text-console-primary">
+     <span>Invoices awaiting payment</span><span className="font-medium tabular-nums">{fmt(x.pending_invoices)}</span></Link>
+     <Link href="/admin/billing/services" className="flex items-center justify-between gap-3 border-b border-console-line pb-4 text-console-ink hover:text-console-primary"><span>Services due within 30 days</span><span className="font-medium tabular-nums">{fmt(data.renewals.services_due_in_30_days)}</span></Link>
+     <Link href="/admin/billing/domains" className="flex items-center justify-between gap-3 text-console-ink hover:text-console-primary"><span>Domains nearing expiry</span><span className="font-medium tabular-nums">{fmt(data.renewals.domains_expiring_in_30_days)}</span></Link>
+    </div></Panel>
+  </div>
   <Explanation warning title="Interpreting your business performance"
    body="All payment figures here come from successful payment records with verified webhooks and are scoped to one currency. Bank settlement, provider fulfilment, supplier costs and accounting profit must be reconciled separately."/>
  </div>;
@@ -75,6 +82,7 @@ export function FinancePanel({data}:{data:BIZSnapshot}){
  return <div className="space-y-5">
   <KPIs items={[
    {title:"This month · gateway verified",value:formatMoney(x.payment_amounts.this_month,c),note:"Not bank-settled revenue",icon:CircleDollarSign},
+   {title:"Verified payment records",value:fmt(data.overview.verified_payment_count_this_month),note:"Month to date vs previous full calendar month",icon:CreditCard,tone:"green",trend:metricTrend(data.overview.verified_payment_count_this_month,data.overview.verified_payment_count_last_month)},
    {title:"Last month · gateway verified",value:formatMoney(x.payment_amounts.last_month,c),note:"Direct month-to-month basis",icon:TrendingUp,tone:"violet"},
    {title:"Paid on/before invoice due date",value:fmt(x.paid_before_due_this_month),note:"Invoice timestamps only",icon:FileCheck2,tone:"green"},
    {title:"Paid after invoice due date",value:fmt(x.paid_after_due_this_month),note:"Invoice timestamps only",icon:CalendarClock,tone:"amber"},
@@ -83,8 +91,9 @@ export function FinancePanel({data}:{data:BIZSnapshot}){
    <Panel><h2 className="mb-4 text-sm font-medium">Invoice pipeline</h2>
     <ResponsiveTable caption="Invoices grouped by recorded status" rows={invoiceRows} columns={invoiceColumns}
       getRowKey={r=>r.status} emptyDescription="No invoice records for this currency."/></Panel>
-   <Bars title="Webhook-verified payment counts by month" rows={x.payment_months}/>
+   <InvoiceStatusChart statuses={x.invoice_status}/>
   </div>
+  <MonthlyPaymentsChart rows={x.payment_months} currency={c}/>
   <Panel><h2 className="mb-4 text-sm font-medium">Gateway-verified payment history</h2>
    <ResponsiveTable caption="Gateway verified payments by month" rows={x.payment_months}
      columns={paymentColumns} getRowKey={r=>r.month} emptyDescription="No verified payment records in this period."/></Panel>
@@ -98,13 +107,28 @@ export function CustomersPanel({data}:{data:BIZSnapshot}){
   {key:"count",heading:"Customer registrations",cell:r=>fmt(r.count)}];
  return <div className="space-y-5">
   <KPIs items={[
-   {title:"Registered customer accounts",value:fmt(c.registered_total),note:"Non-staff, non-superuser accounts",icon:Users2},
-   {title:"New accounts · this month",value:fmt(c.registered_this_month),note:"Account registration date",icon:TrendingUp,tone:"green"},
+   {title:"Registered customer accounts",value:fmt(c.registered_total),note:"Customer accounts",icon:Users2},
+   {title:"New accounts · this month",value:fmt(c.registered_this_month),note:"Month to date versus previous month",icon:TrendingUp,tone:"green",trend:metricTrend(c.registered_this_month,c.registered_last_month)},
    {title:"New accounts · last month",value:fmt(c.registered_last_month),note:"Previous calendar month",icon:CalendarClock,tone:"violet"},
    {title:"Paying customers · this month",value:fmt(c.paying_customers_this_month),note:"Distinct clients with a webhook-verified payment in this currency",icon:CreditCard,tone:"amber"},
   ]}/>
   <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-   <Bars title="Registration activity (last 12 months)" rows={c.registrations_by_month}/>
+   <Panel><h2 className="text-sm font-medium text-console-ink">Customer accounts to review</h2>
+    <div className="mt-4 space-y-4 text-sm">
+     <div className="flex items-center justify-between gap-3 border-b border-console-line pb-4">
+      <span>Two or more failed payment attempts in 14 days</span>
+      <span className="font-medium tabular-nums">{fmt(c.accounts_with_repeat_failed_payments_14d)}</span>
+     </div>
+     <div className="flex items-center justify-between gap-3">
+      <span>Active service records past their renewal date</span>
+      <span className="font-medium tabular-nums">{fmt(c.accounts_with_past_due_services)}</span>
+     </div>
+    </div>
+    <p className="mt-4 text-xs leading-5 text-console-muted">These are review signals, not fraud findings. Verify the underlying account and transaction history before acting.</p>
+   </Panel>
+  </div>
+  <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+   <RegistrationTrendChart rows={c.registrations_by_month}/>
    <Panel><h2 className="mb-4 text-sm font-medium">Customer registration records</h2>
     <ResponsiveTable caption="Customer cohorts by registration month" rows={c.registrations_by_month}
      columns={cols} getRowKey={r=>r.month}/></Panel>

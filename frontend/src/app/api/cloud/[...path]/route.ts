@@ -28,7 +28,7 @@ const API_ROOTS = new Set([
   "storefront", "notifications", "rewards",
 ]);
 const ALLOWED_AUTH_PATHS = new Set([
-  "auth/jwt/create", "auth/register", "auth/logout",
+  "auth/jwt/create", "auth/register", "auth/username-availability", "auth/logout",
   "auth/users/me", "auth/me",
   "auth/users/reset_password", "auth/users/reset_password_confirm",
   "auth/users/set_password", "auth/customers",

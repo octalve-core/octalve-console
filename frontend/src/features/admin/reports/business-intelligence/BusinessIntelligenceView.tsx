@@ -85,9 +85,9 @@ export function BusinessIntelligenceView(){
  const data=loadedScope===scope&&scope?snapshot:null;
  const libraryData=libraryScope===libraryKey?library:null;
  return <DashboardShell role="admin" title="Business Intelligence"
-  description="Verified insights about your revenue records, customers and services.">
-  <DashboardPage eyebrow="Business Intelligence" title="Reports"
-   description="Explore payments, customer growth, renewals, suppliers and report records with transparent evidence.">
+  description="Understand your business performance.">
+  <DashboardPage eyebrow="Business Intelligence" title="Know your business. Grow with clarity."
+   description="Track payments, customer growth, renewals and provider performance in one place.">
    <div className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-console-line bg-white px-4 py-3 shadow-sm">
      <div className="flex flex-wrap items-center gap-2">

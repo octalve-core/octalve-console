@@ -13,6 +13,7 @@ from .views import (
     AdminCustomerDetailView,
 )
 
+from .username_availability import UsernameAvailabilityView
 from .language_preferences import OwnLanguagePreferenceView
 from .staff_roster import AdminStaffRosterView
 
@@ -37,6 +38,7 @@ urlpatterns = [
     path('me/', CustomUserInfoView.as_view(), name='user-info'),
 
     path('register/', CustomUserCreateView.as_view(), name='custom-register'),
+    path('username-availability/', UsernameAvailabilityView.as_view(), name='username-availability'),
 
     # Admin customer management
     path('customers/', AdminCustomerListView.as_view(), name='admin-customers'),

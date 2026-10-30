@@ -8,7 +8,6 @@ import {DirectoryLoadingSkeleton} from "@/components/design-system/DirectoryLoad
 import {ErrorState} from "@/components/feedback/ErrorState";
 import {useAutoSync} from "@/lib/hooks/useAutoSync";
 import {adminResourceConfig,type AdminResourceKey} from "../data/admin-resource-config";
-import {AdminResourceAuthorityGuide} from "../components/AdminResourceAuthorityGuide";
 import {normalizeAdminRecord,unwrapAdminList} from "../utils/admin-record-normalizer";
 import type {AdminRecord} from "../data/admin-demo-data";
 const normalizeRecord=normalizeAdminRecord;
@@ -36,7 +35,6 @@ function OtherAdminResourceListView({resource}:{resource:Exclude<AdminResourceKe
  return <DashboardShell role="admin" title={config.title} description={config.description}>
   <DashboardPage eyebrow={config.eyebrow} title={config.title} description={config.description}>
    <div className="space-y-4">
-    <AdminResourceAuthorityGuide resource={resource}/>
     {error?<ErrorState description={error}/>:null}
     {isLoading?<DirectoryLoadingSkeleton label={config.title}/>:
      !error||records.length?<AdminResourceDirectory resource={resource} records={records}

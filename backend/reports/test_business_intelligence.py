@@ -53,6 +53,12 @@ class BusinessSnapshotTests(TestCase):
             currency="USD", amount=Decimal("50.00"),
             net_amount=Decimal("48.00"), status="successful",
             webhook_verified=True, transaction_type="payment", paid_at=now)
+        for index in range(2):
+            Transaction.objects.create(
+                client=cls.client, invoice=cls.invoice,
+                reference=f"biz02-failed-{index}", currency="NGN",
+                amount=Decimal("12.00"), net_amount=Decimal("12.00"),
+                status="failed", transaction_type="payment")
         Service.objects.create(
             client=cls.client, product_id=1, plan_id=1,
             label="Active due service", status="active",
@@ -80,6 +86,8 @@ class BusinessSnapshotTests(TestCase):
         self.assertEqual(result.data["overview"]["verified_payment_count_this_month"], 1)
         self.assertEqual(result.data["overview"]["paid_invoices_this_month"], 1)
         self.assertEqual(result.data["renewals"]["services_due_in_7_days"], 1)
+        self.assertEqual(result.data["customers"]["accounts_with_repeat_failed_payments_14d"], 1)
+        self.assertEqual(result.data["customers"]["accounts_with_past_due_services"], 0)
         self.assertFalse(result.data["methodology"]["settlement_verified"])
         self.assertFalse(result.data["methodology"]["profit_verified"])
         self.assertIsNone(result.data["providers"]["margin"])

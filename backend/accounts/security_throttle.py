@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 POLICIES = {
     "/api/auth/jwt/create/": (30, 300, 8, 900),
     "/api/auth/register/": (5, 3600, None, None),
+    "/api/auth/username-availability/": (45, 3600, None, None),
     "/api/auth/users/reset_password/": (8, 3600, 4, 3600),
     "/api/auth/users/reset_password_confirm/": (12, 3600, None, None),
     "/api/auth/jwt/refresh/": (120, 3600, None, None),

@@ -80,6 +80,17 @@ def business_snapshot(request):
     upcoming_services = active_services.filter(
         next_due_date__gte=now, next_due_date__lte=next_month)
     users = get_user_model().objects.filter(role='client', is_staff=False, is_superuser=False)
+    # Objective account-review signals only: never infer misconduct or fraud.
+    failure_window = now - timedelta(days=14)
+    repeat_failed_accounts = (
+        Transaction.objects.filter(
+            status="failed", transaction_type="payment",
+            created_at__gte=failure_window, client__role="client")
+        .values("client_id").annotate(failures=Count("id"))
+        .filter(failures__gte=2).count()
+    )
+    past_due_accounts = active_services.filter(
+        next_due_date__lt=now).values("client_id").distinct().count()
     current_users = users.filter(date_joined__gte=this_month)
     previous_users = users.filter(
         date_joined__gte=last_month, date_joined__lt=this_month)
@@ -136,6 +147,7 @@ def business_snapshot(request):
         "overview": {
             "payment_amounts": totals,
             "verified_payment_count_this_month": current_payments.count(),
+            "verified_payment_count_last_month": last_payments.count(),
             "paid_invoices_this_month": paid_current.count(),
             "pending_invoices": invoices.filter(
                 status__in=("unpaid", "partially_paid", "overdue")).count(),
@@ -164,6 +176,8 @@ def business_snapshot(request):
             "registered_last_month": previous_users.count(),
             "paying_customers_this_month": current_payments.values(
                 "client_id").distinct().count(),
+            "accounts_with_repeat_failed_payments_14d": repeat_failed_accounts,
+            "accounts_with_past_due_services": past_due_accounts,
             "registrations_by_month": [
                 {"month": row["month"].date().isoformat()[:7], "count": row["count"]}
                 for row in registration

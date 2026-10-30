@@ -15,6 +15,7 @@ import re
 from uuid import uuid4
 
 from .models import ClientProfile, StaffProfile
+from .username_availability import USERNAME_PATTERN, RESERVED_USERNAMES
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -60,11 +61,10 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
         value = value.strip().lower()
         if not value:
             return ""
-        if not re.fullmatch(r"[a-z][a-z0-9_]{2,29}", value):
+        if not USERNAME_PATTERN.fullmatch(value):
             raise serializers.ValidationError(
                 "Use 3–30 characters: start with a letter; use letters, numbers or underscores.")
-        if value in {"admin", "administrator", "root", "support", "security",
-                     "billing", "system", "octalve", "api", "staff"}:
+        if value in RESERVED_USERNAMES:
             raise serializers.ValidationError("Choose a different username.")
         if User.objects.filter(username__iexact=value).exists():
             raise serializers.ValidationError("This username is already taken.")

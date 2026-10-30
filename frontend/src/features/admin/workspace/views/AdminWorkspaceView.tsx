@@ -5,7 +5,6 @@ import {useState} from "react";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { useAutoSync } from "@/lib/hooks/useAutoSync";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import {Panel} from "@/components/design-system/Panel";
 import {AdminGenericDirectory} from "../../components/AdminGenericDirectory";
 import {AdminWorkspaceConnectionStatus} from "../components/AdminWorkspaceConnectionStatus";
 import {ErrorState} from "@/components/feedback/ErrorState";
@@ -54,7 +53,6 @@ function normalizeRecord(item: unknown, config: typeof adminWorkspaceConfig[Admi
 
 export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
   const config = adminWorkspaceConfig[workspace];
-  const Icon = config.icon;
 
   const [records, setRecords] = useState<AdminWorkspaceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,17 +87,6 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceViewProps) {
     <DashboardPage eyebrow={config.eyebrow} title={config.title} description={config.description}
 >
       <div className="space-y-5">
-        <Panel padded={false} className="overflow-hidden">
-          <div className="flex min-w-0 items-start gap-4 bg-console-primary p-5 text-white sm:p-7">
-            <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15">
-              <Icon className="h-6 w-6"/>
-            </span>
-            <div className="min-w-0">
-              <h2 className="break-words text-2xl font-medium">{config.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-white/85">{config.description}</p>
-            </div>
-          </div>
-        </Panel>
         {config.availability && config.availability !== "api" ?
          <AdminWorkspaceConnectionStatus workspace={workspace} title={config.title}/>:
          isLoading?<LoadingState title={"Loading "+config.title.toLowerCase()} description="Updating records…"/>:
