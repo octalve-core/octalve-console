@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 def eligible_staff(ticket):
     User=get_user_model()
     ids=ticket.department.assigned_staff.filter(
-        is_active=True,role__in=("staff","admin")).values_list("pk",flat=True)
+        is_active=True,is_staff=True,role__in=("staff","admin")).values_list("pk",flat=True)
     query=User.objects.filter(pk__in=ids)
     if ticket.routing_tag_id:
         query=query.filter(support_routing_tags=ticket.routing_tag)
