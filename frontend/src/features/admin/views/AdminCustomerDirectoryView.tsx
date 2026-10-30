@@ -5,6 +5,8 @@ import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DirectoryLoadingSkeleton} from "@/components/design-system/DirectoryLoadingSkeleton";
 import {ErrorState} from "@/components/feedback/ErrorState";
 import {adminApi} from "@/lib/api/endpoints";
+import {useAuth} from "@/context/AuthContext";
+import {privateQueryKey,privateQueryRead,privateQueryWrite} from "@/lib/api/private-query-cache";
 import {AdminResourceDirectory} from "../components/AdminResourceDirectory";
 import {AdminResourceAuthorityGuide} from "../components/AdminResourceAuthorityGuide";
 import {adminResourceConfig} from "../data/admin-resource-config";
@@ -30,6 +32,7 @@ function parseCustomerPage(value:unknown):CustomerPage{
 /** The Admin Customer golden master is server-paged; never search only the first API page. */
 export function AdminCustomerDirectoryView(){
  const config=adminResourceConfig.customers;
+ const {user}=useAuth();
  const [rows,setRows]=useState<AdminRecord[]>([]);
  const [count,setCount]=useState(0),[page,setPage]=useState(1);
  const [query,setQuery]=useState(""),[debounced,setDebounced]=useState("");
@@ -44,9 +47,20 @@ export function AdminCustomerDirectoryView(){
   return ()=>window.clearTimeout(timer);
  },[query]);
  const sourceKey=JSON.stringify([page,debounced,status,filter.status,filter.from,filter.to,ordering]);
+ const cacheKey=user?privateQueryKey("admin-customers",user.id,user.role,sourceKey):"";
  useEffect(()=>{
   let active=true;
-  setLoading(true);
+  // On back-navigation show authorized records immediately. Fresh cached
+  // pages require no network round trip; stale pages reconcile quietly.
+  const cached=cacheKey?privateQueryRead<CustomerPage>(cacheKey):null;
+  if(cached){
+   const records=cached.value.results.map(item=>normalizeAdminRecord(item,"customers"));
+   setRows(records);setCount(cached.value.count);setLoadedKey(sourceKey);setError("");
+   if(cached.fresh&&refreshCounter===0){lastRefresh.current=Date.now();setLoading(false);return()=>{active=false;};}
+   setLoading(false);
+  }else{
+   setLoading(true);
+  }
   const selectedStatus=filter.status!=="all"?filter.status:status;
   const params={
    page,page_size:10,search:debounced||undefined,
@@ -57,6 +71,7 @@ export function AdminCustomerDirectoryView(){
   void adminApi.customers(params).then(response=>{
    if(!active)return;
    const data=parseCustomerPage(response);
+   if(cacheKey)privateQueryWrite(cacheKey,data);
    const normalized=data.results.map(item=>normalizeAdminRecord(item,"customers"));
    setRows(normalized);setCount(data.count);setLoadedKey(sourceKey);setError("");
    lastRefresh.current=Date.now();
