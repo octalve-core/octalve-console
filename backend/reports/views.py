@@ -27,7 +27,7 @@ class ReportDefinitionViewSet(viewsets.ModelViewSet):
     """ViewSet for report definitions"""
     
     serializer_class = ReportDefinitionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsConsoleFinancialAdmin]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['report_type', 'is_active']
     
@@ -49,49 +49,23 @@ class ReportDefinitionViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def generate(self, request, pk=None):
-        """Generate a report from definition"""
-        definition = self.get_object()
-        
-        serializer = GenerateReportSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        # Create report instance
-        report = ReportInstance.objects.create(
-            definition=definition,
-            generated_by=request.user,
-            title=serializer.validated_data.get('title', f"{definition.name} Report"),
-            period_start=serializer.validated_data['period_start'],
-            period_end=serializer.validated_data['period_end'],
-            filters_used=serializer.validated_data.get('filters', {}),
-            file_format=serializer.validated_data['format']
+        """Fail closed until private, tenant-scoped report export is certified.
+
+        Historical code returned a predictable public /media/ URL and did
+        not enforce file access on download. The safe async export/download
+        contract will be introduced alongside audited reporting in Batch 2.
+        """
+        return Response(
+            {"detail": "Private report export is not enabled yet."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-        
-        # Generate report
-        generator = ReportGenerator(report)
-        
-        try:
-            file_path, row_count = generator.generate()
-            file_url = f"/media/{file_path}"
-            file_size = default_storage.size(file_path)
-            
-            report.mark_completed(file_url, file_size, row_count)
-            
-            return Response({
-                'id': report.id,
-                'download_url': file_url,
-                'row_count': row_count
-            })
-            
-        except Exception as e:
-            report.mark_failed(str(e))
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ReportInstanceViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for report instances"""
     
     serializer_class = ReportInstanceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsConsoleFinancialAdmin]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status']
     ordering = ['-generated_at']
@@ -106,22 +80,18 @@ class ReportInstanceViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=True, methods=['delete'])
     def delete(self, request, pk=None):
-        """Delete a report instance"""
-        report = self.get_object()
-        
-        if report.file_url:
-            file_path = report.file_url.replace('/media/', '')
-            default_storage.delete(file_path)
-        
-        report.delete()
-        return Response({'message': 'Report deleted'})
+        """Do not delete financial report receipts through an unaudited action."""
+        return Response(
+            {"detail": "Report deletion is not available."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
 
 class DashboardWidgetViewSet(viewsets.ModelViewSet):
     """ViewSet for dashboard widgets"""
     
     serializer_class = DashboardWidgetSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsConsoleFinancialAdmin]
     
     def get_queryset(self):
         user = self.request.user
@@ -179,7 +149,7 @@ class SavedReportFilterViewSet(viewsets.ModelViewSet):
     """ViewSet for saved report filters"""
     
     serializer_class = SavedReportFilterSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsConsoleFinancialAdmin]
     
     def get_queryset(self):
         return SavedReportFilter.objects.filter(user=self.request.user)
@@ -212,7 +182,7 @@ class MetricViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for business metrics"""
     
     serializer_class = MetricSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsConsoleFinancialAdmin]
     
     def get_queryset(self):
         user = self.request.user
