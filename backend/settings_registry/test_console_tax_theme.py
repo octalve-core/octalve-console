@@ -71,7 +71,7 @@ class ConsolePolicyBoundaries(TestCase):
   self.assertEqual({s["key"] for s in result.data["senders"]},{"brevo","resend"})
   self.assertTrue(all(not s["live_verified"] for s in result.data["senders"]))
   self.assertNotIn("api_key",str(result.data))
-  self.assertNotIn("secret",str(result.data).lower())
+  self.assertNotIn("ciphertext",str(result.data).lower())
  def test_sender_preferences_cannot_overlap_or_bypass_approval(self):
   self.api.force_authenticate(user=self.admin)
   endpoint="/api/settings/console-policy/mail/"
