@@ -12,7 +12,8 @@ def is_cloud_admin(user):
     return bool(
         user
         and getattr(user, "is_authenticated", False)
-        and (getattr(user, "is_superuser", False) or getattr(user, "role", None) == "admin")
+        and (getattr(user, "is_superuser", False) or
+             (getattr(user, "is_staff", False) and getattr(user, "role", None) == "admin"))
     )
 
 
