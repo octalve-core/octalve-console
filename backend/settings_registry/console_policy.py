@@ -39,7 +39,7 @@ MANIFEST = {
 }
 
 def _validated(kind, value):
-    if not isinstance(value, str) or value != value.strip() or any(ord(c)<32 and c not in "\n" for c in value):
+    if not isinstance(value, str) or value != value.strip() or any(ord(c)<32 and (kind!="footer" or c!="\n") for c in value):
         raise ValueError("Enter a valid value.")
     if kind == "text" and not 2 <= len(value) <= 100:
         raise ValueError("Use 2–100 characters.")
@@ -114,6 +114,7 @@ def save_policy(section, payload, actor, ip=None):
     if payload["revision"]!=before["revision"]:
         raise RuntimeError("Settings changed since you opened this page. Reload and review.")
     changed=[]
+    audit_ids=[]
     for key,value in validated.items():
         old=records.get(key)
         if old is None:
@@ -123,8 +124,9 @@ def save_policy(section, payload, actor, ip=None):
         if str(old.get_value() if old.value not in (None,"") else MANIFEST[section][key][2])==value:
             continue
         old.set_value(value)
-        SettingChangeLog.objects.create(setting=old,changed_by=actor,
+        log=SettingChangeLog.objects.create(setting=old,changed_by=actor,
             old_value=None,new_value=None,ip_address=ip)
+        audit_ids.append(log.pk)
         changed.append(key)
     after=_snapshot(section,_records(section))
-    return {**after,"changed":changed}
+    return {**after,"changed":changed,"audit_ids":audit_ids}
