@@ -21,14 +21,15 @@ for(const token of [
 ])assert.ok(editor.includes(token),"Direct legacy Admin editor route guard missing: "+token);
 assert.ok(details.includes('resource==="providers"?[]:isAdminMutationDisabled(resource)?[]'),
  "Detail screen still advertises unqualified Edit");
-assert.ok(list.includes("<AdminResourceAuthorityGuide resource={resource}/>"),
- "Admin list must explain available authority");
+assert.ok(!list.includes("AdminResourceAuthorityGuide")&&list.includes("AdminResourceDirectory"),
+ "Admin list must use its approved directory without duplicate developer banners");
 assert.ok(restricted.includes("No changes have been submitted.")&&!restricted.includes("<form"),
  "Unavailable operations must not pretend a Save exists");
 const settings=read("features/admin/components/AdminSettingsSectionPanel.tsx");
 const studio=read("features/admin/invoice-studio/AdminInvoiceTemplateStudio.tsx");
 assert.ok(settings.includes('href:"/admin/invoice-designer"'),"Settings invoices need working template link");
-assert.ok(list.includes("AdminResourceAuthorityGuide"),"Invoice workspace lacks designer link");
+assert.ok(config.includes('"/admin/catalog/workbench"')&&editor.includes("AdminRestrictedActionView"),
+ "Catalogue actions and restricted invoice writes must remain guarded");
 assert.ok(studio.includes('href="/admin/billing/invoices"')&&studio.includes('href="/admin/settings/invoices"'),
  "Invoice studio must return to invoice records and policy");
 const integration=read("features/admin/integrations/IntegrationStore.tsx");
