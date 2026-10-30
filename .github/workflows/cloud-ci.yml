@@ -196,6 +196,22 @@ jobs:
         run: python -m pip check
       - name: Compile guarded local migration runner
         run: python -m py_compile backend/scripts/production_settings_batch2_migrate.py
+      - name: Parse Windows Production migration script and verify isolated Python bootstrap
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          $path = Join-Path (Get-Location) 'scripts/apply-neon-production-settings-batch2.ps1'
+          [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) { throw 'Production migration PowerShell syntax is invalid.' }
+          $source = Get-Content -Raw -Path $path
+          foreach ($required in @('Batch2MigrationPython312', 'sys.version_info[:2] == (3,12)',
+                                   'backend/requirements.txt', 'python.exe', 'pg_dump',
+                                   'pg_restore', '-PlanOnly', '-Apply',
+                                   'production_settings_batch2_migrate.py')) {
+            if (-not $source.Contains($required)) { throw "Missing reviewed local migrator guard: $required" }
+          }
+
       - name: Django system check
         working-directory: backend
         run: python manage.py check
