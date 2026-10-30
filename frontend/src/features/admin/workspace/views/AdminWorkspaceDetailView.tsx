@@ -1,13 +1,12 @@
 "use client";
 import {useEffect,useState} from "react";
 import {useParams} from "next/navigation";
-import {ArrowLeft,RefreshCcw} from "lucide-react";
+import {ArrowLeft} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {LoadingState} from "@/components/feedback/LoadingState";
 import {ErrorState} from "@/components/feedback/ErrorState";
 import {ActionLink} from "@/components/design-system/ActionLink";
-import {ActionButton} from "@/components/design-system/ActionButton";
 import {AdminRecordDetailPanel} from "../../components/AdminRecordDetailPanel";
 import {readAuthorizedDetail} from "../../utils/read-authorized-detail";
 import type {AdminRecord} from "../../data/admin-demo-data";
@@ -28,10 +27,10 @@ export function AdminWorkspaceDetailView({workspace}:{workspace:AdminWorkspaceKe
    .finally(()=>{if(active)setLoading(false);});
   return ()=>{active=false;};
  },[config,id]);
- return <DashboardShell role="admin" title={config.title} description={config.description}
-  actions={<ActionLink href={config.listHref} variant="outline">
-   <ArrowLeft aria-hidden="true" className="h-4 w-4"/>Back
-  </ActionLink>}>
+ return <DashboardShell role="admin" title={config.title} description={config.description}>
+  <div className="mb-4"><ActionLink href={config.listHref} variant="outline">
+   <ArrowLeft aria-hidden="true" className="h-4 w-4"/>Back to {config.title.toLowerCase()}
+  </ActionLink></div>
   <DashboardPage eyebrow={config.eyebrow} title={record?.title??config.title}
    description={record?.subtitle??config.description}>
    {loading?<LoadingState title="Loading record" description="Getting the latest details…"/>:
