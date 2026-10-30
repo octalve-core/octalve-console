@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
-import {Copy,Eye,MailCheck,Plus,Save,Search,ShieldCheck} from "lucide-react";
+import {Copy,Eye,History,MailCheck,Plus,Save,Search,ShieldCheck} from "lucide-react";
 import {api} from "@/lib/api/client";
 import {Panel} from "@/components/design-system/Panel";
 type Template={id:number;key:string;name:string;category:string;subject:string;body_text:string;
@@ -18,6 +18,8 @@ export function MailTemplateWorkbench(){
  const [busy,setBusy]=useState(true),[saving,setSaving]=useState(false);
  const [error,setError]=useState(""),[notice,setNotice]=useState("");
  const [preview,setPreview]=useState<{subject:string;body_text:string}|null>(null);
+ const [history,setHistory]=useState<Array<{id:number;revision:number;created_at:string;snapshot:Record<string,unknown>}>>([]);
+ const [historyOpen,setHistoryOpen]=useState(false);
  const current=items.find(t=>t.id===selected);
  const visible=useMemo(()=>items.filter(t=>[t.name,t.subject,t.category].some(v=>v.toLowerCase().includes(filter.toLowerCase()))),[items,filter]);
  async function load(){
@@ -34,7 +36,7 @@ export function MailTemplateWorkbench(){
  function choose(template:Template|null){
   setSelected(template?.id??null);setValues(template?{
    name:template.name,category:template.category,subject:template.subject,body_text:template.body_text,is_active:template.is_active
-  }:{...blank});setError("");setNotice("");setPreview(null);
+  }:{...blank});setError("");setNotice("");setPreview(null);setHistory([]);setHistoryOpen(false);
  }
  async function save(){
   if(saving)return;
@@ -57,6 +59,14 @@ export function MailTemplateWorkbench(){
    setItems(rows=>[response,...rows]);choose(response);setNotice("Copy created as inactive.");
   }catch{setError("Could not duplicate the template.");}
   finally{setSaving(false);}
+ }
+ async function showHistory(){
+  if(!current)return;
+  setError("");setHistoryOpen(false);
+  try{
+   const result=await api.get<{revisions:typeof history}>("/settings/console-mail/templates/"+current.id+"/history/");
+   setHistory(result.revisions);setHistoryOpen(true);
+  }catch{setError("Template history could not be loaded.");}
  }
  async function showPreview(){
   if(!current)return;
@@ -117,8 +127,16 @@ export function MailTemplateWorkbench(){
      <div className="flex flex-wrap gap-2">
       <button type="submit" disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-console-primary px-4 text-sm text-white disabled:opacity-60"><Save className="h-4 w-4" aria-hidden="true"/>{saving?"Saving…":"Save template"}</button>
       {current?<><button type="button" onClick={()=>{void duplicate();}} disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-console-line px-4 text-sm"><Copy className="h-4 w-4" aria-hidden="true"/>Duplicate</button>
-      <button type="button" onClick={()=>{void showPreview();}} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-console-line px-4 text-sm"><Eye className="h-4 w-4" aria-hidden="true"/>Preview saved</button></>:null}
+      <button type="button" onClick={()=>{void showPreview();}} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-console-line px-4 text-sm"><Eye className="h-4 w-4" aria-hidden="true"/>Preview saved</button>
+      <button type="button" onClick={()=>{void showHistory();}} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-console-line px-4 text-sm"><History className="h-4 w-4" aria-hidden="true"/>History</button></>:null}
      </div>
+     {historyOpen?<div aria-label="Saved template revisions" className="rounded-xl border border-console-line bg-slate-50 p-4">
+      <h4 className="text-sm font-medium text-console-ink">Saved revisions</h4>
+      {history.length?<ol className="mt-3 space-y-3">{history.map(item=><li key={item.id} className="rounded-lg border border-console-line bg-white p-3">
+       <div className="text-xs text-console-muted">Revision {item.revision} · {new Date(item.created_at).toLocaleDateString()}</div>
+       <div className="mt-1 break-words text-sm font-medium text-console-ink">{typeof item.snapshot.subject==="string"?item.snapshot.subject:"Original template"}</div>
+       <p className="mt-1 text-xs text-console-muted">Read-only revision. Editing requires a new Save.</p>
+      </li>)}</ol>:<p className="mt-3 text-xs text-console-muted">No previous revisions.</p>}</div>:null}
      {preview?<div className="rounded-xl border border-console-line bg-slate-50 p-4" aria-label="Safe template preview">
       <h4 className="text-sm font-medium text-console-ink">{preview.subject}</h4>
       <p className="mt-3 whitespace-pre-wrap break-words text-sm text-console-muted">{preview.body_text}</p></div>:null}
