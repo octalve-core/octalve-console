@@ -1,6 +1,12 @@
 # support/serializers.py
 
 from rest_framework import serializers
+
+
+def can_read_internal_support(user):
+    return bool(user and user.is_authenticated and (
+        user.is_superuser or (user.is_staff and user.role in ("admin", "staff"))
+    ))
 from .models import (
     SupportDepartment, SupportTicket, TicketMessage, SupportRoutingTag,
     PredefinedResponse, TicketEscalationRule, TicketAttachment, TicketSurvey
@@ -22,14 +28,14 @@ class SupportDepartmentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'slug', 'created_at']
     
     def validate_assigned_staff(self, people):
-        if any(not person.is_active or person.role not in ("staff","admin") for person in people):
+        if any(not person.is_active or not person.is_staff or person.role not in ("staff","admin") for person in people):
             raise serializers.ValidationError("Staff must be active and authorized.")
         return people
 
     def to_representation(self, obj):
         data=super().to_representation(obj)
         request=self.context.get("request")
-        if request and request.user.role=="client":
+        if request and not can_read_internal_support(request.user):
             for key in ("email","assigned_staff","staff_count","auto_close_days",
                         "notify_new_ticket","notify_new_reply","auto_assign"):
                 data.pop(key,None)
@@ -48,12 +54,12 @@ class SupportRoutingTagSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         data=super().to_representation(obj)
         request=self.context.get("request")
-        if request and request.user.role=="client":
+        if request and not can_read_internal_support(request.user):
             data.pop("assigned_staff",None)
         return data
 
     def validate_assigned_staff(self, value):
-        if any(not user.is_active or user.role not in ("staff","admin") for user in value):
+        if any(not user.is_active or not user.is_staff or user.role not in ("staff","admin") for user in value):
             raise serializers.ValidationError("All assigned specialists must be active staff.")
         return value
 
@@ -76,7 +82,7 @@ class TicketMessageSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data=super().to_representation(instance)
         request=self.context.get("request")
-        if request and request.user.role=="client":
+        if request and not can_read_internal_support(request.user):
             for key in ("sender","sender_email","attachments"):
                 data.pop(key,None)
         return data
@@ -116,7 +122,7 @@ class SupportTicketSerializer(serializers.ModelSerializer):
     def get_messages(self, ticket):
         user = self.context["request"].user
         rows = ticket.messages.all()
-        if user.role == "client":
+        if not can_read_internal_support(user):
             rows = rows.filter(is_internal=False)
         return TicketMessageSerializer(rows, many=True,context=self.context).data
     attachments = serializers.SerializerMethodField()
@@ -150,7 +156,7 @@ class SupportTicketSerializer(serializers.ModelSerializer):
     def get_last_message(self, obj):
         user=self.context['request'].user
         messages=obj.messages.all()
-        if user.role=='client':
+        if not can_read_internal_support(user):
             messages=messages.filter(is_internal=False)
         last_msg=messages.order_by('-created_at').first()
         if last_msg:
