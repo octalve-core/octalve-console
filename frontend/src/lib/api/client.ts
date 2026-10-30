@@ -1,4 +1,5 @@
 export type Primitive = string | number | boolean | null | undefined;
+import {privateQueryClear} from "./private-query-cache";
 
 export type QueryParams = Record<string, Primitive | Primitive[]>;
 
@@ -197,6 +198,9 @@ async function request<T>(
     );
   }
 
+  // Any accepted mutation invalidates cached display rows. No cache value
+  // can authorize a financial or role-changing operation.
+  if(method!=="GET")privateQueryClear();
   return payload as T;
 }
 
