@@ -5,6 +5,8 @@ import {api} from "@/lib/api/client";
 import {Panel} from "@/components/design-system/Panel";
 type Template={id:number;key:string;name:string;category:string;subject:string;body_text:string;
  is_active:boolean;is_system:boolean;revision:string};
+type SenderReadiness={primary:string;fallback:string;outbound_enabled:boolean;status:string;
+ senders:{key:string;label:string;guide:string;live_verified:boolean;draft_connections:number;free_daily_quota:number|null}[]};
 type Outbox={counts:Record<string,number>;sender_ready:boolean;message:string;
  results:{id:number;recipient:string;subject:string;status:string;attempts:number;created_at:string}[]};
 const categories=["auth","billing","support","provisioning","domains","system","marketing"];
@@ -15,6 +17,7 @@ export function MailTemplateWorkbench(){
  const [values,setValues]=useState({...blank});
  const [filter,setFilter]=useState("");
  const [outbox,setOutbox]=useState<Outbox|null>(null);
+ const [senderStatus,setSenderStatus]=useState<SenderReadiness|null>(null);
  const [busy,setBusy]=useState(true),[saving,setSaving]=useState(false);
  const [error,setError]=useState(""),[notice,setNotice]=useState("");
  const [preview,setPreview]=useState<{subject:string;body_text:string}|null>(null);
@@ -25,10 +28,11 @@ export function MailTemplateWorkbench(){
  async function load(){
   setBusy(true);setError("");
   try{
-   const [templates,queue]=await Promise.all([
+   const [templates,queue,senders]=await Promise.all([
     api.get<{results:Template[]}>("/settings/console-mail/templates/"),
-    api.get<Outbox>("/settings/console-mail/outbox/")]);
-   setItems(templates.results);setOutbox(queue);
+    api.get<Outbox>("/settings/console-mail/outbox/"),
+    api.get<SenderReadiness>("/settings/console-mail/senders/")]);
+   setItems(templates.results);setOutbox(queue);setSenderStatus(senders);
   }catch{setError("Email configuration could not be loaded. No messages have been sent.");}
   finally{setBusy(false);}
  }
@@ -144,6 +148,22 @@ export function MailTemplateWorkbench(){
    </div>
   </Panel>
   <Panel>
+  <div className="flex flex-wrap items-center justify-between gap-3">
+   <div><h2 className="text-lg font-medium text-console-ink">Email delivery providers</h2>
+    <p className="mt-1 text-sm text-console-muted">Choose Brevo first, with Resend as backup. These are saved preferences—not active credentials or certified sending.</p></div>
+   <a href="/admin/integrations" className="inline-flex min-h-11 items-center rounded-xl border border-console-line px-4 text-sm font-medium text-console-primary hover:bg-blue-50">Open Integration Store</a>
+  </div>
+  {senderStatus?<div className="mt-4 grid gap-3 sm:grid-cols-2">
+   {senderStatus.senders.map(sender=><div key={sender.key} className="min-w-0 rounded-xl border border-console-line bg-slate-50 p-4">
+    <p className="text-sm font-medium text-console-ink">{sender.label} {senderStatus.primary===sender.key?"· Preferred":senderStatus.fallback===sender.key?"· Backup":""}</p>
+    <p className="mt-2 text-xs text-console-muted">Status: Not connected for live sending</p>
+    {sender.free_daily_quota?<p className="mt-2 text-xs text-console-muted">Free tier: up to {sender.free_daily_quota} emails per day, subject to the provider's current limits.</p>:null}
+    <a href={sender.guide} rel="noopener noreferrer" target="_blank" className="mt-3 inline-flex text-sm font-medium text-console-primary underline underline-offset-2">Domain verification instructions</a>
+   </div>)}
+  </div>:<p className="mt-3 text-sm text-console-muted">Checking email service readiness…</p>}
+  <p className="mt-4 text-xs leading-5 text-console-muted">Authenticate your owned sending domain with DKIM and DMARC. Ensure SPF alignment, monitor bounces and complaints, and separate transactional mail from opted-in promotions. No provider can guarantee inbox placement.</p>
+ </Panel>
+ <Panel>
    <div className="flex items-start gap-3"><MailCheck className="mt-1 h-5 w-5 text-console-primary" aria-hidden="true"/>
     <div><h2 className="text-lg font-medium text-console-ink">Delivery queue</h2>
      <p className="mt-1 text-sm text-console-muted">Recorded delivery intent and attempts. Sender verification is required before external delivery.</p></div></div>
