@@ -50,7 +50,7 @@ class ProvisioningTaskViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return ProvisioningTask.objects.all()
         if user.role == 'staff':
             return ProvisioningTask.objects.none()
@@ -176,7 +176,7 @@ class ProvisioningQueueViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return ProvisioningQueue.objects.all()
         return ProvisioningQueue.objects.filter(is_active=True)
     
@@ -228,7 +228,7 @@ class ProvisioningWebhookViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return ProvisioningWebhook.objects.all()
         return ProvisioningWebhook.objects.filter(is_active=True)
     
