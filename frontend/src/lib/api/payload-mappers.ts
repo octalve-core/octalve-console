@@ -94,12 +94,22 @@ export function toPasswordResetConfirmPayload(uid: string, token: string, passwo
 export function toAdminResourcePayload(resource: AdminResourceKey, payload: FormPayload): ApiPayload {
   switch (resource) {
     case "customers":
+      // Never accept wallet, role or authentication flags as profile writes.
       return compactPayload({
-        name: cleanString(payload.name),
+        full_name: cleanString(payload.full_name),
         email: cleanString(payload.email).toLowerCase(),
-        phone: cleanString(payload.phone || payload.phone_number),
-        balance: numberOrUndefined(payload.balance),
+        username: cleanString(payload.username),
+        password: payload.password,
+        phone_number: cleanString(payload.phone_number),
+        company_name: cleanString(payload.company_name),
+        address: cleanString(payload.address),
+        city: cleanString(payload.city),
+        state: cleanString(payload.state),
+        country: cleanString(payload.country),
+        postal_code: cleanString(payload.postal_code),
+        tax_id: cleanString(payload.tax_id),
         status: normaliseStatus(payload.status),
+        notes: cleanString(payload.notes),
       });
 
     case "products":

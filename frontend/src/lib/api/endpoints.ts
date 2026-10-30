@@ -409,6 +409,10 @@ export const clientApi = {
     });
   },
 
+  order(id: string) {
+    return api.get<Order>(byId(apiPaths.client.orders, id));
+  },
+
   quoteOrder(payload: {
     checkout_id:string;
     items:{plan_id:number;offer_revision?:number;cycle_key:string;quantity:number;domain_name:string}[];

@@ -31,7 +31,8 @@ for(const file of [
  if(body.includes('className="grid '))throw Error(file+" duplicates legacy layout");
  if(/\b(?:fetch|axios)\s*\(/.test(body))throw Error(file+" acquired data authority");
 }
-check("features/admin/components/AdminGenericDirectory.tsx",["ResponsiveTable","PAGE_SIZE=10","allowDetails"]);
+const generic=check("features/admin/components/AdminGenericDirectory.tsx",["RecordDirectory","DirectoryRow","allowDetails","href:allowDetails"]);
+if(generic.includes("ResponsiveTable")||generic.includes("PAGE_SIZE=10"))throw Error("Admin operations regressed to legacy table controller");
 const tool=check("components/modules/AdminToolPage.tsx",['text-console-primary','aria-hidden="true"']);
 if(tool.includes('className="stat-icon"'))throw Error("Retired stat icon consumer returned");
 const global=src("app/globals.css");

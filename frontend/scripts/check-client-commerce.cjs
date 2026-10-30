@@ -34,7 +34,7 @@ requires("features/client/views/ClientResourceDetailView.tsx",[
  "config.loader()","setRecord(foundApiRecord ?? null)","BillingRecordDetail"
 ]);
 requires("features/client/components/commerce/BillingRecordDirectory.tsx",[
- "ResponsiveTable","StatusBadge","record","r.actionHref","getRowKey={r=>r.id}"
+ "RecordDirectory","DirectoryRow","r.actionHref","rows={rows}","emptyMessage"
 ]);
 requires("features/client/views/ClientProcessingView.tsx",[
  "clientApi.checkoutOptions()","clientApi.invoice(String(id))",
@@ -43,6 +43,7 @@ requires("features/client/views/ClientProcessingView.tsx",[
  'invoice.status!=="unpaid"',"doneStates.includes(status)","document.visibilityState!==\"visible\"",
  "Panel","StatusBadge"
 ]);
+requires("features/client/components/commerce/WalletBalanceCard.tsx",["useState(false)","aria-label={visible?\"Hide wallet balance\":\"Show wallet balance\"}"]);
 requires("features/client/views/ClientWalletView.tsx",[
  "clientApi.wallet()","setBalance(null);setStatus(\"unavailable\")","WalletBalanceCard"
 ]);

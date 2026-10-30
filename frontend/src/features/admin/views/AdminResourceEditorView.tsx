@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import {ArrowLeft} from "lucide-react";
 import {AdminResourceEditorForm} from "../components/AdminResourceEditorForm";
 import { Button } from "@/components/ui/Button";
+import {ShieldCheck,WalletCards} from "lucide-react";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -21,6 +22,14 @@ import { findExactAdminRecord, normalizeAdminRecord, unwrapAdminList } from "../
 import {isAdminMutationDisabled} from "../data/admin-action-policy";
 import {adminApi} from "@/lib/api/endpoints";
 import {AdminRestrictedActionView} from "./AdminRestrictedActionView";
+
+const customerCreateFields: AdminEditorField[] = [
+ {name:"full_name",label:"Full name",type:"text",required:true},
+ {name:"email",label:"Email address",type:"email",required:true},
+ {name:"username",label:"Username",type:"text"},
+ {name:"password",label:"Temporary password",type:"password",required:true},
+ ...adminEditorConfig.customers.fields.filter(f=>!["full_name","status"].includes(f.name)),
+];
 
 type AdminResourceEditorViewProps = {
   resource: AdminResourceKey;
@@ -49,6 +58,7 @@ function getInitialValue(field: AdminEditorField, record?: Record<string, unknow
     return "";
   }
   if (field.type === "password") return "";
+  if (field.name === "status" && record.status === "overdue") return "active";
   const key = field.name === "dueDate" ? "due_date" : field.name;
   const raw = key === "fulfillment_model" &&
     record.config && typeof record.config === "object" && !Array.isArray(record.config)
@@ -98,9 +108,10 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
   const listConfig = adminResourceConfig[resource];
   const editorConfig = adminEditorConfig[resource];
 
+  const effectiveFields = resource==="customers"&&effectiveMode==="create"?customerCreateFields:editorConfig.fields;
   const [sourceRecord, setSourceRecord] = useState<AdminRecord | null>(null);
   const [touchedFields, setTouchedFields] = useState<string[]>([]);
-  const [values, setValues] = useState<Record<string, string>>(() => buildInitialState(editorConfig.fields));
+  const [values, setValues] = useState<Record<string, string>>(() => buildInitialState(effectiveFields));
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -110,11 +121,11 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
 
   const editDescription = useMemo(() => {
     if (effectiveMode === "edit") {
-      return `Update ${sourceRecord?.title ?? "this record"} using the latest available details.`;
+      return resource==="customers"?"Update contact information and access status. Wallet credit and staff permissions are managed separately.":`Update ${sourceRecord?.title ?? "this record"} using the latest available details.`;
     }
 
     return editorConfig.description;
-  }, [editorConfig.description, effectiveMode, sourceRecord?.title]);
+  }, [editorConfig.description, effectiveMode, sourceRecord?.title, resource]);
 
   useEffect(() => {
     let active = true;
@@ -124,7 +135,7 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
       setSourceRecord(null);
       setTouchedFields([]);
       if (effectiveMode !== "edit") {
-        setValues(buildInitialState(editorConfig.fields));
+        setValues(buildInitialState(effectiveFields));
         setError("");
         setIsLoading(false);
         return;
@@ -152,7 +163,7 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
         if (!active) return;
 
         setSourceRecord(foundApiRecord);
-        setValues(buildInitialState(editorConfig.fields, exactRecord));
+        setValues(buildInitialState(effectiveFields, exactRecord));
 
         if (!foundApiRecord) {
           setError("This record is not available in your authorized account. Editing has been disabled.");
@@ -161,7 +172,7 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
         if (!active) return;
 
         setSourceRecord(null);
-        setValues(buildInitialState(editorConfig.fields));
+        setValues(buildInitialState(effectiveFields));
         setError("We could not verify this record with the server. Editing has been disabled.");
       } finally {
         if (active) setIsLoading(false);
@@ -173,7 +184,7 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
     return () => {
       active = false;
     };
-  }, [activeId, effectiveMode, editorConfig.fields, listConfig, queryState]);
+  }, [activeId, effectiveMode, effectiveFields, listConfig, queryState]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -230,13 +241,10 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
       role="admin"
       title={pageTitle}
       description={editDescription}
-      actions={
-        <Button href={editorConfig.listHref} variant="outline">
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-      }
     >
+      <div className="mb-4">
+       <Button href={editorConfig.listHref} variant="outline"><ArrowLeft className="h-4 w-4"/>Back to {resource==="customers"?"customers":"records"}</Button>
+      </div>
       <DashboardPage
         eyebrow={listConfig.eyebrow}
         title={pageTitle}
@@ -248,7 +256,15 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
           <ErrorState title="Record unavailable" description={error || "The requested record could not be verified."} />
         ) : (
           <div className="mx-auto w-full max-w-4xl">
-            <AdminResourceEditorForm fields={editorConfig.fields} values={values}
+            {resource==="customers"&&effectiveMode==="edit"?<div className="mb-4 grid gap-3 rounded-xl border border-console-line bg-white p-4 sm:grid-cols-2">
+              <div><p className="text-xs font-medium text-console-muted">Customer account</p><p className="mt-1 break-words text-sm font-medium text-console-ink">{sourceRecord?.title||"—"}</p>
+               <p className="mt-1 break-all text-xs text-console-muted">{sourceRecord?.subtitle||"—"}</p></div>
+              <div className="flex items-start gap-2 text-xs leading-5 text-console-muted"><WalletCards className="h-4 w-4 shrink-0 text-console-primary" aria-hidden="true"/>
+                Wallet balances are read-only and change only through verified financial ledger entries.</div>
+             </div>:null}
+            {resource==="customers"?<p className="mb-4 flex items-start gap-2 text-xs leading-5 text-console-muted"><ShieldCheck className="h-4 w-4 shrink-0 text-console-primary" aria-hidden="true"/>
+             Team permissions and workspace switching require a separately approved access grant. They cannot be changed here.</p>:null}
+            <AdminResourceEditorForm fields={effectiveFields} values={values}
               fieldErrors={fieldErrors} error={error} onChange={updateField}
               onSubmit={handleSubmit} isSubmitting={isSubmitting}
               backHref={editorConfig.listHref}/>

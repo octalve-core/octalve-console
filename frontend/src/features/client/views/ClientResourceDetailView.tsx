@@ -27,6 +27,7 @@ import { formatStatus, getStatusTone } from "@/lib/constants/status";
 import { clientResourceConfig } from "../data/client-resource-config";
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
 import { normalizeClientRecord, unwrapClientList } from "../utils/client-record-normalizer";
+import {clientApi} from "@/lib/api/endpoints";
 
 type ClientResourceDetailViewProps = {
   resource: ClientResourceKey;
@@ -89,8 +90,11 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
     if (!quiet) setIsLoading(true);
 
     try {
-      const response = await config.loader();
-      const apiRecords = unwrapClientList(response).map((item) => normalizeClientRecord(item, config.key));
+      const response = resource==="invoices"?await clientApi.invoice(id):
+        resource==="orders"?await clientApi.order(id):await config.loader();
+      const apiRecords = (resource==="invoices"||resource==="orders"
+        ? [response as unknown as Record<string,unknown>]
+        : unwrapClientList(response)).map((item) => normalizeClientRecord(item, config.key));
       const foundApiRecord = apiRecords.find((item) => item.id === id);
 
       // Never substitute sample hosting/domain/order/invoice data for a missing
@@ -114,13 +118,10 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
       role="client"
       title={record?.title ?? config.title}
       description={config.description}
-      actions={
-        <Button href={`/${config.key === "support" ? "client/support" : `client/${config.key}`}`} variant="outline">
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-      }
     >
+      <div className="mb-4"><Button href={`/client/${config.key}`} variant="outline">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true"/> Back to {config.title.toLowerCase()}
+      </Button></div>
       <DashboardPage
         eyebrow={config.eyebrow}
         title={record?.title ?? config.title}

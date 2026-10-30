@@ -16,9 +16,11 @@ const metrics=has("features/client/components/ClientOverviewMetrics.tsx",[
 ]);
 const actions=has("features/client/components/ClientOverviewActions.tsx",['WorkspaceQuickActions role="client"']);
 const billing=has("features/client/components/commerce/BillingRecordDirectory.tsx",[
- "WorkspaceGrid variant=\"filters\"","ResponsiveTable","StatusBadge","ActionLink",
- "TextField","SelectField","getRowKey={r=>r.id}","setSearch(e.target.value)","setStatus(e.target.value)"
+ "RecordDirectory","DirectoryRow","rows={rows}","href:r.actionHref",
+ "resource===\"orders\"","emptyMessage"
 ]);
+if(billing.includes("ResponsiveTable")||billing.includes("getRowKey={r=>r.id}"))
+ throw Error("Legacy billing table unexpectedly restored");
 const profile=has("features/client/components/ClientProfileDetailsForm.tsx",[
  "WorkspaceGrid variant=\"filters\"","ConsoleIconTile","onSubmit={onSubmit}",
  "disabled={saving}","onChange(field.key,event.target.value)","ActionButton"

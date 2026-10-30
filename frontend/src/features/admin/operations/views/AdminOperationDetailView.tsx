@@ -28,10 +28,10 @@ export function AdminOperationDetailView({operation}:{operation:AdminOperationKe
    .finally(()=>{if(active)setLoading(false);});
   return ()=>{active=false;};
  },[config,href,id]);
- return <DashboardShell role="admin" title={config.title} description={config.description}
-  actions={<ActionLink href={href} variant="outline">
-   <ArrowLeft aria-hidden="true" className="h-4 w-4"/>Back
-  </ActionLink>}>
+ return <DashboardShell role="admin" title={config.title} description={config.description}>
+  <div className="mb-4"><ActionLink href={href} variant="outline">
+   <ArrowLeft aria-hidden="true" className="h-4 w-4"/>Back to {config.title.toLowerCase()}
+  </ActionLink></div>
   <DashboardPage eyebrow={config.eyebrow} title={record?.title??config.title}
    description={record?.subtitle??config.description}>
    {loading?<LoadingState title="Loading record" description="Getting the latest details…"/>:
