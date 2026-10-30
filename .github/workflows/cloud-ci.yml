@@ -257,7 +257,7 @@ jobs:
           assert hashlib.sha256(reference.encode('utf-8')).hexdigest() == '516cd378502964020838c5d23b89caf172bd1cf135677172ee85e4795892a8cd'
           assert 'accounts.0003_auththrottlebucket' in transcript
           migrations = [line for line in transcript.splitlines() if line and not line.startswith(' ') and line != 'Planned operations:']
-          assert len(migrations) == 58, f'Expected 49 historical + 3 foundation + 2 support/help + 1 rewards + 1 provider-vault migration, got {len(migrations)}'
+          assert len(migrations) == 61, f'Expected historical 58 + three additive Console settings migrations, got {len(migrations)}'
           assert 'catalog.0002_catalog_offers' in transcript, 'Catalog draft/revision migration missing'
           assert 'notifications.0001_hosting_ready_outbox' in transcript, 'Hosting notice outbox migration missing'
           try:
