@@ -227,7 +227,7 @@ class CustomerListSerializer(serializers.ModelSerializer):
 
     def get_status(self, obj):
         if not obj.is_active:
-            return 'inactive'
+            return 'suspended' if (obj.metadata or {}).get('account_suspended') is True else 'inactive'
         if getattr(obj, 'is_locked', False):
             return 'locked'
         return 'active'
@@ -293,7 +293,7 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
 
     def get_status(self, obj):
         if not obj.is_active:
-            return 'inactive'
+            return 'suspended' if (obj.metadata or {}).get('account_suspended') is True else 'inactive'
         if getattr(obj, 'is_locked', False):
             return 'locked'
         if self.get_role(obj) == 'client':
@@ -443,71 +443,58 @@ class CustomerCreateSerializer(serializers.ModelSerializer):
 
 
 class CustomerUpdateSerializer(serializers.ModelSerializer):
-    """Admin PATCH/PUT on a customer."""
-
-    status = serializers.ChoiceField(
-        choices=['active', 'inactive', 'suspended', 'locked'], required=False
-    )
-    role = serializers.ChoiceField(choices=['admin', 'staff', 'client'], required=False)
+    """Admin edits contact details and account access, never funds or privileges."""
+    status = serializers.ChoiceField(choices=["active", "inactive", "suspended", "locked"], required=False)
     notes = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = User
         fields = [
-            'full_name', 'phone_number', 'company_name',
-            'address', 'city', 'state', 'country', 'postal_code',
-            'tax_id', 'tax_exempt',
-            'status', 'role', 'notes',
+            "full_name", "phone_number", "company_name",
+            "address", "city", "state", "country", "postal_code",
+            "tax_id", "tax_exempt", "status", "notes",
         ]
 
+    def validate(self, attrs):
+        # DRF ModelSerializer normally ignores unexpected input fields.
+        # Reject rather than silently accepting privilege or wallet attempts.
+        extra = set(self.initial_data) - set(self.fields)
+        if extra:
+            raise serializers.ValidationError({
+                "detail": "Unrecognized or restricted fields: " + ", ".join(sorted(extra))
+            })
+        return attrs
+
     def update(self, instance, validated_data):
-        status = validated_data.pop('status', None)
-        role = validated_data.pop('role', None)
-        notes = validated_data.pop('notes', None)
-
+        state = validated_data.pop("status", None)
+        notes = validated_data.pop("notes", None)
         with transaction.atomic():
-            # Map status → is_active / locked_until
-            if status == 'active':
-                instance.is_active = True
-                instance.locked_until = None
-            elif status in ('inactive', 'suspended'):
-                instance.is_active = False
-            elif status == 'locked':
-                # 100 years from now = effectively locked
-                instance.locked_until = timezone.now() + timezone.timedelta(days=36500)
-
-            # Map role → flags + role field
-            if role:
-                if role == 'admin':
-                    instance.is_staff, instance.is_superuser = True, True
-                elif role == 'staff':
-                    instance.is_staff, instance.is_superuser = True, False
-                else:  # client
-                    instance.is_staff, instance.is_superuser = False, False
-                instance.role = role
-
-            # Apply the rest
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-
+            if state is not None:
+                meta = dict(instance.metadata or {})
+                if state == "active":
+                    instance.is_active = True
+                    instance.locked_until = None
+                    meta.pop("account_suspended", None)
+                elif state == "suspended":
+                    instance.is_active = False
+                    instance.locked_until = None
+                    meta["account_suspended"] = True
+                elif state == "inactive":
+                    instance.is_active = False
+                    instance.locked_until = None
+                    meta.pop("account_suspended", None)
+                elif state == "locked":
+                    instance.is_active = True
+                    instance.locked_until = timezone.now() + timezone.timedelta(days=36500)
+                    meta.pop("account_suspended", None)
+                instance.metadata = meta
+            for key, value in validated_data.items():
+                setattr(instance, key, value)
             instance.save()
-
-            # Sync profiles
-            final_role = role or _role_from_flags(instance)
-            if final_role == 'client':
+            if notes is not None:
                 profile, _ = ClientProfile.objects.get_or_create(user=instance)
-                if notes is not None:
-                    profile.notes = notes
-                    profile.save(update_fields=['notes'])
-                # Remove stale staff profile
-                StaffProfile.objects.filter(user=instance).delete()
-            else:  # admin or staff
-                profile, _ = StaffProfile.objects.get_or_create(user=instance)
-                if notes is not None:
-                    profile.notes = notes
-                    profile.save(update_fields=['notes'])
-                ClientProfile.objects.filter(user=instance).delete()
-
+                profile.notes = notes
+                profile.save(update_fields=["notes"])
         return instance
 
 
