@@ -384,3 +384,44 @@ class SystemConfig(models.Model):
     def __str__(self):
         return "System Configuration"
 
+
+# SET-04: immutable revision receipts and durable delivery intent.
+# Provider execution is independent and unavailable until sender certification.
+class EmailTemplateRevision(models.Model):
+    template = models.ForeignKey("settings_registry.EmailTemplate", on_delete=models.PROTECT, related_name="revisions")
+    revision = models.PositiveIntegerField()
+    actor = models.ForeignKey("accounts.CustomUser", on_delete=models.SET_NULL, null=True, blank=True)
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["template", "revision"], name="email_template_revision_uniq")]
+
+class ConsoleMailOutbox(models.Model):
+    idempotency_key = models.CharField(max_length=128, unique=True)
+    template = models.ForeignKey("settings_registry.EmailTemplate", on_delete=models.PROTECT)
+    recipient = models.EmailField()
+    subject = models.CharField(max_length=255)
+    body_text = models.TextField()
+    body_html = models.TextField()
+    audience = models.CharField(max_length=16, choices=[("transactional", "Transactional"),("marketing", "Marketing")])
+    status = models.CharField(max_length=24, default="queued", choices=[
+        ("queued", "Queued"), ("processing", "Processing"),
+        ("sent", "Sent"), ("needs_review", "Needs delivery reconciliation"),
+        ("failed", "Failed"), ("suppressed", "Suppressed"),
+    ])
+    attempts = models.PositiveIntegerField(default=0)
+    provider = models.CharField(max_length=80, blank=True, default="")
+    provider_receipt = models.CharField(max_length=255, blank=True, default="")
+    last_error_code = models.CharField(max_length=80, blank=True, default="")
+    next_attempt_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        indexes = [models.Index(fields=["status","created_at"], name="console_mail_state_ix")]
+
+class ConsoleMailAttempt(models.Model):
+    outbox = models.ForeignKey("settings_registry.ConsoleMailOutbox",on_delete=models.PROTECT,related_name="delivery_attempts")
+    provider = models.CharField(max_length=80)
+    outcome = models.CharField(max_length=24,choices=[("accepted","Accepted"),("refused","Refused"),("unknown","Unknown")])
+    receipt = models.CharField(max_length=255,blank=True,default="")
+    created_at = models.DateTimeField(auto_now_add=True)
