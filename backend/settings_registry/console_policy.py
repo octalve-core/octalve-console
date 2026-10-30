@@ -81,7 +81,9 @@ def _snapshot(section, records):
         value = stored if isinstance(stored,str) else str(stored)
         fields.append({"key":key,"label":label,"kind":kind,"value":value,"effect":effect})
     revision=sha256(json.dumps({f["key"]:f["value"] for f in fields},
-        separators=(",",":"),sort_keys=True).encode()).hexdigest()
+        separators=(",",":"),sort_keys=True).encode()+
+        b"|" + json.dumps({key:str(records[key].updated_at) if key in records else ""
+             for key in entries},sort_keys=True).encode()).hexdigest()
     return {"section":section, "revision":revision, "fields":fields,
             "editable":True,"saved_at":max((v.updated_at for v in records.values()),default=None)}
 
