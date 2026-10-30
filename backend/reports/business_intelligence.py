@@ -10,7 +10,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, F
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
@@ -147,10 +147,10 @@ def business_snapshot(request):
             "payment_amounts": totals,
             "invoice_status": invoice_status,
             "paid_before_due_this_month": paid_current.filter(
-                paid_at__lte=__import__("django.db.models", fromlist=["F"]).F("due_date")
+                paid_at__lte=F("due_date")
             ).count(),
             "paid_after_due_this_month": paid_current.filter(
-                paid_at__gt=__import__("django.db.models", fromlist=["F"]).F("due_date")
+                paid_at__gt=F("due_date")
             ).count(),
             "payment_months": [
                 {"month": row["month"].date().isoformat()[:7],
@@ -181,7 +181,7 @@ def business_snapshot(request):
             "paid_renewal_invoices_this_month": renewal_paid.count(),
         },
         "providers": {
-            "active_services_with_provider": sum(p["count"] for p in provider_counts),
+            "active_services_with_provider": active_services.exclude(provider_id__isnull=True).count(),
             "distribution": [
                 {"id": str(row["provider_id"]),
                  "name": provider_names.get(row["provider_id"], "Provider not found"),
