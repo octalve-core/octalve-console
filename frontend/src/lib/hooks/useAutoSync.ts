@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
  * Reload on navigation (component mount), or when returning after 2 minutes.
  * Mutations and payment/hosting execution must never call this hook.
  */
-export function useAutoSync(refresh:(quiet:boolean)=>void|Promise<void>,key:string){
+export function useAutoSync(refresh:(quiet:boolean)=>void|Promise<void>,key:string,minIntervalMs=120000){
   const latest=useRef(refresh);
   latest.current=refresh;
   useEffect(()=>{
@@ -15,7 +15,7 @@ export function useAutoSync(refresh:(quiet:boolean)=>void|Promise<void>,key:stri
     async function run(quiet:boolean){
       if(!mounted||pending||(quiet&&document.visibilityState!=="visible"))return;
       const now=Date.now();
-      if(quiet&&now-last<120000)return;
+      if(quiet&&now-last<Math.max(15000,minIntervalMs))return;
       last=now;pending=true;
       try{await latest.current(quiet);}
       catch{/* Each view owns its error state. */}
@@ -28,5 +28,5 @@ export function useAutoSync(refresh:(quiet:boolean)=>void|Promise<void>,key:stri
     document.addEventListener("visibilitychange",onVisible);
     return()=>{mounted=false;window.removeEventListener("focus",onFocus);
       document.removeEventListener("visibilitychange",onVisible);};
-  },[key]);
+  },[key,minIntervalMs]);
 }
