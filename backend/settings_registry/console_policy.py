@@ -23,7 +23,7 @@ MANIFEST = {
  },
  "theme": {
   "primary_color": ("Primary colour", "select:#0064E0,#0052B8,#135FC7", "#0064E0", "preview_only"),
-  "canvas_color": ("Canvas colour", "select:#F6F8FB,#FFFFFF,#F2F7FC", "#F6F8FB", "preview_only"),
+  "canvas_color": ("Canvas colour", "select:#F8FAFC,#F6F8FB,#FFFFFF,#F2F7FC", "#F8FAFC", "preview_only"),
   "density": ("Interface density", "select:comfortable,compact", "comfortable", "preview_only"),
  },
  "invoices": {
