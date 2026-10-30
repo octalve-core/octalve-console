@@ -7,10 +7,12 @@ from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
 import logging
+import re
+from uuid import uuid4
 
 from .models import ClientProfile, StaffProfile
 
@@ -23,6 +25,7 @@ User = get_user_model()
 # ============================================================
 
 class CustomUserCreateSerializer(BaseUserCreateSerializer):
+    username = serializers.CharField(required=False, allow_blank=True, max_length=30)
     full_name = serializers.CharField(required=True)
     phone_number = serializers.CharField(required=False, allow_blank=True)
     referral_code = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -44,7 +47,38 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
         )
         read_only_fields = ('id', 'role')
 
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("This email is already registered.")
+        return value
+
+    def validate_username(self, value):
+        value = value.strip().lower()
+        if not value:
+            return ""
+        if not re.fullmatch(r"[a-z][a-z0-9_]{2,29}", value):
+            raise serializers.ValidationError(
+                "Use 3–30 characters: start with a letter; use letters, numbers or underscores.")
+        if value in {"admin", "administrator", "root", "support", "security",
+                     "billing", "system", "octalve", "api", "staff"}:
+            raise serializers.ValidationError("Choose a different username.")
+        if User.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError("This username is already taken.")
+        return value
+
+    def validate_phone_number(self, value):
+        value = value.strip()
+        if value and not re.fullmatch(r"\+[1-9][0-9]{7,14}", value):
+            raise serializers.ValidationError("Use a full international phone number beginning with +.")
+        return value
+
     def validate(self, attrs):
+        restricted = set(self.initial_data) & {
+            "role", "is_staff", "is_superuser", "is_active", "wallet_balance",
+            "email_verified_at", "phone_verified_at", "two_factor_enabled"}
+        if restricted:
+            raise serializers.ValidationError({"detail": "Account privileges are not registration fields."})
         if attrs['password'] != attrs['re_password']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
         return attrs
@@ -59,15 +93,13 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
         referral_code = validated_data.pop('referral_code', None)
         validated_data.pop('re_password', None)
 
-        # Username fallback (collision-safe)
-        if not validated_data.get('username'):
-            base = validated_data['email'].split('@')[0]
-            username = base
-            counter = 1
-            while User.objects.filter(username=username).exists():
-                username = f"{base}{counter}"
-                counter += 1
-            validated_data['username'] = username
+        # Omitted username: derive a short safe name with a random suffix,
+        # instead of exposing or colliding with an entire email local-part.
+        if not validated_data.get("username"):
+            prefix = re.sub(r"[^a-z0-9_]", "", validated_data["email"].split("@")[0])[:18]
+            if not prefix or not prefix[0].isalpha():
+                prefix = "user"
+            validated_data["username"] = prefix + "_" + uuid4().hex[:8]
 
         try:
             with transaction.atomic():
@@ -94,9 +126,12 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
                             f"Referral code {referral_code} disappeared for {user.email}"
                         )
                 return user
-        except Exception as e:
-            logger.error(f"Failed to create user: {str(e)}")
-            raise
+        except IntegrityError:
+            # Unique index wins concurrent registration races. No SQL details
+            # or existing account identity are returned to the browser.
+            raise serializers.ValidationError({
+                "detail": "The username or email is no longer available. Please try again."
+            })
 
 
 # ============================================================
