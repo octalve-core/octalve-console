@@ -58,3 +58,28 @@ class ConsolePolicyBoundaries(TestCase):
   self.assertEqual(data.status_code,200,data.data)
   self.assertEqual({i["name"] for i in data.data["items"]},{"Google","Apple","Facebook"})
   self.assertFalse(data.data["provider_certified"])
+
+ def test_brevo_first_and_resend_backup_status_does_not_echo_secrets(self):
+  self.api.force_authenticate(user=self.customer)
+  self.assertEqual(self.api.get("/api/settings/console-mail/senders/").status_code,403)
+  self.api.force_authenticate(user=self.admin)
+  result=self.api.get("/api/settings/console-mail/senders/")
+  self.assertEqual(result.status_code,200,result.data)
+  self.assertEqual(result.data["primary"],"brevo")
+  self.assertEqual(result.data["fallback"],"resend")
+  self.assertFalse(result.data["outbound_enabled"])
+  self.assertEqual({s["key"] for s in result.data["senders"]},{"brevo","resend"})
+  self.assertTrue(all(not s["live_verified"] for s in result.data["senders"]))
+  self.assertNotIn("api_key",str(result.data))
+  self.assertNotIn("secret",str(result.data).lower())
+ def test_sender_preferences_cannot_overlap_or_bypass_approval(self):
+  self.api.force_authenticate(user=self.admin)
+  endpoint="/api/settings/console-policy/mail/"
+  rev=self.api.get(endpoint).data["revision"]
+  bad=self.api.patch(endpoint,{"revision":rev,"changes":{
+   "primary_sender":"resend","fallback_sender":"resend"}},format="json")
+  self.assertEqual(bad.status_code,400,bad.data)
+  result=self.api.patch(endpoint,{"revision":rev,"changes":{
+   "primary_sender":"brevo","fallback_sender":"none"}},format="json")
+  self.assertEqual(result.status_code,200,result.data)
+  self.assertFalse(self.api.get("/api/settings/console-mail/senders/").data["outbound_enabled"])
