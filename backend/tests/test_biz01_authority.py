@@ -15,7 +15,7 @@ if DJANGO_AVAILABLE:
 class BIZ01WriteAuthorityTests(unittest.TestCase):
     def setUp(self):
         self.client_user = SimpleNamespace(is_authenticated=True, is_superuser=False, role="client")
-        self.admin_user = SimpleNamespace(is_authenticated=True, is_superuser=False, role="admin")
+        self.admin_user = SimpleNamespace(is_authenticated=True, is_superuser=False, is_staff=True, role="admin")
         self.anonymous = SimpleNamespace(is_authenticated=False, is_superuser=False, role="client")
 
     def allowed(self, permission, user, action):
