@@ -108,6 +108,7 @@ export function SignupPageClient() {
         full_name: values.full_name,
         email: values.email.trim().toLowerCase(),
         username: values.username.trim().toLowerCase()||undefined,
+        accepted_terms_version: "2026-10-30",
         phone: internationalPhone,
         password: values.password,
         // Explicit link attribution only: no tracking cookie or background profile.
