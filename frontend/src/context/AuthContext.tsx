@@ -11,6 +11,7 @@ import {
 } from "react";
 import { authApi } from "@/lib/api/endpoints";
 import {ApiError} from "@/lib/api/client";
+import {privateQueryClear} from "@/lib/api/private-query-cache";
 import type {
   AuthSession,
   LoginPayload,
@@ -142,13 +143,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const authenticatedUser = normalizeUser(await authApi.me());
       if (!authenticatedUser.email) throw new Error("No authenticated identity.");
-      setUser(authenticatedUser);
+      setUser(current=>{
+        if(current&&(current.id!==authenticatedUser.id||current.role!==authenticatedUser.role)){
+          privateQueryClear();
+        }
+        return authenticatedUser;
+      });
       setAuthUnavailable(false);
       return authenticatedUser;
     } catch (error) {
       // A temporary outage must never destroy a previously authenticated
       // browser state. Django/BFF 401 or 403 is explicit session rejection.
       if (error instanceof ApiError && [401,403].includes(error.status)) {
+        privateQueryClear();
         setUser(null);
         setAuthUnavailable(false);
         return null;
@@ -172,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authenticatedUser.email) {
       throw new Error("Server did not verify the authenticated identity.");
     }
+    privateQueryClear();
     setUser(authenticatedUser);
     setAuthUnavailable(false);
     return { user: authenticatedUser };
@@ -183,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authenticatedUser.email) {
       throw new Error("Server did not verify the new account.");
     }
+    privateQueryClear();
     setUser(authenticatedUser);
     return { user: authenticatedUser };
   }, []);
@@ -195,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       revokeFailed = true;
     } finally {
       await clearBrowserSession();
+      privateQueryClear();
       setUser(null);
       setAuthUnavailable(false);
     }
