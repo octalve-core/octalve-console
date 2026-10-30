@@ -52,10 +52,12 @@ export function AdminCustomerDirectoryView(){
   let active=true;
   // On back-navigation show authorized records immediately. Fresh cached
   // pages require no network round trip; stale pages reconcile quietly.
-  const cached=cacheKey?privateQueryRead<CustomerPage>(cacheKey):null;
+  // Never load or display another account's rows while identity is resolving.
+  if(!cacheKey){setRows([]);setCount(0);setLoadedKey("");setLoading(false);setError("");return()=>{active=false;};}
+  const cached=privateQueryRead<CustomerPage>(cacheKey);
   if(cached){
    const records=cached.value.results.map(item=>normalizeAdminRecord(item,"customers"));
-   setRows(records);setCount(cached.value.count);setLoadedKey(sourceKey);setError("");
+   setRows(records);setCount(cached.value.count);setLoadedKey(cacheKey);setError("");
    if(cached.fresh&&refreshCounter===0){lastRefresh.current=Date.now();setLoading(false);return()=>{active=false;};}
    setLoading(false);
   }else{
@@ -73,7 +75,7 @@ export function AdminCustomerDirectoryView(){
    const data=parseCustomerPage(response);
    if(cacheKey)privateQueryWrite(cacheKey,data);
    const normalized=data.results.map(item=>normalizeAdminRecord(item,"customers"));
-   setRows(normalized);setCount(data.count);setLoadedKey(sourceKey);setError("");
+   setRows(normalized);setCount(data.count);setLoadedKey(cacheKey);setError("");
    lastRefresh.current=Date.now();
    // Timing is intentionally non-PII. No customer details or tokens are logged.
    if(process.env.NODE_ENV==="development")console.debug("Customer directory request ms",Math.round(performance.now()-started));
@@ -81,7 +83,7 @@ export function AdminCustomerDirectoryView(){
    if(active)setError("We couldn’t load your customer records. Please try again.");
   }).finally(()=>{if(active)setLoading(false);});
   return ()=>{active=false;};
- },[sourceKey,refreshCounter,page,debounced,status,filter.from,filter.to,filter.status,ordering]);
+ },[cacheKey,sourceKey,refreshCounter,page,debounced,status,filter.from,filter.to,filter.status,ordering]);
  useEffect(()=>{
   function refreshIfStale(){
    if(document.visibilityState!=="visible"||Date.now()-lastRefresh.current<120000)return;
@@ -98,7 +100,8 @@ export function AdminCustomerDirectoryView(){
   onFilter:v=>{setFilter(v);setStatus("all");setPage(1);},
   onPage:setPage,onOrdering:v=>{setOrdering(v);setPage(1);}
  };
- const current=loadedKey===sourceKey;
+ // A filter or authenticated identity change must hide rows from the previous scope.
+ const current=Boolean(cacheKey&&loadedKey===cacheKey);
  return <DashboardShell role="admin" title={config.title} description={config.description}>
   <DashboardPage eyebrow={config.eyebrow} title={config.title} description={config.description}>
    <div className="space-y-4">
