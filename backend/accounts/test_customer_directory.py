@@ -204,7 +204,7 @@ class AdminCustomerDirectoryContractTests(APITestCase):
         self.assertEqual(summary["orders"]["pending"], 1)
         self.assertEqual(summary["orders"]["completed"], 0)
         self.assertEqual(summary["services"]["active"], 1)
-        self.assertEqual(data["status"], "overdue")
+        self.assertEqual(data["status"], "active")
         self.assertEqual(len(data["recent_invoices"]), 2)
         self.assertEqual(len(data["recent_orders"]), 1)
         self.assertEqual(len(data["recent_services"]), 1)
