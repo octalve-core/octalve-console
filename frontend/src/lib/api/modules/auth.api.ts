@@ -26,6 +26,9 @@ export type PasswordResetConfirmPayload = {
 };
 
 export const authApiV2 = {
+  checkUsername(username: string) {
+    return api.post<{available: boolean}>(apiPaths.auth.usernameAvailability, {username}, {skipAuth: true});
+  },
   login(payload: LoginPayload) {
     return api.post<AuthTokenResponse>(apiPaths.auth.login, payload, {
       skipAuth: true,
