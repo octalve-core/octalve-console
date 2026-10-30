@@ -63,7 +63,7 @@ export function BusinessIntelligenceView(){
    if(activeScope.current===scope)setLoading(false);
   }
  }
- useAutoSync(load,"biz02:"+scope);
+ useAutoSync(load,"biz02:"+scope,30000);
  useEffect(()=>{
   if(section!=="library"||!libraryKey)return;
   let active=true;
