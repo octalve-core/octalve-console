@@ -74,7 +74,9 @@ class Invoice(models.Model):
     
     def generate_invoice_number(self):
         """Generate unique invoice number: INV-2024-00001"""
-        prefix = f"INV-{timezone.now().strftime('%Y')}-"
+        from settings_registry.console_policy import invoice_issuance_policy
+        policy = invoice_issuance_policy()
+        prefix = f"{policy['prefix']}-{timezone.now().strftime('%Y')}-"
         last_invoice = Invoice.objects.filter(invoice_number__startswith=prefix).order_by('-invoice_number').first()
         if last_invoice:
             last_num = int(last_invoice.invoice_number.split('-')[-1])
@@ -94,6 +96,8 @@ class Invoice(models.Model):
     def create_from_order(cls, order):
         """Create invoice from an order"""
         from .invoice_pdf import default_template_id
+        from settings_registry.console_policy import invoice_issuance_policy
+        policy = invoice_issuance_policy()
         invoice = cls.objects.create(
             order=order,
             client=order.client,
@@ -101,12 +105,12 @@ class Invoice(models.Model):
             subtotal=order.subtotal,
             discount_total=order.discount_total,
             total=order.total,
-            due_date=timezone.now() + timezone.timedelta(days=7),
+            due_date=timezone.now() + timezone.timedelta(days=policy["due_days"]),
             notes=order.notes,
-            metadata={"billing_contact": (
+            metadata={"invoice_policy":policy, "billing_contact": (
                 dict(order.metadata.get("billing_contact", {}))
                 if isinstance(order.metadata, dict) else {}
-            ), "invoice_template_id": default_template_id()},
+            ), "invoice_template_id": policy["template_id"]},
         )
         
         # Copy order items to invoice items
@@ -132,14 +136,17 @@ class Invoice(models.Model):
         """Create renewal invoice for a service"""
         from services.models import Service
         from .invoice_pdf import default_template_id
-        
+        from settings_registry.console_policy import invoice_issuance_policy
+        policy = invoice_issuance_policy()
+
         invoice = cls.objects.create(
             client=service.client,
             subtotal=service.amount,
             total=service.amount,
-            due_date=timezone.now() + timezone.timedelta(days=7),
+            due_date=timezone.now() + timezone.timedelta(days=policy["due_days"]),
             metadata={'type': 'renewal', 'service_id': service.id,
-                      'invoice_template_id': default_template_id()}
+                      'invoice_policy':policy,
+                      'invoice_template_id': policy["template_id"]}
         )
         
         InvoiceItem.objects.create(
