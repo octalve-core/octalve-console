@@ -46,7 +46,8 @@ requireParts("features/admin/components/AdminEditorFields.tsx",[
 requireParts("features/admin/settings/views/AdminSettingsHubView.tsx",[
  "AdminSettingsDirectory","adminSettingsItems"]);
 requireParts("features/admin/settings/views/AdminSettingsSectionView.tsx",[
- "AdminSettingsSectionPanel","getAdminSettingsItem"]);
+ "ConsolePolicyEditor","ConsoleTaxEditor","MailTemplateWorkbench",
+ "OperationalSettingsStatus","getAdminSettingsItem"]);
 requireParts("features/admin/components/AdminSettingsSectionPanel.tsx",[
  "AdminSettingsTopics","AdminSettingsActions","/admin/servers"]);
 requireParts("features/admin/settings/components/AdminSettingsTopics.tsx",[
