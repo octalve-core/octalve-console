@@ -130,3 +130,17 @@ def save_policy(section, payload, actor, ip=None):
         changed.append(key)
     after=_snapshot(section,_records(section))
     return {**after,"changed":changed,"audit_ids":audit_ids}
+
+def invoice_issuance_policy():
+    """Read validated policy just before issuing a NEW invoice only."""
+    data=read_policy("invoices")
+    values={item["key"]:item["value"] for item in data["fields"]}
+    for key in ("invoice_prefix","reminder_days","pdf_template","invoice_footer"):
+        _validated(MANIFEST["invoices"][key][1],values[key])
+    return {
+        "prefix":values["invoice_prefix"],
+        "due_days":7,  # Timing remains the certified fixed billing rule until financial gate.
+        "footer":values["invoice_footer"],
+        "template_id":values["pdf_template"],
+        "revision":data["revision"],
+    }
