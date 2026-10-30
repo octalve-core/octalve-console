@@ -13,7 +13,7 @@ import type {AdminRecord} from "../data/admin-demo-data";
 import type {DirectoryFilter,ServerDirectoryState} from "@/components/design-system/record-directory/types";
 
 const emptyFilter:DirectoryFilter={status:"all",category:"all",from:"",to:""};
-const knownStatuses=["active","inactive","locked"] as const;
+const knownStatuses=["active","inactive","suspended","locked"] as const;
 type CustomerPage={count:number;next:string|null;previous:string|null;results:Record<string,unknown>[]};
 
 function parseCustomerPage(value:unknown):CustomerPage{
