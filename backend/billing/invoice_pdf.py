@@ -141,7 +141,11 @@ def _document(invoice):
         total=_amount(invoice.total),
         amount_paid=_amount(invoice.amount_paid),
         amount_due=_amount(invoice.amount_due),
-        notes=_clean(invoice.notes, 500),
+        notes=_clean(" | ".join(filter(None,[
+            str(invoice.notes or ""),
+            str((meta.get("invoice_policy") or {}).get("footer", ""))
+                if isinstance(meta.get("invoice_policy"), dict) else "",
+        ])), 500),
         logo=_logo(),
     )
 
