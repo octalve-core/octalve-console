@@ -191,6 +191,9 @@ async function request<T>(
   const payload = await parseResponse(response);
 
   if (!response.ok) {
+    // A rejected session or role check must never leave reusable private
+    // display records in the query cache. Only Django can authorize access.
+    if(response.status===401||response.status===403)privateQueryClear();
     throw new ApiError(
       getErrorMessage(payload, `Request failed with status ${response.status}`),
       response.status,
