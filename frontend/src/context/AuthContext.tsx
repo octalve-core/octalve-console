@@ -63,53 +63,20 @@ type UserFallback = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function readGroupValues(groups?: BackendGroup[] | null) {
-  if (!Array.isArray(groups)) return "";
-
-  return groups
-    .map((group) => {
-      if (typeof group === "string") return group;
-      return `${group.name ?? ""} ${group.role ?? ""}`;
-    })
-    .join(" ")
-    .toLowerCase();
-}
-
+/** Presentation-only role; explicit server identity only, never fuzzy text/groups. */
 export function normalizeUserRole(
-  role?: UserRole | string | null,
-  isStaff?: boolean,
-  isSuperuser?: boolean,
-  extraUser?: BackendUser | null,
+ role?: UserRole | string | null,
+ isStaff?: boolean,
+ isSuperuser?: boolean,
+ extraUser?: BackendUser | null,
 ): UserRole {
-  const roleText = String(role ?? "").toLowerCase();
-  const userTypeText = String(extraUser?.user_type ?? "").toLowerCase();
-  const accountTypeText = String(extraUser?.account_type ?? "").toLowerCase();
-  const typeText = String(extraUser?.type ?? "").toLowerCase();
-  const groupText = readGroupValues(extraUser?.groups);
-  const combined = `${roleText} ${userTypeText} ${accountTypeText} ${typeText} ${groupText}`;
-
-  if (
-    isSuperuser ||
-    extraUser?.is_superuser ||
-    extraUser?.is_admin ||
-    combined.includes("superuser") ||
-    combined.includes("administrator") ||
-    combined.includes("admin")
-  ) {
-    return "admin";
-  }
-
-  if (
-    isStaff ||
-    extraUser?.is_staff ||
-    combined.includes("staff") ||
-    combined.includes("support") ||
-    combined.includes("agent")
-  ) {
-    return "staff";
-  }
-
-  return "client";
+ const declared=String(role??extraUser?.role??"").trim().toLowerCase();
+ if(declared==="admin" && isSuperuser!==false && extraUser?.is_superuser!==false)return "admin";
+ if(declared==="staff" && isStaff!==false && extraUser?.is_staff!==false)return "staff";
+ if(declared==="client")return "client";
+ if(!declared && isSuperuser===true)return "admin";
+ if(!declared && isStaff===true)return "staff";
+ return "client";
 }
 
 export function getRoleDashboard(role?: UserRole | string | null) {
