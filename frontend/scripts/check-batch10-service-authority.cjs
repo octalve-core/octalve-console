@@ -22,8 +22,14 @@ for(const token of ["role=\"progressbar\"","aria-valuenow","aria-valuetext",
 for(const token of ["CloudRecordDirectory","onOpen={openDetails}","Renewal options",
   "View usage","category:resource===\"services\"","ServiceUsageRing",
   'records={rows}',"Check hosting readiness"])assert.ok(table.includes(token),"Service directory "+token);
-for(const token of ["category?: string","extra?: ReactNode","setCategory","r.extra",
- "aria-pressed={category===item}"])assert.ok(directory.includes(token),"Shared table "+token);
+const rowTypes=read("components/design-system/record-directory/types.ts");
+const canonical=read("components/design-system/record-directory/RecordDirectory.tsx");
+const mobile=read("components/design-system/record-directory/MobileRecordCard.tsx");
+const filters=read("components/design-system/record-directory/DirectoryFilterSheet.tsx");
+for(const token of ["category?:string","extra?:ReactNode"])assert.ok(rowTypes.includes(token),"Shared record contract "+token);
+for(const token of ["setFilter","r.category","row.extra"])assert.ok((canonical+mobile).includes(token),"Shared category/extra UI "+token);
+assert.ok(filters.includes('value={draft.category}'),"Category filter must remain usable");
+assert.ok(directory.includes("<RecordDirectory")&&directory.includes("category:r.category"),"Client record adapter must preserve service category");
 for(const token of ["clientApi.service(id)","clientApi.serviceRenewalStatus(id)",
  "normalizeServiceSnapshot","if(exact.id!==id)","Read only","requestId.current",
  'id="usage"','id="renewal"',"hosting-status",

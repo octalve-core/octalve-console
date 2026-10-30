@@ -17,7 +17,7 @@ requireParts("features/admin/components/AdminQuickActions.tsx",['WorkspaceQuickA
 requireParts("features/admin/views/AdminResourceListView.tsx",[
  "config.loader()","normalizeRecord(item, config.key)","AdminResourceDirectory"]);
 requireParts("features/admin/components/AdminResourceDirectory.tsx",[
- "ResponsiveTable","StatusBadge","SelectField","TextField","PAGE_SIZE=10"]);
+ "RecordDirectory","DirectoryRow","customerColumns","generic"]);
 requireParts("features/admin/views/AdminResourceDetailView.tsx",[
  "listConfig.loader()","normalizeAdminRecord(item, listConfig.key)",
  "setRecord(foundApiRecord ?? null)","AdminRecordDetailPanel"]);

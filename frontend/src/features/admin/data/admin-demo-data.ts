@@ -3,6 +3,11 @@ export type AdminRecord = {
   title: string;
   subtitle: string;
   meta: string;
+  reference?: string;
+  companyName?: string;
+  servicesCount?: number;
+  dateISO?: string;
+  walletBalance?: string;
   status: string;
   amount?: string;
   date?: string;

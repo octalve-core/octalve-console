@@ -1,98 +1,43 @@
-import type { AdminResourceKey } from "../data/admin-resource-config";
-import type { AdminRecord } from "../data/admin-demo-data";
-
-export function unwrapAdminList(value: unknown): Record<string, unknown>[] {
-  const rows = Array.isArray(value)
-    ? value
-    : value && typeof value === "object" && "results" in value
-      ? (value as { results: unknown }).results
-      : null;
-
-  // An unexpected response is a load failure, never an empty authorized collection.
-  if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== "object" || Array.isArray(row))) {
-    throw new Error("Invalid authorized API list response.");
-  }
-  return rows as Record<string, unknown>[];
+import type {AdminResourceKey} from "../data/admin-resource-config";
+import type {AdminRecord} from "../data/admin-demo-data";
+export {unwrapAdminList,getAdminRecordId,findExactAdminRecord,readAdminString,getAdminResourceBasePath} from "./admin-record-shared.ts";
+import {getAdminRecordId,readAdminString,getAdminResourceBasePath} from "./admin-record-shared.ts";
+function finiteMoney(value:unknown):string|undefined{
+ if(value===null||value===undefined||value==="")return undefined;
+ const n=typeof value==="number"?value:typeof value==="string"?Number(value):NaN;
+ return Number.isFinite(n)?new Intl.NumberFormat("en-NG",{minimumFractionDigits:2,maximumFractionDigits:2}).format(n):undefined;
 }
-
-export function getAdminRecordId(value: unknown): string {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Invalid API record.");
-  }
-  const record = value as Record<string, unknown>;
-  for (const key of ["id", "uuid", "reference", "code"]) {
-    const id = record[key];
-    if ((typeof id === "string" && id.trim()) ||
-        (typeof id === "number" && Number.isFinite(id))) {
-      return String(id).trim();
-    }
-  }
-  // Never invent a link or use a random ID for an unauthorized / malformed record.
-  throw new Error("API record has no stable identifier.");
+function isoDate(value:unknown):string|undefined{
+ return typeof value==="string"&&/^\d{4}-\d{2}-\d{2}/.test(value)?value.slice(0,10):undefined;
 }
-
-export function findExactAdminRecord(rows: Record<string, unknown>[], id: string) {
-  if (!id) return null;
-  const matches = rows.filter(row => getAdminRecordId(row) === id);
-  if (matches.length > 1) throw new Error("Ambiguous API record identifier.");
-  return matches[0] ?? null;
+function dateText(date?:string):string{
+ if(!date)return "";
+ const d=new Date(date+"T00:00:00Z");
+ return Number.isNaN(d.getTime())?"":new Intl.DateTimeFormat("en-NG",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).format(d);
 }
-
-export function readAdminString(item: Record<string, unknown>, keys: string[], fallback = "—") {
-  for (const key of keys) {
-    const value = item[key];
-
-    if (value !== undefined && value !== null && String(value).trim() !== "") {
-      return String(value);
-    }
-  }
-
-  return fallback;
+function normalizeCustomer(item:Record<string,unknown>):AdminRecord{
+ const id=getAdminRecordId(item),joined=isoDate(item.date_joined);
+ const email=readAdminString(item,["email"],"");
+ const name=readAdminString(item,["full_name"],"")||email||"Customer #"+id;
+ return {id,title:name,subtitle:email&&email!==name?email:"",
+  meta:readAdminString(item,["company_name"],"—"),companyName:readAdminString(item,["company_name"],"—"),
+  reference:"Customer #"+id,servicesCount:typeof item.services_count==="number"&&Number.isFinite(item.services_count)?item.services_count:undefined,
+  amount:finiteMoney(item.wallet_balance),walletBalance:finiteMoney(item.wallet_balance),
+  date:dateText(joined),dateISO:joined,status:readAdminString(item,["status"],"Unknown"),
+  actionHref:getAdminResourceBasePath("customers")+"/"+encodeURIComponent(id)};
 }
-
-export function getAdminResourceBasePath(configKey: AdminResourceKey) {
-  const routeMap: Record<AdminResourceKey, string> = {
-    customers: "/admin/customers",
-    products: "/admin/products",
-    plans: "/admin/plans",
-    orders: "/admin/orders",
-    invoices: "/admin/billing/invoices",
-    domains: "/admin/billing/domains",
-    gateways: "/admin/gateways",
-    providers: "/admin/servers",
-    provisioning: "/admin/provisioning",
-  };
-
-  return routeMap[configKey];
-}
-
-export function normalizeAdminRecord(item: unknown, configKey: AdminResourceKey): AdminRecord {
-  const record = item as Record<string, unknown>;
-
-  const id = getAdminRecordId(record);
-  const title = readAdminString(record, ["name", "title", "domain", "display_name", "customer", "client", "email"], id);
-  const subtitle = readAdminString(
-    record,
-    ["email", "summary", "description", "product", "category", "adapter_type", "domain", "subject"],
-    configKey,
-  );
-  const meta = readAdminString(
-    record,
-    ["status", "type", "cycle", "adapter", "registrar", "provider", "department"],
-    "API record",
-  );
-  const amount = readAdminString(record, ["total", "price", "amount", "balance", "credited"], "");
-  const status = readAdminString(record, ["status", "state", "payment_status"], "Unknown");
-  const date = readAdminString(record, ["date", "created_at", "updated_at", "dueDate", "expiry"], "");
-
-  return {
-    id,
-    title,
-    subtitle,
-    meta,
-    amount,
-    status,
-    date,
-    actionHref: `${getAdminResourceBasePath(configKey)}/${encodeURIComponent(id)}`,
-  };
+export function normalizeAdminRecord(value:unknown,key:AdminResourceKey):AdminRecord{
+ if(!value||typeof value!=="object"||Array.isArray(value))throw Error("Invalid API record");
+ const item=value as Record<string,unknown>;
+ if(key==="customers")return normalizeCustomer(item);
+ const id=getAdminRecordId(item);
+ const title=readAdminString(item,["name","title","domain","display_name","customer","client","email"],id);
+ const subtitle=readAdminString(item,["email","summary","description","product","category","adapter_type","domain","subject"],"");
+ const meta=readAdminString(item,["type","cycle","adapter","registrar","provider","department"],"—");
+ const reference=readAdminString(item,["reference","code","domain","slug"],"");
+ const dateISO=isoDate(item.created_at)||isoDate(item.updated_at)||isoDate(item.date)||isoDate(item.expiry);
+ return {id,title,subtitle,meta,reference,amount:readAdminString(item,["total","price","amount","balance","credited"],""),
+  status:readAdminString(item,["status","state","payment_status"],"Unknown"),
+  date:dateISO?dateText(dateISO):readAdminString(item,["date","created_at","updated_at","expiry"],""),
+  dateISO,actionHref:getAdminResourceBasePath(key)+"/"+encodeURIComponent(id)};
 }

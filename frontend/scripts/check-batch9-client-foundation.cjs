@@ -51,11 +51,12 @@ assert.ok(urls.includes('path("categories/", PublicPublishedCategories.as_view()
 assert.ok(caseTests.includes("test_categories_require_published_priced_active_offers"));
 assert.ok(essential.includes("CloudRecordDirectory")&&essential.includes("onOpen={openDetails}"));
 assert.ok(essential.includes("records.find(item=>item.id===row.id)"));
-assert.ok(table.includes("lg:hidden")&&table.includes("lg:block"));
-assert.ok(table.includes("aria-modal=\"true\""));
-for(const part of ["focusable()","event.key===\"Escape\"","event.key!==\"Tab\"",
- "focusOrigin.current","document.body.style.overflow","ref={dialogRef}"])
- assert.ok(table.includes(part),"Modal accessibility missing: "+part);
+const directory=read("src/components/design-system/record-directory/RecordDirectory.tsx");
+const desktop=read("src/components/design-system/record-directory/DesktopRecordTable.tsx");
+const sheet=read("src/components/design-system/AdaptiveSheet.tsx");
+assert.ok(table.includes("<RecordDirectory")&&directory.includes("lg:hidden")&&desktop.includes("lg:block"),"Desktop/mobile shared directory missing");
+for(const part of ["showModal()","onCancel","aria-labelledby","origin.current","focus({preventScroll:true})","backdrop:bg-slate-950/60"])
+ assert.ok(sheet.includes(part),"Native accessible modal contract missing: "+part);
 assert.ok(order.includes("categorySlug")&&order.includes("visiblePlans"));
 assert.ok(checkout.includes('["shared_hosting", "wordpress_hosting", "vps"].includes(p.product_type)'));
 for(const file of ["src/features/shell/components/ClientCatalogNavigation.tsx",
@@ -78,4 +79,4 @@ if(process.argv.includes("--built")){
  for(const className of [".text-console-primary",".border-console-line",".bg-console-primary"])
   assert.ok(full.includes(className),"Missing emitted Tailwind utility "+className);
 }
-console.log("PASS: Batch 9 dynamic published catalogue navigation, Purchases/Settings, canonical responsive table, modal focus and checkout authority");
+console.log("PASS: Batch 9 dynamic published catalogue navigation, Purchases/Settings, canonical responsive directory, native modal focus and checkout authority");

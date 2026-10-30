@@ -42,11 +42,11 @@ export function normalizeStaffRecord(item: unknown, resource: StaffResourceKey):
 
   const id = readString(record, ["id", "uuid", "reference", "code"], "");
   if (!id) throw new Error("A record is missing its unique identifier.");
-  const title = readString(record, ["name", "title", "subject", "domain", "email", "product"], id);
-  const subtitle = readString(record, ["email", "description", "summary", "customer", "client", "product"], resource);
-  const meta = readString(record, ["department", "category", "type", "priority", "status"], "—");
+  const title = readString(record, ["full_name", "name", "title", "subject", "domain", "email", "product"], id);
+  const subtitle = readString(record, ["email", "description", "summary", "customer", "client", "product"], "");
+  const meta = readString(record, ["reference", "code", "department", "category", "type", "priority"], "—");
   const status = readString(record, ["status", "state", "level"], "Unknown");
-  const date = readString(record, ["created_at", "updated_at", "date", "time"], "");
+  const date = readString(record, resource === "customers" ? ["date_joined", "created_at", "updated_at", "date"] : ["created_at", "updated_at", "date", "time"], "");
 
   const basePath = getStaffBasePath(resource);
   const detailHref = resource === "knowledgeBase" ? `${basePath}/${encodeURIComponent(id)}` : basePath;
