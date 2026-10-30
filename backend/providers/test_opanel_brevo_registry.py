@@ -1,6 +1,6 @@
 """P0 integration metadata checks: no OPanel bypass, no vendor network calls."""
 from unittest.mock import patch
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 from rest_framework.exceptions import ValidationError
 from providers.connection_specs import SCHEMAS, validate_public_settings, validate_secrets, public_catalog
 from opanel_bridge.policy import enabled
@@ -13,7 +13,8 @@ class FirstPartyAndEmailRegistryTests(SimpleTestCase):
             self.assertFalse(catalog[key]["enabled_for_execution"])
         self.assertEqual(SCHEMAS["opanel"]["secrets"],("client_secret",))
         self.assertEqual(SCHEMAS["brevo"]["secrets"],("api_key",))
-        self.assertFalse(enabled(), "OPanel Console SSO must not start from a catalogue card")
+        with override_settings(OPANEL_ISSUER_ENABLED=False):
+            self.assertFalse(enabled(), "OPanel SSO must not start from a catalogue card")
 
     def test_opanel_origin_only_preapproved_tls_host(self):
         with patch.dict("os.environ",{"CLOUD_CONNECTION_ALLOWED_HOSTS":"opanel.example.invalid"}):
