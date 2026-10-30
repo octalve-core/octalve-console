@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 from settings_registry.models import EmailTemplate,EmailTemplateRevision,ConsoleMailOutbox
-from settings_registry.mail_authority import render,queue_templated_message
+from settings_registry.mail_authority import render,queue_templated_message,queue_invoice_issued
 from billing.models import Invoice
 
 class ConsoleMailPolicyTests(TestCase):
@@ -97,3 +97,26 @@ class ConsoleMailPolicyTests(TestCase):
   self.assertTrue(second.invoice_number.startswith("OCT-"))
   first.refresh_from_db()
   self.assertEqual(first.invoice_number,old)
+
+ def test_invoice_issued_event_is_opt_in_idempotent_and_never_sends(self):
+  template=EmailTemplate.objects.get(key="invoice_issued")
+  self.assertFalse(template.is_active)
+  invoice=Invoice.objects.create(client=self.customer,subtotal=Decimal("10.00"),
+       total=Decimal("10.00"),due_date=timezone.now())
+  self.assertFalse(queue_invoice_issued(invoice))
+  self.assertFalse(ConsoleMailOutbox.objects.exists())
+  template.is_active=True
+  template.save(update_fields=["is_active"])
+  self.assertTrue(queue_invoice_issued(invoice))
+  self.assertFalse(queue_invoice_issued(invoice))
+  self.assertEqual(ConsoleMailOutbox.objects.count(),1)
+  row=ConsoleMailOutbox.objects.get()
+  self.assertEqual(row.status,"queued")
+  self.assertEqual(row.idempotency_key,f"invoice:{invoice.pk}:issued")
+  self.assertFalse(row.provider_receipt)
+  template.subject="Header {{unknown.token}}"
+  template.save(update_fields=["subject"])
+  second=Invoice.objects.create(client=self.customer,subtotal=Decimal("10.00"),
+      total=Decimal("10.00"),due_date=timezone.now())
+  self.assertFalse(queue_invoice_issued(second))
+  self.assertEqual(ConsoleMailOutbox.objects.count(),1)
