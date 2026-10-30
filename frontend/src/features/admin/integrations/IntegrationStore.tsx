@@ -2,7 +2,7 @@
 import Link from "next/link";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {useRouter,useSearchParams} from "next/navigation";
-import {Search} from "lucide-react";
+import {Search,BookOpenCheck,KeyRound,ShieldCheck} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {catalog,categories} from "./catalog";
@@ -32,6 +32,19 @@ export function IntegrationStore(){
     <Link href="/admin/servers" className="text-sm font-medium text-console-primary hover:underline">Existing provider records</Link>
    </div>
   </div>
+  <section aria-label="How integrations connect" className="mb-5 grid gap-3 md:grid-cols-3">
+   {[
+    {icon:Search,title:"1. Choose a service",detail:"Explore hosting, email, domain and payment providers and review what each one requires."},
+    {icon:KeyRound,title:"2. Prepare securely",detail:"Keep API keys and service secrets in approved server-side custody, never in browser storage."},
+    {icon:ShieldCheck,title:"3. Verify before use",detail:"Activate only after access permissions, connection readback and the required security tests succeed."},
+   ].map(({icon:Icon,title,detail})=><article key={title} className="rounded-xl border border-console-line bg-white p-4 shadow-sm">
+     <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-console-primary">
+      <Icon aria-hidden="true" className="h-4 w-4"/>
+     </div>
+     <h2 className="text-sm font-medium text-console-ink">{title}</h2>
+     <p className="mt-1.5 text-xs leading-5 text-console-muted">{detail}</p>
+   </article>)}
+  </section>
   <section aria-label="Integration catalogue" className="overflow-hidden rounded-2xl border border-console-line bg-white">
    <div className="flex flex-col gap-3 border-b border-console-line p-4 md:flex-row md:items-center md:justify-between">
     <label className="relative block w-full max-w-lg"><span className="sr-only">Search integrations</span>

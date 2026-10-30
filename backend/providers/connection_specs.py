@@ -6,6 +6,17 @@ from urllib.parse import urlsplit
 from rest_framework.exceptions import ValidationError
 
 SCHEMAS = {
+    # OPanel is an Octalve-owned application, not a third-party supplier.
+    # This metadata schema is inert: actual SSO authority remains in
+    # opanel_bridge + independently configured OPANEL_* secret-store settings.
+    # Vendor operations and Production credential submission are disabled.
+    "opanel": {
+        "name": "Octalve OPanel (first-party SSO)",
+        "fields": {"panel_url": "url", "client_id": "name"},
+        "secrets": ("client_secret",),
+        "ports": (443,),
+        "guide": "https://github.com/octalve-core/octalve-opanel/blob/main/README.md",
+    },
     "directadmin": {
         "name": "DirectAdmin",
         "fields": {"server_url": "url", "username": "name"},
@@ -96,6 +107,7 @@ def validate_secrets(adapter, data):
     if not schema or not isinstance(data,dict) or set(data)!=set(schema["secrets"]):
         raise ValidationError({"secrets":"Exactly the required credential fields must be supplied."})
     for v in data.values():
-        if not isinstance(v,str) or not (12<=len(v)<=4096) or v.strip()!=v or any(ord(c)<32 for c in v):
+        min_length = 32 if adapter == "opanel" else 12
+        if not isinstance(v,str) or not (min_length<=len(v)<=4096) or v.strip()!=v or any(ord(c)<32 for c in v):
             raise ValidationError({"secrets":"A credential value has invalid length or characters."})
     return data

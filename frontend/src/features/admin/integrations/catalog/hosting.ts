@@ -2,6 +2,49 @@ import type {Integration} from "./types";
 /** Vendor requirements; no credentials are accepted or transmitted here. */
 export const hosting:readonly Integration[]=[
  {
+  "slug": "opanel",
+  "name": "Octalve OPanel",
+  "category": "Hosting",
+  "summary": "Octalve's own hosting control panel. Console controls customer identity, paid services and access; OPanel manages approved technical capabilities.",
+  "documentation": "https://github.com/octalve-core/octalve-opanel/blob/main/README.md",
+  "guide": "OPanel architecture, secure SSO and readiness",
+  "requirements": [
+   {
+    "label": "OPanel HTTPS origin",
+    "guidance": "Deploy and verify the independent OPanel application. Use its real HTTPS origin only, not the Console URL or a placeholder."
+   },
+   {
+    "label": "Customer entry URL",
+    "guidance": "OPanel GET /auth/start/?service_id=<owned-hosting-service-id>; accessible only after Console confirms ownership, paid active service and provider-backed provisioning."
+   },
+   {
+    "label": "Callback URL",
+    "guidance": "Use the exact OPanel HTTPS /auth/callback/ URL in OPANEL_CALLBACK_URL on Console and OPanel; do not allow arbitrary redirects."
+   },
+   {
+    "label": "Confidential client ID",
+    "guidance": "Match OPANEL_CLIENT_ID on both applications (default octalve-opanel)."
+   },
+   {
+    "label": "Service-to-service client secret",
+    "guidance": "Generate a unique 32+ character secret and set OPANEL_CLIENT_SECRET in both backend secret stores. Never send it to browsers or paste it into this Store.",
+    "sensitive": true
+   },
+   {
+    "label": "Verified hosting account binding",
+    "guidance": "Require Console provider API readback, exact owner/service match, verified active status and a fresh single-use SSO exchange before technical access."
+   }
+  ],
+  "capabilities": [
+   "First-party service-bound SSO and read-only dashboard have source implementations",
+   "Files, backups, DNS, SSL and website actions remain separately certified technical capabilities",
+   "OPanel cannot override Console subscription, ownership or billing authority",
+   "Technical provisioning and Production credential submission remain disabled until live security certification"
+  ],
+  "logo": "opanel",
+  "stage": "Read-only"
+ },
+ {
   "slug": "directadmin",
   "name": "DirectAdmin",
   "category": "Hosting",
