@@ -24,9 +24,10 @@ for(const url of [
  "/admin/billing/domains","/admin/gateways","/admin/support",
  "/admin/support/departments"
 ])if(!panel.includes(url))throw Error("Billing/support link removed "+url);
-if(!panel.includes("does not currently have a verified record service")||
- !panel.includes("does not currently have a verified record service".slice(0,20)))
- throw Error("Missing user-facing unconnected-service disclosure");
+if(!panel.includes("is not connected yet")||
+ !panel.includes("This section is being prepared.")||
+ !panel.includes("Explore the available tools below."))
+ throw Error("Unavailable workspaces must disclose the restriction in professional copy.");
 if(/schemaApi|adminApi|fetch\s*\(/.test(panel))throw Error("Navigation components must not own API requests");
 const packageConfig=fs.readFileSync(path.resolve(__dirname,"../tailwind.config.ts"),"utf8");
 if(!packageConfig.includes("./src/features/admin/**/*.{js,ts,jsx,tsx,mdx}"))
