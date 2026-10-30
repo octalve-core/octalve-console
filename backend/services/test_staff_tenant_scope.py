@@ -34,6 +34,23 @@ class StaffInfrastructureScopeTests(TestCase):
         detail=api.get(f"/api/services/services/{self.service.pk}/")
         self.assertEqual(detail.status_code,404)
 
+    def test_role_only_admin_cannot_read_other_tenants_or_edit_services(self):
+        role_only = User.objects.create_user(
+            email="infra-role-only@example.invalid", username="infra_role_only",
+            role="admin", is_staff=False, password="test-only")
+        api = APIClient()
+        api.force_authenticate(user=role_only)
+        response = api.get("/api/services/services/")
+        self.assertEqual(response.status_code, 200)
+        rows = response.data.get("results", []) if isinstance(response.data, dict) else response.data
+        self.assertEqual(len(rows), 0)
+        self.assertEqual(
+            api.get(f"/api/services/services/{self.service.pk}/").status_code, 404)
+        self.assertEqual(
+            api.patch(f"/api/services/services/{self.service.pk}/", {}, format="json").status_code,
+            403)
+        self.assertEqual(api.get("/api/provisioning/tasks/").status_code, 403)
+
     def test_staff_cannot_inspect_unassigned_provisioning_payload(self):
         api=APIClient()
         api.force_authenticate(user=self.staff)
