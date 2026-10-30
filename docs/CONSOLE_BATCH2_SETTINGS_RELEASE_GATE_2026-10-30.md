@@ -222,3 +222,40 @@ Official sources:
 - https://help.brevo.com/hc/en-us/articles/208580669-FAQs-What-are-the-limits-of-the-Free-plan
 - https://resend.com/guides/email/deliverability/why-emails-go-to-spam
 - https://resend.com/changelog/idempotency-keys
+
+
+## Local Windows preflight correction — 30 October 2026
+
+The operator's first local `git fetch/checkout/pull --ff-only` reached
+`53784a433b466465637eeb740b7f86267e9fd6af` correctly. The subsequent
+`-PlanOnly` and `-Apply` invocations stopped at the early dependency check:
+`ModuleNotFoundError: No module named 'django'`. The old runner mistakenly
+assumed Django was installed in the default user Python. **Neither invocation
+reached the Neon credential prompt or executed a schema operation.**
+
+The revised PowerShell runner restores the pattern from the earlier
+`scripts/apply-neon-production-auth.ps1`: create/reuse an isolated **Python
+3.12** virtual environment under the user's `LOCALAPPDATA` (outside the Git
+checkout), install the committed `backend/requirements.txt` with pinned
+versions, verify Django+psycopg, then enter the original direct-Neon
+read-only plan and separately authorized migration path. It finds compatible
+`pg_dump.exe`/`pg_restore.exe` in normal Windows PostgreSQL installations,
+including when their `bin` directory is not on PATH. It does **not** fetch
+unspecified Django versions, install another Python automatically, change
+global PATH, disable security checks, or connect to Neon before dependencies
+are installed.
+
+After this fix is merged into `main`, from the same clean local checkout:
+
+```powershell
+git fetch origin main
+git pull --ff-only origin main
+powershell -ExecutionPolicy Bypass -File .\scripts\apply-neon-production-settings-batch2.ps1 -PlanOnly
+```
+
+Only when PlanOnly prints **PASS: read-only production preflight complete**
+and the exact Settings migrations, run the same script with `-Apply`.
+If Python 3.12 is missing, install Python 3.12 on that workstation first.
+If the PostgreSQL clients are missing, install the official PostgreSQL
+Windows client tools before Apply. Neither condition should trigger
+an unscoped `manage.py migrate` or direct SQL workaround.
