@@ -13,7 +13,7 @@ const client=read("src/lib/api/modules/reports.api.ts");
 const reportBackend=read("../backend/reports/business_intelligence.py");
 const sheet=read("src/components/design-system/AdaptiveSheet.tsx");
 const icon=read("src/components/design-system/ConsoleIconTile.tsx");
-const exports=read("src/components/design-system/index.ts");
+const designExports=read("src/components/design-system/index.ts");
 const pkg=JSON.parse(read("package.json"));
 function requireAll(name,body,tokens){
  for(const token of tokens)if(!body.includes(token))throw Error(name+" missing: "+token);
@@ -40,7 +40,7 @@ requireAll("BI API client",client,["api.get<unknown>(apiPaths.reports.businessSn
 requireAll("Native adaptive sheet",sheet,["showModal()","onCancel",
  "aria-labelledby","pb-[env(safe-area-inset-bottom)]","focus({preventScroll:true})"]);
 requireAll("Shared icons",icon,["LucideIcon","strokeWidth={1.9}","aria-hidden"]);
-requireAll("Design exports",exports,["ConsoleIconTile","AdaptiveSheet"]);
+requireAll("Design exports",designExports,["ConsoleIconTile","AdaptiveSheet"]);
 if(!pkg.dependencies["lucide-react"])throw Error("Icons unavailable");
 for(const [name,s] of [["view",view],["panels",panels],["adapter",contract]]){
  for(const forbidden of ["previewInvoices","paymentPreview","Math.random(","mockRevenue",
