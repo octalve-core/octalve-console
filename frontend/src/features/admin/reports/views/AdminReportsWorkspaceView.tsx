@@ -1,5 +1,5 @@
 "use client";
-import {useState} from "react";
+import {useRef,useState} from "react";
 import styles from "./AdminReportsWorkspace.module.css";
 import type {LucideIcon} from "lucide-react";
 import {
@@ -138,14 +138,20 @@ export function AdminReportsWorkspaceView(){
  const {user}=useAuth();
  const cacheKey=user?privateQueryKey("admin-report-workspace",user.id,user.role,{}):"";
  const [section,setSection]=useState<ReportSection>("overview");
- const [data,setData]=useState<ReportState>(initial);
+ const [reportData,setData]=useState<ReportState>(initial);
+ const [loadedScope,setLoadedScope]=useState("");
+ const activeScope=useRef(cacheKey);
+ activeScope.current=cacheKey;
+ const data=cacheKey&&loadedScope===cacheKey?reportData:initial;
  const [loading,setLoading]=useState(true);
  const [errors,setErrors]=useState<string[]>([]);
  const [methodologyOpen,setMethodologyOpen]=useState(false);
  async function load(quiet=false){
-  const cached=cacheKey?privateQueryRead<{state:ReportState;errors:string[]}>(cacheKey):null;
+  if(!cacheKey){setData(initial);setErrors([]);setLoadedScope("");setLoading(false);return;}
+  const cached=privateQueryRead<{state:ReportState;errors:string[]}>(cacheKey);
   if(cached){
-   setData(cached.value.state);setErrors(cached.value.errors);setLoading(false);
+   if(activeScope.current!==cacheKey)return;
+   setData(cached.value.state);setErrors(cached.value.errors);setLoadedScope(cacheKey);setLoading(false);
    if(cached.fresh)return;
   }else if(!quiet)setLoading(true);
   const requests=[
@@ -154,6 +160,8 @@ export function AdminReportsWorkspaceView(){
    reportsApi.definitions(),reportsApi.instances(),
   ] as const;
   const results=await Promise.allSettled(requests);
+  // Ignore responses from an identity that was signed out or switched mid-request.
+  if(activeScope.current!==cacheKey)return;
   const convert=<T,>(index:number,name:string,parser:(source:unknown)=>T):T|null=>{
    const outcome=results[index];
    try {
@@ -170,7 +178,7 @@ export function AdminReportsWorkspaceView(){
    instances:convert(4,"Generated reports",parseInstances),
   };
   if(cacheKey)privateQueryWrite(cacheKey,{state:next,errors:unavailable});
-  setData(next);setErrors(unavailable);setLoading(false);
+  setData(next);setErrors(unavailable);setLoadedScope(cacheKey);setLoading(false);
  }
  useAutoSync(load,"admin-report-workspace:"+cacheKey);
  const numbers=[
@@ -186,7 +194,7 @@ export function AdminReportsWorkspaceView(){
       leadingIcon={<Info className="h-4 w-4" aria-hidden="true"/>}>About these figures</ActionButton>
 
    </div>}>
-   {loading?<LoadingState title="Preparing reports" description="Retrieving available report information."/>:
+   {loading||loadedScope!==cacheKey?<LoadingState title="Preparing reports" description="Retrieving available report information."/>:
    <div className="min-w-0 space-y-6">
     <nav aria-label="Report sections" className="flex min-w-0 gap-2 overflow-x-auto border-b border-console-line pb-3">
      {reportSections.map(item=><button key={item.key} type="button"
