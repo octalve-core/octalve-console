@@ -387,6 +387,14 @@ class EmailTemplateRevision(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["template", "revision"], name="email_template_revision_uniq")]
 
+    def save(self,*args,**kwargs):
+        if self.pk is not None and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("Email template audit revisions cannot be overwritten.")
+        return super().save(*args,**kwargs)
+
+    def delete(self,*args,**kwargs):
+        raise ValueError("Email template audit revisions cannot be deleted.")
+
 class ConsoleMailOutbox(models.Model):
     idempotency_key = models.CharField(max_length=128, unique=True)
     template = models.ForeignKey("settings_registry.EmailTemplate", on_delete=models.PROTECT)
@@ -416,3 +424,11 @@ class ConsoleMailAttempt(models.Model):
     outcome = models.CharField(max_length=24,choices=[("accepted","Accepted"),("refused","Refused"),("unknown","Unknown")])
     receipt = models.CharField(max_length=255,blank=True,default="")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self,*args,**kwargs):
+        if self.pk is not None and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("Delivery attempt receipts cannot be overwritten.")
+        return super().save(*args,**kwargs)
+
+    def delete(self,*args,**kwargs):
+        raise ValueError("Delivery attempt receipts cannot be deleted.")
