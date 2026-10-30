@@ -3,6 +3,7 @@
 from django.urls import path, include
 from .console_views import ConsolePolicyView
 from .tax_policy import ConsoleTaxPolicyView
+from .public_theme import ConsoleThemeView
 from .mail_views import TemplateListView,TemplateDetailView,TemplateDuplicateView,TemplatePreviewView,OutboxDashboardView
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -19,6 +20,7 @@ router.register(r'tax', TaxSettingsViewSet, basename='tax-settings')
 router.register(r'system', SystemConfigViewSet, basename='system-config')
 
 urlpatterns = [
+    path('console-theme/',ConsoleThemeView.as_view(),name='console-theme'),
     path('console-tax/',ConsoleTaxPolicyView.as_view(),name='console-tax'),
     path('console-mail/templates/',TemplateListView.as_view(),name='console-mail-templates'),
     path('console-mail/templates/<int:pk>/',TemplateDetailView.as_view(),name='console-mail-template-detail'),
