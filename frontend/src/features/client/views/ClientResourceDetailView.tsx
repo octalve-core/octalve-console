@@ -114,13 +114,10 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
       role="client"
       title={record?.title ?? config.title}
       description={config.description}
-      actions={
-        <Button href={`/${config.key === "support" ? "client/support" : `client/${config.key}`}`} variant="outline">
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-      }
     >
+      <div className="mb-4"><Button href={`/client/${config.key}`} variant="outline">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true"/> Back to {config.title.toLowerCase()}
+      </Button></div>
       <DashboardPage
         eyebrow={config.eyebrow}
         title={record?.title ?? config.title}
