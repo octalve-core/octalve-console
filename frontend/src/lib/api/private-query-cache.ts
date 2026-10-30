@@ -5,6 +5,9 @@
 type Entry = {value:unknown;timestamp:number};
 const MAX_ENTRIES=40;
 const values=new Map<string,Entry>();
+let generation=0;
+/** Invalidates pending read generations as well as display values. */
+export function privateQueryGeneration():number{return generation;}
 export function privateQueryRead<T>(key:string,maxAgeMs=45_000):{value:T;fresh:boolean}|null {
  const hit=values.get(key);
  if(!hit)return null;
@@ -19,7 +22,7 @@ export function privateQueryWrite<T>(key:string,value:T):void {
   values.delete(oldest);
  }
 }
-export function privateQueryClear():void{values.clear();}
+export function privateQueryClear():void{values.clear();generation++;}
 export function privateQueryKey(scope:string,accountId:string,role:string,params:unknown):string {
  if(!scope||!accountId||!role)throw Error("Private query requires an authenticated scope.");
  return JSON.stringify([scope,accountId,role,params]);
