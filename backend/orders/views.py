@@ -26,7 +26,7 @@ class OrderWriteAuthority(BasePermission):
         if view.action in ("update", "partial_update", "destroy"):
             user = request.user
             return bool(user and user.is_authenticated and
-                        (user.is_superuser or (user.is_staff and user.role == "admin")))
+                        (user.is_superuser or (getattr(user, 'is_staff', False) and user.role == "admin")))
         return True
 
 
@@ -313,7 +313,7 @@ class CouponWriteAuthority(BasePermission):
         if view.action in ("create", "update", "partial_update", "destroy"):
             user = request.user
             return bool(user and user.is_authenticated and
-                        (user.is_superuser or (user.is_staff and user.role == "admin")))
+                        (user.is_superuser or (getattr(user, 'is_staff', False) and user.role == "admin")))
         return True
 
 
