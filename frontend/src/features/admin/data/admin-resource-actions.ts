@@ -15,6 +15,9 @@ export async function saveAdminResourceRecord(
     throw new Error("Missing record ID for update.");
   }
 
+  if(resource==="customers" && ["balance","wallet_balance","wallet","role","is_superuser","is_staff"].some(key=>key in payload)){
+    throw new Error("Wallet balances and role grants cannot be edited through customer profiles.");
+  }
   const apiPayload = toAdminResourcePayload(resource, payload) as any;
 
   switch (resource) {
