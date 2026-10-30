@@ -39,7 +39,7 @@ export function IntegrationStore(){
     {icon:ShieldCheck,title:"3. Verify before use",detail:"Activate only after access permissions, connection readback and the required security tests succeed."},
    ].map(({icon:Icon,title,detail})=><article key={title} className="rounded-xl border border-console-line bg-white p-4 shadow-sm">
      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-console-primary">
-      <Icon aria-hidden="true" className="h-4.5 w-4.5"/>
+      <Icon aria-hidden="true" className="h-4 w-4"/>
      </div>
      <h2 className="text-sm font-medium text-console-ink">{title}</h2>
      <p className="mt-1.5 text-xs leading-5 text-console-muted">{detail}</p>
