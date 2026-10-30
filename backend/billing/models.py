@@ -129,6 +129,8 @@ class Invoice(models.Model):
                 period_end=timezone.now() + timezone.timedelta(days=order_item.months * 30)
             )
         
+        from settings_registry.mail_authority import queue_invoice_issued
+        queue_invoice_issued(invoice)
         return invoice
     
     @classmethod
@@ -162,6 +164,8 @@ class Invoice(models.Model):
             period_end=service.next_due_date + timezone.timedelta(days=30)
         )
         
+        from settings_registry.mail_authority import queue_invoice_issued
+        queue_invoice_issued(invoice)
         return invoice
     
     def mark_paid(self, transaction=None):
