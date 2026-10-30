@@ -15,6 +15,9 @@ router.register(r'filters', SavedReportFilterViewSet, basename='saved-filter')
 router.register(r'metrics', MetricViewSet, basename='metric')
 router.register(r'financial', FinancialReportViewSet, basename='financial-report')
 
+from .business_intelligence import business_snapshot
+
 urlpatterns = [
+    path('business-intelligence/', business_snapshot, name='business-intelligence'),
     path('', include(router.urls)),
 ]
