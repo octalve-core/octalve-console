@@ -10,7 +10,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from billing.models import Invoice, Quote
 from domains.models import Domain, DNSRecord, SSLCertificate
-from payments.models import Transaction, PaymentGateway
+from payments.models import Transaction
 
 
 class RoleOnlyAdminTenantIsolationTests(TestCase):
@@ -41,8 +41,6 @@ class RoleOnlyAdminTenantIsolationTests(TestCase):
         cls.ssl = SSLCertificate.objects.create(
             client=cls.owner, common_name="role-only.invalid",
             expires_at=later, next_due_date=later)
-        cls.gateway = PaymentGateway.objects.create(
-            code="paystack", name="Test-only payment gateway", status="test")
 
     def test_global_finance_and_domain_lists_do_not_leak(self):
         api = APIClient()
