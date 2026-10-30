@@ -16,7 +16,7 @@ const cols:DirectoryColumn[]=[
 export function AdminGenericDirectory({label,records,emptyTitle,emptyDescription,allowDetails=true}:{
  label:string;records:readonly AdminDirectoryRecord[];emptyTitle:string;emptyDescription:string;allowDetails?:boolean;
 }){
- const Icon=icons[label.toLowerCase()]||Archive;
+ const Icon=label.toLowerCase().includes("team")?UserRound:icons[label.toLowerCase()]||Archive;
  const rows=useMemo<DirectoryRow[]>(()=>records.map(r=>({
   id:r.id,title:r.title,subtitle:r.subtitle,reference:r.meta!=="—"?r.meta:r.id,
   status:r.status,date:r.date,amount:r.amount,icon:<Icon aria-hidden="true" className="h-5 w-5"/>,
