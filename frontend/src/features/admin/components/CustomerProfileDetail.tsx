@@ -39,7 +39,7 @@ export function CustomerProfileDetail({data,record,editHref}:{data:CustomerDetai
    <div className="flex flex-wrap items-start justify-between gap-4">
     <div className="flex min-w-0 items-center gap-3">
      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-console-primary"><UserRound className="h-6 w-6" aria-hidden="true"/></span>
-     <div className="min-w-0"><h2 className="break-words text-xl font-medium text-console-ink">{value(data.full_name)||record.title}</h2>
+     <div className="min-w-0"><h2 className="break-words text-xl font-medium text-console-ink">{data.full_name?.trim()?data.full_name:record.title}</h2>
       <p className="mt-1 break-all text-sm text-console-muted">{value(data.email)}</p>
       <p className="mt-1 text-xs text-console-muted">Customer #{data.id} · {value(data.status)}</p></div>
     </div>
