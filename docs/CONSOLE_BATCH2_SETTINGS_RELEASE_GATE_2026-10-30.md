@@ -129,3 +129,96 @@ and ambiguous delivery receipts, retry/failover rules and crash quarantine.
 Tax GET now does not create a database row. Saved, verified changes record an immutable application-level snapshot, revision number and actor, with a Super-Admin-only readback route and a read-only history panel. They do not recalculate already issued invoices or activate checkout taxation. Scratch CI must now account for 62 migrations and 115 tables versus the current observed Production 55/107. The difference does NOT authorize unrelated supplier security migrations.
 
 Tax compliance references: National Assembly Nigeria Tax Act 2025 https://nass.gov.ng/documents/download/11249 ; regional and product-based tax computation and exemption guidance https://support.stripe.com/questions/understanding-tax-rate-calculations-with-managed-payments . Legal rules, effective dates, product tax codes and customer location must be established before rate edits can affect final financial quotes.
+
+## 30 October — local Production migration route and Brevo-first email onboarding
+
+**Source-based correction to the old branch-only release hold:** previous rewards
+migrations used checked-out local `main` + a secure Windows PowerShell
+`-PlanOnly` pass, an exact Neon direct URL, real `manage.py migrate` with
+a typed approval, and read-only postflight. **A new Git or Neon branch is not
+intrinsically required to run Django migrations.** A current restorable
+checkpoint is still required. The project currently has ten Neon branches
+and a single older snapshot; both additional Neon branch creation and
+snapshot creation were refused with plan-limit errors. Preserve all existing
+recovery records.
+
+After a green and reviewed PR #101 is merged into `main`, with Vercel
+autodeploy disabled, run these commands **from the clean local main checkout**
+under Windows PowerShell, using an operator-controlled workstation. Use
+Python 3.12 with the repository's pinned `backend/requirements.txt`
+and a compatible PostgreSQL `pg_dump`/`pg_restore` client:
+
+```powershell
+git fetch origin main
+git checkout main
+git pull --ff-only origin main
+git status --short
+powershell -ExecutionPolicy Bypass -File .\scripts\apply-neon-production-settings-batch2.ps1 -PlanOnly
+powershell -ExecutionPolicy Bypass -File .\scripts\apply-neon-production-settings-batch2.ps1 -Apply
+```
+
+Both invocations request the Neon Production **DIRECT** database URL using
+PowerShell hidden input. Never paste the URL into chat, output or Git. The
+script checks exactly `ep-cool-butterfly-b8jvzofp.c-14.us-east-1.aws.neon.tech`,
+`neondb_owner`, `neondb`, SSL, `55 migrations / 107 tables`, the
+authentication security baseline, the exact four pending Settings migrations,
+and no unrelated provider migrations. A clean main working tree is required.
+The Apply pass creates a new local custom-format pg_dump archive, verifies the
+archive's listing/checksum/size, and requires typing
+`APPLY SETTINGS 0002-0005 TO OCTALVE PRODUCTION` inside the CLI before any
+migration executes. This archive is **not automatically encrypted**: use
+BitLocker or another approved encrypted private volume; never upload it.
+Restore rehearsal against a separate local/disposable database is strongly
+recommended before an irreversible operation. A TOC check alone does not
+certify restore recovery. Production postflight is **59 migrations / 111
+tables**, four new Settings tables, and all twelve seeded template keys.
+
+**Do not run** `python manage.py migrate` unscoped, delete Neon recovery
+branches, use the pooled Neon URL, or put Production connection secrets in CI.
+The old `apply-neon-production-rewards.ps1` is a historical example and
+cannot be reused: its 54/100 initial-state guard no longer applies.
+
+### Live deployment dependency
+
+The `settings_registry` 0003/0005 tables are called by the Admin email/tax
+read endpoints. Finish the one-off migration and independently verify its
+ledger **before** deploying the corresponding backend+frontend Production
+SHA. GitHub source CI and a disposable PostgreSQL review are not a substitute
+for this. Existing Vercel config has Git deployments disabled on `main`;
+use one explicit production deployment per project on the same merged SHA.
+Record deployment IDs, verify canonical domain aliases, API health, denied
+anonymous Settings access and Admin read/write behavior.
+
+### Brevo primary + Resend fallback onboarding
+
+Integration Store registry now lists both Brevo and Resend as draft-only
+transactional senders. Console Mail saves a **preference** for Brevo first and
+Resend second but cannot enable them until the following are true:
+
+1. Own and authenticate a branded sending domain in Brevo/Resend. Publish the
+   exact provider-supplied DKIM records and appropriate SPF/DMARC policy. Do
+   not create multiple SPF or DMARC TXT records for one name. Confirm
+   alignment for the visible From domain.
+2. Configure real transactional sender identities and reply-to addresses,
+   verify the domain in each provider, and use narrow provider API keys in
+   protected Integration Store/key custody, never a customer-facing form.
+3. Certify provider API submission receipts, soft/hard bounce and spam
+   suppression, transactional webhooks with authentic event verification,
+   deduplication, quota throttling, complaints and recipient consent for
+   promotional messages. Brevo free currently advertises 300/day and a
+   bounded over-quota transactional holding queue.
+4. Only after all checks should a durable worker select an enabled provider.
+   A definitive provider refusal can trigger Resend; a timeout/unknown
+   acknowledgment must go to reconciliation to avoid duplicate delivery.
+   The internal dispatch state machine is implemented but is **not** a
+   certified live network service.
+5. Inbox placement cannot be guaranteed. Validate SPF/DKIM/DMARC,
+   reputation/warm-up, valid text+HTML, aligned links and low complaints
+   before promising improved inbox delivery.
+
+Official sources:
+- https://help.brevo.com/hc/en-us/articles/12163873383186-Authenticate-your-domain-with-Brevo-Brevo-code-DKIM-DMARC
+- https://developers.brevo.com/reference/send-transac-email
+- https://help.brevo.com/hc/en-us/articles/208580669-FAQs-What-are-the-limits-of-the-Free-plan
+- https://resend.com/guides/email/deliverability/why-emails-go-to-spam
+- https://resend.com/changelog/idempotency-keys
