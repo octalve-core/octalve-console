@@ -32,7 +32,7 @@ function number(value:unknown):number{
  return value;
 }
 function amount(value:unknown):string{
- if(typeof value!=="string"||!/^\\d{1,16}\\.\\d{2}$/.test(value))throw Error("Invalid financial amount.");
+ if(typeof value!=="string"||!/^\d{1,16}\.\d{2}$/.test(value))throw Error("Invalid financial amount.");
  return value;
 }
 function amounts(value:unknown){
@@ -47,7 +47,7 @@ function array(value:unknown):unknown[]{
 function monthly(value:unknown,hasAmount:boolean){
  return array(value).map(item=>{
   const r=record(item),month=name(r.month);
-  if(!/^\\d{4}-\\d{2}$/.test(month))throw Error("Invalid report month.");
+  if(!/^\d{4}-\d{2}$/.test(month))throw Error("Invalid report month.");
   return {month,count:number(r.count),...(hasAmount?{amount:amount(r.amount)}:{})};
  });
 }
@@ -97,7 +97,7 @@ export function parseBIZSnapshot(value:unknown):BIZSnapshot{
 export function formatMoney(value:string,currency:string):string{
  // Decimal strings can exceed JS safe integer, so render without float conversion.
  const [whole,decimals]=value.split(".");
- const readable=whole.replace(/\\B(?=(\\d{3})+(?!\\d))/g,",");
+ const readable=whole.replace(/\B(?=(\d{3})+(?!\d))/g,",");
  return currency+" "+readable+"."+decimals;
 }
 export function monthLabel(value:string):string{
