@@ -34,7 +34,7 @@ class ProviderViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return Provider.objects.all()
         # Provider records include raw config/metadata and connection endpoints.
         # Until an explicitly redacted staff health DTO exists, keep these
@@ -190,7 +190,7 @@ class ProviderPackageViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role in ['admin', 'staff'] or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return ProviderPackage.objects.all()
         return ProviderPackage.objects.none()
     
@@ -223,7 +223,7 @@ class ProviderLogViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role in ['admin', 'staff'] or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return ProviderLog.objects.all()
         return ProviderLog.objects.none()
     

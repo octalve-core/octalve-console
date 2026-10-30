@@ -24,7 +24,7 @@ class InvoiceWriteAuthority(BasePermission):
         if view.action in ("create", "update", "partial_update", "destroy"):
             user = request.user
             return bool(user and user.is_authenticated and
-                        (user.is_superuser or user.role == "admin"))
+                        (user.is_superuser or (getattr(user, 'is_staff', False) and user.role == "admin")))
         return True
 
 
@@ -65,7 +65,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     def _require_admin(request):
         user = request.user
         return bool(user and user.is_authenticated and
-                    (user.is_superuser or getattr(user, "role", "") == "admin"))
+                    (user.is_superuser or (user.is_staff and getattr(user, "role", "") == "admin")))
 
     @action(detail=False, methods=["get"], url_path="templates")
     def templates(self, request):
@@ -173,7 +173,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return Invoice.objects.all()
         return Invoice.objects.filter(client=user)
     
@@ -215,7 +215,7 @@ class TaxViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return Tax.objects.all()
         return Tax.objects.filter(is_active=True)
     
@@ -248,7 +248,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return Quote.objects.all()
         return Quote.objects.filter(client=user)
 

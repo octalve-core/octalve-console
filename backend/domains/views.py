@@ -48,7 +48,7 @@ class DomainViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return Domain.objects.all()
         return Domain.objects.filter(client=user)
     
@@ -169,7 +169,7 @@ class DNSRecordViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return DNSRecord.objects.all()
         return DNSRecord.objects.filter(domain__client=user)
     
@@ -244,7 +244,7 @@ class SSLCertificateViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return SSLCertificate.objects.all()
         return SSLCertificate.objects.filter(client=user)
     

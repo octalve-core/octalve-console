@@ -180,7 +180,7 @@ class BillingDocumentAuthorityTests(APITestCase):
         User = get_user_model()
         admin = User.objects.create_user(
             email="invoice-admin@example.invalid", username="invoiceadmin",
-            password="LocalTest2026!", role="admin")
+            password="LocalTest2026!", role="admin", is_staff=True)
         self.client.force_authenticate(admin)
         base = "/api/billing/invoices/"
         amount = self.invoice.total
@@ -208,7 +208,7 @@ class BillingDocumentAuthorityTests(APITestCase):
         User = get_user_model()
         admin = User.objects.create_user(
             email="studio-admin@example.invalid", username="studioadmin",
-            password="LocalTest2026!", role="admin")
+            password="LocalTest2026!", role="admin", is_staff=True)
         list_path = "/api/billing/invoices/templates/"
         preview_path = "/api/billing/invoices/template-preview/?template_id=template_01"
         self.client.force_authenticate(self.owner)
@@ -249,7 +249,7 @@ class BillingDocumentAuthorityTests(APITestCase):
         User = get_user_model()
         admin = User.objects.create_user(
             email="quote-admin@example.invalid", username="quoteadmin",
-            password="LocalTest2026!", role="admin")
+            password="LocalTest2026!", role="admin", is_staff=True)
         self.client.force_authenticate(admin)
         before = Quote.objects.count()
         response = self.client.get("/api/billing/quotes/")
@@ -276,7 +276,7 @@ class BillingDocumentAuthorityTests(APITestCase):
         User = get_user_model()
         admin = User.objects.create_user(
             email="renewal-admin@example.invalid", username="renewaladmin",
-            password="LocalTest2026!", role="admin")
+            password="LocalTest2026!", role="admin", is_staff=True)
         service = Service.objects.create(
             client=self.owner, product_id=1, plan_id=1, label="Synthetic hosting",
             status="active", billing_cycle="12mo", amount=Decimal("50000.00"),
@@ -307,7 +307,7 @@ class BillingDocumentAuthorityTests(APITestCase):
         User = get_user_model()
         admin = User.objects.create_user(
             email="renewal-otheradmin@example.invalid", username="renewalotheradmin",
-            password="LocalTest2026!", role="admin")
+            password="LocalTest2026!", role="admin", is_staff=True)
         service = Service.objects.create(
             client=self.owner, product_id=1, plan_id=1, label="Synthetic opt-out",
             status="active", billing_cycle="1mo", amount=Decimal("1500.00"),

@@ -29,6 +29,22 @@ class StaffOrderScopeTests(TestCase):
         self.assertEqual(len(rows),0)
         self.assertEqual(api.get(f"/api/orders/orders/{self.order.pk}/").status_code,404)
 
+    def test_role_only_admin_cannot_enumerate_orders_or_bypass_write_gate(self):
+        role_only = User.objects.create_user(
+            email="order-role-only@example.invalid", username="order_role_only",
+            password="test-only", role="admin", is_staff=False)
+        api = APIClient()
+        api.force_authenticate(user=role_only)
+        response = api.get("/api/orders/orders/")
+        self.assertEqual(response.status_code, 200)
+        rows = response.data.get("results", []) if isinstance(response.data, dict) else response.data
+        self.assertEqual(len(rows), 0)
+        self.assertEqual(api.get(f"/api/orders/orders/{self.order.pk}/").status_code, 404)
+        self.assertEqual(
+            api.patch(f"/api/orders/orders/{self.order.pk}/", {}, format="json").status_code,
+            403,
+        )
+
     def test_client_sees_own_order_and_admin_can_view(self):
         for user in (self.customer,self.admin):
             api=APIClient()

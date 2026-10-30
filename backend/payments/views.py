@@ -28,7 +28,7 @@ class CloudGatewayAdminAccess(BasePermission):
     def has_permission(self, request, view):
         user = request.user
         return bool(user and user.is_authenticated and
-                    (user.is_superuser or getattr(user, 'role', None) == 'admin'))
+                    (user.is_superuser or (user.is_staff and getattr(user, 'role', None) == 'admin')))
 
 
 class PaymentGatewayViewSet(viewsets.ReadOnlyModelViewSet):
@@ -40,7 +40,7 @@ class PaymentGatewayViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return PaymentGateway.objects.all()
         return PaymentGateway.objects.filter(status='active')
     
@@ -56,7 +56,7 @@ class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_superuser or (user.is_staff and user.role == 'admin'):
             return Transaction.objects.all()
         return Transaction.objects.filter(client=user)
 
