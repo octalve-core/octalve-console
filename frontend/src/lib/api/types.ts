@@ -66,6 +66,7 @@ export type LoginPayload = {
 export type SignupPayload = {
   full_name: string;
   email: string;
+  username?: string;
   phone?: string;
   password: string;
   referral_code?: string;
