@@ -1,64 +1,63 @@
-> **CURRENT EXECUTION INDEX — 26 OCTOBER 2026 (Review only).** The authoritative implementation and Production plan is [Cloud Master Execution](docs/CLOUD_MASTER_EXECUTION_PLAN_2026-10-26.md), with [Acceptance Matrix](docs/CLOUD_MASTER_ACCEPTANCE_MATRIX_2026-10-26.md) and [Protected Release Runbook](docs/CLOUD_PRODUCTION_RELEASE_RUNBOOK_2026-10-26.md). Console [PR #13](https://github.com/octalve-core/octalve-console/pull/13) and [PR #14](https://github.com/octalve-core/octalve-console/pull/14) remain **draft and unmerged**; independent OPanel [PR #1](https://github.com/octalve-core/octalve-opanel/pull/1) is also draft. Existing financial/provisioning actions are default disabled, external hosting/domain/WordPress operations are **NOT live-qualified**, and automated CI does **not** constitute Production acceptance. Prior Production DB counts (including older 48/91 and later reported 49/92) are historical snapshots, **not** a current verified migration ledger. The original MVP/readme material below is historical and should not be used as an authentication, payment, migration, or Production execution guide.
+# Octalve Cloud — Console & Django API
 
-# Octalve Console — Premium MVP Package
+Octalve Cloud's **commercial management system**. This repository contains the Next.js customer/Staff/Admin Console and its Django REST API. The independent public website and technical hosting panel have their own repositories:
 
-Octalve Console is a hosting business operating system inspired by the operational depth of WHMCS, Blesta and Paymenter, with cleaner product UX patterns similar to Hostinger, Namecheap and GoDaddy.
+- Public storefront: [octalve-core/octalve-cloud](https://github.com/octalve-core/octalve-cloud) — `https://cloud.octalve.com`
+- Console + Django API: **this repository** — `https://console.cloud.octalve.com`, `https://api.cloud.octalve.com`
+- OPanel technical hosting management: [octalve-core/octalve-opanel](https://github.com/octalve-core/octalve-opanel)
+- Octalve Invoice: visual reference only, **not** the commercial ledger or login authority.
 
-This package contains:
+## Start here: current implementation and remaining work
 
-```txt
-octalve-console/
-  frontend/    Next.js 14 premium interface
-  backend/     Django backend architecture skeleton
-  docs/        implementation, adapter and roadmap documentation
+**[Full end-to-end audit, real Production evidence and prioritized gap register](docs/OCTALVE_CLOUD_FULL_SYSTEM_AUDIT_2026-10-30.md)**
+
+**[Documentation index and historical source decisions](docs/README.md)**
+
+The detailed audit distinguishes *source and CI implemented*, *live verified*, *external service gated* and *not yet operational*. **Do not use older dated batch reports as live deployment or database migration instructions.**
+
+## Current verified release baseline — 30 October 2026
+
+- Console frontend and Django API are deployed on Vercel Production at Git SHA `d7825d7e58ffb36b7105c1ef32e9faa408d2b044` (at audit time).
+- Neon Production has **59 applied migrations / 111 tables**, including Batch 2 Settings 0002–0005; do not rerun historical migration commands.
+- Frontend route source inventory: **135 Next.js pages** (85 Admin, 33 Client, 10 Staff, 7 public/auth). **810 authenticated responsive-browser observations are still required**, and no full signed matrix is claimed.
+- Django includes accounts, RBAC, catalogue/published offers, orders, billing/invoice template, hosted checkout/payment proof gates, wallet ledger, provider security drafts, provisioning, domains, support, knowledge base, notifications/outbox, Settings, reports, audit, rewards and OPanel bridge.
+- Important **commercial release hold:** Production currently has **zero approved published offers, zero public active product/plans and zero supplier records**. Payment settlement, supplier provisioning, domain registrar writes and OPanel external hosting remain separately gated.
+- Settings support owner-saved policy, invoice numbering/template snapshots, tax preferences (not checkout-active), theme, email template editor and outbox. Initial email templates are inactive and **Brevo/Resend are not certified live senders**.
+- Public Terms and Privacy routes returned 404 during audit; do not present signup legal acceptance as fully qualified.
+
+## Local development (never point tests at Production)
+
+Frontend: Node 20+, pinned pnpm 9.15.9, Next.js + TypeScript + Tailwind.
+
+```bash
+corepack enable
+corepack prepare pnpm@9.15.9 --activate
+pnpm install --frozen-lockfile
+pnpm typecheck:frontend
+pnpm build:frontend
 ```
 
-## Quick start
+Django: Python 3.12 and the **pinned** `backend/requirements.txt`. Use an isolated local/disposable database and reviewed environment config.
 
-```powershell
-cd "C:\Users\Bi Creativity\octalve-console"
-pnpm install
-pnpm dev:frontend
+```bash
+python -m venv .venv
+# Activate .venv for your platform, then:
+python -m pip install -r backend/requirements.txt
+cd backend
+python manage.py check
+python manage.py makemigrations --check --dry-run
+# Tests only against a disposable test database, NEVER Production.
 ```
 
-Open:
+GitHub Actions contains source, security, Django, frontend build and disposable PostgreSQL checks. **A green run is not real supplier connectivity, financial authorization, 810-case browser acceptance or a release signoff.**
 
-```txt
-http://localhost:3000/login
-```
+## Non-negotiable authority boundaries
 
-For this MVP, the login form is frontend-only and redirects into the console. Use any email and password while the real Django authentication is being connected.
+- Console owns retail catalogue, customer identity, orders, invoices, gateway settlement and hosting provisioning entitlement.
+- OPanel owns technical hosting operations after exact verified Console authorization and a server-redeemed short-lived SSO grant.
+- Published plans require verified inventory, documented supplier costs and versioned offers. No static client prices or fake availability.
+- Never let customer profile forms edit money or award Staff/Admin permissions. Wallet money moves only through verified, idempotent ledger settlement.
+- Provider secrets are never plain Console settings; protect connection-vault credentials, MFA step-up, audit and network egress before activation.
+- Keep Preview deployments disabled. Use explicit, reviewed same-SHA Vercel Production deploy only after source, actual database migration, security and rollback gates.
 
-## What has been built
-
-- Admin console shell with premium sidebar, topbar, cards, tables, editors and detail pages.
-- Client portal shell with order flow, service management, DNS/file/usage/backup/VPS/migration areas, invoices, wallet, support and knowledge base.
-- Staff workspace shell for support, customers, provisioning, security and knowledge base.
-- Product, plan and package management screens.
-- Gateway configuration screens for Paystack, Flutterwave, Cryptocurrency, Bank Transfer, Wallet Balance and Manual Payment.
-- Provider adapter UI and backend adapter architecture for DirectAdmin, cPanel, Plesk, Proxmox, Virtualizor, Enhance, Pterodactyl, VirtFusion, Cloudflare, domain registrars, SSL providers, email providers and backup providers.
-- Billing screens for invoices, transactions, services, quotes, domains, print queue and batch processing.
-- Tools: service queue, currency converter, mass mailer, blacklist, download manager, CMS, utilities.
-- Support screens: tickets, departments, predefined responses, support staff and knowledge base.
-- Settings foundation: general, security, social login, tax, mail, tickets, cron, credits, theme, invoices, API keys, notifications and providers.
-
-## Current technical status
-
-The frontend is a complete premium MVP interface using shared data in:
-
-```txt
-frontend/src/lib/platform-data.ts
-```
-
-The backend folder is a Django architecture skeleton. It defines the future backend shape, adapter contracts and service boundaries, but it is not yet connected to the frontend.
-
-## Next implementation phase
-
-1. Connect login/signup to Django authentication.
-2. Replace `platform-data.ts` with API calls.
-3. Implement PostgreSQL models for users, customers, products, plans, orders, invoices, services, domains, wallets, tickets and audit logs.
-4. Build the adapter executor that provisions services through DirectAdmin first.
-5. Connect Paystack and Flutterwave payment initialization and webhooks.
-6. Build cron jobs for invoices, reminders, suspension, termination and queue retries.
-7. Add role-based permission enforcement for Admin, Staff and Client.
-8. Deploy frontend to `console.octalve.cloud` and backend API to the chosen server/API domain.
+See the [audit's prioritized acceptance batches](docs/OCTALVE_CLOUD_FULL_SYSTEM_AUDIT_2026-10-30.md#7-prioritized-delivery-batches-and-acceptance-gates) for the next execution work.
