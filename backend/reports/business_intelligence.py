@@ -79,7 +79,7 @@ def business_snapshot(request):
     active_services = Service.objects.filter(status="active")
     upcoming_services = active_services.filter(
         next_due_date__gte=now, next_due_date__lte=next_month)
-    users = get_user_model().objects.filter(is_staff=False, is_superuser=False)
+    users = get_user_model().objects.filter(role='client', is_staff=False, is_superuser=False)
     current_users = users.filter(date_joined__gte=this_month)
     previous_users = users.filter(
         date_joined__gte=last_month, date_joined__lt=this_month)
