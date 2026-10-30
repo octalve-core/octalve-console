@@ -10,6 +10,12 @@ import sys
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+# Run from a checked-out monorepo root without relying on the shell PYTHONPATH.
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0,str(BACKEND_ROOT))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE","octalve_backend.settings")
+
 HOST = "ep-cool-butterfly-b8jvzofp.c-14.us-east-1.aws.neon.tech"
 DATABASE = "neondb"
 ROLE = "neondb_owner"
