@@ -263,3 +263,57 @@ class AdminCustomerDirectoryContractTests(APITestCase):
             [r["full_name"] for r in ordered.data["results"]],
             ["Directory First Customer", "Directory Second Customer"],
         )
+
+
+    def test_customer_profile_edits_reject_wallet_and_privilege_injection(self):
+        self.client.force_authenticate(user=self.admin)
+        endpoint = f"/api/auth/customers/{self.first.pk}/"
+        for attempt in (
+            {"balance": "99999999"},
+            {"wallet_balance": "99999999"},
+            {"role": "admin"},
+            {"is_staff": True},
+            {"is_superuser": True},
+            {"full_name": "Injected", "role": "staff"},
+        ):
+            response = self.client.patch(endpoint, attempt, format="json")
+            self.assertEqual(response.status_code, 400, (attempt, response.data))
+        self.first.refresh_from_db()
+        self.assertEqual(self.first.role, "client")
+        self.assertFalse(self.first.is_staff)
+        self.assertFalse(self.first.is_superuser)
+        self.assertEqual(self.first.full_name, "Directory First Customer")
+        self.assertEqual(Wallet.objects.get(user=self.first).balance, Decimal("1520.25"))
+
+    def test_customer_name_notes_and_suspension_are_real_authorized_changes(self):
+        from accounts.models import ClientProfile
+
+        self.client.force_authenticate(user=self.admin)
+        endpoint = f"/api/auth/customers/{self.first.pk}/"
+        response = self.client.patch(endpoint, {
+            "full_name": "Directory Updated Customer",
+            "phone_number": "+2348012345678",
+            "company_name": "Genuine Company",
+            "notes": "Customer requested callback",
+            "status": "suspended",
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.first.refresh_from_db()
+        self.assertEqual(self.first.full_name, "Directory Updated Customer")
+        self.assertFalse(self.first.is_active)
+        self.assertTrue(self.first.metadata["account_suspended"])
+        profile = ClientProfile.objects.get(user=self.first)
+        self.assertEqual(profile.notes, "Customer requested callback")
+        directory = self.client.get("/api/auth/customers/?status=suspended")
+        self.assertEqual(directory.status_code, 200, directory.data)
+        self.assertEqual(directory.data["count"], 1)
+        self.assertEqual(directory.data["results"][0]["status"], "suspended")
+        detail = self.client.get(endpoint)
+        self.assertEqual(detail.data["status"], "suspended")
+        reactivate = self.client.patch(endpoint, {"status": "active"}, format="json")
+        self.assertEqual(reactivate.status_code, 200, reactivate.data)
+        self.first.refresh_from_db()
+        self.assertTrue(self.first.is_active)
+        self.assertNotIn("account_suspended", self.first.metadata)
+        self.assertTrue(ClientProfile.objects.filter(user=self.first).exists())
+        self.assertEqual(Wallet.objects.get(user=self.first).balance, Decimal("1520.25"))
