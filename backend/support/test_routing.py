@@ -13,13 +13,13 @@ class SupportRoutingTests(TestCase):
         self.stranger=User.objects.create_user(email="stranger-support@example.invalid",
             username="stranger_support",password="CI-strong-test-secret",role="client")
         self.dns_agent=User.objects.create_user(email="dns-agent@example.invalid",
-            username="dns_agent",password="CI-strong-test-secret",role="staff")
+            username="dns_agent",password="CI-strong-test-secret",role="staff",is_staff=True)
         self.email_agent=User.objects.create_user(email="email-agent@example.invalid",
-            username="email_agent",password="CI-strong-test-secret",role="staff")
+            username="email_agent",password="CI-strong-test-secret",role="staff",is_staff=True)
         self.outsider=User.objects.create_user(email="outside-agent@example.invalid",
-            username="outside_agent",password="CI-strong-test-secret",role="staff")
+            username="outside_agent",password="CI-strong-test-secret",role="staff",is_staff=True)
         self.admin=User.objects.create_user(email="support-admin@example.invalid",
-            username="support_admin",password="CI-strong-test-secret",role="admin")
+            username="support_admin",password="CI-strong-test-secret",role="admin",is_staff=True)
         self.dept=SupportDepartment.objects.create(name="Technical Support",auto_assign=True)
         self.dept.assigned_staff.set([self.dns_agent,self.email_agent])
         self.other_dept=SupportDepartment.objects.create(name="Billing Support")
