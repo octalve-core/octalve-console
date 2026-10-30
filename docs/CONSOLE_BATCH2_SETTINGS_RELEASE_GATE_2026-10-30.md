@@ -35,12 +35,13 @@ This document extends `CONSOLE_BATCH_1_2_ACCEPTANCE_2026-10-30.md` and records *
 ## Production migration gate
 At 2026-10-30 source inspection, **Neon Production** project `falling-surf-50258433`, branch `br-dark-bread-b8j0gqz4`, had **55 migrations, 107 public tables and one `settings_registry` migration**. This differs from the full CI scratch DB baseline (58 migrations/111 tables) because three existing provider security migrations are outstanding in Production, unrelated to this release.
 
-Settings migrations are **additive**:
+Settings migrations are **additive** and now include tax history:
 - `settings_registry.0002_console_policy_defaults` — no-op historical checkpoint, no data rewrite;
 - `settings_registry.0003_mail_template_outbox` — create `EmailTemplateRevision`, `ConsoleMailOutbox`, `ConsoleMailAttempt` only;
 - `settings_registry.0004_seed_mail_templates` — upsert 12 inactive template defaults with `get_or_create`; no message delivery.
+- `settings_registry.0005_tax_policy_revision` — add an append-only owner policy history table; no financial activation.
 
-**Do not** blindly execute unscoped `python manage.py migrate` in Production or mark migrations as applied without executing their actual operations. Use the exact Production Django code and DB connection from a restricted certified migrator, take immutable checkpoint, `python manage.py showmigrations settings_registry`, `python manage.py migrate settings_registry 0004 --plan`, rehearse on a verified fresh Neon branch or disposable same-revision clone, then execute `python manage.py migrate settings_registry 0004 --noinput` on production with isolated admin supervision. Verify migrations/tables and preview APIs before routing live UI. No migrations from unrelated providers unless separately approved.
+**Do not** blindly execute unscoped `python manage.py migrate` in Production or mark migrations as applied without executing their actual operations. Use the exact Production Django code and DB connection from a restricted certified migrator, take immutable checkpoint, `python manage.py showmigrations settings_registry`, `python manage.py migrate settings_registry 0005 --plan`, rehearse on a verified fresh Neon branch or disposable same-revision clone, then execute `python manage.py migrate settings_registry 0005 --noinput` on production with isolated admin supervision. Verify migrations/tables and preview APIs before routing live UI. No migrations from unrelated providers unless separately approved.
 
 **Known blocker:** Neon project currently rejects creation of an additional review branch (`branches limit exceeded`). Rehearsal in disposable PostgreSQL GitHub Actions is not a substitute for a fresh Production-data clone. Until schema rollout is certified, **do not merge and deploy** the DB-dependent Settings UI into Production, even if code CI is all green.
 
@@ -122,3 +123,9 @@ and ambiguous delivery receipts, retry/failover rules and crash quarantine.
    public configuration settings, six-width authenticated browser receipts, and
    exact-SHA release/rollback verification. Until all release gates are
    satisfied, keep PR #101 as draft and Production on the Batch 1 SHA.
+
+## SET-03 continuation: audited tax policy history
+
+Tax GET now does not create a database row. Saved, verified changes record an immutable application-level snapshot, revision number and actor, with a Super-Admin-only readback route and a read-only history panel. They do not recalculate already issued invoices or activate checkout taxation. Scratch CI must now account for 62 migrations and 115 tables versus the current observed Production 55/107. The difference does NOT authorize unrelated supplier security migrations.
+
+Tax compliance references: National Assembly Nigeria Tax Act 2025 https://nass.gov.ng/documents/download/11249 ; regional and product-based tax computation and exemption guidance https://support.stripe.com/questions/understanding-tax-rate-calculations-with-managed-payments . Legal rules, effective dates, product tax codes and customer location must be established before rate edits can affect final financial quotes.
