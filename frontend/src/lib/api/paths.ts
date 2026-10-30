@@ -18,6 +18,7 @@ export const apiPaths = {
     verify: "/auth/jwt/verify/",
     logout: "/auth/logout/",
     register: "/auth/register/",
+    usernameAvailability: "/auth/username-availability/",
     me: "/auth/users/me/",
     extendedMe: "/auth/me/",
     users: "/auth/users/",
