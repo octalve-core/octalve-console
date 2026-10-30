@@ -14,6 +14,10 @@ export function ConsoleThemeSync(){
      document.documentElement.style.setProperty("--console-primary",theme.primary_color);
     if(allowedCanvas.has(theme.canvas_color))
      document.documentElement.style.setProperty("--console-canvas",theme.canvas_color);
+    if(theme.density==="compact")
+     document.documentElement.style.setProperty("--console-panel-padding","0.75rem");
+    else if(theme.density==="comfortable")
+     document.documentElement.style.setProperty("--console-panel-padding","1rem");
    }).catch(()=>{/* Retain compiled brand-safe defaults if unavailable. */});
   return()=>{active=false;};
  },[]);
