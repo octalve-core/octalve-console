@@ -228,26 +228,17 @@ class EmailTemplate(models.Model):
         ]
     
     def render_subject(self, context):
-        """Render subject with context variables"""
-        subject = self.subject
-        for key, value in context.items():
-            subject = subject.replace(f'{{{{ {key} }}}}', str(value))
-        return subject
-    
+        from .mail_authority import render
+        return render(self, context)["subject"]
+
     def render_html(self, context):
-        """Render HTML body with context variables"""
-        html = self.body_html
-        for key, value in context.items():
-            html = html.replace(f'{{{{ {key} }}}}', str(value))
-        return html
-    
+        from .mail_authority import render
+        return render(self, context)["body_html"]
+
     def render_text(self, context):
-        """Render text body with context variables"""
-        text = self.body_text
-        for key, value in context.items():
-            text = text.replace(f'{{{{ {key} }}}}', str(value))
-        return text
-    
+        from .mail_authority import render
+        return render(self, context)["body_text"]
+
     def __str__(self):
         return self.name
 
@@ -384,3 +375,81 @@ class SystemConfig(models.Model):
     def __str__(self):
         return "System Configuration"
 
+
+# SET-04: immutable revision receipts and durable delivery intent.
+# Provider execution is independent and unavailable until sender certification.
+class EmailTemplateRevision(models.Model):
+    template = models.ForeignKey("settings_registry.EmailTemplate", on_delete=models.PROTECT, related_name="revisions")
+    revision = models.PositiveIntegerField()
+    actor = models.ForeignKey("accounts.CustomUser", on_delete=models.SET_NULL, null=True, blank=True)
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["template", "revision"], name="email_template_revision_uniq")]
+
+    def save(self,*args,**kwargs):
+        if self.pk is not None and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("Email template audit revisions cannot be overwritten.")
+        return super().save(*args,**kwargs)
+
+    def delete(self,*args,**kwargs):
+        raise ValueError("Email template audit revisions cannot be deleted.")
+
+class ConsoleMailOutbox(models.Model):
+    idempotency_key = models.CharField(max_length=128, unique=True)
+    template = models.ForeignKey("settings_registry.EmailTemplate", on_delete=models.PROTECT)
+    recipient = models.EmailField()
+    subject = models.CharField(max_length=255)
+    body_text = models.TextField()
+    body_html = models.TextField()
+    audience = models.CharField(max_length=16, choices=[("transactional", "Transactional"),("marketing", "Marketing")])
+    status = models.CharField(max_length=24, default="queued", choices=[
+        ("queued", "Queued"), ("processing", "Processing"),
+        ("sent", "Sent"), ("needs_review", "Needs delivery reconciliation"),
+        ("failed", "Failed"), ("suppressed", "Suppressed"),
+    ])
+    attempts = models.PositiveIntegerField(default=0)
+    provider = models.CharField(max_length=80, blank=True, default="")
+    provider_receipt = models.CharField(max_length=255, blank=True, default="")
+    last_error_code = models.CharField(max_length=80, blank=True, default="")
+    next_attempt_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        indexes = [models.Index(fields=["status","created_at"], name="console_mail_state_ix")]
+
+class ConsoleMailAttempt(models.Model):
+    outbox = models.ForeignKey("settings_registry.ConsoleMailOutbox",on_delete=models.PROTECT,related_name="delivery_attempts")
+    provider = models.CharField(max_length=80)
+    outcome = models.CharField(max_length=24,choices=[("accepted","Accepted"),("refused","Refused"),("unknown","Unknown")])
+    receipt = models.CharField(max_length=255,blank=True,default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self,*args,**kwargs):
+        if self.pk is not None and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("Delivery attempt receipts cannot be overwritten.")
+        return super().save(*args,**kwargs)
+
+    def delete(self,*args,**kwargs):
+        raise ValueError("Delivery attempt receipts cannot be deleted.")
+
+class TaxPolicyRevision(models.Model):
+    """Versioned operator tax preferences. Does not change checkout authority."""
+    policy = models.ForeignKey("settings_registry.TaxSettings", on_delete=models.PROTECT,
+                               related_name="policy_revisions")
+    revision = models.PositiveIntegerField()
+    actor = models.ForeignKey("accounts.CustomUser", on_delete=models.SET_NULL,
+                              null=True, blank=True)
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["policy", "revision"],
+                                               name="console_tax_policy_revision_uniq")]
+
+    def save(self,*args,**kwargs):
+        if self.pk is not None and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("Tax policy revision cannot be overwritten.")
+        return super().save(*args,**kwargs)
+
+    def delete(self,*args,**kwargs):
+        raise ValueError("Tax policy revision cannot be deleted.")

@@ -49,7 +49,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "general",
     title: "General",
-    description: "Review Console identity and policies. Proposed changes require separate validation and approval; no configuration is changed here.",
+    description: "Manage business identity and Console display preferences.",
     href: "/admin/settings/general",
     icon: Building2,
     status: "Needs setup",
@@ -62,7 +62,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "security",
     title: "Security",
-    description: "CAPTCHA, trusted proxies, session protection, and secure access rules.",
+    description: "Review account protection, sessions and security verification.",
     href: "/admin/settings/security",
     icon: ShieldCheck,
     status: "Needs setup",
@@ -75,7 +75,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "mail",
     title: "Mail",
-    description: "Review sender configuration and message templates; live sending requires a verified mail provider.",
+    description: "Edit personalized messages, sender preferences and delivery history.",
     href: "/admin/settings/mail",
     icon: Mail,
     status: "Needs setup",
@@ -88,7 +88,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "tax",
     title: "Tax",
-    description: "Tax and invoice-compliance policy; editing and legal certification are not connected here.",
+    description: "Manage saved tax rates and exemptions before checkout activation.",
     href: "/admin/settings/tax",
     icon: Percent,
     status: "Draft",
@@ -101,7 +101,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "providers",
     title: "Providers",
-    description: "Review vendor connection requirements in Integrations and inspect existing provider records. Supplier execution remains disabled.",
+    description: "Manage supplier connections and integration readiness.",
     href: "/admin/settings/providers",
     icon: PlugZap,
     status: "Needs setup",
@@ -114,7 +114,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "api-keys",
     title: "API keys",
-    description: "Review API-access policy. Credential issuance and rotation are not connected here.",
+    description: "Review API access and manage provider credentials securely.",
     href: "/admin/settings/api-keys",
     icon: KeyRound,
     status: "Needs setup",
@@ -127,7 +127,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "notifications",
     title: "Notifications",
-    description: "Review saved notification templates; external email delivery requires separate setup.",
+    description: "Create and personalize customer notifications and announcements.",
     href: "/admin/settings/notifications",
     icon: Bell,
     status: "Needs setup",
@@ -140,7 +140,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "credits",
     title: "Credits",
-    description: "Wallet and credit policy. No new deposit or auto-apply authority is enabled here.",
+    description: "Review wallet controls and credit safeguards.",
     href: "/admin/settings/credits",
     icon: CreditCard,
     status: "Draft",
@@ -153,7 +153,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "cron-jobs",
     title: "Cron jobs",
-    description: "Review billing schedules and renewal preflight; automatic execution is not enabled here.",
+    description: "Review renewal schedules and task readiness.",
     href: "/admin/settings/cron-jobs",
     icon: Clock3,
     status: "Needs setup",
@@ -166,7 +166,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "invoices",
     title: "Invoices",
-    description: "Review invoice policies, issued documents and approved PDF template previews. Editing and issuance are not enabled here.",
+    description: "Set invoice numbering and approved designs for future documents.",
     href: "/admin/settings/invoices",
     icon: FileText,
     status: "Needs setup",
@@ -179,7 +179,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "social-login",
     title: "Social login",
-    description: "Future third-party sign-in options; no OAuth providers are enabled from this page.",
+    description: "Connect Google, Apple or Facebook sign-in securely.",
     href: "/admin/settings/social-login",
     icon: Users,
     status: "Draft",
@@ -192,7 +192,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "theme",
     title: "Theme",
-    description: "Review the Console appearance. Theme changes are not connected to a saved editor.",
+    description: "Personalize the Console colour palette and preview changes.",
     href: "/admin/settings/theme",
     icon: Palette,
     status: "Needs setup",
@@ -205,7 +205,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "tickets",
     title: "Tickets",
-    description: "Review support departments, ticket responses and routing; advanced automation is not connected.",
+    description: "Manage support departments, responses and routing tools.",
     href: "/admin/settings/tickets",
     icon: Ticket,
     status: "Needs setup",
@@ -218,7 +218,7 @@ export const adminSettingsItems: AdminSettingsItem[] = [
   {
     key: "other",
     title: "Other",
-    description: "Advanced settings, experimental features, and internal operational controls.",
+    description: "Review advanced Console administration controls.",
     href: "/admin/settings/other",
     icon: Settings,
     status: "Draft",

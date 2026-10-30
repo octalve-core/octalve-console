@@ -38,7 +38,7 @@ class SettingViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_active and user.is_staff and user.is_superuser and user.role == 'admin':
             return Setting.objects.all()
         return Setting.objects.filter(is_public=True, is_deprecated=False, is_encrypted=False).exclude(data_type='password')
     
@@ -147,7 +147,7 @@ class CloudEmailTemplateAdminAccess(BasePermission):
     def has_permission(self, request, view):
         user = request.user
         return bool(user and user.is_authenticated and
-                    (user.is_superuser or getattr(user, 'role', None) == 'admin'))
+                    (user.is_active and user.is_staff and user.is_superuser and getattr(user, 'role', None) == 'admin'))
 
 
 class EmailTemplateViewSet(viewsets.ReadOnlyModelViewSet):
@@ -161,7 +161,7 @@ class EmailTemplateViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'admin' or user.is_superuser:
+        if user.is_active and user.is_staff and user.is_superuser and user.role == 'admin':
             return EmailTemplate.objects.all()
         return EmailTemplate.objects.filter(is_active=True)
     

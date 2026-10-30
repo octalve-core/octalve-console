@@ -15,8 +15,9 @@ const layout=expect(base+"components/AuthLayout.tsx",[
 ]);
 const control=expect(base+"components/AuthFormControls.tsx",[
  "aria-invalid","aria-describedby","label htmlFor","aria-pressed","AuthSocialOptions",
- "disabled aria-label","AuthPasswordStrength","type=\"submit\""
+ "AuthPasswordStrength","type=\"submit\""
 ]);
+if(!control.includes("return null;")||control.includes("disabled aria-label"))throw Error("Uncertified OAuth controls must be absent, not visually disabled");
 const css=expect(base+"components/AuthLayout.module.css",[
  ".art",".frame",".fieldShell",".action",".otpRow",
  '@media (max-width:750px)','url("/branding/octalve-auth-background.webp")'

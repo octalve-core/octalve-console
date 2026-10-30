@@ -1,6 +1,12 @@
 # settings_registry/urls.py
 
 from django.urls import path, include
+from .console_views import ConsolePolicyView
+from .tax_policy import ConsoleTaxPolicyView,ConsoleTaxHistoryView
+from .public_theme import ConsoleThemeView
+from .operational_status import ConsoleStatusView
+from .mail_sender_status import MailSenderReadiness
+from .mail_views import TemplateListView,TemplateDetailView,TemplateDuplicateView,TemplatePreviewView,TemplateRevisionHistoryView,OutboxDashboardView
 from rest_framework.routers import DefaultRouter
 from .views import (
     SettingGroupViewSet, SettingViewSet, EmailTemplateViewSet,
@@ -16,5 +22,17 @@ router.register(r'tax', TaxSettingsViewSet, basename='tax-settings')
 router.register(r'system', SystemConfigViewSet, basename='system-config')
 
 urlpatterns = [
+    path('console-mail/senders/',MailSenderReadiness.as_view(),name='console-mail-sender-status'),
+    path('console-status/<slug:section>/',ConsoleStatusView.as_view(),name='console-status'),
+    path('console-theme/',ConsoleThemeView.as_view(),name='console-theme'),
+    path('console-tax/',ConsoleTaxPolicyView.as_view(),name='console-tax'),
+    path('console-tax/history/',ConsoleTaxHistoryView.as_view(),name='console-tax-history'),
+    path('console-mail/templates/',TemplateListView.as_view(),name='console-mail-templates'),
+    path('console-mail/templates/<int:pk>/',TemplateDetailView.as_view(),name='console-mail-template-detail'),
+    path('console-mail/templates/<int:pk>/duplicate/',TemplateDuplicateView.as_view(),name='console-mail-template-duplicate'),
+    path('console-mail/templates/<int:pk>/preview/',TemplatePreviewView.as_view(),name='console-mail-template-preview'),
+    path('console-mail/outbox/',OutboxDashboardView.as_view(),name='console-mail-outbox'),
+    path('console-mail/templates/<int:pk>/history/',TemplateRevisionHistoryView.as_view(),name='console-mail-template-history'),
+    path('console-policy/<slug:section>/', ConsolePolicyView.as_view(), name='console-policy'),
     path('', include(router.urls)),
 ]
