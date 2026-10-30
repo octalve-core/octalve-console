@@ -12,7 +12,8 @@ export type BIZSnapshot={
   invoice_status:Record<string,number>;paid_before_due_this_month:number;
   paid_after_due_this_month:number;payment_months:MonthlyMoney[]};
  customers:{registered_total:number;registered_this_month:number;registered_last_month:number;
-  paying_customers_this_month:number;registrations_by_month:MonthlyCount[]};
+  paying_customers_this_month:number;accounts_with_repeat_failed_payments_14d:number;
+  accounts_with_past_due_services:number;registrations_by_month:MonthlyCount[]};
  renewals:{services_due_in_7_days:number;services_due_in_30_days:number;
   services_past_due:number;domains_expiring_in_30_days:number;paid_renewal_invoices_this_month:number};
  providers:{active_services_with_provider:number;
@@ -83,6 +84,8 @@ export function parseBIZSnapshot(value:unknown):BIZSnapshot{
    registered_this_month:number(c.registered_this_month),
    registered_last_month:number(c.registered_last_month),
    paying_customers_this_month:number(c.paying_customers_this_month),
+   accounts_with_repeat_failed_payments_14d:number(c.accounts_with_repeat_failed_payments_14d),
+   accounts_with_past_due_services:number(c.accounts_with_past_due_services),
    registrations_by_month:monthly(c.registrations_by_month,false) as MonthlyCount[]},
   renewals:{services_due_in_7_days:number(n.services_due_in_7_days),
    services_due_in_30_days:number(n.services_due_in_30_days),
