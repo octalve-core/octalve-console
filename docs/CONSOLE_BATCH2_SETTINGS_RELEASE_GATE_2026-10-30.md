@@ -46,3 +46,79 @@ Settings migrations are **additive**:
 
 ## GitHub checks and release
 Branch `feat/set-batch2-live-console-policy-20261030`, draft PR #101. Gate: frontend tests/build, full Django tests (including three new Settings regression modules), Postgres schema security, source safeguards, migration consistency, then isolated Production schema and authenticated 6-width UI. On green and certified Production schema, merge PR to main, deploy same merge SHA to Vercel `octalve-cloud-api` and `octalve-console`, verify both domain aliases and health/anonymous denials, and retain rollback IDs. Do not claim deployment from an in-progress GitHub workflow.
+
+
+## Continuation review (30 October, subsequent implementation)
+
+The source review exposed a template revision bug: history snapshots were recording the
+PREVIOUS value rather than the freshly saved version. This is corrected. Admins
+can now inspect the latest 30 revision snapshots using
+`GET /api/settings/console-mail/templates/<id>/history/`, and the Workbench
+renders them as React text, never as executable HTML. Revision/attempt records
+refuse updates or deletes through their model methods; this is application-level
+tamper resistance, **not** a claim of a WORM database or independently stored audit.
+
+The `mail_dispatch.deliver_queued_once` state machine is written and tested,
+but remains **internal and unregistered** until a certified sender is available.
+It requires an explicit certified adapter and provider receipt, tries an ordered
+fallback only after definitive refusal, caps attempt cycles, schedules bounded
+backoff and sends unknown/timeouts/worker interruptions to `needs_review`.
+No external HTTP endpoint can initiate sending; no adapter currently meets the
+Integration Store's live operational certification.
+
+The invoice-issued path records an idempotent queued event only when the
+`invoice_issued` template is active. All templates are initially inactive;
+this path neither delivers email nor changes settled payments or invoice values.
+An invalid active template cannot prevent financial issuance. Separate signed
+payment success and expiry/domain/support event emitters are still required.
+
+The approved Theme density choice also uses one canonical
+`--console-panel-padding` CSS variable shared by every design-system Panel.
+Defaults preserve existing Octalve canvas colours and spacing.
+
+The new frontend source guard verifies that operator forms call real Django
+read/write endpoints, public theme tokens are bounded, Notifications uses the
+real outbox, and uncertified OAuth controls stay hidden. Django tests include
+template revision visibility, safe token escaping, staff/client denial, accepted
+and ambiguous delivery receipts, retry/failover rules and crash quarantine.
+
+### Security references and design decisions
+
+- OWASP OAuth 2.0 Cheat Sheet:
+  https://cheatsheetseries.owasp.org/cheatsheets/OAuth2_Cheat_Sheet.html
+  — PKCE/state/nonce, issuer checks and browser-bound transaction state are
+  necessary before any social OAuth UI activation.
+- OAuth 2.0 Security Best Current Practice, RFC 9700:
+  https://www.rfc-editor.org/rfc/rfc9700.html
+  — exact redirect matching and no open redirector or implicit token grant.
+- Django 6.0 QuerySet locking:
+  https://docs.djangoproject.com/en/6.0/ref/models/querysets/
+  — `select_for_update` is transactional in PostgreSQL and cannot be assumed
+  to behave identically on SQLite; disposable PostgreSQL tests remain mandatory.
+- Django transaction `on_commit`:
+  https://docs.djangoproject.com/en/6.0/topics/db/transactions/
+  — sending should never occur inside pricing/payment transactions; durable
+  queue intent and independently certified dispatch retain authority.
+
+### Definitive remaining acceptance holds
+
+1. **Production schema:** create/reuse a formally dedicated *fresh* Neon
+   Production clone after resolving the project branch limit; do not rewrite
+   preserved recovery or unrelated preview branches. Apply only the reviewed
+   Settings migrations to that clone; then make the documented independent
+   Production migration and verify readback.
+2. **Email sending:** certify integration vault custody, individual senders'
+   real provider acceptance receipts, bounded network endpoints, operator
+   sender priority, suppression/consent records, restartable worker and bulk
+   campaign limits before any external delivery is enabled. The internal
+   dispatch state machine is not a certified mail service.
+3. **OAuth:** add tested Google/Apple/Facebook server-side callback contracts
+   and verified account linking, and enable provider buttons only after
+   configured real credentials and authorization tests.
+4. **Tax:** jurisdiction-sensitive legal/financial rules, quote/order agreement,
+   versioned tax snapshots and historical invoice immutability; no automatic
+   activation simply because `TaxSettings.enable_tax` is true.
+5. **Global operations:** independently enforced Security/Cron/API-token and
+   public configuration settings, six-width authenticated browser receipts, and
+   exact-SHA release/rollback verification. Until all release gates are
+   satisfied, keep PR #101 as draft and Production on the Batch 1 SHA.
