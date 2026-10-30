@@ -27,6 +27,13 @@ SCHEMAS = {
         "ports": (),
         "guide": "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
     },
+    "brevo": {
+        "name": "Brevo (transactional mail, primary)",
+        "fields": {"sending_domain": "domain"},
+        "secrets": ("api_key",),
+        "ports": (),
+        "guide": "https://developers.brevo.com/docs/send-a-transactional-email",
+    },
     "resend": {
         "name": "Resend (transactional mail)",
         "fields": {"sending_domain": "domain"},
