@@ -29,6 +29,8 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
     full_name = serializers.CharField(required=True)
     phone_number = serializers.CharField(required=False, allow_blank=True)
     referral_code = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    accepted_terms_version = serializers.ChoiceField(
+        choices=["2026-10-30"], required=False, write_only=True)
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     re_password = serializers.CharField(write_only=True, required=True)
 
@@ -41,6 +43,7 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
             'username',
             'phone_number',
             'referral_code',
+            'accepted_terms_version',
             'password',
             're_password',
             'role',          # ✅ read-only output
@@ -91,6 +94,7 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
 
     def create(self, validated_data):
         referral_code = validated_data.pop('referral_code', None)
+        accepted_terms_version = validated_data.pop("accepted_terms_version", None)
         validated_data.pop('re_password', None)
 
         # Omitted username: derive a short safe name with a random suffix,
@@ -104,7 +108,19 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
         try:
             with transaction.atomic():
                 user = User.objects.create_user(**validated_data)
-                logger.info(f"New user created successfully: {user.email}")
+                if accepted_terms_version:
+                    # Explicit client-submitted acknowledgement; no implied
+                    # acceptance on older API clients that omit the field.
+                    user.metadata = {
+                        **(user.metadata or {}),
+                        "terms_acceptance": {
+                            "version": str(accepted_terms_version),
+                            "accepted_at": timezone.now().isoformat(),
+                            "source": "signup",
+                        },
+                    }
+                    user.save(update_fields=["metadata"])
+                logger.info("New Octalve Cloud account created.")
 
                 if referral_code:
                     try:
