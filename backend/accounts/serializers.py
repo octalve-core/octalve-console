@@ -296,12 +296,7 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
             return 'suspended' if (obj.metadata or {}).get('account_suspended') is True else 'inactive'
         if getattr(obj, 'is_locked', False):
             return 'locked'
-        if self.get_role(obj) == 'client':
-            from billing.models import Invoice
-            if Invoice.objects.filter(
-                client=obj, status='unpaid', due_date__lt=timezone.now()
-            ).exists():
-                return 'overdue'
+        # Overdue is an invoice/payment state, not an account-access state.
         return 'active'
 
     def get_billing_summary(self, obj):
