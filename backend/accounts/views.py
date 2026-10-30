@@ -37,7 +37,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
-from .serializers import CustomUserCreateSerializer, CustomerListSerializer, CustomerDetailSerializer
+from .serializers import CustomUserCreateSerializer, CustomerListSerializer, CustomerDetailSerializer, CustomerCreateSerializer, CustomerUpdateSerializer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -467,7 +467,9 @@ class AdminCustomerListView(generics.ListCreateAPIView):
             if state not in ("active", "inactive", "suspended", "locked"):
                 raise serializers.ValidationError({"status": "Choose active, inactive, suspended or locked."})
             if state == "inactive":
-                queryset = queryset.filter(is_active=False).exclude(metadata__account_suspended=True)
+                queryset = queryset.filter(is_active=False).filter(
+                    Q(metadata__account_suspended__isnull=True) | Q(metadata__account_suspended=False)
+                )
             elif state == "suspended":
                 queryset = queryset.filter(is_active=False, metadata__account_suspended=True)
             elif state == "locked":
