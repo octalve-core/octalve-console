@@ -32,7 +32,8 @@ const ALLOWED_AUTH_PATHS = new Set([
   "auth/users/me", "auth/me",
   "auth/users/reset_password", "auth/users/reset_password_confirm",
   "auth/users/set_password", "auth/customers",
-"auth/profile", "auth/language", "auth/staff", "auth/email/verification/request", "auth/email/verification/confirm",
+"auth/profile", "auth/language", "auth/staff", "auth/email/verification/status",
+  "auth/email/verification/request", "auth/email/verification/confirm",
 ]);
 
 function error(status: number, detail: string) {
@@ -144,6 +145,11 @@ async function forward(request: NextRequest, context: Context) {
   }
   // Owner-only preference: never expose other auth verbs via the BFF.
   if (apiPath === "auth/language" && method !== "GET" && method !== "PATCH") {
+    return error(405, "Method not allowed.");
+  }
+  // Read-only current-user configuration and ownership status. No alternate
+  // HTTP verbs may access this route through the browser-side BFF.
+  if (apiPath === "auth/email/verification/status" && method !== "GET") {
     return error(405, "Method not allowed.");
   }
   // Only Console-authenticated issuance is browser-reachable. The confidential
