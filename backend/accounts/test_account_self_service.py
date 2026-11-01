@@ -82,6 +82,27 @@ class AccountSelfServiceTests(APITestCase):
         self.assertEqual(self.client.post("/api/auth/users/reset_password/",{"email":self.user.email},format="json").status_code,503)
 
     @override_settings(**MAIL_SETTINGS)
+    def test_account_email_readiness_requires_authenticated_encrypted_smtp(self):
+        from accounts.account_self_service import email_transport_ready
+        self.assertTrue(email_transport_ready())
+        for settings_patch in (
+            {"EMAIL_HOST": ""},
+            {"EMAIL_HOST": "localhost"},
+            {"EMAIL_HOST_USER": ""},
+            {"EMAIL_HOST_PASSWORD": ""},
+            {"EMAIL_USE_TLS": False, "EMAIL_USE_SSL": False},
+            {"EMAIL_USE_TLS": True, "EMAIL_USE_SSL": True},
+            {"EMAIL_BACKEND": "django.core.mail.backends.filebased.EmailBackend"},
+        ):
+            with self.subTest(settings_patch=settings_patch):
+                with override_settings(**settings_patch):
+                    self.assertFalse(email_transport_ready())
+                    response = self.client.post(
+                        "/api/auth/email/verification/request/", {}, format="json"
+                    )
+                    self.assertEqual(response.status_code, 503, response.data)
+
+    @override_settings(**MAIL_SETTINGS)
     @patch("accounts.account_self_service.send_mail")
     def test_email_verification_binds_email_password_and_is_one_use(self,send):
         send.return_value=1
