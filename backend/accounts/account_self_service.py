@@ -85,17 +85,25 @@ class OwnProfileView(APIView):
 def email_transport_ready():
     backend = getattr(settings, "EMAIL_BACKEND", "")
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "")
+    # Account verification must never claim readiness for a file backend,
+    # unauthenticated relay, missing credentials, or plaintext SMTP.
+    smtp = backend == "django.core.mail.backends.smtp.EmailBackend"
+    host = getattr(settings, "EMAIL_HOST", "")
+    username = getattr(settings, "EMAIL_HOST_USER", "")
+    password = getattr(settings, "EMAIL_HOST_PASSWORD", "")
+    tls = getattr(settings, "EMAIL_USE_TLS", False)
+    ssl = getattr(settings, "EMAIL_USE_SSL", False)
+    port = getattr(settings, "EMAIL_PORT", 0)
     return bool(
         getattr(settings, "CLOUD_ACCOUNT_EMAIL_ENABLED", False)
-        and isinstance(from_email, str)
-        and "@" in from_email
-        and backend
-        and backend not in (
-            "django.core.mail.backends.filebased.EmailBackend",
-            "django.core.mail.backends.console.EmailBackend",
-            "django.core.mail.backends.dummy.EmailBackend",
-            "django.core.mail.backends.locmem.EmailBackend",
-        )
+        and smtp
+        and isinstance(from_email, str) and "@" in from_email
+        and isinstance(host, str) and bool(host.strip())
+        and host.strip().lower() not in ("localhost", "127.0.0.1", "::1")
+        and isinstance(username, str) and bool(username.strip())
+        and isinstance(password, str) and bool(password)
+        and isinstance(port, int) and 1 <= port <= 65535
+        and bool(tls) != bool(ssl)
     )
 
 
@@ -178,6 +186,22 @@ class PasswordRecoveryRequestView(APIView):
             {"detail": "If the address belongs to an account, password recovery instructions will be sent."},
             status=202,
         )
+
+
+
+class AccountEmailDeliveryStatusView(APIView):
+    """Own-email status and whether runtime delivery configuration passes checks.
+
+    This is only a configuration readback, not a claim that provider delivery,
+    sender-domain DNS or mailbox ownership were independently tested.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            "email_verified": request.user.email_verified_at is not None,
+            "delivery_configured": email_transport_ready(),
+        })
 
 
 class EmailVerificationRequestView(APIView):

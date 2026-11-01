@@ -50,7 +50,10 @@ def protected_secret(record):
     except (InvalidToken,ValueError,UnicodeError) as exc: raise VaultUnavailable() from exc
 
 def assert_admin(user):
-    if not user.is_authenticated or not user.is_active or not user.is_staff or not user.is_superuser or user.role!="admin":
+    if (user is None or not getattr(user, "is_authenticated", False) or
+            not user.is_active or not user.is_staff or
+            not user.is_superuser or user.role!="admin" or
+            getattr(user, "email_verified_at", None) is None):
         raise PermissionDenied("Only an active Super Admin may configure provider security.")
 
 def assert_password(user,password):

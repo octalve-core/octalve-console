@@ -5,6 +5,7 @@ import {DashboardPage} from "@/components/layout/DashboardPage";
 import {ActionLink} from "@/components/design-system/ActionLink";
 import {ConsolePolicyEditor} from "../components/ConsolePolicyEditor";
 import {MailTemplateWorkbench} from "../components/MailTemplateWorkbench";
+import {AccountEmailVerificationPanel} from "../components/AccountEmailVerificationPanel";
 import {ConsoleTaxEditor} from "../components/ConsoleTaxEditor";
 import {OperationalSettingsStatus} from "../components/OperationalSettingsStatus";
 import {getAdminSettingsItem,type AdminSettingsKey} from "../data/admin-settings-config";
@@ -20,6 +21,7 @@ export function AdminSettingsSectionView({section}:{section:AdminSettingsKey}){
       <ConsolePolicyEditor section={section}/>:
       section==="tax"?<ConsoleTaxEditor/>:section==="notifications"?null:<OperationalSettingsStatus section={section}/>}
     {(section==="mail"||section==="notifications")?<MailTemplateWorkbench/>:null}
+    {(section==="mail"||section==="security")?<AccountEmailVerificationPanel/>:null}
    </div>
   </DashboardPage>
  </DashboardShell>;

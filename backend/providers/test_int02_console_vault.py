@@ -4,6 +4,7 @@ from unittest.mock import patch
 from cryptography.fernet import Fernet
 from django.contrib.auth import get_user_model
 from django.test import override_settings,TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from providers.connection_models import IntegrationConnection,IntegrationCredentialVersion
@@ -23,7 +24,8 @@ PASSWORD="CI-restricted-account-password"
 class SecureConsoleCredentialTests(TestCase):
  def setUp(self):
   U=get_user_model()
-  self.admin=U.objects.create_superuser(email="int02-super@example.invalid",username="int02_super",password=PASSWORD)
+  self.admin=U.objects.create_superuser(email="int02-super@example.invalid",username="int02_super",password=PASSWORD,
+        email_verified_at=timezone.now())
   self.spoof=U.objects.create_user(email="int02-unsafe@example.invalid",username="int02_unsafe",password=PASSWORD,role="admin",is_staff=False)
   self.staff=U.objects.create_user(email="int02-staff@example.invalid",username="int02_staff",password=PASSWORD,role="staff",is_staff=True)
   self.client=U.objects.create_user(email="int02-client@example.invalid",username="int02_client",password=PASSWORD)

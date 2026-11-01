@@ -170,6 +170,9 @@ export const authApi = {
   saveProfile(details: Partial<EditableAccountProfile>) {
     return api.patch<AccountProfile>("/auth/profile/", details);
   },
+  emailDeliveryStatus() {
+    return api.get<{email_verified:boolean;delivery_configured:boolean}>("/auth/email/verification/status/");
+  },
   requestEmailVerification() {
     return api.post<{detail?:string;email_verified?:boolean}>("/auth/email/verification/request/", {});
   },

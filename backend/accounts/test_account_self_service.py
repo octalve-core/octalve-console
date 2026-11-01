@@ -13,6 +13,12 @@ MAIL_SETTINGS = {
     "CLOUD_ACCOUNT_EMAIL_ENABLED": True,
     "EMAIL_BACKEND": "django.core.mail.backends.smtp.EmailBackend",
     "DEFAULT_FROM_EMAIL": "no-reply@example.invalid",
+    "EMAIL_HOST": "smtp.example.invalid",
+    "EMAIL_PORT": 587,
+    "EMAIL_HOST_USER": "operator-test",
+    "EMAIL_HOST_PASSWORD": "test-only-not-a-production-key",
+    "EMAIL_USE_TLS": True,
+    "EMAIL_USE_SSL": False,
     "FRONTEND_URL": "https://console.cloud.octalve.com",
 }
 
@@ -69,11 +75,57 @@ class AccountSelfServiceTests(APITestCase):
         self.assertIn(self.client.get("/api/auth/profile/").status_code,(401,403))
         self.assertIn(self.client.patch("/api/auth/profile/",{"address":"unsafe"},format="json").status_code,(401,403))
 
+    @override_settings(**MAIL_SETTINGS)
+    def test_own_mail_status_is_authenticated_and_nonsecret(self):
+        from django.utils import timezone
+        endpoint = "/api/auth/email/verification/status/"
+        result = self.client.get(endpoint)
+        self.assertEqual(result.status_code, 200, result.data)
+        self.assertEqual(result.data, {
+            "email_verified": False,
+            "delivery_configured": True,
+        })
+        self.assertNotIn("EMAIL_HOST_PASSWORD", str(result.data))
+        self.assertNotIn("smtp.example.invalid", str(result.data))
+        self.user.email_verified_at = timezone.now()
+        self.user.save(update_fields=["email_verified_at"])
+        confirmed = self.client.get(endpoint)
+        self.assertTrue(confirmed.data["email_verified"])
+        self.client.force_authenticate(user=None)
+        self.assertIn(self.client.get(endpoint).status_code, (401, 403))
+
+    @override_settings(CLOUD_ACCOUNT_EMAIL_ENABLED=False)
+    def test_own_mail_status_fails_closed_with_disabled_delivery(self):
+        result = self.client.get("/api/auth/email/verification/status/")
+        self.assertEqual(result.status_code, 200, result.data)
+        self.assertFalse(result.data["delivery_configured"])
+
     @override_settings(CLOUD_ACCOUNT_EMAIL_ENABLED=False)
     def test_mail_actions_fail_closed_without_delivery(self):
         self.assertEqual(self.client.post("/api/auth/email/verification/request/",{},format="json").status_code,503)
         self.client.force_authenticate(user=None)
         self.assertEqual(self.client.post("/api/auth/users/reset_password/",{"email":self.user.email},format="json").status_code,503)
+
+    @override_settings(**MAIL_SETTINGS)
+    def test_account_email_readiness_requires_authenticated_encrypted_smtp(self):
+        from accounts.account_self_service import email_transport_ready
+        self.assertTrue(email_transport_ready())
+        for settings_patch in (
+            {"EMAIL_HOST": ""},
+            {"EMAIL_HOST": "localhost"},
+            {"EMAIL_HOST_USER": ""},
+            {"EMAIL_HOST_PASSWORD": ""},
+            {"EMAIL_USE_TLS": False, "EMAIL_USE_SSL": False},
+            {"EMAIL_USE_TLS": True, "EMAIL_USE_SSL": True},
+            {"EMAIL_BACKEND": "django.core.mail.backends.filebased.EmailBackend"},
+        ):
+            with self.subTest(settings_patch=settings_patch):
+                with override_settings(**settings_patch):
+                    self.assertFalse(email_transport_ready())
+                    response = self.client.post(
+                        "/api/auth/email/verification/request/", {}, format="json"
+                    )
+                    self.assertEqual(response.status_code, 503, response.data)
 
     @override_settings(**MAIL_SETTINGS)
     @patch("accounts.account_self_service.send_mail")

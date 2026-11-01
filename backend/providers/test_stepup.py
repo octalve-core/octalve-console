@@ -5,6 +5,7 @@ AUDIT_KEY=Fernet.generate_key().decode()
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import DatabaseError
+from django.utils import timezone
 from accounts.models import AuthThrottleBucket
 from django.test import override_settings
 from rest_framework.test import APITestCase
@@ -23,7 +24,8 @@ class ProviderStepupTests(APITestCase):
     def setUp(self):
         cache.clear()
         self.admin=get_user_model().objects.create_superuser(
-            email="stepup@example.invalid",username="stepup_admin",password=PASSWORD)
+            email="stepup@example.invalid",username="stepup_admin",password=PASSWORD,
+            email_verified_at=timezone.now())
         self.client.force_authenticate(user=self.admin)
         self.patcher=patch("providers.connection_stepup.time.time",return_value=NOW)
         self.patcher.start()
