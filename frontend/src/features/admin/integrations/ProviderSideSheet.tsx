@@ -5,8 +5,9 @@ import type {Integration} from "./catalog";
 import {ProviderLogo} from "./ProviderLogo";
 import {ProviderRequirements} from "./ProviderRequirements";
 import {CloudflareReadbackPanel} from "./CloudflareReadbackPanel";
+import {SecureConnectionSetup} from "./SecureConnectionSetup";
 import type {DraftConnection} from "./connection-readback";
-export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,overviewStatus}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean;overviewStatus:"loading"|"ready"|"unavailable"}){
+export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,overviewStatus,onSaved}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean;overviewStatus:"loading"|"ready"|"unavailable";onSaved:()=>void}){
  const element=useRef<HTMLDialogElement>(null);
  useEffect(()=>{const dialog=element.current;if(dialog&&!dialog.open)dialog.showModal();return ()=>{if(dialog?.open)dialog.close();};},[item.slug]);
  return <dialog ref={element} onClose={onClose} aria-labelledby="integration-sheet-title"
@@ -23,7 +24,7 @@ export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,over
  <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
   <div className="rounded-xl bg-blue-50 p-4">
    <p className="text-sm font-medium">Prepare your connection</p>
-   <p className="mt-1 text-xs leading-5 text-slate-700">Review what you need and follow the official setup guide. Secure credential entry is not yet available on this screen.</p>
+   <p className="mt-1 text-xs leading-5 text-slate-700">Review what you need and follow the official setup guide. Secure credential setup below is available only after Super Admin authorization and backend key-custody qualification.</p>
   </div>
   {overviewStatus!=="ready"?<p role="status" className="rounded-xl border border-console-line bg-slate-50 p-3 text-xs text-console-muted">
    {overviewStatus==="loading"?"Checking saved connection records…":"Connection status is temporarily unavailable. This does not mean a provider is disconnected."}
@@ -36,7 +37,7 @@ export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,over
    </div>)}
    <p className="text-xs text-console-muted">Saved encrypted credentials are not a verified connection. No supplier activity is enabled.</p>
   </section>:null}
-  {draftSchemaAvailable?<p className="rounded-xl border border-console-line bg-slate-50 p-3 text-xs text-console-muted">A restricted draft-storage schema exists for this provider. Credential submission remains unavailable until the security approval gate.</p>:null}
+  {draftSchemaAvailable?<SecureConnectionSetup item={item} onSaved={onSaved}/>:null}
   {(item.slug==="cloudflare-dns"||item.slug==="cloudflare-registrar")?<CloudflareReadbackPanel/>:null}
   <ProviderRequirements item={item}/>
  </div>
