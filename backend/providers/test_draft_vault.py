@@ -7,6 +7,7 @@ AUDIT_KEY=Fernet.generate_key().decode()
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import override_settings
+from django.utils import timezone
 from rest_framework.test import APITestCase
 from audit.models import AuditLog
 from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent
@@ -27,7 +28,8 @@ class DraftVaultTests(APITestCase):
     def setUp(self):
         cache.clear()  # Each test gets an isolated throttle budget.
         User=get_user_model()
-        self.owner=User.objects.create_superuser(email="vault-admin@example.invalid",username="vaultadmin",password=PASSWORD)
+        self.owner=User.objects.create_superuser(email="vault-admin@example.invalid",username="vaultadmin",password=PASSWORD,
+            email_verified_at=timezone.now())
         self.other=User.objects.create_user(email="vault-client@example.invalid",username="vaultclient",password=PASSWORD)
         self.client.force_authenticate(user=self.owner)
         ProviderVaultAuthenticator.objects.create(user=self.owner,verified=True,
