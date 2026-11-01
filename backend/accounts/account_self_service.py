@@ -188,6 +188,22 @@ class PasswordRecoveryRequestView(APIView):
         )
 
 
+
+class AccountEmailDeliveryStatusView(APIView):
+    """Own-email status and whether runtime delivery configuration passes checks.
+
+    This is only a configuration readback, not a claim that provider delivery,
+    sender-domain DNS or mailbox ownership were independently tested.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            "email_verified": request.user.email_verified_at is not None,
+            "delivery_configured": email_transport_ready(),
+        })
+
+
 class EmailVerificationRequestView(APIView):
     permission_classes = [IsAuthenticated]
 
