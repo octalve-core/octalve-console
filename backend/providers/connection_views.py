@@ -47,7 +47,6 @@ def require_write_authority(request):
     keys, verified PostgreSQL migration, authorized Super Admin/password/TOTP.
     Existing isolated DEBUG synthetic-review contract is preserved for CI.
     """
-    assert_admin(request.user)
     if not getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False):
         raise VaultUnavailable()
     synthetic=bool(
@@ -65,9 +64,7 @@ def require_write_authority(request):
     if not (synthetic or production):
         raise VaultUnavailable()
     user=request.user
-    if (not user.is_active or not user.is_superuser or
-        not user.is_staff or user.role!="admin"):
-        raise PermissionDenied("Only an authorized Super Admin may configure credentials.")
+    assert_admin(user)
     password=request.data.get("confirm_password")
     if not isinstance(password,str) or len(password)>512 or not user.check_password(password):
         raise PermissionDenied("Recent account password verification is required.")
