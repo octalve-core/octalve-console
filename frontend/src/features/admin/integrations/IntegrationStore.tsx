@@ -63,6 +63,6 @@ export function IntegrationStore(){
   </section>
   <p className="mt-4 text-xs text-console-muted">A visible vendor is not a connected supplier, an approved reseller or a qualified provisioning adapter.</p>
  </DashboardPage>
- {selected?<ProviderSideSheet key={selected.slug} item={selected} onClose={close} drafts={connectionOverview.connections.filter(c=>c.adapter_key===selected.slug)} draftSchemaAvailable={connectionOverview.supported.has(selected.slug)} overviewStatus={connectionOverview.status}/>:null}
+ {selected?<ProviderSideSheet key={selected.slug} item={selected} onClose={close} drafts={connectionOverview.connections.filter(c=>c.adapter_key===selected.slug)} draftSchemaAvailable={connectionOverview.supported.has(selected.slug)} overviewStatus={connectionOverview.status} onSaved={connectionOverview.retry}/>:null}
  </DashboardShell>;
 }
