@@ -5,7 +5,7 @@ export const services:readonly Integration[]=[
   "slug": "cloudflare-dns",
   "name": "Cloudflare DNS",
   "category": "DNS & SSL",
-  "summary": "Zone-scoped DNS and website security automation.",
+  "summary": "Read-only DNS zone and record verification through a fixed Cloudflare API origin. Never grants DNS changes automatically.",
   "documentation": "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
   "guide": "Cloudflare → Create API token",
   "requirements": [
@@ -19,15 +19,17 @@ export const services:readonly Integration[]=[
    },
    {
     "label": "API token",
-    "guidance": "Restricted DNS API token",
+    "guidance": "Create an API token with Zone: Read and DNS: Read permissions restricted to an owned zone. Configure INT01_CLOUDFLARE_DNS_TOKEN only in approved backend secret storage. Never paste credentials here.",
     "sensitive": true
    }
   ],
   "capabilities": [
-   "Read-only connection prerequisite; no DNS writes approved"
+   "INT-01 has a source-tested zone ownership and DNS-record digest probe; real connection is not certified until authenticated Cloudflare readback succeeds",
+   "Run operator-only int01_cloudflare_probe --scope dns --zone-id <owned-zone-id> with approved secret-store configuration",
+   "No record writes, nameserver changes or registrar purchases are enabled"
   ],
   "logo": "cloudflare",
-  "stage": "Research"
+  "stage": "Read-only"
  },
  {
   "slug": "letsencrypt",
