@@ -9,3 +9,12 @@ The revised Windows recovery rehearsal should use PostgreSQL `verify-full` plus 
 Stop if connection identity, backup, restore, migration rehearsal, audit trigger or offsite encrypted custody is unverified. All credential-write flags remain disabled. The owner account already has admin/staff/superuser flags, but email ownership verification is outstanding. PR #111 has successful CI but remains unmerged. Never promote the account again or mark the email verified without the verified workflow.
 
 Guidance: https://www.postgresql.org/docs/18/libpq-ssl.html and https://www.postgresql.org/docs/18/app-pgdump.html.
+
+
+## Post-migration identity and mail readiness — not an automatic release
+
+The owner account's role flags are already correct, but its `email_verified_at` is NULL. The production account-email switch `CLOUD_ACCOUNT_EMAIL_ENABLED` is disabled, and no approved SMTP host, username, password or sender address is configured for `octalve-cloud-api`. Do not manually set the timestamp. The authenticated account email-verification request endpoint is `POST /api/auth/email/verification/request/`; successful delivery requires a verified sending domain and approved transactional SMTP relay with authenticated STARTTLS or SSL. The one-use confirmation link targets `https://console.cloud.octalve.com/verify-email#token=...` and is confirmed through `POST /api/auth/email/verification/confirm/`.
+
+The source now requires `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`, non-local `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`, and exactly one of `EMAIL_USE_TLS` or `EMAIL_USE_SSL` before the account email gate can report ready. Set `CLOUD_ACCOUNT_EMAIL_ENABLED=true` only after independently proving the sender-domain ownership, SPF/DKIM/DMARC policy, delivery, non-enumeration and secret redaction. Vercel credentials remain sensitive, never checked into Git or inserted into the connected provider vault while its own custody gate is pending.
+
+No Production SMTP credentials or provider-vault writes were enabled by the schema migration.
