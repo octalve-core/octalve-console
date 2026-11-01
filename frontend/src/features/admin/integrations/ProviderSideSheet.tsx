@@ -4,7 +4,6 @@ import {X} from "lucide-react";
 import type {Integration} from "./catalog";
 import {ProviderLogo} from "./ProviderLogo";
 import {ProviderRequirements} from "./ProviderRequirements";
-import {CloudflareReadbackPanel} from "./CloudflareReadbackPanel";
 import {SecureConnectionSetup} from "./SecureConnectionSetup";
 import {SavedConnectionActions} from "./SavedConnectionActions";
 import type {DraftConnection} from "./connection-readback";
@@ -37,10 +36,9 @@ export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,over
     <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} configuration · Credential version {c.credential_version} · {c.state==="draft"?"Unverified draft":"Revoked"}</p>
     <SavedConnectionActions connection={c} onChanged={onSaved}/>
    </div>)}
-   <p className="text-xs text-console-muted">Saved encrypted credentials are not a verified connection. No supplier activity is enabled.</p>
+   <p className="text-xs text-console-muted">Each saved connection must pass a separate authenticated verification. Supplier account creation and DNS writes remain disabled.</p>
   </section>:null}
-  {draftSchemaAvailable?<SecureConnectionSetup item={item} onSaved={onSaved}/>:null}
-  {(item.slug==="cloudflare-dns"||item.slug==="cloudflare-registrar")?<CloudflareReadbackPanel/>:null}
+  <SecureConnectionSetup item={item} onSaved={onSaved}/>
   <ProviderRequirements item={item}/>
  </div>
  <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-console-line px-5 py-4 sm:px-6">
