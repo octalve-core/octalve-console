@@ -127,6 +127,16 @@ class FixedCloudflareTransport:
                 raise CloudflareINT01Denied()
         elif body is not None:
             raise CloudflareINT01Denied()
+        if method=="POST":
+            if is_check:
+                if (not isinstance(body.get("domains"),list)
+                    or len(body["domains"])!=1):
+                    raise CloudflareINT01Denied()
+                require_domain(body["domains"][0])
+            else:
+                require_domain(body["domain_name"])
+                if body["years"]!=1 or body["auto_renew"] is not False or body["privacy_mode"]!="redaction":
+                    raise CloudflareINT01Denied()
         headers={"Authorization":"Bearer "+self.token,"Accept":"application/json"}
         if method=="POST": headers["Content-Type"]="application/json"
         try:
