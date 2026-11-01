@@ -5,7 +5,9 @@ from rest_framework.decorators import api_view,permission_classes,throttle_class
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from catalog.permissions import InternalSupplierAuthority
-from .connection_views import VaultMutationThrottle
+from .connection_views import VaultMutationThrottle, connection_database_qualified
+from .connection_vault import vault, VaultUnavailable
+from .connection_audit import audit_key
 from .connection_stepup import start,confirm,assert_admin
 from .connection_models import ProviderVaultAuthenticator
 
@@ -17,9 +19,22 @@ def status(request):
         record=ProviderVaultAuthenticator.objects.filter(user=request.user).first()
     except (OperationalError,ProgrammingError):
         return Response({"detail":"Provider security is not available yet."},status=503)
+    configured=False
+    if (getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False) and
+        getattr(settings,"CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED",False) and
+        getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False) and
+        not getattr(settings,"DEBUG",False) and
+        connection_database_qualified()):
+        try:
+            vault()
+            audit_key()
+            configured=True
+        except VaultUnavailable:
+            pass
     return Response({"verified":bool(record and record.verified),"kind":"totp",
         "enrollment_available":bool(getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False)),
-        "provider_execution_enabled":False},headers={"Cache-Control":"no-store"})
+        "credential_submission_available":configured,
+        "provider_execution_enabled":False},headers={"Cache-Control":"private, no-store"})
 
 @api_view(["POST"])
 @permission_classes([InternalSupplierAuthority])
