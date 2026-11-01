@@ -33,10 +33,17 @@ SCHEMAS = {
     },
     "cloudflare-dns": {
         "name": "Cloudflare DNS",
-        "fields": {"zone_id": "identifier"},
+        "fields": {"account_id": "identifier", "zone_id": "identifier"},
         "secrets": ("api_token",),
         "ports": (),
         "guide": "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
+    },
+    "cloudflare-registrar": {
+        "name": "Cloudflare Registrar Sandbox (read-only)",
+        "fields": {"account_id": "identifier"},
+        "secrets": ("api_token",),
+        "ports": (),
+        "guide": "https://developers.cloudflare.com/api/resources/registrar_sandbox/",
     },
     "brevo": {
         "name": "Brevo (transactional mail, primary)",

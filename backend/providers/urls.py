@@ -1,7 +1,7 @@
 # providers/urls.py
 
 from django.urls import path, include
-from . import connection_views,connection_security_views,cloudflare_int01_views
+from . import connection_views,connection_security_views,cloudflare_int01_views,connection_verification
 from rest_framework.routers import DefaultRouter
 from .views import ProviderViewSet, ProviderPackageViewSet, ProviderLogViewSet
 
@@ -18,6 +18,7 @@ urlpatterns = [
     path("connections/schemas/", connection_views.connection_schemas, name="provider-connection-schemas"),
     path("connections/", connection_views.connections, name="provider-connections"),
     path("connections/<uuid:connection_id>/", connection_views.connection_detail, name="provider-connection-detail"),
+    path("connections/<uuid:connection_id>/verify/",connection_verification.verify_connection,name="provider-connection-verify"),
     path("connections/<uuid:connection_id>/rotate/", connection_views.rotate_connection, name="provider-connection-rotate"),
     path("connections/<uuid:connection_id>/revoke/", connection_views.revoke_connection, name="provider-connection-revoke"),
     path('', include(router.urls)),
