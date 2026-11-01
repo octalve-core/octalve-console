@@ -4,6 +4,7 @@ import {X} from "lucide-react";
 import type {Integration} from "./catalog";
 import {ProviderLogo} from "./ProviderLogo";
 import {ProviderRequirements} from "./ProviderRequirements";
+import {CloudflareReadbackPanel} from "./CloudflareReadbackPanel";
 import type {DraftConnection} from "./connection-readback";
 export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,overviewStatus}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean;overviewStatus:"loading"|"ready"|"unavailable"}){
  const element=useRef<HTMLDialogElement>(null);
@@ -36,6 +37,7 @@ export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,over
    <p className="text-xs text-console-muted">Saved encrypted credentials are not a verified connection. No supplier activity is enabled.</p>
   </section>:null}
   {draftSchemaAvailable?<p className="rounded-xl border border-console-line bg-slate-50 p-3 text-xs text-console-muted">A restricted draft-storage schema exists for this provider. Credential submission remains unavailable until the security approval gate.</p>:null}
+  {(item.slug==="cloudflare-dns"||item.slug==="cloudflare-registrar")?<CloudflareReadbackPanel/>:null}
   <ProviderRequirements item={item}/>
  </div>
  <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-console-line px-5 py-4 sm:px-6">
