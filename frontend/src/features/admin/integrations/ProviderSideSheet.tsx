@@ -34,7 +34,7 @@ export function ProviderSideSheet({item,onClose,drafts,overviewStatus,onSaved}:{
    {drafts.map(c=><div key={c.id} className="rounded-xl border border-console-line bg-slate-50 p-3">
     <p className="text-sm font-medium">{c.label}</p>
     <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} configuration · Credential version {c.credential_version} · {c.state==="draft"?"Unverified draft":"Revoked"}</p>
-    <SavedConnectionActions connection={c} onChanged={onSaved}/>
+    <SavedConnectionActions connection={c}/>
    </div>)}
    <p className="text-xs text-console-muted">Each saved connection must pass a separate authenticated verification. Supplier account creation and DNS writes remain disabled.</p>
   </section>:null}
