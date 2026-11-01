@@ -16,7 +16,7 @@ from catalog.permissions import InternalSupplierAuthority
 from .connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent
 from .connection_specs import SCHEMAS, public_catalog, validate_public_settings, validate_secrets
 from .connection_vault import seal, vault, VaultUnavailable
-from .connection_stepup import check_mutation
+from .connection_stepup import check_mutation, assert_admin
 from .connection_audit import audit_key,append_event
 from accounts.security_throttle import _spend as spend_durable_auth_attempt
 
@@ -47,6 +47,7 @@ def require_write_authority(request):
     keys, verified PostgreSQL migration, authorized Super Admin/password/TOTP.
     Existing isolated DEBUG synthetic-review contract is preserved for CI.
     """
+    assert_admin(request.user)
     if not getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False):
         raise VaultUnavailable()
     synthetic=bool(
@@ -101,6 +102,7 @@ def connection_database_qualified():
                 SELECT COUNT(*) FROM pg_trigger
                 WHERE tgrelid='providers_integrationconnectionevent'::regclass
                   AND tgname='providers_event_append_only' AND NOT tgisinternal
+                  AND tgenabled IN ('O', 'A')
             """)
             return cursor.fetchone()[0]==1
     except DatabaseError:
@@ -125,12 +127,14 @@ def safe_connection(row):
 @api_view(["GET"])
 @permission_classes([InternalSupplierAuthority])
 def connection_schemas(request):
+    assert_admin(request.user)
     return Response({"integrations":public_catalog(),"execution_enabled":False})
 
 @api_view(["GET","POST"])
 @permission_classes([InternalSupplierAuthority])
 @throttle_classes([VaultMutationThrottle])
 def connections(request):
+    assert_admin(request.user)
     if request.method=="GET":
         try:
             rows=list(IntegrationConnection.objects.order_by("-created_at","pk")[:51])
@@ -163,6 +167,7 @@ def connections(request):
 @api_view(["GET"])
 @permission_classes([InternalSupplierAuthority])
 def connection_detail(request, connection_id):
+    assert_admin(request.user)
     try:
         row=IntegrationConnection.objects.get(pk=connection_id)
     except IntegrationConnection.DoesNotExist:
