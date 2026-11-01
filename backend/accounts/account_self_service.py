@@ -5,6 +5,10 @@ Customer-facing email actions require an approved transactional mail transport.
 """
 from datetime import timedelta
 from urllib.parse import quote
+import logging
+import smtplib
+import socket
+import ssl
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -150,6 +154,40 @@ def service_unavailable():
     return Response({"detail": "Account email service is temporarily unavailable."}, status=503)
 
 
+def _smtp_failure_category(exc):
+    """Fixed diagnostics only. Never disclose server responses, account IDs, URLs or keys."""
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return "smtp_auth_failed"
+    if isinstance(exc, smtplib.SMTPSenderRefused):
+        return "sender_rejected"
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        return "recipient_rejected"
+    if isinstance(exc, ssl.SSLError):
+        return "smtp_tls_failed"
+    if isinstance(exc, smtplib.SMTPResponseException):
+        if 400 <= exc.smtp_code < 500:
+            return "smtp_temporary_rejection"
+        if 500 <= exc.smtp_code < 600:
+            return "smtp_provider_rejection"
+    if isinstance(exc, (socket.timeout, TimeoutError, OSError,
+                        smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected)):
+        return "smtp_connection_failed"
+    return "smtp_delivery_failed"
+
+
+def verification_delivery_failed(request, exc):
+    category = _smtp_failure_category(exc)
+    # Intentionally omit exception text, traceback, recipient, request body and token:
+    # SMTP library exceptions may embed raw server replies or message material.
+    logging.getLogger(__name__).warning(
+        "Account verification email unavailable: category=%s", category
+    )
+    response = service_unavailable()
+    if request.user.is_superuser:
+        response.data["diagnostic_code"] = category
+    return response
+
+
 class PasswordRecoveryRequestView(APIView):
     permission_classes = [AllowAny]
 
@@ -232,8 +270,8 @@ class EmailVerificationRequestView(APIView):
                 "\n\nIf you did not request this, you can ignore this message.",
                 settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False,
             )
-        except Exception:
-            return service_unavailable()
+        except Exception as exc:
+            return verification_delivery_failed(request, exc)
         return Response({"detail": "Verification instructions were sent."}, status=202)
 
 

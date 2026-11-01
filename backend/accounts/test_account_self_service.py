@@ -129,6 +129,61 @@ class AccountSelfServiceTests(APITestCase):
 
     @override_settings(**MAIL_SETTINGS)
     @patch("accounts.account_self_service.send_mail")
+    def test_superuser_sees_only_sanitized_mail_failure_category(self, send):
+        import smtplib
+        self.user.is_superuser = True
+        self.user.save(update_fields=["is_superuser"])
+        send.side_effect = smtplib.SMTPAuthenticationError(
+            535, b"SECRET-SMTP-RESPONSE-DO-NOT-LEAK"
+        )
+        result = self.client.post("/api/auth/email/verification/request/", {}, format="json")
+        self.assertEqual(result.status_code, 503, result.data)
+        self.assertEqual(result.data.get("diagnostic_code"), "smtp_auth_failed")
+        self.assertNotIn("SECRET", str(result.data))
+        send.side_effect = smtplib.SMTPSenderRefused(
+            550, b"SENSITIVE-REPLY", "private@example.invalid"
+        )
+        second = self.client.post("/api/auth/email/verification/request/", {}, format="json")
+        self.assertEqual(second.status_code, 503)
+        self.assertEqual(second.data.get("diagnostic_code"), "sender_rejected")
+        self.assertNotIn("SENSITIVE", str(second.data))
+        self.assertNotIn("private@example.invalid", str(second.data))
+
+    @override_settings(**MAIL_SETTINGS)
+    @patch("accounts.account_self_service.send_mail")
+    def test_non_admin_verification_failure_remains_generic(self, send):
+        import smtplib
+        send.side_effect = smtplib.SMTPAuthenticationError(
+            535, b"SECRET-SMTP-RESPONSE-DO-NOT-LEAK"
+        )
+        result = self.client.post("/api/auth/email/verification/request/", {}, format="json")
+        self.assertEqual(result.status_code, 503)
+        self.assertNotIn("diagnostic_code", result.data)
+        self.assertNotIn("SECRET", str(result.data))
+
+    def test_smtp_failure_categories_handle_temporary_and_transport_errors(self):
+        import smtplib
+        import ssl
+        from accounts.account_self_service import _smtp_failure_category
+        self.assertEqual(
+            _smtp_failure_category(smtplib.SMTPDataError(450, b"provider disabled")),
+            "smtp_temporary_rejection",
+        )
+        self.assertEqual(
+            _smtp_failure_category(smtplib.SMTPDataError(550, b"provider rejected")),
+            "smtp_provider_rejection",
+        )
+        self.assertEqual(
+            _smtp_failure_category(ssl.SSLError("handshake failed")),
+            "smtp_tls_failed",
+        )
+        self.assertEqual(
+            _smtp_failure_category(TimeoutError("SMTP timeout")),
+            "smtp_connection_failed",
+        )
+
+    @override_settings(**MAIL_SETTINGS)
+    @patch("accounts.account_self_service.send_mail")
     def test_email_verification_binds_email_password_and_is_one_use(self,send):
         send.return_value=1
         request=self.client.post("/api/auth/email/verification/request/",{},format="json")
