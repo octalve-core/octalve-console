@@ -120,7 +120,7 @@ class FixedCloudflareTransport:
         is_check=path.endswith("/domain-check")
         if method=="POST" and not (is_register or is_check):
             raise CloudflareINT01Denied()
-        if method=="GET" and (is_register or is_check):
+        if method=="GET" and is_check:
             raise CloudflareINT01Denied()
         if method=="POST":
             if not isinstance(body,dict) or (set(body)!={"domains"} if is_check else set(body)!={"domain_name","years","auto_renew","privacy_mode"}):
@@ -142,10 +142,12 @@ class FixedCloudflareTransport:
                             raise CloudflareINT01Denied()
                     except ValueError:
                         raise CloudflareINT01Denied() from None
-                payload=b"".join(response.iter_content(chunk_size=8192))
-                if len(payload)>MAX_REPLY_BYTES:
-                    raise CloudflareINT01Denied()
-                return json.loads(payload.decode("utf-8"))
+                data=bytearray()
+                for chunk in response.iter_content(chunk_size=8192):
+                    data.extend(chunk)
+                    if len(data)>MAX_REPLY_BYTES:
+                        raise CloudflareINT01Denied()
+                return json.loads(bytes(data).decode("utf-8"))
         except (requests.RequestException,ValueError,UnicodeError) as exc:
             raise CloudflareINT01Denied() from exc
 
