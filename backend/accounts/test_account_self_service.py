@@ -13,6 +13,12 @@ MAIL_SETTINGS = {
     "CLOUD_ACCOUNT_EMAIL_ENABLED": True,
     "EMAIL_BACKEND": "django.core.mail.backends.smtp.EmailBackend",
     "DEFAULT_FROM_EMAIL": "no-reply@example.invalid",
+    "EMAIL_HOST": "smtp.example.invalid",
+    "EMAIL_PORT": 587,
+    "EMAIL_HOST_USER": "operator-test",
+    "EMAIL_HOST_PASSWORD": "test-only-not-a-production-key",
+    "EMAIL_USE_TLS": True,
+    "EMAIL_USE_SSL": False,
     "FRONTEND_URL": "https://console.cloud.octalve.com",
 }
 
