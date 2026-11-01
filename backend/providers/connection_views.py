@@ -41,18 +41,33 @@ class VaultMutationThrottle(BaseThrottle):
         return True
 
 def require_write_authority(request):
-    # Deliberately not an MFA claim. Full MFA verification is a later gate.
-    # This is only a synthetic test capability. Never permit supplier secrets
-    # on deployed Vercel, or in a non-debug environment, regardless of flags.
-    if (not getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False)
-        or not getattr(settings,"CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED",False)
-        or not getattr(settings,"DEBUG",False)
-        or os.getenv("VERCEL_ENV","").lower() in ("production","preview","development")
-        or os.getenv("VERCEL","")=="1"):
+    """Portable, fail-closed secure credential storage, never supplier execution.
+
+    Production: explicitly qualified bootstrap KEK, dedicated audit + TOTP
+    keys, verified PostgreSQL migration, authorized Super Admin/password/TOTP.
+    Existing isolated DEBUG synthetic-review contract is preserved for CI.
+    """
+    if not getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False):
+        raise VaultUnavailable()
+    synthetic=bool(
+        getattr(settings,"DEBUG",False) and
+        getattr(settings,"CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED",False) and
+        os.getenv("VERCEL_ENV","").lower() not in ("production","preview","development") and
+        os.getenv("VERCEL","")!="1"
+    )
+    production=bool(
+        not getattr(settings,"DEBUG",False) and
+        getattr(settings,"CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED",False) and
+        getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False) and
+        getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False) and
+        connection_database_qualified()
+    )
+    if not (synthetic or production):
         raise VaultUnavailable()
     user=request.user
-    if not user.is_active or not user.is_superuser or user.role!="admin":
-        raise PermissionDenied("Only an authorized superadministrator may prepare credentials.")
+    if (not user.is_active or not user.is_superuser or
+        not user.is_staff or user.role!="admin"):
+        raise PermissionDenied("Only an authorized Super Admin may configure credentials.")
     password=request.data.get("confirm_password")
     if not isinstance(password,str) or len(password)>512 or not user.check_password(password):
         raise PermissionDenied("Recent account password verification is required.")
@@ -60,7 +75,37 @@ def require_write_authority(request):
         raise VaultUnavailable()
     vault()
     audit_key()
-    check_mutation(user,password,request.data.get('totp_code'))
+    check_mutation(user,password,request.data.get("totp_code"))
+
+
+def connection_database_qualified():
+    """Never write vault ciphertext into a database without schema and audit guard.
+
+    Separate operator evidence (migrations, key backup and restore) is still
+    necessary; the database check only tests current technical capability.
+    """
+    from django.db import connection
+    if connection.vendor!="postgresql":
+        return False
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT COUNT(*) FROM django_migrations
+                WHERE app='providers' AND name IN (
+                  '0002_integration_draft_vault',
+                  '0003_provider_vault_authenticator',
+                  '0004_provider_event_integrity'
+                )
+            """)
+            if cursor.fetchone()[0]!=3: return False
+            cursor.execute("""
+                SELECT COUNT(*) FROM pg_trigger
+                WHERE tgrelid='providers_integrationconnectionevent'::regclass
+                  AND tgname='providers_event_append_only' AND NOT tgisinternal
+            """)
+            return cursor.fetchone()[0]==1
+    except DatabaseError:
+        return False
 
 def clean_payload(data, expected):
     if not isinstance(data,dict) or set(data)!=expected:
