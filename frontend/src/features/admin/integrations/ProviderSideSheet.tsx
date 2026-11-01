@@ -6,6 +6,7 @@ import {ProviderLogo} from "./ProviderLogo";
 import {ProviderRequirements} from "./ProviderRequirements";
 import {CloudflareReadbackPanel} from "./CloudflareReadbackPanel";
 import {SecureConnectionSetup} from "./SecureConnectionSetup";
+import {SavedConnectionActions} from "./SavedConnectionActions";
 import type {DraftConnection} from "./connection-readback";
 export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,overviewStatus,onSaved}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean;overviewStatus:"loading"|"ready"|"unavailable";onSaved:()=>void}){
  const element=useRef<HTMLDialogElement>(null);
@@ -34,6 +35,7 @@ export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,over
    {drafts.map(c=><div key={c.id} className="rounded-xl border border-console-line bg-slate-50 p-3">
     <p className="text-sm font-medium">{c.label}</p>
     <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} configuration · Credential version {c.credential_version} · {c.state==="draft"?"Unverified draft":"Revoked"}</p>
+    <SavedConnectionActions connection={c} onChanged={onSaved}/>
    </div>)}
    <p className="text-xs text-console-muted">Saved encrypted credentials are not a verified connection. No supplier activity is enabled.</p>
   </section>:null}
