@@ -551,6 +551,11 @@ CLOUD_PAYMENT_RETURN_URL = env("CLOUD_PAYMENT_RETURN_URL", default="")
 
 # B1 draft vault is inert by default. Never turn on live supplier operations here.
 CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED = env.bool("CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED", default=False)
+# Production Console-side encrypted storage (NOT supplier activation); fail closed.
+CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED = env.bool("CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED", default=False)
+# Operator attestation: external bootstrap key custody, offline recovery and access review.
+# Setting this alone proves nothing: cryptographic and DB gates are checked at runtime.
+CLOUD_PROVIDER_CUSTODY_VERIFIED = env.bool("CLOUD_PROVIDER_CUSTODY_VERIFIED", default=False)
 # Independent synthetic review hold: deployed credential mutations remain prohibited.
 CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED = env.bool("CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED", default=False)
 CLOUD_PROVIDER_VAULT_KEY = env("CLOUD_PROVIDER_VAULT_KEY", default="")
