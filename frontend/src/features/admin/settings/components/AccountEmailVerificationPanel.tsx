@@ -3,6 +3,7 @@
 import {useCallback,useEffect,useState} from "react";
 import {CheckCircle2,Mail,RefreshCw,ShieldAlert} from "lucide-react";
 import {authApi} from "@/lib/api/endpoints";
+import {ApiError} from "@/lib/api/client";
 
 type DeliveryStatus = {email_verified:boolean;delivery_configured:boolean};
 
@@ -33,8 +34,30 @@ export function AccountEmailVerificationPanel(){
       }else{
         setMessage("A verification link was requested. Check your mailbox and follow the link.");
       }
-    }catch{
-      setError("The mail service did not accept this request. Check delivery configuration and try again later.");
+    }catch(err){
+      const codes: Record<string,string> = {
+        smtp_auth_failed: "Brevo rejected the SMTP login or SMTP key. Check its dedicated SMTP credentials in the API Production environment.",
+        sender_rejected: "Brevo rejected the sending address. Check the verified sender and DEFAULT_FROM_EMAIL.",
+        recipient_rejected: "The provider rejected the recipient. Check the Brevo transactional email log without sharing addresses.",
+        smtp_tls_failed: "The encrypted SMTP handshake failed. Check port 587, STARTTLS, and relay certificate configuration.",
+        smtp_connection_failed: "The API could not complete the SMTP connection. Check the relay connection and serverless runtime networking.",
+        smtp_temporary_rejection: "Brevo temporarily refused the SMTP operation. Check whether transactional sending is activated and available.",
+        smtp_provider_rejection: "Brevo refused the SMTP operation. Inspect Brevo's transactional status and sending permissions.",
+        smtp_delivery_failed: "The email provider could not complete the request. Check the sanitized API runtime diagnostics."
+      };
+      const payload=err instanceof ApiError && err.payload &&
+        typeof err.payload==="object" && !Array.isArray(err.payload)
+          ?err.payload as Record<string,unknown>:null;
+      const code=typeof payload?.diagnostic_code==="string"?payload.diagnostic_code:"";
+      if(err instanceof ApiError && err.status===429){
+        setError("Email requests are rate-limited. Do not retry until the verification limit resets.");
+      }else if(err instanceof ApiError && err.status===503 && codes[code]){
+        setError(codes[code]);
+      }else if(err instanceof ApiError && [401,403].includes(err.status)){
+        setError("Your session was rejected. Sign in again before requesting verification.");
+      }else{
+        setError("The verification request failed. Check its HTTP status and the Brevo transactional logs before retrying.");
+      }
     }finally{setSending(false);}
   }
 
