@@ -260,6 +260,15 @@ EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
 # Explicitly gated until a trusted transactional email sender is configured.
 DEFAULT_FROM_EMAIL = env.str('DEFAULT_FROM_EMAIL', default='')
 CLOUD_ACCOUNT_EMAIL_ENABLED = env.bool('CLOUD_ACCOUNT_EMAIL_ENABLED', default=False)
+# Account-ownership mail remains disabled until authenticated SMTP sender/domain
+# are qualified. Explicitly configure the relay; never default to localhost.
+EMAIL_HOST = env.str('EMAIL_HOST', default='')
+EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+EMAIL_HOST_USER = env.str('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env.str('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=15)
 
 
 # Djoser Settings - Updated for frontend URLs
