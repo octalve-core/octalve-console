@@ -61,3 +61,19 @@ test("the production BFF uses one identical canonical path for URL and signed IP
   assert.match(route, /redirect: "manual"/);
   assert.match(route, /Upstream redirect rejected\./);
 });
+
+test("authenticated email readiness GET is allowlisted without opening other auth methods", () => {
+  const route = fs.readFileSync(path.join(__dirname, "../src/app/api/cloud/[...path]/route.ts"), "utf8");
+  const allowlist = route.match(/const ALLOWED_AUTH_PATHS = new Set\(\[([\s\S]*?)\]\);/);
+  assert.ok(allowlist, "Expected an explicit BFF authentication route allowlist");
+  assert.match(allowlist[1], /"auth\/email\/verification\/status"/);
+  assert.match(route, /if \(apiPath === "auth\/email\/verification\/status" && method !== "GET"\) \{\s*return error\(405, "Method not allowed\."\);/);
+  const endpoints = fs.readFileSync(path.join(__dirname, "../src/lib/api/endpoints.ts"), "utf8");
+  assert.match(endpoints, /api\.get<\{email_verified:boolean;delivery_configured:boolean\}>\("\/auth\/email\/verification\/status\/"\)/);
+  const backend = fs.readFileSync(path.join(__dirname, "../../backend/accounts/urls.py"), "utf8");
+  assert.match(backend, /path\('email\/verification\/status\/', AccountEmailDeliveryStatusView\.as_view\(\)/);
+  assert.equal(
+    cloudUpstreamUrl("https://api.cloud.octalve.com/api", canonicalCloudDjangoPath(["auth", "email", "verification", "status"])),
+    "https://api.cloud.octalve.com/api/auth/email/verification/status/",
+  );
+});
