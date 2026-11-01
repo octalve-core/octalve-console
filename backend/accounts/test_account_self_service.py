@@ -75,6 +75,31 @@ class AccountSelfServiceTests(APITestCase):
         self.assertIn(self.client.get("/api/auth/profile/").status_code,(401,403))
         self.assertIn(self.client.patch("/api/auth/profile/",{"address":"unsafe"},format="json").status_code,(401,403))
 
+    @override_settings(**MAIL_SETTINGS)
+    def test_own_mail_status_is_authenticated_and_nonsecret(self):
+        from django.utils import timezone
+        endpoint = "/api/auth/email/verification/status/"
+        result = self.client.get(endpoint)
+        self.assertEqual(result.status_code, 200, result.data)
+        self.assertEqual(result.data, {
+            "email_verified": False,
+            "delivery_configured": True,
+        })
+        self.assertNotIn("EMAIL_HOST_PASSWORD", str(result.data))
+        self.assertNotIn("smtp.example.invalid", str(result.data))
+        self.user.email_verified_at = timezone.now()
+        self.user.save(update_fields=["email_verified_at"])
+        confirmed = self.client.get(endpoint)
+        self.assertTrue(confirmed.data["email_verified"])
+        self.client.force_authenticate(user=None)
+        self.assertIn(self.client.get(endpoint).status_code, (401, 403))
+
+    @override_settings(CLOUD_ACCOUNT_EMAIL_ENABLED=False)
+    def test_own_mail_status_fails_closed_with_disabled_delivery(self):
+        result = self.client.get("/api/auth/email/verification/status/")
+        self.assertEqual(result.status_code, 200, result.data)
+        self.assertFalse(result.data["delivery_configured"])
+
     @override_settings(CLOUD_ACCOUNT_EMAIL_ENABLED=False)
     def test_mail_actions_fail_closed_without_delivery(self):
         self.assertEqual(self.client.post("/api/auth/email/verification/request/",{},format="json").status_code,503)
