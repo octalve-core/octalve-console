@@ -6,8 +6,8 @@ import type {DraftConnection} from "./connection-readback";
 
 type Receipt={verified:boolean;adapter_key:string;credential_version:number;
  execution_enabled:false;checked_at:string;evidence:Record<string,unknown>};
-export function SavedConnectionActions({connection,onChanged}:{
- connection:DraftConnection;onChanged:()=>void;
+export function SavedConnectionActions({connection}:{
+ connection:DraftConnection;
 }){
  const [working,setWorking]=useState(false),[message,setMessage]=useState(""),[failed,setFailed]=useState(false);
  const supported=["cloudflare-dns","cloudflare-registrar","brevo"].includes(connection.adapter_key);
