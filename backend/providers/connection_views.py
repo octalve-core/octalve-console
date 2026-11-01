@@ -59,7 +59,6 @@ def require_write_authority(request):
         not getattr(settings,"DEBUG",False) and
         getattr(settings,"CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED",False) and
         getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False) and
-        getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False) and
         connection_database_qualified()
     )
     if not (synthetic or production):
