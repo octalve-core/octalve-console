@@ -88,13 +88,13 @@ export const domains:readonly Integration[]=[
   "slug": "cloudflare-registrar",
   "name": "Cloudflare Registrar",
   "category": "Domains",
-  "summary": "Limited Registrar API beta, not a certified wholesale reseller.",
+  "summary": "Registrar API is not a wholesale reseller connection. INT-01 can test the separate, no-charge Cloudflare Registrar Sandbox.",
   "documentation": "https://developers.cloudflare.com/registrar/registrar-api/",
   "guide": "Registrar API beta guide",
   "requirements": [
    {
     "label": "Account ID",
-    "guidance": "Eligible Cloudflare account"
+    "guidance": "Cloudflare account identifier (32 hexadecimal characters) for the isolated Registrar Sandbox tests"
    },
    {
     "label": "Registrant profile",
@@ -102,12 +102,14 @@ export const domains:readonly Integration[]=[
    },
    {
     "label": "Registrar token",
-    "guidance": "Scoped Registrar write authorization",
+    "guidance": "For INT-01 obtain a dedicated Registrar Sandbox-permission API token and keep it in backend secret storage as INT01_CLOUDFLARE_SANDBOX_TOKEN. Do not use a production registrar write token.",,
     "sensitive": true
    }
   ],
   "capabilities": [
-   "Beta features only; resale rights not established"
+   "Sandbox read-only inventory and availability check use documented Cloudflare API endpoints",
+   "Simulated registration requires explicit operator approval and an accepted registrant contact in Cloudflare; no real domains, DNS zones or charges result",
+   "Commercial registrar API rights and production registration remain separately gated"
   ],
   "logo": "cloudflare",
   "stage": "Research"
