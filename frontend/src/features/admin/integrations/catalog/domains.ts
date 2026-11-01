@@ -102,7 +102,7 @@ export const domains:readonly Integration[]=[
    },
    {
     "label": "Registrar token",
-    "guidance": "For INT-01 obtain a dedicated Registrar Sandbox-permission API token and keep it in backend secret storage as INT01_CLOUDFLARE_SANDBOX_TOKEN. Do not use a production registrar write token.",,
+    "guidance": "For INT-01 obtain a dedicated Registrar Sandbox-permission API token and keep it in backend secret storage as INT01_CLOUDFLARE_SANDBOX_TOKEN. Do not use a production registrar write token.",
     "sensitive": true
    }
   ],
