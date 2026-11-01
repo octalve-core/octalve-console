@@ -7,7 +7,7 @@ import {ProviderRequirements} from "./ProviderRequirements";
 import {SecureConnectionSetup} from "./SecureConnectionSetup";
 import {SavedConnectionActions} from "./SavedConnectionActions";
 import type {DraftConnection} from "./connection-readback";
-export function ProviderSideSheet({item,onClose,drafts,draftSchemaAvailable,overviewStatus,onSaved}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean;overviewStatus:"loading"|"ready"|"unavailable";onSaved:()=>void}){
+export function ProviderSideSheet({item,onClose,drafts,overviewStatus,onSaved}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean;overviewStatus:"loading"|"ready"|"unavailable";onSaved:()=>void}){
  const element=useRef<HTMLDialogElement>(null);
  useEffect(()=>{const dialog=element.current;if(dialog&&!dialog.open)dialog.showModal();return ()=>{if(dialog?.open)dialog.close();};},[item.slug]);
  return <dialog ref={element} onClose={onClose} aria-labelledby="integration-sheet-title"
