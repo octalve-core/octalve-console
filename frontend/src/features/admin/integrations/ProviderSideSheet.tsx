@@ -6,6 +6,7 @@ import {ProviderLogo} from "./ProviderLogo";
 import {ProviderRequirements} from "./ProviderRequirements";
 import {SecureConnectionSetup} from "./SecureConnectionSetup";
 import {SavedConnectionActions} from "./SavedConnectionActions";
+import {RegistrarQuotePanel} from "./RegistrarQuotePanel";
 import type {DraftConnection} from "./connection-readback";
 export function ProviderSideSheet({item,onClose,drafts,overviewStatus,onSaved}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean;overviewStatus:"loading"|"ready"|"unavailable";onSaved:()=>void}){
  const element=useRef<HTMLDialogElement>(null);
@@ -35,6 +36,7 @@ export function ProviderSideSheet({item,onClose,drafts,overviewStatus,onSaved}:{
     <p className="text-sm font-medium">{c.label}</p>
     <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} configuration · Credential version {c.credential_version} · {c.state==="draft"?"Unverified draft":"Revoked"}</p>
     <SavedConnectionActions connection={c}/>
+    {item.slug==="cloudflare-registrar-live"&&c.state==="draft"?<RegistrarQuotePanel connectionId={c.id}/>:null}
    </div>)}
    <p className="text-xs text-console-muted">Each saved connection must pass a separate authenticated verification. Supplier account creation and DNS writes remain disabled.</p>
   </section>:null}

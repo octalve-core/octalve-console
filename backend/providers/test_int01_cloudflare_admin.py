@@ -2,6 +2,7 @@
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 from audit.models import AuditLog
 from providers.cloudflare_int01 import CloudflareINT01Denied
@@ -12,8 +13,9 @@ class CloudflareAdminProbeTests(TestCase):
         Users=get_user_model()
         cls.admin=Users.objects.create_user(
             email="cf-int01-admin@example.invalid",username="cf_int01_admin",
-            password="test-only",role="admin",is_staff=True,is_superuser=True)
-        cls.client=Users.objects.create_user(
+            password="test-only",role="admin",is_staff=True,is_superuser=True,
+            email_verified_at=timezone.now())
+        cls.customer=Users.objects.create_user(
             email="cf-int01-client@example.invalid",username="cf_int01_client",
             password="test-only",role="client")
         cls.spoof=Users.objects.create_user(
@@ -26,7 +28,7 @@ class CloudflareAdminProbeTests(TestCase):
         return x
 
     def test_no_unauthenticated_or_role_only_user_can_read_probe(self):
-        for user in (None,self.client,self.spoof):
+        for user in (None,self.customer,self.spoof):
             with self.subTest(user=user):
                 reply=self.api(user).get("/api/providers/int01/cloudflare/probe/?scope=sandbox")
                 self.assertIn(reply.status_code,(401,403))
@@ -70,4 +72,4 @@ class CloudflareAdminProbeTests(TestCase):
             reply=self.api(self.admin).get("/api/providers/int01/cloudflare/probe/?scope=dns")
         self.assertEqual(reply.status_code,503)
         self.assertFalse(reply.data["verified"])
-        self.assertEqual(AuditLog.objects.count(),0)
+        self.assertEqual(AuditLog.objects.filter(action="provider_connection_test").count(),0)

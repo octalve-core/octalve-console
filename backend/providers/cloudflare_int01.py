@@ -20,6 +20,8 @@ HEX_ID = re.compile(r"[a-fA-F0-9]{32}\Z")
 DOMAIN = re.compile(r"(?=.{4,253}\Z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net)\Z")
 ALLOWED_STATES = {"pending", "in_progress", "action_required", "blocked", "succeeded", "failed"}
 MAX_REPLY_BYTES = 131072
+DNS_PAGE_SIZE = 100
+MAX_DNS_RECORDS = 1000
 
 class CloudflareINT01Denied(ValueError):
     def __str__(self):
@@ -114,7 +116,7 @@ class FixedCloudflareTransport:
             raise CloudflareINT01Denied()
         # Network operations are defined solely in the adapter below; reject
         # generic paths and arbitrary request bodies even if called directly.
-        if not re.fullmatch(r"/zones(?:/[a-f0-9]{32}/dns_records)?|/accounts/[a-f0-9]{32}/registrar-sandbox/(?:domain-check|extensions/(?:com|net)|registrations(?:/[a-z0-9.-]+)?)",path):
+        if not re.fullmatch(r"/zones(?:/[a-f0-9]{32})?(?:/dns_records\?page=(?:[1-9]|10)&per_page=100)?|/accounts/[a-f0-9]{32}/registrar-sandbox/(?:domain-check|extensions/(?:com|net)|registrations(?:/[a-z0-9.-]+)?)|/accounts/[a-f0-9]{32}/registrar/domain-check",path):
             raise CloudflareINT01Denied()
         is_register=path.endswith("/registrations")
         is_check=path.endswith("/domain-check")
@@ -172,26 +174,78 @@ class CloudflareINT01:
     def _path(self,append):
         return f"/accounts/{self.account_id}/registrar-sandbox/{append}"
 
+    def live_domain_check(self, domain):
+        """Cloudflare Registrar beta's live price/availability check, NOT a purchase.
+
+        A POST to domain-check is a read-only query; the transport permits no
+        path ending in /registrar/registrations, including indirect callers.
+        Only .com and .net are initially qualified; widen with vendor tests.
+        """
+        domain=require_domain(domain)
+        data=self.transport("POST",f"/accounts/{self.account_id}/registrar/domain-check",
+                            {"domains":[domain]})
+        return _check_domain(data,domain)
+
     def dns_readback(self,zone_id):
+        """Exact zone ownership and complete bounded pages; never DNS writes.
+
+        A single default Cloudflare list response can be only 20 records.
+        Do not certify a zone using an incomplete/truncated result.
+        """
         zone_id=require_id(zone_id)
-        # zone ownership must be independently approved and match known account.
-        zones=_require_result(self.transport("GET","/zones"))
-        if not isinstance(zones,list) or not any(
-            isinstance(zone,dict) and zone.get("id")==zone_id and
-            isinstance(zone.get("account"),dict) and zone["account"].get("id")==self.account_id
-            and zone.get("status")=="active" for zone in zones):
+        zone=_require_result(self.transport("GET",f"/zones/{zone_id}"))
+        if (not isinstance(zone,dict) or zone.get("id")!=zone_id or
+            not isinstance(zone.get("account"),dict) or
+            zone["account"].get("id")!=self.account_id or
+            zone.get("status")!="active"):
             raise CloudflareINT01Denied()
-        rows=_require_result(self.transport("GET",f"/zones/{zone_id}/dns_records"))
-        if not isinstance(rows,list) or len(rows)>100:
-            raise CloudflareINT01Denied()
-        for row in rows:
-            if not isinstance(row,dict) or not isinstance(row.get("name"),str) or not isinstance(row.get("type"),str):
+        rows=[]
+        seen_ids=set()
+        expected_count=None
+        expected_pages=None
+        for page in range(1,12):
+            packet=self.transport("GET",
+                f"/zones/{zone_id}/dns_records?page={page}&per_page={DNS_PAGE_SIZE}")
+            chunk=_require_result(packet)
+            info=packet.get("result_info") if isinstance(packet,dict) else None
+            if not isinstance(chunk,list) or not isinstance(info,dict):
                 raise CloudflareINT01Denied()
-        digest=hashlib.sha256(json.dumps(
-            [(x["name"],x["type"],str(x.get("content",""))) for x in rows],
-            separators=(",",":"),sort_keys=True).encode()).hexdigest()
-        return {"zone_id":zone_id,"zone_verified":True,"dns_record_count":len(rows),
-                "record_digest_sha256":digest,"side_effects":False}
+            total=info.get("total_count")
+            pages=info.get("total_pages")
+            if (type(total) is not int or not 0<=total<=MAX_DNS_RECORDS or
+                type(pages) is not int or not 0<=pages<=10 or
+                type(info.get("page")) is not int or info["page"]!=page or
+                type(info.get("count")) is not int or info["count"]!=len(chunk) or
+                type(info.get("per_page")) is not int or
+                info["per_page"]!=DNS_PAGE_SIZE or len(chunk)>DNS_PAGE_SIZE):
+                raise CloudflareINT01Denied()
+            expected=max(1,(total+DNS_PAGE_SIZE-1)//DNS_PAGE_SIZE)
+            if pages not in (expected,0 if total==0 else expected):
+                raise CloudflareINT01Denied()
+            if expected_count is None:
+                expected_count,expected_pages=total,expected
+            if total!=expected_count or expected!=expected_pages:
+                raise CloudflareINT01Denied()
+            for record in chunk:
+                if (not isinstance(record,dict) or
+                    not isinstance(record.get("id"),str) or
+                    not HEX_ID.fullmatch(record["id"]) or
+                    record["id"] in seen_ids or
+                    not isinstance(record.get("name"),str) or
+                    not isinstance(record.get("type"),str) or
+                    not isinstance(record.get("content"),str)):
+                    raise CloudflareINT01Denied()
+                seen_ids.add(record["id"])
+                rows.append((record["name"],record["type"],record["content"]))
+            if page==expected_pages:
+                if len(rows)!=expected_count:
+                    raise CloudflareINT01Denied()
+                digest=hashlib.sha256(json.dumps(rows,
+                    separators=(",",":"),sort_keys=True).encode()).hexdigest()
+                return {"zone_id":zone_id,"zone_verified":True,
+                        "dns_record_count":len(rows),
+                        "record_digest_sha256":digest,"side_effects":False}
+        raise CloudflareINT01Denied()
 
     def sandbox_readback(self):
         rows=_require_result(self.transport("GET",self._path("registrations")))

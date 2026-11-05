@@ -4,7 +4,7 @@ from ..contracts import AdapterResult
 
 class DomainRegistrarAdapter(BaseAdapter):
     def test_connection(self) -> AdapterResult:
-        return AdapterResult(ok=True, message="DomainRegistrarAdapter configuration accepted. Real API call should be implemented by backend developer.")
+        return self._not_ready("test_connection")
 
     def provision(self, service) -> AdapterResult:
         return self._not_ready("provision")
