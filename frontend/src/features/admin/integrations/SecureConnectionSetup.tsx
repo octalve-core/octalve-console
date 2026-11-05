@@ -70,7 +70,7 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
     confirm_password:password,totp_code:code});
    if(result.verified!==true)throw Error("Not confirmed");
    setEnrollment(null);setSecurity(v=>v?{...v,verified:true}:v);
-   setNotice("Authenticator enrollment confirmed. You can now use it for sensitive connection changes.");
+   setNotice("Authenticator enrollment confirmed. Credential submissions remain disabled until separate Production custody and approval gates are qualified.");
   }catch{setError(errorText());}
   finally{setWorking(false);}
  }
@@ -106,9 +106,9 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
     <ShieldAlert className="mr-1 inline h-4 w-4" aria-hidden="true"/>
     Secure Production credential storage is not approved or configured. Complete the database migration, independent encryption-key custody, audit key and authenticator gates before enabling submissions.
    </div>:null}
-  {security.credential_submission_available&&!security.verified?<div className="mt-4 space-y-3">
-   <p className="text-xs text-console-muted">First enroll a provider-vault authenticator. This is separate from your sign-in session and does not require SMS.</p>
-   {!security.enrollment_available?<p className="text-xs text-amber-800">Authenticator enrollment is not enabled by the server operator.</p>:null}
+  {!security.verified?<div className="mt-4 space-y-3">
+   <p className="text-xs text-console-muted">First enroll your provider-vault authenticator independently of credential submissions. This is not your Console sign-in MFA, and it does not activate supplier access.</p>
+   {!security.enrollment_available?<p className="text-xs text-amber-800">Enrollment is unavailable until independent step-up-key custody is verified and the server operator enables enrollment. Do not submit provider credentials.</p>:null}
    {!enrollment?<form onSubmit={enrollStart} autoComplete="off" className="space-y-2">
     <label className="block text-xs">Current account password
      <input name="confirm_password" type="password" required autoComplete="off" className={fieldStyle}/></label>
