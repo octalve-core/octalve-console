@@ -114,4 +114,35 @@ export const domains:readonly Integration[]=[
   "logo": "cloudflare",
   "stage": "Research"
  }
+ ,{
+  "slug": "cloudflare-registrar-live",
+  "name": "Cloudflare Registrar — Live Quote",
+  "category": "Domains",
+  "summary": "Scoped live API check for .com and .net availability and supplier prices. Registration and payments remain disabled.",
+  "documentation": "https://developers.cloudflare.com/registrar/registrar-api/",
+  "guide": "Cloudflare Registrar API beta — live availability checks",
+  "requirements": [
+   {
+    "label": "Cloudflare Account ID",
+    "guidance": "Exact 32-character account identifier associated with approved registrar access."
+   },
+   {
+    "label": "Dedicated registrar API token",
+    "guidance": "Issue a separate account-scoped token for controlled registrar checks. Never reuse the Cloudflare DNS token.",
+    "sensitive": true
+   },
+   {
+    "label": "Independent release approval",
+    "guidance": "Save the token in encrypted Octalve provider vault only after individual adapter allowlisting. Enable server-side quote readback separately."
+   }
+  ],
+  "capabilities": [
+   "Super Admin password and fresh TOTP required for every live quote",
+   "Returned prices are supplier-only, not retail offers or checkout authorizations",
+   "No live registration, renewal, payment or nameserver change is possible from this connector"
+  ],
+  "logo": "cloudflare",
+  "stage": "Research"
+ }
+
 ];
