@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view,permission_classes,throttle_class
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from catalog.permissions import InternalSupplierAuthority
-from .connection_views import VaultMutationThrottle, connection_database_qualified
+from .connection_views import VaultMutationThrottle, connection_database_qualified, approved_draft_adapters
 from .connection_vault import vault, VaultUnavailable
 from .connection_audit import audit_key
 from .connection_stepup import start,confirm,assert_admin,cipher
@@ -19,17 +19,19 @@ def status(request):
         record=ProviderVaultAuthenticator.objects.filter(user=request.user).first()
     except (OperationalError,ProgrammingError):
         return Response({"detail":"Provider security is not available yet."},status=503)
-    enrollment_available=False
-    if (getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False) and
-        getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False)):
-        try:
-            cipher()
-            enrollment_available=True
-        except VaultUnavailable:
-            pass
+    stepup_key_ready=False
+    try:
+        cipher()
+        stepup_key_ready=True
+    except VaultUnavailable:
+        pass
+    custody_verified=bool(getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False))
+    enrollment_available=bool(
+        stepup_key_ready and custody_verified and
+        getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False))
+    approved=approved_draft_adapters()
     configured=False
-    if (record and record.verified and
-        enrollment_available and
+    if (record and record.verified and stepup_key_ready and approved and
         getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False) and
         getattr(settings,"CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED",False) and
         getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False) and
@@ -45,6 +47,7 @@ def status(request):
     return Response({"verified":bool(record and record.verified),"kind":"totp",
         "enrollment_available":enrollment_available,
         "credential_submission_available":configured,
+        "approved_draft_adapters":sorted(approved) if configured else [],
         "provider_execution_enabled":False},headers={"Cache-Control":"private, no-store"})
 
 @api_view(["POST"])
