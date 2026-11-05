@@ -120,10 +120,14 @@ def connection_database_qualified():
             """)
             if cursor.fetchone()[0]!=3: return False
             cursor.execute("""
-                SELECT COUNT(*) FROM pg_trigger
-                WHERE tgrelid='providers_integrationconnectionevent'::regclass
-                  AND tgname='providers_event_append_only' AND NOT tgisinternal
-                  AND tgenabled IN ('O', 'A')
+                SELECT COUNT(*) FROM pg_trigger t
+                JOIN pg_proc p ON p.oid=t.tgfoid
+                WHERE t.tgrelid='providers_integrationconnectionevent'::regclass
+                  AND t.tgname='providers_event_append_only' AND NOT t.tgisinternal
+                  AND t.tgenabled IN ('O', 'A')
+                  AND t.tgtype=27 -- BEFORE UPDATE OR DELETE FOR EACH ROW
+                  AND p.proname='providers_block_event_rewrite'
+                  AND pg_get_functiondef(p.oid) LIKE '%RAISE EXCEPTION%'
             """)
             return cursor.fetchone()[0]==1
     except DatabaseError:
