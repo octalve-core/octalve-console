@@ -26,10 +26,13 @@ class FixtureTransport:
         self.owner=ACCOUNT
     def __call__(self,method,path,body=None):
         self.calls.append((method,path,body))
-        if path=="/zones":
-            return envelope([{"id":ZONE,"status":"active","account":{"id":self.owner}}])
-        if path==f"/zones/{ZONE}/dns_records":
-            return envelope([{"id":"dns-1","name":"int01test-abc123.com","type":"A","content":"192.0.2.13"}])
+        if path==f"/zones/{ZONE}":
+            return envelope({"id":ZONE,"status":"active","account":{"id":self.owner}})
+        if path==f"/zones/{ZONE}/dns_records?page=1&per_page=100":
+            return {**envelope([{"id":"f"*32,"name":"int01test-abc123.com",
+                       "type":"A","content":"192.0.2.13"}]),
+                    "result_info":{"count":1,"page":1,"per_page":100,
+                                   "total_count":1,"total_pages":1}}
         if path.endswith("/registrations") and method=="GET":
             return envelope([])
         if path.endswith("/domain-check"):
@@ -57,6 +60,50 @@ class CloudflareINT01ContractTests(SimpleTestCase):
         t.owner="c"*32
         with self.assertRaises(CloudflareINT01Denied):
             CloudflareINT01(ACCOUNT,t).dns_readback(ZONE)
+
+    def test_dns_multiple_pages_are_complete_and_validated(self):
+        class Paginated(FixtureTransport):
+            def __call__(self,method,path,body=None):
+                if path.startswith(f"/zones/{ZONE}/dns_records?"):
+                    self.calls.append((method,path,body))
+                    page=1 if "page=1&" in path else 2
+                    size=100 if page==1 else 1
+                    records=[{"id":f"{(page-1)*100+i+1:032x}",
+                              "name":f"rec{i}.example.com","type":"A",
+                              "content":"192.0.2.11"} for i in range(size)]
+                    return {**envelope(records),
+                        "result_info":{"count":len(records),"page":page,
+                          "per_page":100,"total_count":101,"total_pages":2}}
+                return super().__call__(method,path,body)
+        t=Paginated()
+        info=CloudflareINT01(ACCOUNT,t).dns_readback(ZONE)
+        self.assertEqual(info["dns_record_count"],101)
+        self.assertEqual(len(t.calls),3)
+        self.assertFalse(info["side_effects"])
+
+    def test_dns_truncated_and_duplicate_pages_never_verify(self):
+        class Broken(FixtureTransport):
+            def __init__(self,kind):
+                super().__init__()
+                self.kind=kind
+            def __call__(self,method,path,body=None):
+                result=super().__call__(method,path,body)
+                if "/dns_records?" in path:
+                    if self.kind=="truncated":
+                        result["result_info"]["total_count"]=101
+                        result["result_info"]["total_pages"]=2
+                    if self.kind=="missing_info":
+                        result.pop("result_info")
+                    if self.kind=="wrong_page":
+                        result["result_info"]["page"]=9
+                    if self.kind=="duplicate":
+                        result["result"]*=2
+                        result["result_info"]["count"]=2
+                        result["result_info"]["total_count"]=2
+                return result
+        for kind in ("truncated","missing_info","wrong_page","duplicate"):
+            with self.subTest(kind=kind),self.assertRaises(CloudflareINT01Denied):
+                CloudflareINT01(ACCOUNT,Broken(kind)).dns_readback(ZONE)
 
     def test_sandbox_read_check_and_pricing(self):
         t=FixtureTransport()
