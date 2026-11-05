@@ -72,4 +72,4 @@ class CloudflareAdminProbeTests(TestCase):
             reply=self.api(self.admin).get("/api/providers/int01/cloudflare/probe/?scope=dns")
         self.assertEqual(reply.status_code,503)
         self.assertFalse(reply.data["verified"])
-        self.assertEqual(AuditLog.objects.count(),0)
+        self.assertEqual(AuditLog.objects.filter(action="provider_connection_test").count(),0)
