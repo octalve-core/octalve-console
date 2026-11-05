@@ -8,7 +8,7 @@ from catalog.permissions import InternalSupplierAuthority
 from .connection_views import VaultMutationThrottle, connection_database_qualified
 from .connection_vault import vault, VaultUnavailable
 from .connection_audit import audit_key
-from .connection_stepup import start,confirm,assert_admin
+from .connection_stepup import start,confirm,assert_admin,cipher
 from .connection_models import ProviderVaultAuthenticator
 
 @api_view(["GET"])
@@ -19,20 +19,31 @@ def status(request):
         record=ProviderVaultAuthenticator.objects.filter(user=request.user).first()
     except (OperationalError,ProgrammingError):
         return Response({"detail":"Provider security is not available yet."},status=503)
+    enrollment_available=False
+    if (getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False) and
+        getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False)):
+        try:
+            cipher()
+            enrollment_available=True
+        except VaultUnavailable:
+            pass
     configured=False
-    if (getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False) and
+    if (record and record.verified and
+        enrollment_available and
+        getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False) and
         getattr(settings,"CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED",False) and
         getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False) and
         not getattr(settings,"DEBUG",False) and
         connection_database_qualified()):
         try:
             vault()
+            cipher()
             audit_key()
             configured=True
         except VaultUnavailable:
             pass
     return Response({"verified":bool(record and record.verified),"kind":"totp",
-        "enrollment_available":bool(getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False)),
+        "enrollment_available":enrollment_available,
         "credential_submission_available":configured,
         "provider_execution_enabled":False},headers={"Cache-Control":"private, no-store"})
 
