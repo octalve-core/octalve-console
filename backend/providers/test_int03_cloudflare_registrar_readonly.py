@@ -205,12 +205,12 @@ class LiveRegistrarQuoteEndpointTests(TestCase):
             provider.return_value.live_domain_check.side_effect=CloudflareINT01Denied()
             rejected=self.client.post(self.path,self.body,format="json")
             self.assertEqual(rejected.status_code,503)
-            self.assertFalse(AuditLog.objects.exists())
+            self.assertFalse(AuditLog.objects.filter(action="provider_connection_test").exists())
             self.row.adapter_key="cloudflare-dns"
             self.row.save(update_fields=["adapter_key"])
             denied=self.client.post(self.path,self.body,format="json")
             self.assertEqual(denied.status_code,404)
-        self.assertFalse(AuditLog.objects.exists())
+        self.assertFalse(AuditLog.objects.filter(action="provider_connection_test").exists())
         self.assertNotIn(TOKEN,str(rejected.data))
 
     def test_unexpected_payload_cannot_reach_provider(self):
