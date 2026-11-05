@@ -63,7 +63,9 @@ def assert_password(user,password):
 @transaction.atomic
 def start(user,password):
     assert_admin(user)
-    if not getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False): raise VaultUnavailable()
+    if not (getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False) and
+            getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False)):
+        raise VaultUnavailable()
     assert_password(user,password)
     encryption=cipher()
     user.__class__.objects.select_for_update().get(pk=user.pk)
@@ -82,7 +84,9 @@ def start(user,password):
 @transaction.atomic
 def confirm(user,password,code):
     assert_admin(user)
-    if not getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False): raise VaultUnavailable()
+    if not (getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False) and
+            getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False)):
+        raise VaultUnavailable()
     assert_password(user,password)
     try: row=ProviderVaultAuthenticator.objects.select_for_update().get(user=user)
     except ProviderVaultAuthenticator.DoesNotExist: raise PermissionDenied("Enrollment not started.")
