@@ -52,6 +52,37 @@ class ProviderAuditIntegrityTests(TestCase):
         IntegrationConnectionEvent.objects.create(connection=self.conn,actor=self.admin,action="draft_created",version=1)
         with self.assertRaises(VaultUnavailable):
             self.append("credential_rotated",2)
+    def test_historical_audit_receipts_survive_approved_key_rotation(self):
+        import json
+        old_key=KEY
+        new_key=Fernet.generate_key().decode()
+        self.append("draft_created",1)
+        with override_settings(
+            CLOUD_PROVIDER_AUDIT_KEY=new_key,
+            CLOUD_PROVIDER_AUDIT_KEY_ID="v2",
+            CLOUD_PROVIDER_AUDIT_PREVIOUS_KEYS_JSON=json.dumps({"v1":old_key}),
+        ):
+            self.conn.refresh_from_db()
+            self.assertEqual(verify_chain(self.conn)["events"],1)
+            self.append("credential_rotated",2)
+            self.conn.refresh_from_db()
+            self.assertEqual(verify_chain(self.conn)["events"],2)
+            with override_settings(CLOUD_PROVIDER_AUDIT_PREVIOUS_KEYS_JSON=""):
+                with self.assertRaises(VaultUnavailable):
+                    verify_chain(self.conn)
+        with override_settings(CLOUD_PROVIDER_AUDIT_KEY=""):
+            with self.assertRaises(VaultUnavailable):
+                verify_chain(self.conn)
+
+    def test_invalid_audit_previous_keyring_refuses_chain(self):
+        self.append("draft_created",1)
+        self.conn.refresh_from_db()
+        for previous in ('not-json','{"v1":"bad-key"}', '{"v1":"'+KEY+'"}'):
+            with self.subTest(previous=previous[:15]):
+                with override_settings(CLOUD_PROVIDER_AUDIT_PREVIOUS_KEYS_JSON=previous):
+                    with self.assertRaises(VaultUnavailable):
+                        verify_chain(self.conn)
+
     def test_missing_audit_key_refuses_all_writes(self):
         with override_settings(CLOUD_PROVIDER_AUDIT_KEY=""):
             with self.assertRaises(VaultUnavailable):
