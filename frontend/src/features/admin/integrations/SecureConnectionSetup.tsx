@@ -8,7 +8,7 @@ type FieldKind="url"|"name"|"domain"|"identifier";
 type ProviderSchema={key:string;name:string;fields:Record<string,FieldKind>;
  secret_fields:string[];enabled_for_execution:false};
 type Security={verified:boolean;kind:"totp";enrollment_available:boolean;
- credential_submission_available:boolean;provider_execution_enabled:false};
+ credential_submission_available:boolean;approved_draft_adapters?:string[];provider_execution_enabled:false};
 type SecretEnrollment={secret:string;otpauth_url:string;expires_in_seconds:number};
 type SavedDraft={id:string;label:string;state:"draft";credential_version:number;execution_enabled:false};
 const pretty=(value:string)=>value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());
@@ -75,7 +75,8 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
   finally{setWorking(false);}
  }
  async function save(e:FormEvent<HTMLFormElement>){
-  e.preventDefault();if(working||!schema||!security?.verified||!security.credential_submission_available)return;
+  e.preventDefault();if(working||!schema||!security?.verified||!security.credential_submission_available||
+    !security.approved_draft_adapters?.includes(item.slug))return;
   const form=e.currentTarget,fields=new FormData(form);
   const public_settings:Record<string,string>={},secrets:Record<string,string>={};
   for(const key of Object.keys(schema.fields))public_settings[key]=String(fields.get("pub_"+key)||"");
@@ -106,6 +107,10 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
     <ShieldAlert className="mr-1 inline h-4 w-4" aria-hidden="true"/>
     Secure Production credential storage is not approved or configured. Complete the database migration, independent encryption-key custody, audit key and authenticator gates before enabling submissions.
    </div>:null}
+  {security.verified&&security.credential_submission_available&&
+    !security.approved_draft_adapters?.includes(item.slug)?<p role="status" className="mt-3 rounded-lg border border-amber-200 p-3 text-xs text-amber-900">
+      This provider has not been independently approved for Production credential intake. No secrets may be submitted here.
+    </p>:null}
   {!security.verified?<div className="mt-4 space-y-3">
    <p className="text-xs text-console-muted">First enroll your provider-vault authenticator independently of credential submissions. This is not your Console sign-in MFA, and it does not activate supplier access.</p>
    {!security.enrollment_available?<p className="text-xs text-amber-800">Enrollment is unavailable until independent step-up-key custody is verified and the server operator enables enrollment. Do not submit provider credentials.</p>:null}
@@ -123,7 +128,7 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
     </form>
    </div>}
   </div>:null}
-  {security.credential_submission_available&&security.verified?<form onSubmit={save} autoComplete="off" className="mt-4 space-y-3">
+  {security.credential_submission_available&&security.verified&&security.approved_draft_adapters?.includes(item.slug)?<form onSubmit={save} autoComplete="off" className="mt-4 space-y-3">
    <div className="grid gap-3 sm:grid-cols-2">
     <label className="block text-xs">Connection label
      <input name="label" required minLength={2} maxLength={120} placeholder="e.g. My DNS account" className={fieldStyle}/></label>
