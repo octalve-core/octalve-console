@@ -45,6 +45,16 @@ SCHEMAS = {
         "ports": (),
         "guide": "https://developers.cloudflare.com/api/resources/registrar_sandbox/",
     },
+    # Real-time check only. Live registration is intentionally unimplemented:
+    # customer billing, registrant approval and supplier reconciliation are
+    # independent release gates; no code-owned paid mutation route is exposed.
+    "cloudflare-registrar-live": {
+        "name": "Cloudflare Registrar (live quotation only)",
+        "fields": {"account_id": "identifier"},
+        "secrets": ("api_token",),
+        "ports": (),
+        "guide": "https://developers.cloudflare.com/registrar/registrar-api/",
+    },
     "brevo": {
         "name": "Brevo (transactional mail, primary)",
         "fields": {"sending_domain": "domain"},
