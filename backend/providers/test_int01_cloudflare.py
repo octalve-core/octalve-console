@@ -90,8 +90,8 @@ class CloudflareINT01ContractTests(SimpleTestCase):
                 result=super().__call__(method,path,body)
                 if "/dns_records?" in path:
                     if self.kind=="truncated":
-                        result["result_info"]["total_count"]=101
-                        result["result_info"]["total_pages"]=2
+                        result["result_info"]["total_count"]=2
+                        result["result_info"]["total_pages"]=1
                     if self.kind=="missing_info":
                         result.pop("result_info")
                     if self.kind=="wrong_page":
