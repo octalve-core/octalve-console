@@ -114,7 +114,7 @@ class FixedCloudflareTransport:
             raise CloudflareINT01Denied()
         # Network operations are defined solely in the adapter below; reject
         # generic paths and arbitrary request bodies even if called directly.
-        if not re.fullmatch(r"/zones(?:/[a-f0-9]{32}/dns_records)?|/accounts/[a-f0-9]{32}/registrar-sandbox/(?:domain-check|extensions/(?:com|net)|registrations(?:/[a-z0-9.-]+)?)",path):
+        if not re.fullmatch(r"/zones(?:/[a-f0-9]{32}/dns_records)?|/accounts/[a-f0-9]{32}/registrar-sandbox/(?:domain-check|extensions/(?:com|net)|registrations(?:/[a-z0-9.-]+)?)|/accounts/[a-f0-9]{32}/registrar/domain-check",path):
             raise CloudflareINT01Denied()
         is_register=path.endswith("/registrations")
         is_check=path.endswith("/domain-check")
@@ -171,6 +171,18 @@ class CloudflareINT01:
 
     def _path(self,append):
         return f"/accounts/{self.account_id}/registrar-sandbox/{append}"
+
+    def live_domain_check(self, domain):
+        """Cloudflare Registrar beta's live price/availability check, NOT a purchase.
+
+        A POST to domain-check is a read-only query; the transport permits no
+        path ending in /registrar/registrations, including indirect callers.
+        Only .com and .net are initially qualified; widen with vendor tests.
+        """
+        domain=require_domain(domain)
+        data=self.transport("POST",f"/accounts/{self.account_id}/registrar/domain-check",
+                            {"domains":[domain]})
+        return _check_domain(data,domain)
 
     def dns_readback(self,zone_id):
         zone_id=require_id(zone_id)
