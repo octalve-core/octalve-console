@@ -4,12 +4,13 @@ const root=path.resolve(__dirname,"../src/features/admin/integrations/");
 const read=n=>fs.readFileSync(path.join(root,n),"utf8");
 const source=read("connection-readback.ts"),hook=read("useConnectionOverview.ts");
 const store=read("IntegrationStore.tsx"),sheet=read("ProviderSideSheet.tsx"),card=read("ProviderCard.tsx");
-const setup=read("SecureConnectionSetup.tsx"),verify=read("SavedConnectionActions.tsx");
+const setup=read("SecureConnectionSetup.tsx"),verify=read("SavedConnectionActions.tsx"),
+ enrollment=read("ProviderVaultEnrollment.tsx");
 assert.ok(source.includes('api.get<ConnectionResponse>("/providers/connections/")'));
 assert.ok(source.includes('api.get<SchemaResponse>("/providers/connections/schemas/")'));
 assert.ok(source.includes("execution_enabled!==false"));
 assert.ok(hook.includes('status:"unavailable"'));
-for(const value of [source,hook,store,sheet,card,setup,verify]){
+for(const value of [source,hook,store,sheet,card,setup,enrollment,verify]){
  assert.ok(!/localStorage|sessionStorage|window\.open\(|download_url/.test(value),
   "Provider secrets or connection data must not persist or escape to external window.");
 }
@@ -18,7 +19,12 @@ assert.ok(sheet.includes("Unverified draft")&&sheet.includes("Supplier account c
 assert.ok(sheet.includes("SecureConnectionSetup")&&sheet.includes("SavedConnectionActions"));
 assert.ok(setup.includes("api.post<SavedDraft>")&&setup.includes('"/providers/connections/"'));
 assert.ok(setup.includes('name={"sec_"+key} type="password"')&&setup.includes("form.reset()"));
-assert.ok(setup.includes('"/providers/security/stepup/enroll/"')&&setup.includes('"/providers/security/stepup/confirm/"'));
+assert.ok(setup.includes("ProviderVaultEnrollment")&&
+ enrollment.includes('"/providers/security/stepup/enroll/"')&&
+ enrollment.includes('"/providers/security/stepup/confirm/"'));
+assert.ok(enrollment.includes("onVerified?.()")&&
+ !/NEXT_PUBLIC_|localStorage|sessionStorage/.test(enrollment));
+assert.ok(setup.includes("approved_draft_adapters?.includes(item.slug)"));
 assert.ok(verify.includes('"/verify/"')&&verify.includes('result.execution_enabled!==false'));
 assert.ok(!/api\.post/.test(store)&&!/api\.post/.test(sheet));
 assert.ok(card.includes("Draft saved")&&!card.includes(">Connected</span>"));

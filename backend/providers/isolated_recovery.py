@@ -13,7 +13,7 @@ from django.conf import settings
 from django.db import transaction
 from .connection_models import IntegrationConnection,IntegrationCredentialVersion,IntegrationConnectionEvent
 from .connection_vault import VaultUnavailable,unseal_version
-from .connection_audit import audit_key,signature,verify_chain
+from .connection_audit import audit_keyring,signature,verify_chain
 
 MAX_RECORDS=1000
 MAX_BYTES=4_000_000
@@ -108,7 +108,7 @@ def verify_isolated_snapshot(blob):
             scratch.execute("CREATE TABLE versions(connection_id TEXT,num INTEGER,PRIMARY KEY(connection_id,num))")
             scratch.execute("CREATE TABLE events(connection_id TEXT,num INTEGER,PRIMARY KEY(connection_id,num))")
             counts={"connections":0,"versions":0,"events":0}
-            audit_secret=audit_key()
+            _,audit_keys=audit_keyring()
             for row in data["connections"]:
                 if not isinstance(row,dict) or set(row)!={"id","adapter","state","current","head","sequence","versions","events"}:
                     raise VaultUnavailable()
@@ -139,9 +139,12 @@ def verify_isolated_snapshot(blob):
                     if event["number"]!=index or event["prev"]!=prev: raise VaultUnavailable()
                     from .connection_audit import ALLOWED_ACTIONS
                     if event["action"] not in ALLOWED_ACTIONS: raise VaultUnavailable()
-                    expected=signature(audit_secret,row["id"],index,event["action"],event["version"],
-                          event["actor"],prev,datetime.fromisoformat(event["date"]))
-                    if not hmac.compare_digest(expected,event["mac"]): raise VaultUnavailable()
+                    if not any(hmac.compare_digest(
+                        signature(secret,row["id"],index,event["action"],event["version"],
+                                  event["actor"],prev,datetime.fromisoformat(event["date"])),
+                        event["mac"]
+                    ) for secret in audit_keys.values()):
+                        raise VaultUnavailable()
                     prev=event["mac"]
                     counts["events"]+=1
                 if row["head"]!=prev: raise VaultUnavailable()

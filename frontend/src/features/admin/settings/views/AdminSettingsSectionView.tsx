@@ -6,6 +6,7 @@ import {ActionLink} from "@/components/design-system/ActionLink";
 import {ConsolePolicyEditor} from "../components/ConsolePolicyEditor";
 import {MailTemplateWorkbench} from "../components/MailTemplateWorkbench";
 import {AccountEmailVerificationPanel} from "../components/AccountEmailVerificationPanel";
+import {ProviderVaultEnrollment} from "../../integrations/ProviderVaultEnrollment";
 import {ConsoleTaxEditor} from "../components/ConsoleTaxEditor";
 import {OperationalSettingsStatus} from "../components/OperationalSettingsStatus";
 import {getAdminSettingsItem,type AdminSettingsKey} from "../data/admin-settings-config";
@@ -22,6 +23,7 @@ export function AdminSettingsSectionView({section}:{section:AdminSettingsKey}){
       section==="tax"?<ConsoleTaxEditor/>:section==="notifications"?null:<OperationalSettingsStatus section={section}/>}
     {(section==="mail"||section==="notifications")?<MailTemplateWorkbench/>:null}
     {(section==="mail"||section==="security")?<AccountEmailVerificationPanel/>:null}
+    {section==="security"?<ProviderVaultEnrollment/>:null}
    </div>
   </DashboardPage>
  </DashboardShell>;

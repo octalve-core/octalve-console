@@ -567,11 +567,17 @@ CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED = env.bool("CLOUD_PROVIDER_PRODUCTION_V
 CLOUD_PROVIDER_CUSTODY_VERIFIED = env.bool("CLOUD_PROVIDER_CUSTODY_VERIFIED", default=False)
 # Independent synthetic review hold: deployed credential mutations remain prohibited.
 CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED = env.bool("CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED", default=False)
+# No Production adapter may receive secrets until individually allowlisted.
+CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS = env("CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS",default="")
 CLOUD_PROVIDER_VAULT_KEY = env("CLOUD_PROVIDER_VAULT_KEY", default="")
 CLOUD_PROVIDER_VAULT_KEY_ID = env("CLOUD_PROVIDER_VAULT_KEY_ID", default="v1")
 
 # Vault-only enrollment and step-up are separate from the account 2FA flag.
 CLOUD_PROVIDER_STEPUP_KEY = env("CLOUD_PROVIDER_STEPUP_KEY",default="")
+# Versioned TOTP envelope recovery and offline all-or-nothing rewrap.
+CLOUD_PROVIDER_STEPUP_KEY_ID = env("CLOUD_PROVIDER_STEPUP_KEY_ID",default="v1")
+CLOUD_PROVIDER_STEPUP_PREVIOUS_KEYS_JSON = env("CLOUD_PROVIDER_STEPUP_PREVIOUS_KEYS_JSON",default="")
+CLOUD_PROVIDER_STEPUP_REWRAP_ENABLED = env.bool("CLOUD_PROVIDER_STEPUP_REWRAP_ENABLED",default=False)
 CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED = env.bool("CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",default=False)
 
 # Previous decryption keys stay separate from the active key, outside source and DB.
@@ -583,6 +589,9 @@ CLOUD_SUPPLIER_PINNED_IPS_JSON = env("CLOUD_SUPPLIER_PINNED_IPS_JSON",default=""
 
 # Dedicated 32-byte HMAC integrity key. Keep outside Neon/source; no fallback to JWT/vault.
 CLOUD_PROVIDER_AUDIT_KEY = env("CLOUD_PROVIDER_AUDIT_KEY",default="")
+# Keep previous HMAC keys to verify immutable signed historical event receipts.
+CLOUD_PROVIDER_AUDIT_KEY_ID = env("CLOUD_PROVIDER_AUDIT_KEY_ID",default="v1")
+CLOUD_PROVIDER_AUDIT_PREVIOUS_KEYS_JSON = env("CLOUD_PROVIDER_AUDIT_PREVIOUS_KEYS_JSON",default="")
 
 # Synthetic/Review-only isolated vault recovery, no browser route or filesystem writes.
 CLOUD_PROVIDER_RECOVERY_KEY = env("CLOUD_PROVIDER_RECOVERY_KEY",default="")

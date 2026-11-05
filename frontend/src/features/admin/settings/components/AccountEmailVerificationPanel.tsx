@@ -36,13 +36,13 @@ export function AccountEmailVerificationPanel(){
       }
     }catch(err){
       const codes: Record<string,string> = {
-        smtp_auth_failed: "Brevo rejected the SMTP login or SMTP key. Check its dedicated SMTP credentials in the API Production environment.",
-        sender_rejected: "Brevo rejected the sending address. Check the verified sender and DEFAULT_FROM_EMAIL.",
-        recipient_rejected: "The provider rejected the recipient. Check the Brevo transactional email log without sharing addresses.",
-        smtp_tls_failed: "The encrypted SMTP handshake failed. Check port 587, STARTTLS, and relay certificate configuration.",
+        smtp_auth_failed: "The SMTP relay rejected its login or key. Check its dedicated SMTP credentials in the API Production environment.",
+        sender_rejected: "The SMTP relay rejected the sending address. Check the verified sender and DEFAULT_FROM_EMAIL.",
+        recipient_rejected: "The provider rejected the recipient. Check the transactional provider log without sharing addresses.",
+        smtp_tls_failed: "The encrypted SMTP handshake failed. Check the configured port, TLS/SSL mode and relay certificate.",
         smtp_connection_failed: "The API could not complete the SMTP connection. Check the relay connection and serverless runtime networking.",
-        smtp_temporary_rejection: "Brevo temporarily refused the SMTP operation. Check whether transactional sending is activated and available.",
-        smtp_provider_rejection: "Brevo refused the SMTP operation. Inspect Brevo's transactional status and sending permissions.",
+        smtp_temporary_rejection: "The provider temporarily refused the SMTP operation. Check whether transactional sending is activated and available.",
+        smtp_provider_rejection: "The provider refused the SMTP operation. Inspect the active provider's transactional status and sending permissions.",
         smtp_delivery_failed: "The email provider could not complete the request. Check the sanitized API runtime diagnostics."
       };
       const payload=err instanceof ApiError && err.payload &&
@@ -56,7 +56,7 @@ export function AccountEmailVerificationPanel(){
       }else if(err instanceof ApiError && [401,403].includes(err.status)){
         setError("Your session was rejected. Sign in again before requesting verification.");
       }else{
-        setError("The verification request failed. Check its HTTP status and the Brevo transactional logs before retrying.");
+        setError("The verification request failed. Check its HTTP status and the active provider's transactional logs before retrying.");
       }
     }finally{setSending(false);}
   }
@@ -84,7 +84,7 @@ export function AccountEmailVerificationPanel(){
         <p className="text-xs text-console-muted">Authenticated SMTP configuration</p>
         <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-console-ink">
           {status?.delivery_configured?<CheckCircle2 className="h-4 w-4 text-emerald-700" aria-hidden="true"/>:<ShieldAlert className="h-4 w-4 text-amber-700" aria-hidden="true"/>}
-          {loading?"Checking…":status?(status.delivery_configured?"Configured, delivery not yet proven":"Not configured"):"Unknown"}
+          {loading?"Checking…":status?(status.delivery_configured?(status.email_verified?"Configured; mailbox ownership confirmed":"Configured; delivery not yet proven"):"Not configured"):"Unknown"}
         </p>
       </div>
       <div className="rounded-xl border border-console-line bg-slate-50 p-4">
@@ -103,9 +103,9 @@ export function AccountEmailVerificationPanel(){
         className="min-h-10 rounded-xl bg-console-primary px-4 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">
         {sending?"Requesting secure link…":"Send verification email"}
       </button>
-      <a href="https://help.brevo.com/hc/en-us/articles/7924908994450-Send-transactional-emails-using-Brevo-SMTP"
+      <a href="https://resend.com/django"
         target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center text-xs font-medium text-console-primary underline underline-offset-2">
-        Brevo SMTP setup guidance
+        Resend SMTP setup guidance
       </a>
     </div>
     {message?<p role="status" className="mt-3 text-xs text-console-primary">{message}</p>:null}
