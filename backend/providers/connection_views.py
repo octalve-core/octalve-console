@@ -40,6 +40,30 @@ class VaultMutationThrottle(BaseThrottle):
             raise Throttled(wait=retry)
         return True
 
+def approved_draft_adapters():
+    """Exactly the individually approved adapters; malformed settings disable all."""
+    raw=getattr(settings,"CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS","")
+    if not isinstance(raw,str) or not raw or len(raw)>512:
+        return frozenset()
+    parts=raw.split(",")
+    if (len(parts)>len(SCHEMAS) or len(set(parts))!=len(parts)
+            or any(not re.fullmatch(r"[a-z0-9_-]{2,40}",part)
+                   or part not in SCHEMAS for part in parts)):
+        return frozenset()
+    return frozenset(parts)
+
+
+def require_adapter_intake(adapter):
+    # Synthetic local test harnesses may exercise every code-owned draft schema.
+    # Deployed environments never get this exception.
+    synthetic=(getattr(settings,"DEBUG",False)
+               and getattr(settings,"CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED",False)
+               and os.getenv("VERCEL","")!="1"
+               and os.getenv("VERCEL_ENV","").lower() not in ("production","preview","development"))
+    if not synthetic and adapter not in approved_draft_adapters():
+        raise VaultUnavailable()
+
+
 def require_write_authority(request):
     """Portable, fail-closed secure credential storage, never supplier execution.
 
@@ -144,6 +168,7 @@ def connections(request):
     adapter=data["adapter_key"]
     if adapter not in SCHEMAS:
         raise ValidationError({"adapter_key":"Adapter is not supported for secure draft storage."})
+    require_adapter_intake(adapter)
     label=data["label"]
     if not isinstance(label,str) or not 2<=len(label)<=120 or label!=label.strip():
         raise ValidationError({"label":"Enter a descriptive connection name."})
@@ -186,6 +211,7 @@ def rotate_connection(request, connection_id):
             return Response({"detail":"Connection not found."},status=404)
         if row.state!="draft":
             return Response({"detail":"Revoked connection cannot be rotated."},status=409)
+        require_adapter_intake(row.adapter_key)
         secrets=validate_secrets(row.adapter_key,data["secrets"])
         next_version=row.current_version+1
         if next_version>65535:
