@@ -20,7 +20,8 @@ PASSWORD="CI-restricted-account-password"
  CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED=True,
  CLOUD_PROVIDER_VAULT_KEY=KEY,CLOUD_PROVIDER_VAULT_KEY_ID="int02",
  CLOUD_PROVIDER_AUDIT_KEY=AUDIT,CLOUD_PROVIDER_STEPUP_KEY=STEP,
- CLOUD_PROVIDER_VAULT_PREVIOUS_KEYS_JSON="")
+ CLOUD_PROVIDER_VAULT_PREVIOUS_KEYS_JSON="",
+ CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS="cloudflare-dns")
 class SecureConsoleCredentialTests(TestCase):
  def setUp(self):
   U=get_user_model()
@@ -46,6 +47,45 @@ class SecureConsoleCredentialTests(TestCase):
     res=c.post("/api/providers/connections/",self.payload,format="json")
     self.assertIn(res.status_code,(401,403))
   self.assertEqual(IntegrationConnection.objects.count(),0)
+
+ def test_production_storage_is_default_denied_without_explicit_adapter_approval(self):
+  with patch("providers.connection_views.connection_database_qualified",return_value=True),patch(
+      "providers.connection_views.check_mutation",return_value=None):
+   with override_settings(CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS=""):
+    denied=self.c.post("/api/providers/connections/",self.payload,format="json")
+    self.assertEqual(denied.status_code,503,denied.data)
+   with override_settings(CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS="cloudflare-dns,not-registered"):
+    denied=self.c.post("/api/providers/connections/",self.payload,format="json")
+    self.assertEqual(denied.status_code,503,denied.data)
+  self.assertFalse(IntegrationConnection.objects.exists())
+
+ def test_stepup_can_be_enrolled_before_provider_writes(self):
+  from providers.connection_stepup import otp_at
+  from unittest.mock import patch
+  with override_settings(CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=False),patch(
+      "providers.connection_stepup.time.time",return_value=1800000000):
+   status=self.c.get("/api/providers/security/stepup/")
+   self.assertEqual(status.status_code,200,status.data)
+   self.assertTrue(status.data["enrollment_available"])
+   self.assertFalse(status.data["credential_submission_available"])
+   enrolled=self.c.post("/api/providers/security/stepup/enroll/",{"confirm_password":PASSWORD},format="json")
+   self.assertEqual(enrolled.status_code,200,enrolled.data)
+   confirmed=self.c.post("/api/providers/security/stepup/confirm/",{
+       "confirm_password":PASSWORD,"totp_code":otp_at(enrolled.data["secret"],1800000000//30)},format="json")
+   self.assertEqual(confirmed.status_code,200,confirmed.data)
+   self.assertTrue(confirmed.data["verified"])
+   self.assertFalse(self.c.get("/api/providers/security/stepup/").data["credential_submission_available"])
+  self.assertFalse(IntegrationConnection.objects.exists())
+
+ def test_credential_status_requires_totp_and_strict_adapter_allowlist(self):
+  with patch("providers.connection_security_views.connection_database_qualified",return_value=True):
+   status=self.c.get("/api/providers/security/stepup/")
+   self.assertFalse(status.data["credential_submission_available"])
+   self.assertEqual(status.data["approved_draft_adapters"],[])
+   with override_settings(CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS="not-registered"):
+    invalid=self.c.get("/api/providers/security/stepup/")
+    self.assertFalse(invalid.data["credential_submission_available"])
+  self.assertFalse(IntegrationConnection.objects.exists())
 
  def test_production_storage_is_denied_until_custody_db_and_mfa(self):
   for setting,value in (("CLOUD_PROVIDER_CUSTODY_VERIFIED",False),
