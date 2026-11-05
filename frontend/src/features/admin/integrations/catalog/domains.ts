@@ -113,8 +113,8 @@ export const domains:readonly Integration[]=[
   ],
   "logo": "cloudflare",
   "stage": "Research"
- }
- ,{
+ },
+ {
   "slug": "cloudflare-registrar-live",
   "name": "Cloudflare Registrar — Live Quote",
   "category": "Domains",
