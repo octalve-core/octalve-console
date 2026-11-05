@@ -19,7 +19,8 @@ NOW=1800000000
 @override_settings(DEBUG=True,CLOUD_PROVIDER_VAULT_KEY=VAULT_KEY,CLOUD_PROVIDER_STEPUP_KEY=STEP_KEY,
                    CLOUD_PROVIDER_AUDIT_KEY=AUDIT_KEY,CLOUD_PROVIDER_VAULT_KEY_ID="v1",CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED=True,
                    CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED=True,
-                   CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED=True)
+                   CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED=True,
+                   CLOUD_PROVIDER_CUSTODY_VERIFIED=True)
 class ProviderStepupTests(APITestCase):
     def setUp(self):
         cache.clear()
@@ -61,6 +62,10 @@ class ProviderStepupTests(APITestCase):
     def test_no_enrollment_when_off_or_without_distinct_key(self):
         route="/api/providers/security/stepup/enroll/"
         with override_settings(CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED=False):
+            self.assertEqual(self.client.post(route,{"confirm_password":PASSWORD},format="json").status_code,503)
+        prefix_status="/api/providers/security/stepup/"
+        with override_settings(CLOUD_PROVIDER_CUSTODY_VERIFIED=False):
+            self.assertEqual(self.client.get(prefix_status).data["enrollment_available"], False)
             self.assertEqual(self.client.post(route,{"confirm_password":PASSWORD},format="json").status_code,503)
         with override_settings(CLOUD_PROVIDER_STEPUP_KEY=VAULT_KEY):
             self.assertEqual(self.client.post(route,{"confirm_password":PASSWORD},format="json").status_code,503)
