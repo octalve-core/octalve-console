@@ -116,7 +116,7 @@ class FixedCloudflareTransport:
             raise CloudflareINT01Denied()
         # Network operations are defined solely in the adapter below; reject
         # generic paths and arbitrary request bodies even if called directly.
-        if not re.fullmatch(r"/zones(?:/[a-f0-9]{32})?(?:/dns_records\\?page=(?:[1-9]|10)&per_page=100)?|/accounts/[a-f0-9]{32}/registrar-sandbox/(?:domain-check|extensions/(?:com|net)|registrations(?:/[a-z0-9.-]+)?)|/accounts/[a-f0-9]{32}/registrar/domain-check",path):
+        if not re.fullmatch(r"/zones(?:/[a-f0-9]{32})?(?:/dns_records\?page=(?:[1-9]|10)&per_page=100)?|/accounts/[a-f0-9]{32}/registrar-sandbox/(?:domain-check|extensions/(?:com|net)|registrations(?:/[a-z0-9.-]+)?)|/accounts/[a-f0-9]{32}/registrar/domain-check",path):
             raise CloudflareINT01Denied()
         is_register=path.endswith("/registrations")
         is_check=path.endswith("/domain-check")
