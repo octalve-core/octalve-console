@@ -416,6 +416,16 @@ class DomainDNSBinding(models.Model):
         REVOKED = "revoked", "Access revoked"
 
     domain = models.OneToOneField("domains.Domain", on_delete=models.PROTECT, related_name="dns_binding")
+    # Bind the evidence to the *same* customer throughout consent and readback.
+    # Domain ownership transfers must never inherit an old customer's consent.
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="dns_bindings_owned",
+    )
+    consented_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="dns_bindings_consented",
+    )
     connection = models.ForeignKey(
         "providers.IntegrationConnection", on_delete=models.PROTECT,
         related_name="approved_domain_dns_bindings",
