@@ -52,6 +52,39 @@ class DomainViewSet(viewsets.ModelViewSet):
             return Domain.objects.all()
         return Domain.objects.filter(client=user)
     
+
+    # DNS-01: independent, explicitly authorized read-only Cloudflare service.
+    # Every action inherits the owner-scoped get_object() queryset.
+    @action(detail=True, methods=['get'], url_path='dns-access')
+    def dns_access(self, request, pk=None):
+        from . import dns_readonly
+        return dns_readonly.status(request, self.get_object())
+
+    @action(detail=True, methods=['post'], url_path='dns-prepare')
+    def dns_prepare(self, request, pk=None):
+        from . import dns_readonly
+        return dns_readonly.prepare(request, self.get_object())
+
+    @action(detail=True, methods=['post'], url_path='dns-consent')
+    def dns_consent(self, request, pk=None):
+        from . import dns_readonly
+        return dns_readonly.consent(request, self.get_object())
+
+    @action(detail=True, methods=['post'], url_path='dns-approve')
+    def dns_approve(self, request, pk=None):
+        from . import dns_readonly
+        return dns_readonly.approve(request, self.get_object())
+
+    @action(detail=True, methods=['post'], url_path='dns-revoke')
+    def dns_revoke(self, request, pk=None):
+        from . import dns_readonly
+        return dns_readonly.revoke(request, self.get_object())
+
+    @action(detail=True, methods=['get'], url_path='live-dns')
+    def live_dns(self, request, pk=None):
+        from . import dns_readonly
+        return dns_readonly.live_inventory(request, self.get_object())
+
     @action(detail=True, methods=['get'])
     def nameservers(self, request, pk=None):
         """Get domain nameservers"""

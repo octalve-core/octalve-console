@@ -559,6 +559,8 @@ CLOUD_PAYMENT_RETURN_URL = env("CLOUD_PAYMENT_RETURN_URL", default="")
 
 
 # B1 draft vault is inert by default. Never turn on live supplier operations here.
+# DNS-01 is independently released only after backup, migration and acceptance.
+CLOUD_DNS01_READONLY_ENABLED = env.bool("CLOUD_DNS01_READONLY_ENABLED", default=False)
 CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED = env.bool("CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED", default=False)
 # Production Console-side encrypted storage (NOT supplier activation); fail closed.
 CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED = env.bool("CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED", default=False)

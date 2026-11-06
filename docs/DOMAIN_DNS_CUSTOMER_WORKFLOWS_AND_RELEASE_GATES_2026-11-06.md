@@ -29,6 +29,72 @@
 4. Verify that Cloudflare is authoritative (nameservers), the zone is active and the authenticated account and zone match the binding. Show `DNS provider not connected`, `Nameservers pending` or `Verification needed` instead of inventing active status.
 5. Enforce owner-scoped client reads and staff/admin role boundaries. Test cross-tenant IDs, another customer's zone, missing roles and stale delegation. No provider writes.
 
+## DNS-01 implementation and Production acceptance (PR #118)
+
+This is an **additive read-only** customer DNS release. The approved source branch is
+`feature/dns-01-read-only-20261106`; do not introduce a parallel DNS service.
+
+1. **Safe schema release**: `domains.0002_dns_readonly_binding` creates the
+   `DomainDNSBinding` authority table. Existing Domain/DNSRecord rows are not
+   converted into approved Cloudflare connections. First confirm a fresh
+   **independent Production database backup**, its restoration evidence, and
+   the exact migrations pending on the target Neon branch. Use
+   `scripts/plan-neon-production-dns01.ps1` to perform an exact-host,
+   **read-only** preflight on the verified Production branch. The old
+   Console Settings runner is NOT suitable for DNS-01. A separate approved
+   DNS-01 application runner and independently restored fresh backup are
+   mandatory before writing schema; the preflight has NO apply mode.
+   Never auto-migrate from Vercel. Verify counts and constraints afterward.
+   On 6 November 2026, the Neon project refused both a new snapshot and a
+   zero-compute backup branch because the quota was exhausted. Do not delete
+   any existing Neon branches/snapshots to bypass this restriction. Continue
+   only after an independently secured, restorable `pg_dump` or a provider
+   backup has been verified.
+2. **Release gate**: `CLOUD_DNS01_READONLY_ENABLED` defaults to false.
+   Keep it disabled until successful Production migration, owner/tenant tests,
+   current Super Admin security checks and verified browser acceptance.
+3. **Release code**: deploy the reviewed same commit to `octalve-cloud-api` and
+   `octalve-console` with the standard CI/permissions gates. Check deployed
+   Git SHA for both before declaring readiness. Confirm PR #117 status fix is
+   actually on Production; a GitHub merge is not deployment evidence.
+4 **Admin connection flow**: in the existing Integration Store verify a
+   **live, DNS Read + Zone Read**, specific-zone Cloudflare connection. The
+   Admin must identify the existing customer Domain and authorization evidence,
+   then choose the matching saved connection in Domain profile → DNS access.
+   The server checks the exact zone name, zone ID, account ID and active zone.
+   A valid token alone grants **no customer access**.
+5 **Customer consent**: the **current exact domain owner** must explicitly
+   approve read-only access from My Domains → DNS records. A new owner cannot
+   inherit the previous owner's consent. Only afterward may a verified Super
+   Admin grant access with a fresh password and one-time authenticator code.
+6 **Live customer experience**: Client and Admin DNS tables are populated
+   **only by a fresh Cloudflare GET** on the approved zone; unsupported,
+   interrupted, mismatched, expired/rotated or revoked accounts fail closed.
+   Records show host, type, value, TTL and proxy information. Cloudflare's
+   reported zone nameservers are **not proof of the actual public registrar
+   delegation**; do not imply independent public DNS verification.
+7 **Immediate customer control**: customer may revoke an approval and no
+   new DNS records may be returned under that authorization. An in-flight
+   provider response is rechecked against the current owner, credential
+   version and consent before disclosure.
+8 **Capacity policy**: single zone snapshots are limited to 1,000 records
+   and 10 complete pages, with bounded provider HTTP responses. A zone that
+   exceeds the approved bound must display unavailable, **never** silently
+   omit records and claim completeness. Increase limits only after isolated
+   performance and security qualification.
+9 **Negative acceptance**: test another customer's ID, role spoofing,
+   revoked credentials, ownership transfer, customer withdrawal while a
+   provider call is in flight, missing/extra supplier pages, mismatched
+   zone and account, bad TTL, malformed provider response, audit failure,
+   database outage, concurrent admin actions and failed deployment/migration.
+   No DNS mutation, registrar purchase, registration or service activation
+   is implied or enabled by DNS-01.
+
+**Production release constraint:** Do not switch on DNS modifications or
+domain purchasing. No customer/domain bindings are created automatically by
+merging the code. First approved live connection remains scoped to
+`octalve.com`; it is never silently assigned to another customer's domain.
+
 ## DNS-02 — Safe changes with a separate write token
 
 1. A **different zone-scoped DNS Write token** per approved management scope. Never upgrade or overwrite the working DNS Read token. Allow only required Cloudflare methods to exact zone and record IDs.

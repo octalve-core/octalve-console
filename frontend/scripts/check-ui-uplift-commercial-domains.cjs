@@ -30,7 +30,7 @@ const cases=[
  ["features/client/views/ClientDomainManagementView.tsx",[
   'WorkspaceGrid variant="domainFacts" as="dl"','WorkspaceGrid variant="domainPanels"',
   "normalizeDomain","DomainRenewalStatus","mode===\"renewal\"","mode===\"dns\"",
-  "mode===\"overview\"","Manage DNS records"
+  "mode===\"overview\"","View DNS records"
  ]],
  ["features/client/views/ClientSupportTicketEditorView.tsx",[
   'WorkspaceGrid variant="supportColumns"',"<SupportRequestFields",

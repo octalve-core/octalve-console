@@ -405,3 +405,48 @@ class SSLCertificate(models.Model):
     def __str__(self):
         return f"{self.common_name} - {self.status}"
 
+
+
+# DNS-01: explicit customer-authorized provider binding; never infer access
+# from a domain string, stored DNSRecord row, or a saved provider token.
+class DomainDNSBinding(models.Model):
+    class State(models.TextChoices):
+        PENDING = "pending", "Awaiting customer approval"
+        ACTIVE = "active", "Read-only access approved"
+        REVOKED = "revoked", "Access revoked"
+
+    domain = models.OneToOneField("domains.Domain", on_delete=models.PROTECT, related_name="dns_binding")
+    # Bind the evidence to the *same* customer throughout consent and readback.
+    # Domain ownership transfers must never inherit an old customer's consent.
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="dns_bindings_owned",
+    )
+    consented_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="dns_bindings_consented",
+    )
+    connection = models.ForeignKey(
+        "providers.IntegrationConnection", on_delete=models.PROTECT,
+        related_name="approved_domain_dns_bindings",
+    )
+    zone_id = models.CharField(max_length=32, unique=True)
+    zone_name = models.CharField(max_length=255)
+    credential_version = models.PositiveIntegerField()
+    state = models.CharField(max_length=12, choices=State.choices, default=State.PENDING)
+    customer_authorization_reference = models.CharField(max_length=160)
+    consent_version = models.CharField(max_length=20, default="dns-read-v1")
+    consented_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="dns_bindings_requested"
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT,
+        related_name="dns_bindings_approved"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["state", "connection"], name="domain_dns_state_conn_idx")]

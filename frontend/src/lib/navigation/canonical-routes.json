@@ -72,6 +72,12 @@
       "fixtureRequired": true
     },
     {
+      "route": "/admin/billing/domains/[id]/dns",
+      "role": "admin",
+      "source": "frontend/src/app/admin/billing/domains/[id]/dns/page.tsx",
+      "fixtureRequired": true
+    },
+    {
       "route": "/admin/billing/domains/new",
       "role": "admin",
       "source": "frontend/src/app/admin/billing/domains/new/page.tsx",

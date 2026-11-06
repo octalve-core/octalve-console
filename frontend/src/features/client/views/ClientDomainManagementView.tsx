@@ -12,7 +12,7 @@ import {StatusBadge} from "@/components/design-system/StatusBadge";
 import {CloudRecordDirectory,type CloudRecord} from "@/components/data/CloudRecordDirectory";
 import {ErrorState} from "@/components/feedback/ErrorState";
 import {LoadingState} from "@/components/feedback/LoadingState";
-import {clientApi,type DomainRenewalStatus} from "@/lib/api/endpoints";
+import {clientApi,type DomainRenewalStatus,type LiveDomainDNS} from "@/lib/api/endpoints";
 import {useAutoSync} from "@/lib/hooks/useAutoSync";
 import {normalizeDomain,displayDomainDate,type ClientDomainSnapshot} from "../utils/domain-contract";
 
@@ -24,6 +24,28 @@ const modes=[
   {mode:"nameservers",label:"Nameservers"},
   {mode:"renewal",label:"Renewal"},
 ] as const;
+function validateLiveDns(value:unknown,domainName:string):LiveDomainDNS|null {
+  if(!value||typeof value!=="object"||Array.isArray(value))return null;
+  const item=value as Partial<LiveDomainDNS>;
+  if(item.domain!==domainName||item.read_only!==true||item.execution_enabled!==false||
+     !["not_connected","awaiting_customer_approval","awaiting_octalve_approval",
+       "revoked","recheck_required","connected"].includes(String(item.state))||!Array.isArray(item.records))return null;
+  if(item.state==="connected"){
+    if(typeof item.checked_at!=="string"||
+       typeof item.record_count!=="number"||item.records.length!==item.record_count||
+       !Array.isArray(item.nameservers)||item.nameservers.length<2||
+       !item.nameservers.every(ns=>typeof ns==="string"&&ns.length>3)||
+       !/^[0-9a-f]{64}$/.test(String(item.snapshot_sha256)))return null;
+    for(const rec of item.records){
+      if(!rec||typeof rec.id!=="string"||!/^[0-9a-f]{32}$/.test(rec.id)||
+         typeof rec.name!=="string"||typeof rec.type!=="string"||
+         typeof rec.value!=="string"||typeof rec.ttl!=="number"||
+         (rec.proxied!==null&&typeof rec.proxied!=="boolean")||
+         (rec.priority!==null&&typeof rec.priority!=="number"))return null;
+    }
+  }else if(item.records.length!==0)return null;
+  return item as LiveDomainDNS;
+}
 function validatedRenewal(value:unknown,id:string):DomainRenewalStatus|null {
   if(value===null||typeof value!=="object"||Array.isArray(value))return null;
   const state=value as Partial<DomainRenewalStatus>;
@@ -40,14 +62,21 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
   const [renewal,setRenewal]=useState<DomainRenewalStatus|null>(null);
   const [renewalError,setRenewalError]=useState(false);
   const [error,setError]=useState("");
+  const [liveDns,setLiveDns]=useState<LiveDomainDNS|null>(null);
+  const [dnsError,setDnsError]=useState(false);
+  const [dnsSaving,setDnsSaving]=useState(false);
+  const [confirmRevoke,setConfirmRevoke]=useState(false);
   const [loading,setLoading]=useState(true);
   const serial=useRef(0);
   useAutoSync(async quiet=>{
     const request=++serial.current;
     if(!validId(id)){setDomain(null);setError("Invalid domain reference.");setLoading(false);return;}
     if(!quiet)setLoading(true);
-    const [details,renewalResult]=await Promise.allSettled([
-      clientApi.domain(id),clientApi.domainRenewalStatus(id)
+    const needDns=mode==="dns"||mode==="nameservers";
+    const [details,renewalResult,dnsResult]=await Promise.allSettled([
+      clientApi.domain(id),
+      mode==="renewal"?clientApi.domainRenewalStatus(id):Promise.resolve(null),
+      needDns?clientApi.domainDnsLive(id):Promise.resolve(null)
     ]);
     if(request!==serial.current)return;
     if(details.status==="fulfilled"){
@@ -55,22 +84,43 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
         const record=normalizeDomain(details.value);
         if(record.id!==id)throw Error("Mismatched domain.");
         setDomain(record);setError("");
-      }catch{setDomain(null);setError("We couldn't verify this domain's details.");}
-    }else{setDomain(null);setError("This domain is not available in your account.");}
+        if(needDns){
+          const snapshot=dnsResult.status==="fulfilled"?
+            validateLiveDns(dnsResult.value,record.name):null;
+          setLiveDns(snapshot);setDnsError(snapshot===null);
+        }
+      }catch{setDomain(null);setLiveDns(null);setError("We couldn't verify this domain's details.");}
+    }else{setDomain(null);setLiveDns(null);setError("This domain is not available in your account.");}
     const next=renewalResult.status==="fulfilled"?validatedRenewal(renewalResult.value,id):null;
     setRenewal(next);setRenewalError(next===null);
     setLoading(false);
-  },id);
+  },id+"|"+mode);
 
+  async function changeDns(action:"consent"|"revoke"){
+    if(dnsSaving||!domain)return;
+    setDnsSaving(true);setDnsError(false);
+    try{
+      if(action==="consent")await clientApi.domainDnsConsent(id);
+      else await clientApi.domainDnsRevoke(id);
+      const result=validateLiveDns(await clientApi.domainDnsLive(id),domain.name);
+      setLiveDns(result);
+      setDnsError(result===null);
+      setConfirmRevoke(false);
+    }catch{setLiveDns(null);setDnsError(true);}
+    finally{setDnsSaving(false);}
+  }
   const prefix=`/client/domains/${encodeURIComponent(id)}`;
-  const dns:CloudRecord[]=domain?.dnsRecords.map(rec=>({
+  const dns:CloudRecord[]=liveDns?.state==="connected"?liveDns.records.map(rec=>({
     id:rec.id,title:rec.name,subtitle:rec.value,
-    reference:rec.type,amount:rec.ttl+"s",status:"active",
-    details:{Type:rec.type,Value:rec.value,TTL:rec.ttl+"s"},
-  }))||[];
-  const nameservers:CloudRecord[]=domain?.nameservers.map(rec=>({
-    id:rec.id,title:rec.hostname,reference:"Nameserver",status:"active",
-  }))||[];
+    reference:rec.type,amount:rec.ttl===1?"Auto":rec.ttl+"s",status:"active",
+    details:{Type:rec.type,Value:rec.value,TTL:rec.ttl===1?"Auto":rec.ttl+"s",
+      Proxy:rec.proxied===true?"Proxied":rec.proxied===false?"DNS only":"Not applicable"},
+    category:rec.proxied===true?"Proxied":rec.proxied===false?"DNS only":"Not applicable",
+  })):[];
+  const nameservers:CloudRecord[]=liveDns?.state==="connected"?
+    liveDns.nameservers!.map(ns=>({
+      id:ns,title:ns,reference:"Cloudflare zone nameserver",status:"active",
+    })):[];
   const info=[
     ["Registration date",displayDomainDate(domain?.registrationDate||null)],
     ["Expiry date",displayDomainDate(domain?.expiryDate||null)],
@@ -118,10 +168,10 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
           {mode==="overview"?<WorkspaceGrid variant="domainPanels">
             <Panel><h3 className="text-base font-medium text-console-ink">Domain records</h3>
               <p className="mt-2 text-sm text-console-muted">
-                {domain.dnsRecords.length} stored DNS records · {domain.nameservers.length} stored nameservers.
-                Provider changes require confirmation before they appear.
+                Check your domain's DNS access to see live records from the connected provider.
+                Existing stored records are not presented as live provider data.
               </p>
-              <ActionLink href={prefix+"/dns"} variant="outline" className="mt-4">Manage DNS records</ActionLink>
+              <ActionLink href={prefix+"/dns"} variant="outline" className="mt-4">View DNS records</ActionLink>
             </Panel>
             <Panel><h3 className="text-base font-medium text-console-ink">Renewal</h3>
               <p className="mt-2 text-sm text-console-muted">Expiry: {displayDomainDate(domain.expiryDate)}</p>
@@ -129,29 +179,94 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
             </Panel>
           </WorkspaceGrid>:null}
           {mode==="dns"?<div className="space-y-4">
-            <Panel><h3 className="text-base font-medium text-console-ink">DNS records</h3>
+            <Panel>
+              <h3 className="text-base font-medium text-console-ink">Live DNS records</h3>
               <p className="mt-2 text-sm leading-6 text-console-muted">
-                These are stored records, not a live DNS resolution test. Creating, editing or deleting records
-                becomes available after a verified DNS provider is connected to this domain.
-              </p></Panel>
-            <CloudRecordDirectory label="DNS records" records={dns}
-              emptyMessage="No DNS records are available for this domain."
+                DNS details are retrieved directly from your approved provider. This page is
+                read-only: no record or nameserver can be changed here.
+              </p>
+              {dnsError?<p role="alert" className="mt-3 text-sm text-rose-700">
+                Live DNS access could not be verified. No stored records are shown as current.
+              </p>:null}
+              {liveDns?.state==="connected"?<p className="mt-3 text-xs text-console-muted">
+                Cloudflare records checked {new Date(liveDns.checked_at!).toLocaleString("en-NG")}.
+                {" "}Showing {liveDns.record_count} provider records.
+              </p>:null}
+              {liveDns?.state==="not_connected"?<p className="mt-3 text-sm text-console-muted">
+                DNS access has not been connected for this domain. Contact Octalve Cloud
+                to arrange a verified, read-only connection.
+              </p>:null}
+              {liveDns?.state==="awaiting_customer_approval"?<div className="mt-4 space-y-3">
+                <p className="text-sm text-console-ink">
+                  Octalve Cloud has prepared read-only DNS access for your domain.
+                  Approve access to let your account view its current records.
+                </p>
+                <button type="button" disabled={dnsSaving}
+                  onClick={()=>void changeDns("consent")}
+                  className="min-h-11 rounded-xl bg-console-primary px-4 text-sm font-medium text-white disabled:opacity-50">
+                  {dnsSaving?"Confirming…":"Approve read-only DNS access"}
+                </button>
+              </div>:null}
+              {liveDns?.state==="awaiting_octalve_approval"?<p className="mt-3 text-sm text-console-muted">
+                Your approval is recorded. Octalve Cloud must complete provider verification
+                before your live records can be displayed.
+              </p>:null}
+              {liveDns?.state==="revoked"?<p className="mt-3 text-sm text-console-muted">
+                DNS access was revoked. Contact Octalve Cloud if you want to reconnect.
+              </p>:null}
+              {liveDns?.state==="recheck_required"?<p className="mt-3 text-sm text-console-muted">
+                This DNS connection needs fresh verification. Contact Octalve Cloud to
+                reconnect the correct provider account. Your records are not displayed.
+              </p>:null}
+              {liveDns&&["connected","awaiting_octalve_approval","recheck_required"].includes(liveDns.state)?
+              <div className="mt-4">
+                {confirmRevoke?<div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm text-console-ink">Stop sharing DNS access?</span>
+                  <button type="button" disabled={dnsSaving}
+                    onClick={()=>void changeDns("revoke")}
+                    className="min-h-10 rounded-lg border border-rose-400 px-3 text-sm text-rose-700">
+                    {dnsSaving?"Stopping…":"Yes, revoke access"}
+                  </button>
+                  <button type="button" onClick={()=>setConfirmRevoke(false)}
+                    className="min-h-10 rounded-lg border border-console-line px-3 text-sm">
+                    Cancel
+                  </button>
+                </div>:<button type="button" onClick={()=>setConfirmRevoke(true)}
+                  className="min-h-10 rounded-lg border border-console-line px-3 text-sm text-console-ink">
+                  Revoke DNS access
+                </button>}
+              </div>:null}
+            </Panel>
+            {liveDns?.state==="connected"&&!dnsError?<CloudRecordDirectory
+              label="Live DNS records" records={dns}
+              emptyMessage="Cloudflare returned no DNS records for this domain."
               columns={[
                 {key:"name",label:"Host",render:r=><span className="break-all font-medium">{r.title}</span>},
                 {key:"type",label:"Type",render:r=>r.reference||"—"},
                 {key:"value",label:"Value",render:r=><span className="break-all">{r.subtitle||"—"}</span>},
-                {key:"ttl",label:"TTL",render:r=>r.amount||"—"}
-              ]}/>
+                {key:"ttl",label:"TTL",render:r=>r.amount||"—"},
+                {key:"proxy",label:"Proxy",render:r=>r.category||"Not applicable"}
+              ]}/>:null}
           </div>:null}
           {mode==="nameservers"?<div className="space-y-4">
-            <Panel><h3 className="text-base font-medium text-console-ink">Nameservers</h3>
+            <Panel><h3 className="text-base font-medium text-console-ink">Cloudflare nameservers</h3>
               <p className="mt-2 text-sm text-console-muted">
-                Nameserver changes require a verified registrar and authoritative provider readback.
-              </p></Panel>
-            <CloudRecordDirectory label="Nameservers" records={nameservers}
-              emptyMessage="No verified nameservers are recorded for this domain."
+                Nameservers reported by your approved Cloudflare zone appear here.
+                Public registrar delegation has not been independently confirmed.
+                Nameserver changes remain disabled.
+              </p>
+              {dnsError?<p role="alert" className="mt-3 text-sm text-rose-700">
+                Current Cloudflare nameservers could not be verified.</p>:null}
+              {liveDns&&liveDns.state!=="connected"?<p className="mt-3 text-sm text-console-muted">
+                {liveDns.state==="recheck_required"?"Provider access needs fresh verification.":
+                  "Connect and approve read-only DNS access to view your provider's nameservers."}
+              </p>:null}
+            </Panel>
+            {liveDns?.state==="connected"&&!dnsError?<CloudRecordDirectory
+              label="Cloudflare zone nameservers" records={nameservers}
+              emptyMessage="No Cloudflare nameservers could be confirmed."
               columns={[{key:"hostname",label:"Nameserver hostname",render:r=>
-                <span className="break-all font-medium">{r.title}</span>}]}/>
+                <span className="break-all font-medium">{r.title}</span>}]}/>:null}
           </div>:null}
           {mode==="renewal"?<Panel>
             <h3 className="flex items-center gap-2 text-lg font-medium text-console-ink">

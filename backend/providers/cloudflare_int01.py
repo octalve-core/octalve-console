@@ -247,6 +247,95 @@ class CloudflareINT01:
                         "record_digest_sha256":digest,"side_effects":False}
         raise CloudflareINT01Denied()
 
+
+    def dns_live_inventory(self, zone_id, expected_name):
+        """Owner-scoped live DNS snapshot; only zone GET and paginated record GET.
+
+        This endpoint is deliberately different from the INT-01 authentication
+        digest: a customer may see records only after the DomainDNSBinding
+        ownership/consent gate separately passes.
+        """
+        zone_id = require_id(zone_id)
+        if (not isinstance(expected_name, str) or
+                not re.fullmatch(r"(?=.{4,253}\Z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}\Z", expected_name)):
+            raise CloudflareINT01Denied()
+        zone = _require_result(self.transport("GET", f"/zones/{zone_id}"))
+        if (not isinstance(zone, dict) or zone.get("id") != zone_id or
+                zone.get("name") != expected_name or zone.get("status") != "active" or
+                not isinstance(zone.get("account"), dict) or
+                zone["account"].get("id") != self.account_id):
+            raise CloudflareINT01Denied()
+        ns = zone.get("name_servers")
+        if (not isinstance(ns, list) or not 2 <= len(ns) <= 10 or
+                any(not isinstance(value, str) or
+                    not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", value)
+                    for value in ns) or len(set(ns)) != len(ns)):
+            raise CloudflareINT01Denied()
+        records = []
+        seen = set()
+        expected_total = None
+        expected_pages = None
+        for page in range(1, 12):
+            packet = self.transport("GET",
+                f"/zones/{zone_id}/dns_records?page={page}&per_page={DNS_PAGE_SIZE}")
+            chunk = _require_result(packet)
+            info = packet.get("result_info") if isinstance(packet, dict) else None
+            if not isinstance(chunk, list) or not isinstance(info, dict):
+                raise CloudflareINT01Denied()
+            total, pages = info.get("total_count"), info.get("total_pages")
+            if (type(total) is not int or not 0 <= total <= MAX_DNS_RECORDS or
+                    type(pages) is not int or not 0 <= pages <= 10 or
+                    type(info.get("page")) is not int or info["page"] != page or
+                    type(info.get("count")) is not int or info["count"] != len(chunk) or
+                    type(info.get("per_page")) is not int or
+                    info["per_page"] != DNS_PAGE_SIZE or len(chunk) > DNS_PAGE_SIZE):
+                raise CloudflareINT01Denied()
+            expected = max(1, (total + DNS_PAGE_SIZE - 1) // DNS_PAGE_SIZE)
+            if pages != (0 if total == 0 else expected) and pages != expected:
+                raise CloudflareINT01Denied()
+            if expected_total is None:
+                expected_total, expected_pages = total, expected
+            if total != expected_total or expected != expected_pages:
+                raise CloudflareINT01Denied()
+            for item in chunk:
+                if not isinstance(item, dict):
+                    raise CloudflareINT01Denied()
+                record_id = item.get("id")
+                name, kind, content = item.get("name"), item.get("type"), item.get("content")
+                ttl, proxied, priority = item.get("ttl"), item.get("proxied"), item.get("priority")
+                if (not isinstance(record_id, str) or not HEX_ID.fullmatch(record_id) or
+                        record_id in seen or not isinstance(name, str) or
+                        not (name == expected_name or name.endswith("." + expected_name)) or
+                        len(name) > 253 or
+                        not isinstance(kind, str) or not re.fullmatch(r"[A-Z]{1,16}", kind) or
+                        not isinstance(content, str) or len(content) > 4096 or
+                        type(ttl) is not int or ttl not in (1,) and not 30 <= ttl <= 86400 or
+                        proxied is not None and type(proxied) is not bool or
+                        priority is not None and (type(priority) is not int or
+                                                  not 0 <= priority <= 65535)):
+                    raise CloudflareINT01Denied()
+                seen.add(record_id)
+                records.append({
+                    "id": record_id, "name": name, "type": kind,
+                    "value": content, "ttl": ttl, "proxied": proxied,
+                    "priority": priority,
+                })
+            if page == expected_pages:
+                if len(records) != expected_total:
+                    raise CloudflareINT01Denied()
+                records.sort(key=lambda row: (row["name"], row["type"], row["id"]))
+                digest = hashlib.sha256(json.dumps(records,
+                    sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+                return {
+                    "zone_name": expected_name,
+                    "nameservers": sorted(ns),
+                    "records": records,
+                    "record_count": len(records),
+                    "snapshot_sha256": digest,
+                    "read_only": True,
+                }
+        raise CloudflareINT01Denied()
+
     def sandbox_readback(self):
         rows=_require_result(self.transport("GET",self._path("registrations")))
         if not isinstance(rows,list) or len(rows)>50:

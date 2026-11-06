@@ -99,9 +99,16 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
         ) : resource==="customers"&&customer ? (
           <CustomerProfileDetail data={customer} record={record} editHref={editHref}/>
         ) : (
-          <AdminRecordDetailPanel record={record}
-            actions={[...(resource==="providers"?[]:isAdminMutationDisabled(resource)?[]:[{href:editHref,label:"Edit record",variant:"primary" as const}]),
-              {href:editorConfig.listHref,label:"Back to records",variant:"outline"}]}/>
+          <>
+            <AdminRecordDetailPanel record={record}
+              actions={[...(resource==="providers"?[]:isAdminMutationDisabled(resource)?[]:[{href:editHref,label:"Edit record",variant:"primary" as const}]),
+                {href:editorConfig.listHref,label:"Back to records",variant:"outline"}]}/>
+            {resource==="domains"?<div className="mt-4">
+              <ActionLink variant="outline" href={`/admin/billing/domains/${encodeURIComponent(id)}/dns`}>
+                Review customer DNS access
+              </ActionLink>
+            </div>:null}
+          </>
         )}
       </DashboardPage>
     </DashboardShell>

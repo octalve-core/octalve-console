@@ -27,7 +27,8 @@ assert.ok(types.includes("sensitive?:boolean")&&types.includes("documentation:st
 const allFiles=new Set();
 function walk(d,rel=""){for(const e of fs.readdirSync(d,{withFileTypes:true})){const name=rel?rel+"/"+e.name:e.name,p=path.join(d,e.name);if(e.isDirectory())walk(p,name);else if(e.name==="page.tsx")allFiles.add("/"+rel);}}
 walk(path.join(root,"app/admin"),"admin");
-assert.equal(allFiles.size,85,"Expected 85 Admin pages including Integration Store");
+assert.equal(allFiles.size,86,"Expected 86 Admin pages including reviewed DNS-01 domain access");
+assert.ok(allFiles.has("/admin/billing/domains/[id]/dns"),"DNS-01 approved Admin route missing");
 const links=[...nav.matchAll(/href: routes\.admin\.(\w+)/g)].map(m=>m[1]);
 for(const key of links){
  const match=r.match(new RegExp(key+': "(\\/admin[^"]*)"'));
@@ -42,4 +43,4 @@ for(const name of ["cpanel","cloudflare","digitalocean","hetzner","namecheap","z
  const svg=fs.readFileSync(asset,"utf8");
  assert.ok(svg.startsWith("<svg")&&!/script|foreignObject|onload=|href=/.test(svg),"Unsafe vendor mark "+name);
 }
-console.log("PASS: 85 Admin destinations, fixed Category and Integration navigation, 24 unique manifests, first-party logo and valid guides, read-only side sheet, local vetted logos.");
+console.log("PASS: 86 Admin destinations, fixed Category and Integration navigation, 24 unique manifests, first-party logo and valid guides, read-only side sheet, local vetted logos.");
