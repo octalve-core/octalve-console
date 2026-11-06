@@ -68,7 +68,8 @@ if(live.length)blockers.push("Route-reachable unmigrated legacy classes: "+live.
 if(remaining.length)blockers.push("Retired legacy global rules still present: "+remaining.length);
 if(otherCss.length)blockers.push("Unreviewed additional unscoped global stylesheets");
 if(weights||bold.length)blockers.push("Weights above medium remain");
-if(routes.length!==135)blockers.push("Route count changed: "+routes.length);
+// DNS-01 adds exactly one reviewed Admin page; historical routes must stay intact.
+if(routes.length!==136)blockers.push("Route count changed: "+routes.length);
 if(!css.startsWith("@tailwind base;\n@tailwind components;\n@tailwind utilities;"))
  blockers.push("Canonical Tailwind directives missing");
 const report={mode:process.argv.includes("--enforce")?"enforce":"inventory",
