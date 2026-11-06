@@ -90,13 +90,13 @@ try{
   New-Item -ItemType Directory -Force -Path $folder | Out-Null
   $archive=Join-Path $folder ('pre-dns01-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'.dump')
   if(Test-Path $archive){throw 'Backup archive collision; never overwrite.'}
-  & $pgDump --format=custom --no-owner --no-privileges --file="$archive"
+  & $pgDump --format=custom --file="$archive"
   if($LASTEXITCODE -ne 0){throw 'Fresh pg_dump failed. No Production schema changed.'}
   if((Get-Item $archive).Length -lt 10000){throw 'Backup unexpectedly small.'}
   $toc=@(& $pgRestore --list "$archive")
   if($LASTEXITCODE -ne 0 -or $toc.Count -lt 100){throw 'Custom archive verification failed.'}
   $sha=(Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-  Write-Host 'Fresh custom-format Production backup successfully created and verified.'
+  Write-Host 'Fresh Production backup preserved (including database object ownership and grants).'
 
   # Loopback-only restore drill. Never use existing Production/Preview databases.
   $parent=Join-Path $env:LOCALAPPDATA 'OctalveCloud\RestoreDrills'
