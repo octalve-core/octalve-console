@@ -94,7 +94,8 @@ jobs:
                   tables = {r[0] for r in cur.fetchall()}
                   assert len(tables) == 116, 'Prior 115 public tables plus exactly one DNS authorization table'
                   assert {'settings_registry_emailtemplaterevision','settings_registry_consolemailoutbox','settings_registry_consolemailattempt','settings_registry_taxpolicyrevision'}.issubset(tables), 'Email queue/audit tables missing'
-                  assert {'providers_integrationconnection','providers_integrationcredentialversion','providers_integrationconnectionevent','providers_providervaultauthenticator'}.issubset(tables), 'Provider vault tables missing'\n                  assert 'domains_domaindnsbinding' in tables, 'DNS-01 customer authorization table missing'
+                  assert {'providers_integrationconnection','providers_integrationcredentialversion','providers_integrationconnectionevent','providers_providervaultauthenticator'}.issubset(tables), 'Provider vault tables missing'
+                  assert 'domains_domaindnsbinding' in tables, 'DNS-01 customer authorization table missing'
                   cur.execute("SELECT tgname FROM pg_trigger WHERE tgrelid='public.providers_integrationconnectionevent'::regclass AND NOT tgisinternal")
                   assert 'providers_event_append_only' in {row[0] for row in cur.fetchall()}, 'Provider security audit trigger missing'
                   assert {'catalog_catalogofferdraft', 'catalog_publishedcatalogoffer', 'opanel_bridge_verifiedhostingbinding', 'opanel_bridge_opanellaunchgrant', 'notifications_hostingnotice', 'support_supportroutingtag', 'support_supportroutingtag_assigned_staff', 'knowledge_base_knowledgearticle', 'rewards_rewardpolicy', 'rewards_rewardtier', 'rewards_pointentry', 'rewards_affiliateaccount', 'rewards_referralattribution', 'rewards_commissionentry', 'rewards_clientrecognition'}.issubset(tables)
