@@ -96,6 +96,9 @@ class ProviderVerifiedStatusTests(TestCase):
         self.assertIsNone(result["last_verified_at"])
 
     def test_old_receipt_is_historical_and_never_a_current_verified_claim(self):
+        # The connection key existed before the earlier audit check.
+        self.connection.updated_at=timezone.now()-timedelta(days=15)
+        self.connection.save(update_fields=["updated_at"])
         row=self.receipt()
         AuditLog.objects.filter(pk=row.pk).update(
             created_at=timezone.now()-timedelta(days=10))
