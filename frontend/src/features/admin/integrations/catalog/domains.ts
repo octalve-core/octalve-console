@@ -19,7 +19,7 @@ export const domains:readonly Integration[]=[
    },
    {
     "label": "API key",
-    "guidance": "Copy the API key from ResellerClub → Settings → API."
+    "guidance": "Copy the API key from ResellerClub → Settings → API.",
     "sensitive": true
    }
   ],
@@ -47,7 +47,7 @@ export const domains:readonly Integration[]=[
    },
    {
     "label": "API key",
-    "guidance": "Create the API key in Namecheap’s account settings."
+    "guidance": "Create the API key in Namecheap’s account settings.",
     "sensitive": true
    }
   ],
@@ -76,7 +76,7 @@ export const domains:readonly Integration[]=[
    },
    {
     "label": "API key",
-    "guidance": "Use the API key issued for your reseller account."
+    "guidance": "Use the API key issued for your reseller account.",
     "sensitive": true
    }
   ],
@@ -103,7 +103,7 @@ export const domains:readonly Integration[]=[
    },
    {
     "label": "Registrar token",
-    "guidance": "Use a dedicated Cloudflare Registrar test token, not your DNS token."
+    "guidance": "Use a dedicated Cloudflare Registrar test token, not your DNS token.",
     "sensitive": true
    }
   ],
@@ -129,7 +129,7 @@ export const domains:readonly Integration[]=[
    },
    {
     "label": "Dedicated registrar API token",
-    "guidance": "Create a separate Cloudflare Registrar token. Do not reuse your DNS token."
+    "guidance": "Create a separate Cloudflare Registrar token. Do not reuse your DNS token.",
     "sensitive": true
    },
    {
