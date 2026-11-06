@@ -102,7 +102,7 @@ export function AdminDomainDNSView(){
           <p className="mt-3 text-sm text-console-muted">Current access: {state?.replaceAll("_"," ")}.
             Cloudflare records are visible to the customer only after explicit consent and final approval.</p>
         </Panel>:null}
-        {domain&&access&&["not_connected","revoked"].includes(state||"")?<Panel>
+        {domain&&access&&["not_connected","revoked","recheck_required"].includes(state||"")?<Panel>
           <h2 className="flex items-center gap-2 text-base font-medium text-console-ink">
             <ShieldCheck className="h-5 w-5 text-console-primary"/>Prepare Cloudflare access</h2>
           <p className="mt-2 text-sm text-console-muted">
