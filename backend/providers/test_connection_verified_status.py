@@ -78,7 +78,8 @@ class ProviderVerifiedStatusTests(TestCase):
         self.receipt()
         self.assertEqual(self.status()["verification_status"],"verified")
         self.connection.current_version=2
-        self.connection.save(update_fields=["current_version"])
+        self.connection.updated_at=timezone.now()
+        self.connection.save(update_fields=["current_version","updated_at"])
         self.assertEqual(self.status()["verification_status"],"awaiting_verification")
 
     def test_never_use_unauthorized_or_failed_receipt_as_approval(self):
