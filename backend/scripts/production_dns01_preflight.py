@@ -154,7 +154,7 @@ def verify_backup_and_restore():
     return digest
 
 
-def verify_dns_postflight(conn):
+def verify_dns_postflight(conn, *, require_empty=False):
     state, _ = database_state(conn)
     if state != "after":
         refuse("Migration postflight does not match 63 migrations and 116 public tables.")
@@ -177,7 +177,7 @@ def verify_dns_postflight(conn):
         "consented_at", "approved_by_id", "approved_at", "requested_by_id",
     }
     if (not required.issubset(columns) or foreign_key_count < 6 or
-            "domain_dns_state_conn_idx" not in indexes or bindings != 0):
+            "domain_dns_state_conn_idx" not in indexes or (require_empty and bindings != 0)):
         refuse("DNS binding columns, foreign keys, index or empty initial state failed qualification.")
 
 
@@ -226,7 +226,7 @@ def main():
             # Django owns transaction boundaries for the reviewed migration.
             from django.core.management import call_command
             call_command("migrate", TARGET[0], TARGET[1], interactive=False, verbosity=1)
-            verify_dns_postflight(conn)
+            verify_dns_postflight(conn, require_empty=True)
             print("DNS-01 APPLY PASS: exact new authorization table, foreign keys,")
             print("index, zero auto-activated customers and 63/116 ledger qualified.")
             print("NOTE: The DNS-01 read-only feature flag remains default disabled.")
