@@ -34,8 +34,9 @@ export function ProviderSideSheet({item,onClose,drafts,overviewStatus,onSaved}:{
    <h3 className="text-sm font-medium">Your saved connections</h3>
    {drafts.map(c=><div key={c.id} className="rounded-xl border border-console-line bg-slate-50 p-3">
     <p className="text-sm font-medium">{c.label}</p>
-    <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} account · Version {c.credential_version} · {c.state==="draft"?"Awaiting verification":"Access revoked"}</p>
-    <SavedConnectionActions connection={c}/>
+    <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} account · Version {c.credential_version} · {c.state==="revoked"?"Access revoked":c.verification_status==="verified"?"Verified":c.verification_status==="recheck_required"?"Verification expired":"Awaiting verification"}</p>
+    {c.last_verified_at&&c.state==="draft"?<p className="mt-1 text-xs text-console-muted">Last verified: {new Date(c.last_verified_at).toLocaleString("en-GB")}</p>:null}
+    <SavedConnectionActions connection={c} onVerified={onSaved}/>
     {item.slug==="cloudflare-registrar-live"&&c.state==="draft"?<RegistrarQuotePanel connectionId={c.id}/>:null}
    </div>)}
    <p className="text-xs text-console-muted">Verify each saved connection before use. Account creation, DNS changes and purchases require separate approval.</p>
