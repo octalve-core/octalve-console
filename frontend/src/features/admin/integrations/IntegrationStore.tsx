@@ -19,24 +19,24 @@ export function IntegrationStore(){
  const visible=useMemo(()=>catalog.filter(item=>(category==="All"||category===item.category)&&
   [item.name,item.summary,item.category,...item.capabilities].join(" ").toLowerCase().includes(query.trim().toLowerCase())),[category,query]);
  const close=()=>{router.replace("/admin/integrations",{scroll:false});opener.current?.focus();};
- return <DashboardShell role="admin" title="Integrations" description="Review available supplier integrations.">
+ return <DashboardShell role="admin" title="Integrations" description="Connect supported business services to Octalve Cloud.">
  <DashboardPage eyebrow="Infrastructure" title="Integration Store"
-  description="Discover hosting panels, registrars, DNS, payments, business email, cloud services and storage.">
+  description="Connect and manage your hosting, domains, DNS, payments, business email, cloud and storage providers.">
   <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-   <p className="text-sm text-console-muted">Supplier operations are disabled. {connectionOverview.status==="ready"
- ? connectionOverview.connections.filter(c=>c.state==="draft").length+" encrypted drafts saved."
-: connectionOverview.status==="unavailable"?"Connection registry is not available yet.":"Checking saved drafts…"}</p>
+   <p className="text-sm text-console-muted">Changes to provider accounts require separate approval. {connectionOverview.status==="ready"
+ ? connectionOverview.connections.filter(c=>c.state==="draft").length+" connections saved for verification."
+: connectionOverview.status==="unavailable"?"Saved connections are temporarily unavailable.":"Checking saved connections…"}</p>
    <div className="flex flex-wrap items-center gap-3">
     {connectionOverview.status==="unavailable"?<button type="button" onClick={connectionOverview.retry}
       className="min-h-10 rounded-xl border border-console-line px-3 py-2 text-xs font-medium text-console-primary hover:bg-blue-50">Retry connection status</button>:null}
-    <Link href="/admin/servers" className="text-sm font-medium text-console-primary hover:underline">Existing provider records</Link>
+    <Link href="/admin/servers" className="text-sm font-medium text-console-primary hover:underline">Manage hosting providers</Link>
    </div>
   </div>
   <section aria-label="How integrations connect" className="mb-5 grid gap-3 md:grid-cols-3">
    {[
-    {icon:Search,title:"1. Choose a service",detail:"Explore hosting, email, domain and payment providers and review what each one requires."},
-    {icon:KeyRound,title:"2. Prepare securely",detail:"Keep API keys and service secrets in approved server-side custody, never in browser storage."},
-    {icon:ShieldCheck,title:"3. Verify before use",detail:"Activate only after access permissions, connection readback and the required security tests succeed."},
+    {icon:Search,title:"1. Select a provider",detail:"Choose the service you want Octalve Cloud to connect to."},
+    {icon:KeyRound,title:"2. Add account details",detail:"Enter the required account details and permissions in the secure form."},
+    {icon:ShieldCheck,title:"3. Confirm access",detail:"Verify your connection before enabling any supported service actions."},
    ].map(({icon:Icon,title,detail})=><article key={title} className="rounded-xl border border-console-line bg-white p-4 shadow-sm">
      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-console-primary">
       <Icon aria-hidden="true" className="h-4 w-4"/>
@@ -61,7 +61,7 @@ export function IntegrationStore(){
      className="grid min-w-0 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">{visible.map(item=><ProviderCard key={item.slug} item={item} overviewStatus={connectionOverview.status} drafts={connectionOverview.connections.filter(c=>c.adapter_key===item.slug)}/>)}</ul>
     :<p role="status" className="p-10 text-center text-sm text-console-muted">No matches. Try another search or category.</p>}
   </section>
-  <p className="mt-4 text-xs text-console-muted">A visible vendor is not a connected supplier, an approved reseller or a qualified provisioning adapter.</p>
+  <p className="mt-4 text-xs text-console-muted">Listed services are not connected automatically. Available actions depend on verified access and provider approval.</p>
  </DashboardPage>
  {selected?<ProviderSideSheet key={selected.slug} item={selected} onClose={close} drafts={connectionOverview.connections.filter(c=>c.adapter_key===selected.slug)} draftSchemaAvailable={connectionOverview.supported.has(selected.slug)} overviewStatus={connectionOverview.status} onSaved={connectionOverview.retry}/>:null}
  </DashboardShell>;
