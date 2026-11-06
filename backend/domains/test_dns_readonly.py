@@ -89,6 +89,14 @@ class DNSCustomerAuthorityTests(TestCase):
                 {"confirm_password": "TEST-ONLY", "totp_code": "654321"}, format="json")
             self.assertEqual(approved.status_code, 200, approved.data)
 
+    def test_legacy_domain_renew_never_advances_expiry_without_registrar(self):
+        previous = self.domain.expiry_date
+        with self.assertRaisesRegex(RuntimeError, "supplier-confirmed"):
+            self.domain.renew(1)
+        self.domain.refresh_from_db()
+        self.assertEqual(self.domain.expiry_date, previous)
+        self.assertEqual(self.domain.status, "active")
+
     def test_anonymous_foreign_staff_and_client_approval_are_rejected(self):
         self.api.force_authenticate(user=None)
         self.assertIn(self.api.get(self.url + "live-dns/").status_code, (401, 403))
