@@ -27,7 +27,7 @@ from .models import Domain, DomainDNSBinding
 
 CONSENT_VERSION = "dns-read-v1"
 NO_CACHE = {"Cache-Control": "private, no-store"}
-UUID_PATTERN = re.compile(r"[0-9a-fA-F-]{36}\Z")
+UUID_PATTERN = re.compile(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\Z")
 AUTH_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/ -]{15,159}\Z")
 
 
@@ -321,7 +321,8 @@ def live_inventory(request, domain):
             binding.zone_name != domain.domain_name or
             not _binding_matches_domain(binding, domain) or
             binding.consented_by_id != domain.client_id):
-        return Response({"detail": "DNS access must be verified again.", "state": "unavailable"},
+        return Response({"detail": "DNS access must be verified again.", "state": "unavailable",
+                         "records": [], "read_only": True, "execution_enabled": False},
                         status=503, headers=NO_CACHE)
     try:
         retry = spend_durable_auth_attempt(
