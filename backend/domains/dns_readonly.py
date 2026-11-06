@@ -23,7 +23,7 @@ from providers.connection_models import IntegrationConnection, IntegrationCreden
 from providers.connection_stepup import assert_admin, check_mutation
 from providers.connection_vault import VaultUnavailable, unseal_version
 from providers.connection_views import connection_database_qualified
-from .models import DomainDNSBinding
+from .models import Domain, DomainDNSBinding
 
 CONSENT_VERSION = "dns-read-v1"
 NO_CACHE = {"Cache-Control": "private, no-store"}
@@ -44,7 +44,7 @@ def _admin(request):
 def _vault_read_ready():
     if not (getattr(settings, "CLOUD_PROVIDER_CUSTODY_VERIFIED", False) and
             getattr(settings, "CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED", False) and
-            connection_database_qualified()):
+            not settings.DEBUG and connection_database_qualified()):
         raise VaultUnavailable()
 
 
@@ -80,16 +80,37 @@ def _record(action, actor, binding):
     )
 
 
+def _binding_matches_domain(binding, domain):
+    """A new owner must never inherit an earlier customer's consent."""
+    try:
+        zone_id = require_id(binding.connection.public_settings.get("zone_id", ""))
+    except CloudflareINT01Denied:
+        return False
+    return (
+        binding.client_id == domain.client_id and
+        binding.zone_name == domain.domain_name and
+        domain.status == "active" and domain.is_active and
+        binding.connection.adapter_key == "cloudflare-dns" and
+        binding.connection.environment == "live" and
+        binding.connection.state == "draft" and
+        binding.connection.current_version == binding.credential_version and
+        zone_id == binding.zone_id and
+        (not binding.consented_at or binding.consented_by_id == domain.client_id)
+    )
+
+
 def status(request, domain):
     if request.user.role != "client":
         _admin(request)
     else:
         _customer(request, domain)
-    binding = DomainDNSBinding.objects.filter(domain=domain).first()
+    binding = DomainDNSBinding.objects.select_related('connection').filter(domain=domain).first()
     state = "not_connected"
     if binding:
         if binding.state == DomainDNSBinding.State.REVOKED:
             state = "revoked"
+        elif not _binding_matches_domain(binding, domain):
+            state = "recheck_required"
         elif binding.consented_at is None:
             state = "awaiting_customer_approval"
         elif binding.state != DomainDNSBinding.State.ACTIVE:
@@ -113,19 +134,26 @@ def prepare(request, domain):
     reference = data.get("authorization_reference")
     if not isinstance(connection_id, str) or not UUID_PATTERN.fullmatch(connection_id):
         raise ValidationError({"connection_id": "Choose a valid saved Cloudflare connection."})
+    try:
+        connection_uuid = uuid.UUID(connection_id)
+    except (ValueError, AttributeError):
+        raise ValidationError({"connection_id": "Choose a valid saved Cloudflare connection."}) from None
+    if domain.status != "active" or not domain.is_active:
+        return Response({"detail": "Only an active customer domain can be connected."},
+                        status=409, headers=NO_CACHE)
     if not isinstance(reference, str) or not AUTH_REF.fullmatch(reference):
         raise ValidationError({"authorization_reference": "Enter a documented customer-authorization reference (16-160 characters)."})
     _vault_read_ready()
     check_mutation(request.user, data["confirm_password"], data["totp_code"])
     try:
         connection = IntegrationConnection.objects.get(
-            pk=uuid.UUID(connection_id), adapter_key="cloudflare-dns",
+            pk=connection_uuid, adapter_key="cloudflare-dns",
             environment="live", state="draft"
         )
     except IntegrationConnection.DoesNotExist:
         return Response({"detail": "Cloudflare connection not available."}, status=404, headers=NO_CACHE)
     connector = _conn(connection, connection.current_version)
-    zone_id = connection.public_settings["zone_id"]
+    zone_id = require_id(connection.public_settings["zone_id"])
     try:
         connector.dns_live_inventory(zone_id, domain.domain_name)
     except CloudflareINT01Denied:
@@ -138,12 +166,23 @@ def prepare(request, domain):
                     locked.public_settings != connection.public_settings):
                 return Response({"detail": "The provider account changed. Please verify it again."},
                                 status=409, headers=NO_CACHE)
-            existing = DomainDNSBinding.objects.select_for_update().filter(domain=domain).first()
+            locked_domain = Domain.objects.select_for_update().get(pk=domain.pk)
+            if (locked_domain.client_id != domain.client_id or
+                    locked_domain.domain_name != domain.domain_name or
+                    locked_domain.status != "active" or not locked_domain.is_active):
+                return Response({"detail": "Domain ownership or status changed. Verify it again."},
+                                status=409, headers=NO_CACHE)
+            if require_id(locked.public_settings.get("zone_id", "")) != zone_id:
+                return Response({"detail": "Provider zone changed. Verify it again."},
+                                status=409, headers=NO_CACHE)
+            existing = DomainDNSBinding.objects.select_for_update().filter(domain=locked_domain).first()
             if existing and existing.state != DomainDNSBinding.State.REVOKED:
                 return Response({"detail": "This domain already has a pending or approved DNS connection."},
                                 status=409, headers=NO_CACHE)
             if existing:
                 existing.connection = locked
+                existing.client = locked_domain.client
+                existing.consented_by = None
                 existing.zone_id = zone_id
                 existing.zone_name = domain.domain_name
                 existing.credential_version = locked.current_version
@@ -157,7 +196,8 @@ def prepare(request, domain):
                 binding = existing
             else:
                 binding = DomainDNSBinding.objects.create(
-                    domain=domain, connection=locked, zone_id=zone_id,
+                    domain=locked_domain, client=locked_domain.client,
+                    connection=locked, zone_id=zone_id,
                     zone_name=domain.domain_name, credential_version=locked.current_version,
                     customer_authorization_reference=reference, requested_by=request.user
                 )
