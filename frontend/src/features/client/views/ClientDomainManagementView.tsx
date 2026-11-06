@@ -249,14 +249,24 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
               ]}/>:null}
           </div>:null}
           {mode==="nameservers"?<div className="space-y-4">
-            <Panel><h3 className="text-base font-medium text-console-ink">Nameservers</h3>
+            <Panel><h3 className="text-base font-medium text-console-ink">Cloudflare nameservers</h3>
               <p className="mt-2 text-sm text-console-muted">
-                Nameserver changes require a verified registrar and authoritative provider readback.
-              </p></Panel>
-            <CloudRecordDirectory label="Nameservers" records={nameservers}
-              emptyMessage="No verified nameservers are recorded for this domain."
+                Nameservers reported by your approved Cloudflare zone appear here.
+                Public registrar delegation has not been independently confirmed.
+                Nameserver changes remain disabled.
+              </p>
+              {dnsError?<p role="alert" className="mt-3 text-sm text-rose-700">
+                Current Cloudflare nameservers could not be verified.</p>:null}
+              {liveDns&&liveDns.state!=="connected"?<p className="mt-3 text-sm text-console-muted">
+                {liveDns.state==="recheck_required"?"Provider access needs fresh verification.":
+                  "Connect and approve read-only DNS access to view your provider's nameservers."}
+              </p>:null}
+            </Panel>
+            {liveDns?.state==="connected"&&!dnsError?<CloudRecordDirectory
+              label="Cloudflare zone nameservers" records={nameservers}
+              emptyMessage="No Cloudflare nameservers could be confirmed."
               columns={[{key:"hostname",label:"Nameserver hostname",render:r=>
-                <span className="break-all font-medium">{r.title}</span>}]}/>
+                <span className="break-all font-medium">{r.title}</span>}]}/>:null}
           </div>:null}
           {mode==="renewal"?<Panel>
             <h3 className="flex items-center gap-2 text-lg font-medium text-console-ink">
