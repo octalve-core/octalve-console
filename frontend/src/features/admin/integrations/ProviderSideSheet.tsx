@@ -24,27 +24,27 @@ export function ProviderSideSheet({item,onClose,drafts,overviewStatus,onSaved}:{
  </header>
  <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
   <div className="rounded-xl bg-blue-50 p-4">
-   <p className="text-sm font-medium">Prepare your connection</p>
-   <p className="mt-1 text-xs leading-5 text-slate-700">Review what you need and follow the official setup guide. Secure credential setup below is available only after Super Admin authorization and backend key-custody qualification.</p>
+   <p className="text-sm font-medium">Connect {item.name}</p>
+   <p className="mt-1 text-xs leading-5 text-slate-700">Enter your provider account details, save them securely and verify access. Saving a connection does not change your provider settings or purchase services.</p>
   </div>
   {overviewStatus!=="ready"?<p role="status" className="rounded-xl border border-console-line bg-slate-50 p-3 text-xs text-console-muted">
-   {overviewStatus==="loading"?"Checking saved connection records…":"Connection status is temporarily unavailable. This does not mean a provider is disconnected."}
+   {overviewStatus==="loading"?"Loading saved connections…":"Saved connections are temporarily unavailable. No new access has been confirmed."}
   </p>:null}
-  {drafts.length?<section aria-label="Saved connection drafts" className="space-y-3">
-   <h3 className="text-sm font-medium">Your saved drafts</h3>
+  {drafts.length?<section aria-label="Saved connections" className="space-y-3">
+   <h3 className="text-sm font-medium">Your saved connections</h3>
    {drafts.map(c=><div key={c.id} className="rounded-xl border border-console-line bg-slate-50 p-3">
     <p className="text-sm font-medium">{c.label}</p>
-    <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} configuration · Credential version {c.credential_version} · {c.state==="draft"?"Unverified draft":"Revoked"}</p>
+    <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} account · Version {c.credential_version} · {c.state==="draft"?"Awaiting verification":"Access revoked"}</p>
     <SavedConnectionActions connection={c}/>
     {item.slug==="cloudflare-registrar-live"&&c.state==="draft"?<RegistrarQuotePanel connectionId={c.id}/>:null}
    </div>)}
-   <p className="text-xs text-console-muted">Each saved connection must pass a separate authenticated verification. Supplier account creation and DNS writes remain disabled.</p>
+   <p className="text-xs text-console-muted">Verify each saved connection before use. Account creation, DNS changes and purchases require separate approval.</p>
   </section>:null}
   <SecureConnectionSetup item={item} onSaved={onSaved}/>
   <ProviderRequirements item={item}/>
  </div>
  <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-console-line px-5 py-4 sm:px-6">
-  <span className="text-xs text-console-muted">Supplier execution disabled</span>
+  <span className="text-xs text-console-muted">Provider changes require approval</span>
   <button type="button" onClick={()=>element.current?.close()} className="min-h-11 rounded-xl bg-console-primary px-5 py-2 text-sm font-medium text-white">Done</button>
  </footer>
  </div></dialog>;
