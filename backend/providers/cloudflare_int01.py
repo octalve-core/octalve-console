@@ -257,7 +257,7 @@ class CloudflareINT01:
         """
         zone_id = require_id(zone_id)
         if (not isinstance(expected_name, str) or
-                not re.fullmatch(r"(?=.{4,253}\\Z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9-]{2,63}\\Z", expected_name)):
+                not re.fullmatch(r"(?=.{4,253}\Z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}\Z", expected_name)):
             raise CloudflareINT01Denied()
         zone = _require_result(self.transport("GET", f"/zones/{zone_id}"))
         if (not isinstance(zone, dict) or zone.get("id") != zone_id or
@@ -268,7 +268,7 @@ class CloudflareINT01:
         ns = zone.get("name_servers")
         if (not isinstance(ns, list) or not 2 <= len(ns) <= 10 or
                 any(not isinstance(value, str) or
-                    not re.fullmatch(r"[a-z0-9-]+(?:\\.[a-z0-9-]+)+", value)
+                    not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", value)
                     for value in ns) or len(set(ns)) != len(ns)):
             raise CloudflareINT01Denied()
         records = []
