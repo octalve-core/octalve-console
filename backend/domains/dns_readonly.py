@@ -184,9 +184,12 @@ def prepare(request, domain):
                 return Response({"detail": "Provider zone changed. Verify it again."},
                                 status=409, headers=NO_CACHE)
             existing = DomainDNSBinding.objects.select_for_update().filter(domain=locked_domain).first()
-            if existing and existing.state != DomainDNSBinding.State.REVOKED:
+            if (existing and existing.state != DomainDNSBinding.State.REVOKED and
+                    _binding_matches_domain(existing, locked_domain)):
                 return Response({"detail": "This domain already has a pending or approved DNS connection."},
                                 status=409, headers=NO_CACHE)
+            # Reconnecting a stale/rotated credential requires a new customer
+            # consent: never inherit a previous owner's approval.
             if existing:
                 existing.connection = locked
                 existing.client = locked_domain.client
