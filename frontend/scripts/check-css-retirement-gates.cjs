@@ -32,7 +32,7 @@ function routes(folder){
   return count+(e.isDirectory()?routes(p):e.name==="page.tsx"?1:0);
  },0);
 }
-const expected=[["admin",85],["client",33],["staff",10]];
+const expected=[["admin",86],["client",33],["staff",10]];
 let total=0;
 for(const [role,count] of expected){
  const actual=routes(path.join(src,"app",role));if(actual!==count)throw Error(role+" route regression: expected "+count+" got "+actual);
