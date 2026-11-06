@@ -6,8 +6,8 @@ import type {DraftConnection} from "./connection-readback";
 
 type Receipt={verified:boolean;adapter_key:string;credential_version:number;
  execution_enabled:false;checked_at:string;evidence:Record<string,unknown>};
-export function SavedConnectionActions({connection}:{
- connection:DraftConnection;
+export function SavedConnectionActions({connection,onVerified}:{
+ connection:DraftConnection;onVerified?:()=>void;
 }){
  const [working,setWorking]=useState(false),[message,setMessage]=useState(""),[failed,setFailed]=useState(false);
  const supported=["cloudflare-dns","cloudflare-registrar","brevo"].includes(connection.adapter_key);
@@ -24,6 +24,7 @@ export function SavedConnectionActions({connection}:{
       result.adapter_key!==connection.adapter_key)throw Error("Invalid provider evidence");
    setMessage("Provider access verified on "+new Date(result.checked_at).toLocaleString("en-GB")+
     ". No changes were made to the provider account.");
+   onVerified?.();
   }catch{
    setFailed(true);setMessage("We couldn't verify access. Check your provider permissions and account security, then try again.");
   }finally{setWorking(false);}
