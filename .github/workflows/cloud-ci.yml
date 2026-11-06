@@ -285,7 +285,8 @@ jobs:
           assert hashlib.sha256(reference.encode('utf-8')).hexdigest() == '516cd378502964020838c5d23b89caf172bd1cf135677172ee85e4795892a8cd'
           assert 'accounts.0003_auththrottlebucket' in transcript
           migrations = [line for line in transcript.splitlines() if line and not line.startswith(' ') and line != 'Planned operations:']
-          assert len(migrations) == 63, f'Expected reviewed baseline 62 + exactly one DNS-01 migration, got {len(migrations)}'\n          assert 'domains.0002_dns_readonly_binding' in transcript, 'DNS-01 authorization migration missing'
+          assert len(migrations) == 63, f'Expected reviewed baseline 62 + exactly one DNS-01 migration, got {len(migrations)}'
+          assert 'domains.0002_dns_readonly_binding' in transcript, 'DNS-01 authorization migration missing'
           assert 'catalog.0002_catalog_offers' in transcript, 'Catalog draft/revision migration missing'
           assert 'notifications.0001_hosting_ready_outbox' in transcript, 'Hosting notice outbox migration missing'
           try:
