@@ -19,7 +19,7 @@ export const cloud:readonly Integration[]=[
    },
    {
     "label": "API token",
-    "guidance": "Create an access token for the selected project."
+    "guidance": "Create an access token for the selected project.",
     "sensitive": true
    }
   ],
@@ -48,7 +48,7 @@ export const cloud:readonly Integration[]=[
    },
    {
     "label": "API token",
-    "guidance": "Create a token in DigitalOcean for the selected team."
+    "guidance": "Create a token in DigitalOcean for the selected team.",
     "sensitive": true
    }
   ],
@@ -77,7 +77,7 @@ export const cloud:readonly Integration[]=[
    },
    {
     "label": "Token secret",
-    "guidance": "Enter the matching token secret, not your main account password."
+    "guidance": "Enter the matching token secret, not your main account password.",
     "sensitive": true
    }
   ],
@@ -102,7 +102,7 @@ export const cloud:readonly Integration[]=[
    },
    {
     "label": "API key",
-    "guidance": "Create a restricted API key in the Vultr account dashboard."
+    "guidance": "Create a restricted API key in the Vultr account dashboard.",
     "sensitive": true
    }
   ],
@@ -135,7 +135,7 @@ export const cloud:readonly Integration[]=[
    },
    {
     "label": "Secret access key",
-    "guidance": "Enter the matching R2 secret key. A Cloudflare DNS token will not work."
+    "guidance": "Enter the matching R2 secret key. A Cloudflare DNS token will not work.",
     "sensitive": true
    }
   ],
