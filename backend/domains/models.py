@@ -121,12 +121,15 @@ class Domain(models.Model):
         return self.expiry_date and self.expiry_date < timezone.now()
     
     def renew(self, years=1):
-        """Renew domain"""
-        from datetime import timedelta
-        self.expiry_date += timedelta(days=years * 365)
-        self.next_due_date = self.expiry_date
-        self.status = 'active'
-        self.save()
+        """Refuse legacy local-only renewals until the registrar confirms settlement.
+
+        Expiry dates and Active status are supplier-authoritative; callers must
+        use the separately qualified registrar reconciliation service.
+        """
+        raise RuntimeError(
+            "Domain renewal requires a supplier-confirmed registration event; "
+            "local date advancement is prohibited."
+        )
     
     def __str__(self):
         return self.domain_name
