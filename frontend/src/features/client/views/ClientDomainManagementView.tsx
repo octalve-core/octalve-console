@@ -29,11 +29,12 @@ function validateLiveDns(value:unknown,domainName:string):LiveDomainDNS|null {
   const item=value as Partial<LiveDomainDNS>;
   if(item.domain!==domainName||item.read_only!==true||item.execution_enabled!==false||
      !["not_connected","awaiting_customer_approval","awaiting_octalve_approval",
-       "revoked","connected"].includes(String(item.state))||!Array.isArray(item.records))return null;
+       "revoked","recheck_required","connected"].includes(String(item.state))||!Array.isArray(item.records))return null;
   if(item.state==="connected"){
     if(typeof item.checked_at!=="string"||
        typeof item.record_count!=="number"||item.records.length!==item.record_count||
        !Array.isArray(item.nameservers)||item.nameservers.length<2||
+       !item.nameservers.every(ns=>typeof ns==="string"&&ns.length>3)||
        !/^[0-9a-f]{64}$/.test(String(item.snapshot_sha256)))return null;
     for(const rec of item.records){
       if(!rec||typeof rec.id!=="string"||!/^[0-9a-f]{32}$/.test(rec.id)||
@@ -71,9 +72,11 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
     const request=++serial.current;
     if(!validId(id)){setDomain(null);setError("Invalid domain reference.");setLoading(false);return;}
     if(!quiet)setLoading(true);
+    const needDns=mode==="dns"||mode==="nameservers";
     const [details,renewalResult,dnsResult]=await Promise.allSettled([
-      clientApi.domain(id),clientApi.domainRenewalStatus(id),
-      mode==="dns"?clientApi.domainDnsLive(id):Promise.resolve(null)
+      clientApi.domain(id),
+      mode==="renewal"?clientApi.domainRenewalStatus(id):Promise.resolve(null),
+      needDns?clientApi.domainDnsLive(id):Promise.resolve(null)
     ]);
     if(request!==serial.current)return;
     if(details.status==="fulfilled"){
@@ -81,7 +84,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
         const record=normalizeDomain(details.value);
         if(record.id!==id)throw Error("Mismatched domain.");
         setDomain(record);setError("");
-        if(mode==="dns"){
+        if(needDns){
           const snapshot=dnsResult.status==="fulfilled"?
             validateLiveDns(dnsResult.value,record.name):null;
           setLiveDns(snapshot);setDnsError(snapshot===null);
@@ -91,7 +94,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
     const next=renewalResult.status==="fulfilled"?validatedRenewal(renewalResult.value,id):null;
     setRenewal(next);setRenewalError(next===null);
     setLoading(false);
-  },id);
+  },id+"|"+mode);
 
   async function changeDns(action:"consent"|"revoke"){
     if(dnsSaving||!domain)return;
@@ -114,9 +117,10 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
       Proxy:rec.proxied===true?"Proxied":rec.proxied===false?"DNS only":"Not applicable"},
     category:rec.proxied===true?"Proxied":rec.proxied===false?"DNS only":"Not applicable",
   })):[];
-  const nameservers:CloudRecord[]=domain?.nameservers.map(rec=>({
-    id:rec.id,title:rec.hostname,reference:"Nameserver",status:"active",
-  }))||[];
+  const nameservers:CloudRecord[]=liveDns?.state==="connected"?
+    liveDns.nameservers!.map(ns=>({
+      id:ns,title:ns,reference:"Cloudflare zone nameserver",status:"active",
+    })):[];
   const info=[
     ["Registration date",displayDomainDate(domain?.registrationDate||null)],
     ["Expiry date",displayDomainDate(domain?.expiryDate||null)],
@@ -167,7 +171,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
                 Check your domain's DNS access to see live records from the connected provider.
                 Existing stored records are not presented as live provider data.
               </p>
-              <ActionLink href={prefix+"/dns"} variant="outline" className="mt-4">Manage DNS records</ActionLink>
+              <ActionLink href={prefix+"/dns"} variant="outline" className="mt-4">View DNS records</ActionLink>
             </Panel>
             <Panel><h3 className="text-base font-medium text-console-ink">Renewal</h3>
               <p className="mt-2 text-sm text-console-muted">Expiry: {displayDomainDate(domain.expiryDate)}</p>
@@ -210,7 +214,11 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
               {liveDns?.state==="revoked"?<p className="mt-3 text-sm text-console-muted">
                 DNS access was revoked. Contact Octalve Cloud if you want to reconnect.
               </p>:null}
-              {liveDns&&["connected","awaiting_octalve_approval"].includes(liveDns.state)?
+              {liveDns?.state==="recheck_required"?<p className="mt-3 text-sm text-console-muted">
+                This DNS connection needs fresh verification. Contact Octalve Cloud to
+                reconnect the correct provider account. Your records are not displayed.
+              </p>:null}
+              {liveDns&&["connected","awaiting_octalve_approval","recheck_required"].includes(liveDns.state)?
               <div className="mt-4">
                 {confirmRevoke?<div className="flex flex-wrap items-center gap-3">
                   <span className="text-sm text-console-ink">Stop sharing DNS access?</span>
