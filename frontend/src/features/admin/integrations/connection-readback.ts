@@ -2,6 +2,8 @@ import {api} from "@/lib/api/client";
 export type DraftConnection={
  id:string;adapter_key:string;label:string;environment:"test"|"live";
  state:"draft"|"revoked";credential_version:number;credential_configured:boolean;execution_enabled:false;
+ verification_status:"verified"|"awaiting_verification"|"recheck_required"|"revoked";
+ last_verified_at:string|null;
 };
 type ConnectionResponse={results:DraftConnection[];truncated:boolean;execution_enabled:false};
 type SchemaResponse={integrations:{key:string;enabled_for_execution:false}[];execution_enabled:false};
@@ -16,7 +18,9 @@ export async function readConnectionOverview(){
  }
  return {
   connections:records.results.filter(c=>c&&typeof c.adapter_key==="string"&&
-   (c.state==="draft"||c.state==="revoked")&&c.execution_enabled===false).slice(0,50),
+   (c.state==="draft"||c.state==="revoked")&&c.execution_enabled===false&&
+   ["verified","awaiting_verification","recheck_required","revoked"].includes(c.verification_status)&&
+   (c.last_verified_at===null||typeof c.last_verified_at==="string")).slice(0,50),
   supported:new Set(schema.integrations.filter(x=>x.enabled_for_execution===false).map(x=>x.key)),
   truncated:records.truncated,
  };

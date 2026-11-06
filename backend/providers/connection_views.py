@@ -18,6 +18,7 @@ from .connection_specs import SCHEMAS, public_catalog, validate_public_settings,
 from .connection_vault import seal, vault, VaultUnavailable
 from .connection_stepup import check_mutation, assert_admin
 from .connection_audit import audit_key,append_event
+from .connection_status import verification_receipts,safe_verification_status
 from accounts.security_throttle import _spend as spend_durable_auth_attempt
 
 class VaultMutationThrottle(BaseThrottle):
@@ -138,12 +139,13 @@ def clean_payload(data, expected):
         raise ValidationError({"detail":"Only documented connection fields are accepted."})
     return data
 
-def safe_connection(row):
+def safe_connection(row,receipts=None):
     return {
         "id":str(row.pk),"adapter_key":row.adapter_key,"label":row.label,
         "environment":row.environment,"public_settings":row.public_settings,
         "state":row.state,"credential_configured":row.state=="draft",
         "credential_version":row.current_version,
+        **safe_verification_status(row,receipts or {}),
         "created_at":row.created_at.isoformat(),
         "updated_at":row.updated_at.isoformat(),
         "execution_enabled":False,
@@ -165,7 +167,8 @@ def connections(request):
             rows=list(IntegrationConnection.objects.order_by("-created_at","pk")[:51])
         except (OperationalError, ProgrammingError):
             return Response({"detail":"Connection registry is not available yet."},status=503)
-        return Response({"results":[safe_connection(x) for x in rows[:50]],
+        receipts=verification_receipts(rows[:50])
+        return Response({"results":[safe_connection(x,receipts) for x in rows[:50]],
                          "truncated":len(rows)>50,"execution_enabled":False})
     require_write_authority(request)
     data=clean_payload(request.data,{"adapter_key","label","environment","public_settings","secrets","confirm_password","totp_code"})
@@ -200,7 +203,7 @@ def connection_detail(request, connection_id):
         return Response({"detail":"Connection not found."},status=404)
     except (OperationalError, ProgrammingError):
         return Response({"detail":"Connection registry is not available yet."},status=503)
-    return Response(safe_connection(row),headers={"Cache-Control":"no-store"})
+    return Response(safe_connection(row,verification_receipts([row])),headers={"Cache-Control":"no-store"})
 
 @api_view(["POST"])
 @permission_classes([InternalSupplierAuthority])
