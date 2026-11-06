@@ -123,7 +123,10 @@ try{
   if($LASTEXITCODE -ne 0){throw 'Temporary local restore database could not start.'}
   $started=$true
   $localDb="postgresql://octalve_dns01_restore@127.0.0.1:$port/postgres?sslmode=disable"
-  & $pgRestore --exit-on-error --no-owner --no-privileges --dbname="$localDb" "$archive"
+  # The initdb default postgres database may already contain schema public.
+  # --clean --if-exists removes conflicting objects ONLY in this disposable
+  # loopback database, never in Neon Production.
+  & $pgRestore --exit-on-error --clean --if-exists --no-owner --no-privileges --dbname="$localDb" "$archive"
   if($LASTEXITCODE -ne 0){throw 'Independent full-data restore failed; no Production schema changed.'}
   $query="SELECT (SELECT COUNT(*) FROM public.django_migrations), (SELECT COUNT(*) FROM pg_catalog.pg_tables WHERE schemaname='public'), (to_regclass('public.domains_domaindnsbinding') IS NOT NULL)"
   $lines=@(& $psql --dbname="$localDb" --tuples-only --no-align --quiet -c "$query")
