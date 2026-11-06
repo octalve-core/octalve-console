@@ -217,15 +217,25 @@ def consent(request, domain):
     }:
         raise ValidationError({"detail": "Please confirm read-only DNS access for your domain."})
     with transaction.atomic():
-        binding = DomainDNSBinding.objects.select_for_update().filter(domain=domain).first()
-        if not binding or binding.state != DomainDNSBinding.State.PENDING:
+        current = Domain.objects.select_for_update().get(pk=domain.pk)
+        if (current.client_id != request.user.pk or current.status != "active" or
+                not current.is_active):
+            return Response({"detail": "Domain ownership has changed."}, status=409, headers=NO_CACHE)
+        binding = DomainDNSBinding.objects.select_for_update().select_related("connection").filter(domain=current).first()
+        if (not binding or binding.state != DomainDNSBinding.State.PENDING or
+                binding.client_id != current.client_id or
+                binding.zone_name != current.domain_name):
+            return Response({"detail": "DNS access has not been prepared for your domain."},
+                            status=409, headers=NO_CACHE)
+        if not _binding_matches_domain(binding, current):
             return Response({"detail": "DNS access has not been prepared for your domain."},
                             status=409, headers=NO_CACHE)
         if binding.consented_at is not None:
             return Response({"state": "awaiting_octalve_approval", "read_only": True},
                             headers=NO_CACHE)
         binding.consented_at = timezone.now()
-        binding.save(update_fields=["consented_at", "updated_at"])
+        binding.consented_by = request.user
+        binding.save(update_fields=["consented_at", "consented_by", "updated_at"])
         _record("domain_dns_customer_consented", request.user, binding)
     return Response({"state": "awaiting_octalve_approval", "read_only": True},
                     headers=NO_CACHE)
@@ -242,12 +252,13 @@ def approve(request, domain):
     except DomainDNSBinding.DoesNotExist:
         return Response({"detail": "No DNS connection prepared."}, status=404, headers=NO_CACHE)
     if (binding.state != DomainDNSBinding.State.PENDING or not binding.consented_at or
-            binding.zone_name != domain.domain_name):
+            binding.consented_by_id != domain.client_id or
+            not _binding_matches_domain(binding, domain)):
         return Response({"detail": "Customer authorization is missing or not pending."}, status=409,
                         headers=NO_CACHE)
     _vault_read_ready()
     connector = _conn(binding.connection, binding.credential_version)
-    if binding.connection.public_settings.get("zone_id") != binding.zone_id:
+    if require_id(binding.connection.public_settings.get("zone_id", "")) != binding.zone_id:
         raise VaultUnavailable()
     try:
         connector.dns_live_inventory(binding.zone_id, binding.zone_name)
@@ -255,11 +266,17 @@ def approve(request, domain):
         return Response({"detail": "Current DNS zone ownership could not be confirmed."},
                         status=503, headers=NO_CACHE)
     with transaction.atomic():
+        current_conn = IntegrationConnection.objects.select_for_update().get(pk=binding.connection_id)
+        current_domain = Domain.objects.select_for_update().get(pk=domain.pk)
         locked = DomainDNSBinding.objects.select_for_update().select_related("connection").get(pk=binding.pk)
         if (locked.state != DomainDNSBinding.State.PENDING or not locked.consented_at or
                 locked.zone_id != binding.zone_id or
-                locked.connection.current_version != locked.credential_version or
-                locked.connection.state != "draft"):
+                locked.approved_at is not None or
+                current_conn.current_version != locked.credential_version or
+                current_conn.state != "draft" or
+                not _binding_matches_domain(locked, current_domain) or
+                locked.consented_by_id != current_domain.client_id or
+                current_domain.client_id != domain.client_id):
             return Response({"detail": "DNS authorization changed. Please verify again."},
                             status=409, headers=NO_CACHE)
         locked.state = DomainDNSBinding.State.ACTIVE
@@ -282,9 +299,10 @@ def revoke(request, domain):
         if binding.state != DomainDNSBinding.State.REVOKED:
             binding.state = DomainDNSBinding.State.REVOKED
             binding.consented_at = None
+            binding.consented_by = None
             binding.approved_at = None
             binding.approved_by = None
-            binding.save(update_fields=["state", "consented_at", "approved_at", "approved_by", "updated_at"])
+            binding.save(update_fields=["state", "consented_at", "consented_by", "approved_at", "approved_by", "updated_at"])
             _record("domain_dns_revoked", request.user, binding)
     return Response({"state": "revoked", "read_only": True}, headers=NO_CACHE)
 
@@ -301,8 +319,8 @@ def live_inventory(request, domain):
     if (not binding.consented_at or not binding.approved_at or
             binding.consent_version != CONSENT_VERSION or
             binding.zone_name != domain.domain_name or
-            binding.connection.public_settings.get("zone_id") != binding.zone_id or
-            domain.status != "active"):
+            not _binding_matches_domain(binding, domain) or
+            binding.consented_by_id != domain.client_id):
         return Response({"detail": "DNS access must be verified again.", "state": "unavailable"},
                         status=503, headers=NO_CACHE)
     try:
@@ -321,8 +339,20 @@ def live_inventory(request, domain):
         return Response({"detail": "Live DNS records are temporarily unavailable.",
                          "state": "unavailable", "records": []},
                         status=503, headers=NO_CACHE)
+    # The customer can revoke consent while a supplier read is in flight.
+    # Check current rows again before disclosing the fetched record contents.
+    current = Domain.objects.get(pk=domain.pk)
+    current_binding = DomainDNSBinding.objects.select_related("connection").get(pk=binding.pk)
+    if (current.client_id != domain.client_id or
+            (request.user.role == "client" and current.client_id != request.user.pk) or
+            current_binding.state != DomainDNSBinding.State.ACTIVE or
+            current_binding.updated_at != binding.updated_at or
+            current_binding.approved_at is None or
+            not _binding_matches_domain(current_binding, current)):
+        return Response({"detail": "DNS access changed while records were being checked.",
+                         "state": "unavailable", "records": []}, status=409, headers=NO_CACHE)
     return Response({
-        "state": "connected", "domain": domain.domain_name,
+        "state": "connected", "domain": current.domain_name,
         "read_only": True, "execution_enabled": False,
         "checked_at": timezone.now().isoformat(), **snapshot
     }, headers=NO_CACHE)
