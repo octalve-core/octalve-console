@@ -79,7 +79,10 @@ function countPages(dir){
   return total+(item.isDirectory()?countPages(p):item.name==="page.tsx"?1:0);
  },0);
 }
-if(countPages(path.join(root,"app/admin"))!==85)throw Error("Admin 85-route audit drift");
+// DNS-01 adds exactly one reviewed Admin domain DNS authorization route.
+if(countPages(path.join(root,"app/admin"))!==86)throw Error("Admin 86-route audit drift");
+if(!fs.existsSync(path.join(root,"app/admin/billing/domains/[id]/dns/page.tsx")))
+ throw Error("Reviewed Admin DNS-01 route is missing");
 if(process.argv.includes("--built")){
  const css=[],folder=path.resolve(__dirname,"../.next/static");
  function scan(dir){if(!fs.existsSync(dir))return;
