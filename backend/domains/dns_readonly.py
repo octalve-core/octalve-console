@@ -31,6 +31,12 @@ UUID_PATTERN = re.compile(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f
 AUTH_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/ -]{15,159}\Z")
 
 
+def _release_gate():
+    """Default disabled even if Git/Vercel deploy ahead of Production migration."""
+    if not getattr(settings, "CLOUD_DNS01_READONLY_ENABLED", False):
+        raise VaultUnavailable()
+
+
 def _customer(request, domain):
     if (not request.user.is_active or request.user.role != "client" or
             request.user.pk != domain.client_id):
@@ -100,6 +106,7 @@ def _binding_matches_domain(binding, domain):
 
 
 def status(request, domain):
+    _release_gate()
     if request.user.role != "client":
         _admin(request)
     else:
@@ -124,6 +131,7 @@ def status(request, domain):
 
 
 def prepare(request, domain):
+    _release_gate()
     _admin(request)
     data = request.data
     if not isinstance(data, dict) or set(data) != {
@@ -211,6 +219,7 @@ def prepare(request, domain):
 
 
 def consent(request, domain):
+    _release_gate()
     _customer(request, domain)
     if not isinstance(request.data, dict) or request.data != {
         "accept": True, "consent_version": CONSENT_VERSION
@@ -242,6 +251,7 @@ def consent(request, domain):
 
 
 def approve(request, domain):
+    _release_gate()
     _admin(request)
     if not isinstance(request.data, dict) or set(request.data) != {"confirm_password", "totp_code"}:
         raise ValidationError({"detail": "Current password and authenticator code are required."})
@@ -289,6 +299,7 @@ def approve(request, domain):
 
 
 def revoke(request, domain):
+    _release_gate()
     _customer(request, domain)
     if not isinstance(request.data, dict) or request.data:
         raise ValidationError({"detail": "No extra fields are accepted."})
@@ -308,6 +319,7 @@ def revoke(request, domain):
 
 
 def live_inventory(request, domain):
+    _release_gate()
     if request.user.role != "client":
         _admin(request)
     else:
