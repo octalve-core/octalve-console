@@ -20,7 +20,7 @@ $keys=@('DATABASE_URL','DJANGO_SECRET_KEY','OCTALVE_CLOUD_ENV','DEBUG','ALLOWED_
  'OCTALVE_DNS01_RESTORE_AT','PGHOST','PGPORT','PGDATABASE','PGUSER','PGPASSWORD','PGSSLMODE')
 $previous=@{}
 foreach($key in $keys){$previous[$key]=[Environment]::GetEnvironmentVariable($key,'Process')}
-$pgCtl=$null;$cluster=$null;$started=$false;$dbUrl=$null
+$pgCtl=$null;$cluster=$null;$started=$false;$dbUrl=$null;$passFile=$null
 try{
   if((& git branch --show-current).Trim() -cne 'main'){throw 'Only reviewed main may migrate Production.'}
   if(@(& git status --porcelain).Count -ne 0){throw 'Git working tree is not clean.'}
@@ -102,11 +102,23 @@ try{
   $parent=Join-Path $env:LOCALAPPDATA 'OctalveCloud\RestoreDrills'
   New-Item -ItemType Directory -Force -Path $parent | Out-Null
   $cluster=Join-Path $parent ([guid]::NewGuid().ToString('N'))
+  # Local scratch server still requires a distinct strong SCRAM password.
+  # Do not expose customer data through passwordless local PostgreSQL.
+  $randomBytes=New-Object byte[] 32
+  $rng=[System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try{$rng.GetBytes($randomBytes)}finally{$rng.Dispose()}
+  $localPassword=[Convert]::ToBase64String($randomBytes)
+  $passFile=Join-Path $parent ([guid]::NewGuid().ToString('N')+'.pw')
+  [IO.File]::WriteAllText($passFile,$localPassword,[Text.Encoding]::ASCII)
   $listener=New-Object -TypeName System.Net.Sockets.TcpListener -ArgumentList @([Net.IPAddress]::Loopback,0)
   $listener.Start()
   try{$port=([Net.IPEndPoint]$listener.LocalEndpoint).Port}finally{$listener.Stop()}
-  & $pgInit -D "$cluster" -U octalve_dns01_restore -A trust --encoding=UTF8 --no-instructions
+  & $pgInit -D "$cluster" -U octalve_dns01_restore -A scram-sha-256 --pwfile="$passFile" --encoding=UTF8 --no-instructions
+  if(Test-Path $passFile){Remove-Item -LiteralPath $passFile -Force}
+  $passFile=$null
   if($LASTEXITCODE -ne 0){throw 'Temporary restore database initialization failed.'}
+  $env:PGPASSWORD=$localPassword
+  $localPassword=$null
   & $pgCtl -D "$cluster" -o "-h 127.0.0.1 -p $port" -w start
   if($LASTEXITCODE -ne 0){throw 'Temporary local restore database could not start.'}
   $started=$true
@@ -137,6 +149,10 @@ try{
   Write-Host 'Keep the protected backup. Never upload it to GitHub or support chat.'
 }
 finally{
+  if($passFile -and (Test-Path $passFile)){
+    try{Remove-Item -LiteralPath $passFile -Force}
+    catch{Write-Warning 'Temporary local authentication file cleanup failed.'}
+  }
   if($started -and $pgCtl -and $cluster){
     & $pgCtl -D "$cluster" -m immediate -w stop | Out-Null
     if($LASTEXITCODE -ne 0){Write-Warning 'Restore server failed to stop. Investigate immediately.'}
