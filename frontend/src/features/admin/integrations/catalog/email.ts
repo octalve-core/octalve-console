@@ -15,7 +15,7 @@ export const email:readonly Integration[]=[
    },
    {
     "label": "API key",
-    "guidance": "Create a dedicated API key in Brevo and save it only in the secure connection form."
+    "guidance": "Create a dedicated API key in Brevo and save it only in the secure connection form.",
     "sensitive": true
    },
    {
@@ -56,7 +56,7 @@ export const email:readonly Integration[]=[
    },
    {
     "label": "OAuth refresh token",
-    "guidance": "Use the authorized connection credentials issued for your organization."
+    "guidance": "Use the authorized connection credentials issued for your organization.",
     "sensitive": true
    }
   ],
@@ -84,7 +84,7 @@ export const email:readonly Integration[]=[
    },
    {
     "label": "OAuth identity",
-    "guidance": "Use credentials authorized for your reseller account."
+    "guidance": "Use credentials authorized for your reseller account.",
     "sensitive": true
    }
   ],
@@ -112,7 +112,7 @@ export const email:readonly Integration[]=[
    },
    {
     "label": "OAuth authority",
-    "guidance": "Use the approved application credentials for your partner account."
+    "guidance": "Use the approved application credentials for your partner account.",
     "sensitive": true
    }
   ],
@@ -136,7 +136,7 @@ export const email:readonly Integration[]=[
    },
    {
     "label": "API key",
-    "guidance": "Create an API key with the permissions required for sending email."
+    "guidance": "Create an API key with the permissions required for sending email.",
     "sensitive": true
    }
   ],
