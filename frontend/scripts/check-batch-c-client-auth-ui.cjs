@@ -45,13 +45,16 @@ if(baseline.legacyCss.lines!==8460||baseline.legacyCss.gitBlobSha!=="af02677f8f5
 if(!baseline.otherCss.includes("frontend/src/features/auth/components/AuthLayout.module.css"))
  throw Error("Authentication CSS Module must be explicitly reviewed in ownership baseline");
 const widths=[320,360,390,768,1024,1440];
-// DNS-01 adds exactly one reviewed Admin domain DNS route. Other baselines remain fixed.\nconst counts=[["client",33],["admin",86],["staff",10]];
+// DNS-01 adds exactly one reviewed Admin domain DNS route. Other baselines remain fixed.
+const counts=[["client",33],["admin",86],["staff",10]];
 function walk(folder){
  return fs.readdirSync(folder,{withFileTypes:true}).reduce((n,e)=>n+(e.isDirectory()?walk(path.join(folder,e.name)):e.name==="page.tsx"?1:0),0);
 }
 for(const [role,n] of counts)if(walk(path.join(root,"src/app",role))!==n)
  throw Error(role+" route loss in Batch C");
-if(!fs.existsSync(path.join(root,"src/app/admin/billing/domains/[id]/dns/page.tsx")))\n throw Error("DNS-01 expected Admin route is missing");\nif(widths.length!==6)throw Error("Viewport inventory drift");
+if(!fs.existsSync(path.join(root,"src/app/admin/billing/domains/[id]/dns/page.tsx")))
+ throw Error("DNS-01 expected Admin route is missing");
+if(widths.length!==6)throw Error("Viewport inventory drift");
 if(process.argv.includes("--built")){
  const files=[];
  function scan(p){if(!fs.existsSync(p))return;for(const e of fs.readdirSync(p,{withFileTypes:true})){
