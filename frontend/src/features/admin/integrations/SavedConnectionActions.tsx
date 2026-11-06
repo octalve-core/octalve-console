@@ -22,16 +22,16 @@ export function SavedConnectionActions({connection}:{
     "/providers/connections/"+encodeURIComponent(connection.id)+"/verify/",payload);
    if(result.verified!==true||result.execution_enabled!==false||
       result.adapter_key!==connection.adapter_key)throw Error("Invalid provider evidence");
-   setMessage("Supplier readback passed at "+new Date(result.checked_at).toLocaleString("en-GB")+
-    ". This connection remains read-only and is not provisioned.");
+   setMessage("Provider access verified on "+new Date(result.checked_at).toLocaleString("en-GB")+
+    ". No changes were made to the provider account.");
   }catch{
-   setFailed(true);setMessage("Could not certify this provider credential. Review your Super Admin security status and supplier permissions.");
+   setFailed(true);setMessage("We couldn't verify access. Check your provider permissions and account security, then try again.");
   }finally{setWorking(false);}
  }
  if(!supported||connection.state==="revoked")return null;
  return <form autoComplete="off" onSubmit={check} className="mt-3 space-y-2 rounded-lg border border-console-line bg-white p-3">
-  <p className="flex items-center gap-2 text-xs font-medium text-console-ink"><ShieldCheck className="h-4 w-4 text-console-primary" aria-hidden="true"/>Verify saved supplier key</p>
-  <p className="text-xs leading-5 text-console-muted">The credential stays encrypted in the server vault. This readback performs no supplier writes and does not enable provisioning.</p>
+  <p className="flex items-center gap-2 text-xs font-medium text-console-ink"><ShieldCheck className="h-4 w-4 text-console-primary" aria-hidden="true"/>Verify provider access</p>
+  <p className="text-xs leading-5 text-console-muted">Confirm that Octalve Cloud can securely access this account. This check does not change settings or make purchases.</p>
   <label className="block text-xs text-console-ink">Current account password
    <input type="password" name="password" autoComplete="off" required
     className="mt-1 min-h-11 w-full rounded-lg border border-console-line px-3"/></label>
@@ -40,7 +40,7 @@ export function SavedConnectionActions({connection}:{
     autoComplete="one-time-code" required
     className="mt-1 min-h-11 w-full rounded-lg border border-console-line px-3"/></label>
   <button type="submit" disabled={working} className="min-h-11 rounded-lg border border-console-line px-3 text-xs font-medium text-console-primary disabled:opacity-50">
-   {working?"Verifying…":"Verify read-only connection"}</button>
+   {working?"Verifying…":"Verify access"}</button>
   {message?<p role={failed?"alert":"status"} className={"text-xs leading-5 "+(failed?"text-rose-700":"text-emerald-700")}>
    {failed?<AlertTriangle aria-hidden="true" className="mr-1 inline h-4 w-4"/>:null}{message}</p>:null}
  </form>;

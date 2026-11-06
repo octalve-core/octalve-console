@@ -116,8 +116,9 @@ jsonschema-specifications==2025.9.1
     # via jsonschema
 kombu==5.6.2
     # via celery
-oauthlib==4.0.0
+oauthlib==4.0.1
     # via
+    #   -r backend/requirements.in
     #   requests-oauthlib
     #   social-auth-core
 openpyxl==3.1.5

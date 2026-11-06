@@ -5,41 +5,40 @@ export const hosting:readonly Integration[]=[
   "slug": "opanel",
   "name": "Octalve OPanel",
   "category": "Hosting",
-  "summary": "Octalve's own hosting control panel. Console controls customer identity, paid services and access; OPanel manages approved technical capabilities.",
+  "summary": "Octalve’s hosting control panel for customers with active, verified hosting services.",
   "documentation": "https://github.com/octalve-core/octalve-opanel/blob/main/README.md",
   "guide": "OPanel architecture, secure SSO and readiness",
   "requirements": [
    {
     "label": "OPanel HTTPS origin",
-    "guidance": "Deploy and verify the independent OPanel application. Use its real HTTPS origin only, not the Console URL or a placeholder."
+    "guidance": "Use the live HTTPS address of your OPanel service."
    },
    {
     "label": "Customer entry URL",
-    "guidance": "OPanel GET /auth/start/?service_id=<owned-hosting-service-id>; accessible only after Console confirms ownership, paid active service and provider-backed provisioning."
+    "guidance": "Customers open OPanel from their active hosting service in Octalve Cloud."
    },
    {
     "label": "Callback URL",
-    "guidance": "Use the exact OPanel HTTPS /auth/callback/ URL in OPANEL_CALLBACK_URL on Console and OPanel; do not allow arbitrary redirects."
+    "guidance": "Enter the approved return address for secure sign-in."
    },
    {
     "label": "Confidential client ID",
-    "guidance": "Match OPANEL_CLIENT_ID on both applications (default octalve-opanel)."
+    "guidance": "Use the client ID assigned to Octalve Cloud and OPanel."
    },
    {
     "label": "Service-to-service client secret",
-    "guidance": "Generate a unique 32+ character secret and set OPANEL_CLIENT_SECRET in both backend secret stores. Never send it to browsers or paste it into this Store.",
+    "guidance": "Use a dedicated secret for the Octalve Cloud–OPanel connection. Keep it confidential.",
     "sensitive": true
    },
    {
     "label": "Verified hosting account binding",
-    "guidance": "Require Console provider API readback, exact owner/service match, verified active status and a fresh single-use SSO exchange before technical access."
+    "guidance": "Confirm that every hosting account belongs to the customer and is active before allowing access."
    }
   ],
   "capabilities": [
-   "First-party service-bound SSO and read-only dashboard have source implementations",
-   "Files, backups, DNS, SSL and website actions remain separately certified technical capabilities",
-   "OPanel cannot override Console subscription, ownership or billing authority",
-   "Technical provisioning and Production credential submission remain disabled until live security certification"
+   "Customers can access their hosting dashboard when their service is active and verified.",
+   "File management, backups, DNS and other hosting actions become available only after approval.",
+   "Hosting access, ownership and billing remain managed by Octalve Cloud."
   ],
   "logo": "opanel",
   "stage": "Read-only"
@@ -48,27 +47,27 @@ export const hosting:readonly Integration[]=[
   "slug": "directadmin",
   "name": "DirectAdmin",
   "category": "Hosting",
-  "summary": "Connect an approved DirectAdmin reseller/server.",
+  "summary": "Connect your DirectAdmin server or reseller account to manage hosting services.",
   "documentation": "https://docs.directadmin.com/developer/api/",
   "guide": "DirectAdmin API and Login Keys",
   "requirements": [
    {
     "label": "Server URL",
-    "guidance": "Approved HTTPS host on port 2222 or 443"
+    "guidance": "Enter your DirectAdmin server’s secure URL (HTTPS)."
    },
    {
     "label": "Reseller username",
-    "guidance": "Authorized account identity"
+    "guidance": "Enter the username for your authorized reseller account."
    },
    {
     "label": "Login Key",
-    "guidance": "Create a command/IP-scoped API Login Key, not your main password",
+    "guidance": "Generate a restricted Login Key in DirectAdmin; do not use your main password.",
     "sensitive": true
    }
   ],
   "capabilities": [
-   "Package inventory exists",
-   "Live account provisioning requires qualification"
+   "View hosting packages once provider access has been verified.",
+   "Hosting account creation and changes require separate approval."
   ],
   "stage": "Read-only"
  },
@@ -76,27 +75,27 @@ export const hosting:readonly Integration[]=[
   "slug": "cpanel-whm",
   "name": "cPanel / WHM",
   "category": "Hosting",
-  "summary": "Manage accounts using an eligible WHM reseller or server.",
+  "summary": "Connect your WHM reseller or server account to manage hosting services.",
   "documentation": "https://docs.cpanel.net/whm/development/manage-api-tokens-in-whm/",
   "guide": "WHM → Development → Manage API Tokens",
   "requirements": [
    {
     "label": "WHM URL",
-    "guidance": "Approved HTTPS server host on port 2087 or 443"
+    "guidance": "Enter the HTTPS address of your WHM server."
    },
    {
     "label": "WHM username",
-    "guidance": "Authorized reseller identity"
+    "guidance": "Enter the username of your authorized WHM account."
    },
    {
     "label": "API token",
-    "guidance": "Restrict ACL and avoid the Everything permission",
+    "guidance": "Create a restricted token in WHM. Do not grant full account permissions.",
     "sensitive": true
    }
   ],
   "capabilities": [
-   "Package inventory exists",
-   "OPanel vendor-backed writes are not qualified"
+   "Review hosting packages when the server connection is verified.",
+   "Creating or changing hosting accounts requires separate approval."
   ],
   "logo": "cpanel",
   "stage": "Read-only"
@@ -105,22 +104,22 @@ export const hosting:readonly Integration[]=[
   "slug": "plesk",
   "name": "Plesk",
   "category": "Hosting",
-  "summary": "Manage eligible Plesk hosting subscriptions.",
+  "summary": "Connect a Plesk server to manage eligible hosting subscriptions.",
   "documentation": "https://docs.plesk.com/en-US/obsidian/api-rpc/about-xml-api.28709/",
   "guide": "Plesk XML API documentation",
   "requirements": [
    {
     "label": "Plesk server",
-    "guidance": "Approved panel URL and version"
+    "guidance": "Enter the full HTTPS address of your Plesk panel."
    },
    {
     "label": "API key",
-    "guidance": "Authorized account key",
+    "guidance": "Generate an API key for the authorized Plesk account.",
     "sensitive": true
    }
   ],
   "capabilities": [
-   "Subscription management requires an approved versioned adapter"
+   "Hosting subscription management is not available until the Plesk connection is approved."
   ],
   "logo": "plesk",
   "stage": "Research"

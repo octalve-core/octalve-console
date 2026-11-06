@@ -14,8 +14,8 @@ for(const value of [source,hook,store,sheet,card,setup,enrollment,verify]){
  assert.ok(!/localStorage|sessionStorage|window\.open\(|download_url/.test(value),
   "Provider secrets or connection data must not persist or escape to external window.");
 }
-assert.ok(store.includes("useConnectionOverview()")&&store.includes("Connection registry is not available yet."));
-assert.ok(sheet.includes("Unverified draft")&&sheet.includes("Supplier account creation and DNS writes remain disabled."));
+assert.ok(store.includes("useConnectionOverview()")&&store.includes("Saved connections are temporarily unavailable."));
+assert.ok(sheet.includes("Awaiting verification")&&sheet.includes("Account creation, DNS changes and purchases require separate approval."));
 assert.ok(sheet.includes("SecureConnectionSetup")&&sheet.includes("SavedConnectionActions"));
 assert.ok(setup.includes("api.post<SavedDraft>")&&setup.includes('"/providers/connections/"'));
 assert.ok(setup.includes('name={"sec_"+key} type="password"')&&setup.includes("form.reset()"));
@@ -27,5 +27,5 @@ assert.ok(enrollment.includes("onVerified?.()")&&
 assert.ok(setup.includes("approved_draft_adapters?.includes(item.slug)"));
 assert.ok(verify.includes('"/verify/"')&&verify.includes('result.execution_enabled!==false'));
 assert.ok(!/api\.post/.test(store)&&!/api\.post/.test(sheet));
-assert.ok(card.includes("Draft saved")&&!card.includes(">Connected</span>"));
+assert.ok(card.includes("Saved — verify access")&&!card.includes(">Connected</span>"));
 console.log("PASS: Console-only encrypted drafts, TOTP step-up, guarded read-only verification, no vendor activation.");

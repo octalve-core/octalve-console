@@ -26,7 +26,7 @@ export function CloudflareReadbackPanel(){
    if(!valid(reply,scope))throw Error("Unrecognized supplier response");
    setResult(reply);
   }catch{
-   setError("This provider could not be verified. A Super Admin must configure the approved backend-only token, account and readback flag.");
+   setError("Cloudflare access could not be confirmed. Check the approved account, zone and token permissions.");
   }finally{setLoading(null);}
  }
  return <section aria-label="Live read-only connection verification" className="rounded-xl border border-console-line p-4">

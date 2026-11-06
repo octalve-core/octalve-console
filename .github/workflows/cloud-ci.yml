@@ -134,6 +134,8 @@ jobs:
         run: node frontend/scripts/check-int03-registrar-gates.cjs
       - name: Admin navigation and safe Integration Store contract
         run: node frontend/scripts/check-admin-a2-integration-store.cjs
+      - name: Production-ready provider descriptions and secure connection guidance
+        run: node frontend/scripts/check-integration-production-copy.cjs
       - name: Admin Settings route and truthful management link contract
         run: node frontend/scripts/check-admin-settings-routing.cjs
       - name: Certified Console Settings live-API and fail-closed UI contract

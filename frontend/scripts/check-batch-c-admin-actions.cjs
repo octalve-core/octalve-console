@@ -39,7 +39,7 @@ assert.ok(integration.includes("Retry connection status")&&integration.includes(
  "An unavailable provider registry must expose a safe retry");
 assert.ok(card.includes("Status unavailable")&&card.includes("Checking status"),
  "Unavailable registry must not be displayed as disconnected");
-assert.ok(side.includes("This does not mean a provider is disconnected."),
+assert.ok(side.includes("No new access has been confirmed."),
  "Provider side sheet must distinguish unknown from disconnected");
 for(const source of [integration,card,side]){
  assert.ok(!/api\.post|api\.patch|api\.put|type="password"|localStorage|sessionStorage/.test(source),
