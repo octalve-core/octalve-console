@@ -203,7 +203,7 @@ jobs:
       - name: Verify installed dependency consistency
         run: python -m pip check
       - name: Compile guarded local migration runner
-        run: python -m py_compile backend/scripts/production_settings_batch2_migrate.py
+        run: python -m py_compile backend/scripts/production_settings_batch2_migrate.py backend/scripts/production_dns01_preflight.py
       - name: Parse Windows Production migration script and verify isolated Python bootstrap
         shell: pwsh
         run: |
@@ -219,6 +219,22 @@ jobs:
                                    'production_settings_batch2_migrate.py')) {
             if (-not $source.Contains($required)) { throw "Missing reviewed local migrator guard: $required" }
           }
+
+      - name: DNS-01 operator PowerShell syntax and independent recovery gate
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          $path = Join-Path (Get-Location) 'scripts/plan-neon-production-dns01.ps1'
+          [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count -ne 0){ throw "DNS-01 PowerShell parse check failed: $($errors[0].Message)" }
+          $source = Get-Content -Raw -Path $path
+          foreach($required in @('-Preflight','-Apply','git fetch','backend/requirements.txt',
+              'pg_dump','pg_restore','initdb','pg_ctl','127.0.0.1',
+              'OCTALVE_DNS01_RESTORE_VERIFIED','production_dns01_preflight.py apply')){
+            if(-not $source.Contains($required)){ throw "Missing DNS-01 release gate: $required" }
+          }
+          if($source.Contains('vercel deploy')){throw 'Schema runner must not deploy applications'}
 
       - name: Django system check
         working-directory: backend
@@ -236,7 +252,7 @@ jobs:
         run: python scripts/security_release_check.py
       - name: Real Django API and isolated database regression
         working-directory: backend
-        run: python manage.py test catalog.test_public_storefront accounts.tests accounts.test_customer_directory settings_registry.test_console_policy settings_registry.test_console_mail settings_registry.test_console_mail_dispatch settings_registry.test_console_tax_theme accounts.test_release_inspector accounts.test_account_self_service orders.tests orders.test_published_checkout_gate orders.test_premium_checkout billing.tests support.test_routing knowledge_base.tests tests.test_biz01_authority tests.test_batch_a_containment tests.test_batch_b_lifecycle catalog.tests catalog.test_offer_workflows provisioning.test_authority provisioning.test_completion_authority provisioning.test_paid_funnel notifications.test_hosting_ready notifications.tests rewards.tests rewards.test_financial_qualification domains.test_dns_readonly domains.test_registrar_quote payments.test_readback payments.test_checkout_webhooks services.test_opanel opanel_bridge.tests opanel_bridge.test_readback providers.test_provider_hardening providers.test_int01_cloudflare providers.test_int01_cloudflare_admin providers.test_int03_cloudflare_registrar_readonly providers.test_connection_verified_status providers.test_draft_vault providers.test_stepup providers.test_vault_keyring providers.test_pinned_egress providers.test_audit_integrity providers.test_isolated_recovery providers.test_audit_checkpoint providers.test_worm_checkpoint providers.test_kms_custody providers.test_batch_d_key_separation providers.test_batch_d_release_guard providers.test_b3_vendor_certification providers.test_recovery_evidence providers.test_operational_release_hold --verbosity=2
+        run: python manage.py test catalog.test_public_storefront accounts.tests accounts.test_customer_directory settings_registry.test_console_policy settings_registry.test_console_mail settings_registry.test_console_mail_dispatch settings_registry.test_console_tax_theme accounts.test_release_inspector accounts.test_account_self_service orders.tests orders.test_published_checkout_gate orders.test_premium_checkout billing.tests support.test_routing knowledge_base.tests tests.test_biz01_authority tests.test_batch_a_containment tests.test_batch_b_lifecycle catalog.tests catalog.test_offer_workflows provisioning.test_authority provisioning.test_completion_authority provisioning.test_paid_funnel notifications.test_hosting_ready notifications.tests rewards.tests rewards.test_financial_qualification domains.test_dns_readonly domains.test_registrar_quote tests.test_dns01_preflight_guard payments.test_readback payments.test_checkout_webhooks services.test_opanel opanel_bridge.tests opanel_bridge.test_readback providers.test_provider_hardening providers.test_int01_cloudflare providers.test_int01_cloudflare_admin providers.test_int03_cloudflare_registrar_readonly providers.test_connection_verified_status providers.test_draft_vault providers.test_stepup providers.test_vault_keyring providers.test_pinned_egress providers.test_audit_integrity providers.test_isolated_recovery providers.test_audit_checkpoint providers.test_worm_checkpoint providers.test_kms_custody providers.test_batch_d_key_separation providers.test_batch_d_release_guard providers.test_b3_vendor_certification providers.test_recovery_evidence providers.test_operational_release_hold --verbosity=2
       - name: Render synthetic invoice Template 01 visual QA samples (no database)
         run: |
           python backend/billing/invoice-template/preview_template_01.py --output backend/invoice-template-01-preview.pdf
