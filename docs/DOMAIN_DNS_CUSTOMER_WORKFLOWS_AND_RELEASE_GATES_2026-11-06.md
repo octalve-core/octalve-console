@@ -38,39 +38,51 @@ This is an **additive read-only** customer DNS release. The approved source bran
    `DomainDNSBinding` authority table. Existing Domain/DNSRecord rows are not
    converted into approved Cloudflare connections. First confirm a fresh
    **independent Production database backup**, its restoration evidence, and
-   the exact migrations pending on the target Neon branch. Run migrations with
-   the existing guarded Production migration procedure; never auto-migrate
-   from a Vercel web request. Verify counts and constraints after applying.
-2. **Release code**: deploy the reviewed same commit to `octalve-cloud-api` and
+   the exact migrations pending on the target Neon branch. Use
+   `scripts/plan-neon-production-dns01.ps1` to perform an exact-host,
+   **read-only** preflight on the verified Production branch. The old
+   Console Settings runner is NOT suitable for DNS-01. A separate approved
+   DNS-01 application runner and independently restored fresh backup are
+   mandatory before writing schema; the preflight has NO apply mode.
+   Never auto-migrate from Vercel. Verify counts and constraints afterward.
+   On 6 November 2026, the Neon project refused both a new snapshot and a
+   zero-compute backup branch because the quota was exhausted. Do not delete
+   any existing Neon branches/snapshots to bypass this restriction. Continue
+   only after an independently secured, restorable `pg_dump` or a provider
+   backup has been verified.
+2. **Release gate**: `CLOUD_DNS01_READONLY_ENABLED` defaults to false.
+   Keep it disabled until successful Production migration, owner/tenant tests,
+   current Super Admin security checks and verified browser acceptance.
+3. **Release code**: deploy the reviewed same commit to `octalve-cloud-api` and
    `octalve-console` with the standard CI/permissions gates. Check deployed
    Git SHA for both before declaring readiness. Confirm PR #117 status fix is
    actually on Production; a GitHub merge is not deployment evidence.
-3. **Admin connection flow**: in the existing Integration Store verify a
+4 **Admin connection flow**: in the existing Integration Store verify a
    **live, DNS Read + Zone Read**, specific-zone Cloudflare connection. The
    Admin must identify the existing customer Domain and authorization evidence,
    then choose the matching saved connection in Domain profile → DNS access.
    The server checks the exact zone name, zone ID, account ID and active zone.
    A valid token alone grants **no customer access**.
-4. **Customer consent**: the **current exact domain owner** must explicitly
+5 **Customer consent**: the **current exact domain owner** must explicitly
    approve read-only access from My Domains → DNS records. A new owner cannot
    inherit the previous owner's consent. Only afterward may a verified Super
    Admin grant access with a fresh password and one-time authenticator code.
-5. **Live customer experience**: Client and Admin DNS tables are populated
+6 **Live customer experience**: Client and Admin DNS tables are populated
    **only by a fresh Cloudflare GET** on the approved zone; unsupported,
    interrupted, mismatched, expired/rotated or revoked accounts fail closed.
    Records show host, type, value, TTL and proxy information. Cloudflare's
    reported zone nameservers are **not proof of the actual public registrar
    delegation**; do not imply independent public DNS verification.
-6. **Immediate customer control**: customer may revoke an approval and no
+7 **Immediate customer control**: customer may revoke an approval and no
    new DNS records may be returned under that authorization. An in-flight
    provider response is rechecked against the current owner, credential
    version and consent before disclosure.
-7. **Capacity policy**: single zone snapshots are limited to 1,000 records
+8 **Capacity policy**: single zone snapshots are limited to 1,000 records
    and 10 complete pages, with bounded provider HTTP responses. A zone that
    exceeds the approved bound must display unavailable, **never** silently
    omit records and claim completeness. Increase limits only after isolated
    performance and security qualification.
-8. **Negative acceptance**: test another customer's ID, role spoofing,
+9 **Negative acceptance**: test another customer's ID, role spoofing,
    revoked credentials, ownership transfer, customer withdrawal while a
    provider call is in flight, missing/extra supplier pages, mismatched
    zone and account, bad TTL, malformed provider response, audit failure,
