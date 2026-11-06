@@ -48,6 +48,16 @@ export type DomainRenewalStatus = {
   invoice_id:number|null;auto_renew:boolean;registration_date:string;
   expiry_date:string;next_due_date:string;
 };
+export type LiveDomainDNS = {
+  state:"not_connected"|"awaiting_customer_approval"|"awaiting_octalve_approval"|"revoked"|"connected";
+  domain:string;read_only:true;execution_enabled:false;
+  checked_at?:string;record_count?:number;
+  nameservers?:string[];snapshot_sha256?:string;
+  records:{
+    id:string;name:string;type:string;value:string;
+    ttl:number;proxied:boolean|null;priority:number|null;
+  }[];
+};
 export type DomainTransferReadiness = {
   domain:string;tld:string|null;supported:boolean;registrar_connected:boolean;
   transfer_eligible:boolean|null;checkout_enabled:boolean;
@@ -361,6 +371,23 @@ export const clientApi = {
 
   domainDnsRecords(id: string) {
     return api.get(byId(apiPaths.client.domains, id) + "dns_records/");
+  },
+
+  /** The provider is the only source for this read-only customer DNS view. */
+  domainDnsLive(id:string) {
+    return api.get<LiveDomainDNS>(byId(apiPaths.client.domains,id)+"live-dns/");
+  },
+  domainDnsAccess(id:string) {
+    return api.get<LiveDomainDNS>(byId(apiPaths.client.domains,id)+"dns-access/");
+  },
+  domainDnsConsent(id:string) {
+    return api.post<{state:string;read_only:true}>(
+      byId(apiPaths.client.domains,id)+"dns-consent/",
+      {accept:true,consent_version:"dns-read-v1"});
+  },
+  domainDnsRevoke(id:string) {
+    return api.post<{state:string;read_only:true}>(
+      byId(apiPaths.client.domains,id)+"dns-revoke/",{});
   },
 
   createDomainDnsRecord(id: string, payload: unknown) {
