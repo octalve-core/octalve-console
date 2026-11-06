@@ -47,7 +47,11 @@ def verification_receipts(rows):
                 or details.get("adapter")!=row.adapter_key
                 or receipt["entity_name"]!=row.adapter_key
                 or type(details.get("credential_version")) is not int
-                or details["credential_version"]!=row.current_version):
+                or details["credential_version"]!=row.current_version
+                or receipt["created_at"]<row.updated_at):
+            # A receipt predating the current key rotation cannot verify a
+            # subsequently generated credential version, even if its version
+            # number happens to match.
             continue
         receipts[key]=receipt["created_at"]
     return receipts
