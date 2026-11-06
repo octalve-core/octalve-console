@@ -27,7 +27,7 @@ export const hosting:readonly Integration[]=[
    },
    {
     "label": "Service-to-service client secret",
-    "guidance": "Use a dedicated secret for the Octalve Cloud–OPanel connection. Keep it confidential."
+    "guidance": "Use a dedicated secret for the Octalve Cloud–OPanel connection. Keep it confidential.",
     "sensitive": true
    },
    {
@@ -61,7 +61,7 @@ export const hosting:readonly Integration[]=[
    },
    {
     "label": "Login Key",
-    "guidance": "Generate a restricted Login Key in DirectAdmin; do not use your main password."
+    "guidance": "Generate a restricted Login Key in DirectAdmin; do not use your main password.",
     "sensitive": true
    }
   ],
@@ -89,7 +89,7 @@ export const hosting:readonly Integration[]=[
    },
    {
     "label": "API token",
-    "guidance": "Create a restricted token in WHM. Do not grant full account permissions."
+    "guidance": "Create a restricted token in WHM. Do not grant full account permissions.",
     "sensitive": true
    }
   ],
@@ -114,7 +114,7 @@ export const hosting:readonly Integration[]=[
    },
    {
     "label": "API key",
-    "guidance": "Generate an API key for the authorized Plesk account."
+    "guidance": "Generate an API key for the authorized Plesk account.",
     "sensitive": true
    }
   ],
