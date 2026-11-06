@@ -49,7 +49,7 @@ export type DomainRenewalStatus = {
   expiry_date:string;next_due_date:string;
 };
 export type LiveDomainDNS = {
-  state:"not_connected"|"awaiting_customer_approval"|"awaiting_octalve_approval"|"revoked"|"connected";
+  state:"not_connected"|"awaiting_customer_approval"|"awaiting_octalve_approval"|"revoked"|"recheck_required"|"connected";
   domain:string;read_only:true;execution_enabled:false;
   checked_at?:string;record_count?:number;
   nameservers?:string[];snapshot_sha256?:string;
