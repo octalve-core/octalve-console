@@ -182,6 +182,56 @@ class DNSCustomerAuthorityTests(TestCase):
         self.assertFalse(DomainDNSBinding.objects.exists())
 
 
+    def test_customer_transfer_invalidates_previous_consent_and_provider_read(self):
+        self.grant()
+        self.domain.client = self.other
+        self.domain.save(update_fields=["client", "updated_at"])
+        self.as_user(self.owner)
+        self.assertEqual(self.api.get(self.url+"live-dns/").status_code, 404)
+        self.as_user(self.other)
+        status = self.api.get(self.url+"dns-access/")
+        self.assertEqual(status.status_code, 200)
+        self.assertEqual(status.data["state"], "recheck_required")
+        with patch("domains.dns_readonly._conn") as supplier:
+            live = self.api.get(self.url+"live-dns/")
+        self.assertEqual(live.status_code, 503, live.data)
+        supplier.assert_not_called()
+        original = DomainDNSBinding.objects.get(domain=self.domain)
+        self.assertEqual(original.client_id, self.owner.pk)
+        self.assertEqual(original.consented_by_id, self.owner.pk)
+
+    def test_revocation_during_supplier_fetch_discards_all_inflight_records(self):
+        self.grant()
+        self.as_user(self.owner)
+        def revoke_while_reading(*args, **kwargs):
+            DomainDNSBinding.objects.filter(domain=self.domain).update(
+                state="revoked", consented_at=None, consented_by=None,
+                approved_at=None, approved_by=None, updated_at=timezone.now(),
+            )
+            return SYNTHETIC
+        with patch("domains.dns_readonly._vault_read_ready"), \
+             patch("domains.dns_readonly.spend_durable_auth_attempt", return_value=0), \
+             patch("domains.dns_readonly._conn") as supplier:
+            supplier.return_value.dns_live_inventory.side_effect = revoke_while_reading
+            result = self.api.get(self.url+"live-dns/")
+        self.assertEqual(result.status_code, 409, result.data)
+        self.assertEqual(result.data["records"], [])
+        self.assertNotIn("192.0.2.44", str(result.data))
+
+    def test_malformed_connection_id_fails_before_provider_egress(self):
+        self.as_user(self.admin)
+        data = {
+            "connection_id": "----" + "a"*32,
+            "authorization_reference": "SUPPORT-OWNER-CONSENT-0001",
+            "confirm_password": "TEST-ONLY",
+            "totp_code": "123456",
+        }
+        with patch("domains.dns_readonly._conn") as supplier:
+            result = self.api.post(self.url+"dns-prepare/", data, format="json")
+        self.assertEqual(result.status_code, 400)
+        supplier.assert_not_called()
+
+
 class SyntheticCloudflareDNSInventoryTests(SimpleTestCase):
     def transport(self, zone_name=NAME, account=ACCOUNT, records=None, ttl=300,
                   nameservers=None):
