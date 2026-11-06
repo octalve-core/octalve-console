@@ -230,7 +230,7 @@ jobs:
           if($errors.Count -ne 0){ throw "DNS-01 PowerShell parse check failed: $($errors[0].Message)" }
           $source = Get-Content -Raw -Path $path
           foreach($required in @('-Preflight','-Apply','git fetch','backend/requirements.txt',
-              'pg_dump','pg_restore','initdb','pg_ctl','127.0.0.1','scram-sha-256',
+              'pg_dump','pg_restore','--clean --if-exists','initdb','pg_ctl','127.0.0.1','scram-sha-256',
               'OCTALVE_DNS01_RESTORE_VERIFIED','production_dns01_preflight.py apply')){
             if(-not $source.Contains($required)){ throw "Missing DNS-01 release gate: $required" }
           }
