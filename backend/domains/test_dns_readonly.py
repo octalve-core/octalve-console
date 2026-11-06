@@ -172,6 +172,38 @@ class DNSCustomerAuthorityTests(TestCase):
             self.assertEqual(result.status_code, 503)
             self.assertEqual(result.data["records"], [])
 
+    def test_dns01_release_switch_fails_closed_even_for_authorized_owner(self):
+        self.grant()
+        self.as_user(self.owner)
+        with self.settings(CLOUD_DNS01_READONLY_ENABLED=False), \
+             patch("domains.dns_readonly._conn") as supplier:
+            for action in ("live-dns/", "dns-access/"):
+                response = self.api.get(self.url + action)
+                self.assertEqual(response.status_code, 503)
+            supplier.assert_not_called()
+
+    def test_stale_credential_can_rebind_only_with_new_customer_consent(self):
+        self.grant()
+        self.conn.current_version = 2
+        self.conn.save(update_fields=["current_version", "updated_at"])
+        self.as_user(self.admin)
+        with patch("domains.dns_readonly._vault_read_ready"), \
+             patch("domains.dns_readonly.check_mutation"), \
+             patch("domains.dns_readonly._conn") as supplier:
+            supplier.return_value.dns_live_inventory.return_value = SYNTHETIC
+            again = self.prepare()
+        self.assertEqual(again.status_code, 201, again.data)
+        binding = DomainDNSBinding.objects.get(domain=self.domain)
+        self.assertEqual(binding.state, "pending")
+        self.assertEqual(binding.credential_version, 2)
+        self.assertIsNone(binding.consented_at)
+        self.assertIsNone(binding.consented_by_id)
+        self.assertIsNone(binding.approved_at)
+        self.as_user(self.owner)
+        response = self.api.get(self.url + "live-dns/")
+        self.assertEqual(response.data["state"], "awaiting_customer_approval")
+        self.assertEqual(response.data["records"], [])
+
     def test_wrong_zone_token_cannot_be_bound_to_unrelated_customer(self):
         self.as_user(self.admin)
         with patch("domains.dns_readonly._vault_read_ready"), \
