@@ -102,7 +102,7 @@ try{
   $parent=Join-Path $env:LOCALAPPDATA 'OctalveCloud\RestoreDrills'
   New-Item -ItemType Directory -Force -Path $parent | Out-Null
   $cluster=Join-Path $parent ([guid]::NewGuid().ToString('N'))
-  $listener=New-Object System.Net.Sockets.TcpListener([Net.IPAddress]::Loopback,0)
+  $listener=New-Object -TypeName System.Net.Sockets.TcpListener -ArgumentList @([Net.IPAddress]::Loopback,0)
   $listener.Start()
   try{$port=([Net.IPEndPoint]$listener.LocalEndpoint).Port}finally{$listener.Stop()}
   & $pgInit -D "$cluster" -U octalve_dns01_restore -A trust --encoding=UTF8 --no-instructions
