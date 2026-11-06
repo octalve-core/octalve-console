@@ -39,12 +39,19 @@ This is an **additive read-only** customer DNS release. The approved source bran
    converted into approved Cloudflare connections. First confirm a fresh
    **independent Production database backup**, its restoration evidence, and
    the exact migrations pending on the target Neon branch. Use
-   `scripts/plan-neon-production-dns01.ps1` to perform an exact-host,
-   **read-only** preflight on the verified Production branch. The old
-   Console Settings runner is NOT suitable for DNS-01. A separate approved
-   DNS-01 application runner and independently restored fresh backup are
-   mandatory before writing schema; the preflight has NO apply mode.
-   Never auto-migrate from Vercel. Verify counts and constraints afterward.
+   `scripts/plan-neon-production-dns01.ps1` for both the separate
+   **-Preflight** (read-only) and **-Apply** (guarded) modes. The old Console
+   Settings runner is NOT suitable for DNS-01. Apply repeats Preflight, makes
+   a fresh private custom-format PostgreSQL archive, restores the full
+   archive into a temporary loopback-only Windows PostgreSQL instance,
+   independently confirms the original 62/115 ledger, checks SHA-256,
+   removes the temporary restored database, and then requires the exact
+   typed release approval before running only `domains.0002`.
+   The Python runner independently confirms exact Neon host/role/TLS,
+   original ledger, migration plan and final 63/116 schema, including the
+   DNS binding index, six foreign keys and zero automatically enabled
+   customer bindings. Never auto-migrate from Vercel or use old batch
+   scripts. **Backup must remain protected on an encrypted workstation.**
    On 6 November 2026, the Neon project refused both a new snapshot and a
    zero-compute backup branch because the quota was exhausted. Do not delete
    any existing Neon branches/snapshots to bypass this restriction. Continue
@@ -57,32 +64,32 @@ This is an **additive read-only** customer DNS release. The approved source bran
    `octalve-console` with the standard CI/permissions gates. Check deployed
    Git SHA for both before declaring readiness. Confirm PR #117 status fix is
    actually on Production; a GitHub merge is not deployment evidence.
-4 **Admin connection flow**: in the existing Integration Store verify a
+4. **Admin connection flow**: in the existing Integration Store verify a
    **live, DNS Read + Zone Read**, specific-zone Cloudflare connection. The
    Admin must identify the existing customer Domain and authorization evidence,
    then choose the matching saved connection in Domain profile → DNS access.
    The server checks the exact zone name, zone ID, account ID and active zone.
    A valid token alone grants **no customer access**.
-5 **Customer consent**: the **current exact domain owner** must explicitly
+5. **Customer consent**: the **current exact domain owner** must explicitly
    approve read-only access from My Domains → DNS records. A new owner cannot
    inherit the previous owner's consent. Only afterward may a verified Super
    Admin grant access with a fresh password and one-time authenticator code.
-6 **Live customer experience**: Client and Admin DNS tables are populated
+6. **Live customer experience**: Client and Admin DNS tables are populated
    **only by a fresh Cloudflare GET** on the approved zone; unsupported,
    interrupted, mismatched, expired/rotated or revoked accounts fail closed.
    Records show host, type, value, TTL and proxy information. Cloudflare's
    reported zone nameservers are **not proof of the actual public registrar
    delegation**; do not imply independent public DNS verification.
-7 **Immediate customer control**: customer may revoke an approval and no
+7. **Immediate customer control**: customer may revoke an approval and no
    new DNS records may be returned under that authorization. An in-flight
    provider response is rechecked against the current owner, credential
    version and consent before disclosure.
-8 **Capacity policy**: single zone snapshots are limited to 1,000 records
+8. **Capacity policy**: single zone snapshots are limited to 1,000 records
    and 10 complete pages, with bounded provider HTTP responses. A zone that
    exceeds the approved bound must display unavailable, **never** silently
    omit records and claim completeness. Increase limits only after isolated
    performance and security qualification.
-9 **Negative acceptance**: test another customer's ID, role spoofing,
+9. **Negative acceptance**: test another customer's ID, role spoofing,
    revoked credentials, ownership transfer, customer withdrawal while a
    provider call is in flight, missing/extra supplier pages, mismatched
    zone and account, bad TTL, malformed provider response, audit failure,
@@ -94,6 +101,56 @@ This is an **additive read-only** customer DNS release. The approved source bran
 domain purchasing. No customer/domain bindings are created automatically by
 merging the code. First approved live connection remains scoped to
 `octalve.com`; it is never silently assigned to another customer's domain.
+
+## DNS-01 local Production procedure — reviewed release
+
+Use Windows PowerShell 5.1+ with Python 3.12 and a supported local
+PostgreSQL distribution containing `pg_dump`, `pg_restore`, `initdb`,
+`pg_ctl` and `psql`. Install these tools on a BitLocker-protected or
+equivalently encrypted operator workstation. Never paste Neon credentials
+into GitHub, ChatGPT, or a script; both modes prompt for the direct
+Production database connection URL via hidden input.
+
+From the root of the local `octalve-core/octalve-console` checkout:
+
+```powershell
+git checkout main
+git pull --ff-only origin main
+powershell -ExecutionPolicy Bypass -File .\scripts\plan-neon-production-dns01.ps1 -Preflight
+powershell -ExecutionPolicy Bypass -File .\scripts\plan-neon-production-dns01.ps1 -Apply
+```
+
+The runner refuses a dirty checkout, non-main branch, wrong GitHub origin,
+stale origin/main, CI/Vercel execution, a pooled/wrong Neon endpoint,
+unexpected migration count, unrelated migrations, and a failed or outdated
+local restore. **-Apply is not unattended:** it prompts for the exact phrase
+`APPLY DNS01 0002 TO OCTALVE PRODUCTION` after recovery qualification.
+If the migration has already been applied, it verifies the 63/116 postflight
+and **does not repeat** it. If the script aborts, inspect the actual ledger
+before any retry; retain the fresh archive and do not change DNS flags.
+
+After a successful 63/116 migration, separately confirm both deployed
+Git SHAs, the Super Admin status and server-owned customer approvals.
+Only after browser acceptance and credential custody verification may the
+operator consider `CLOUD_DNS01_READONLY_ENABLED=true` in the **API**
+Production environment. Changing the flag requires a separate controlled
+deployment and proof that unauthorized Client and Staff accounts cannot
+retrieve another customer's zone. Never activate DNS Write or Registrar
+purchase flags as part of this migration.
+
+### Registrar qualification and purchase separation
+
+Cloudflare Registrar's authoritative availability endpoint is a **read-only
+POST** that may return supplier registration and renewal costs; it is not a
+permission grant to resell or purchase, nor a published NGN customer price.
+Openprovider's reseller API requires an active account, API access and
+applicable registry contracts. Before REG-01 becomes customer-facing,
+confirm supplier agreements, supported TLDs, registrant ownership, tax,
+FX/currency and fees, versioned published offers and payment settlement.
+DNS-02 requires a **separate** per-zone DNS Write credential and an approved
+disposable test zone. REG-02/03 require a persistent idempotent registrar
+operation/settlement ledger and reconciliation after ambiguous timeouts.
+No live purchases or DNS modifications are enabled by DNS-01.
 
 ## DNS-02 — Safe changes with a separate write token
 
