@@ -66,7 +66,7 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
    const result=await api.post<SavedDraft>("/providers/connections/",payload);
    if(!result||result.state!=="draft"||result.execution_enabled!==false||
       typeof result.id!=="string")throw Error("Invalid storage receipt");
-   setNotice("Connection saved securely. Verify access below. Provider changes and purchases are not enabled.");
+   setNotice("Connection saved securely. Select Verify access on your saved connection. Provider changes and purchases remain disabled.");
    onSaved();
   }catch{setError(errorText());}
   finally{setWorking(false);}
