@@ -8,6 +8,8 @@ import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {Panel} from "@/components/design-system/Panel";
 import {api} from "@/lib/api/client";
+import type {LiveDomainDNS} from "@/lib/api/endpoints";
+import {CloudRecordDirectory,type CloudRecord} from "@/components/data/CloudRecordDirectory";
 import {readConnectionOverview,type DraftConnection} from "@/features/admin/integrations/connection-readback";
 
 type DomainRecord={id:number;domain_name:string;status:string};
@@ -18,6 +20,8 @@ export function AdminDomainDNSView(){
   const id=String(params.id||"");
   const [domain,setDomain]=useState<DomainRecord|null>(null);
   const [access,setAccess]=useState<Access|null>(null);
+  const [live,setLive]=useState<LiveDomainDNS|null>(null);
+  const [liveError,setLiveError]=useState(false);
   const [connections,setConnections]=useState<DraftConnection[]>([]);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
@@ -33,6 +37,17 @@ export function AdminDomainDNSView(){
        permission.read_only!==true||permission.execution_enabled!==false)
       throw Error("Domain authorization could not be verified.");
     setDomain(detail);setAccess(permission);
+    setLive(null);setLiveError(false);
+    if(permission.state==="connected"){
+      try{
+        const result=await api.get<LiveDomainDNS>(url+"live-dns/");
+        if(result.state!=="connected"||result.domain!==detail.domain_name||
+           result.read_only!==true||result.execution_enabled!==false||
+           !Array.isArray(result.records)||result.records.length!==result.record_count||
+           typeof result.checked_at!=="string")throw Error("Provider snapshot invalid");
+        setLive(result);
+      }catch{setLive(null);setLiveError(true);}
+    }
     setConnections(overview.connections.filter(c=>
       c.adapter_key==="cloudflare-dns"&&c.state==="draft"&&c.environment==="live"));
   }
@@ -144,13 +159,37 @@ export function AdminDomainDNSView(){
             </button>
           </form>
         </Panel>:null}
-        {domain&&access&&state==="connected"?<Panel>
-          <h2 className="text-base font-medium">Read-only access approved</h2>
-          <p className="mt-2 text-sm text-console-muted">
-            The domain owner can now view Cloudflare's current records.
-            Changes and purchases remain disabled. The customer can revoke access at any time.
-          </p>
-        </Panel>:null}
+        {domain&&access&&state==="connected"?<>
+          <Panel>
+            <h2 className="text-base font-medium">Read-only access approved</h2>
+            <p className="mt-2 text-sm text-console-muted">
+              The domain owner may view the provider's current records. DNS changes,
+              nameserver changes and purchases remain disabled.
+            </p>
+            {liveError?<p role="alert" className="mt-3 text-sm text-rose-700">
+              Cloudflare records are temporarily unavailable. No stored records are displayed
+              as live data.</p>:null}
+            {live?.checked_at?<p className="mt-3 text-xs text-console-muted">
+              Provider inventory checked {new Date(live.checked_at).toLocaleString("en-NG")}.
+              {" "}Cloudflare zone nameservers do not independently establish public delegation.
+            </p>:null}
+          </Panel>
+          {live&&!liveError?<CloudRecordDirectory label="Live DNS records"
+            records={live.records.map((rec):CloudRecord=>({
+              id:rec.id,title:rec.name,subtitle:rec.value,reference:rec.type,
+              amount:rec.ttl===1?"Auto":rec.ttl+"s",status:"active",
+              category:rec.proxied===true?"Proxied":rec.proxied===false?"DNS only":"Not applicable",
+              details:{Type:rec.type,Value:rec.value,TTL:rec.ttl===1?"Auto":rec.ttl+"s"},
+            }))}
+            emptyMessage="Cloudflare returned no records for this zone."
+            columns={[
+              {key:"name",label:"Host",render:r=><span className="break-all font-medium">{r.title}</span>},
+              {key:"type",label:"Type",render:r=>r.reference||"—"},
+              {key:"value",label:"Value",render:r=><span className="break-all">{r.subtitle||"—"}</span>},
+              {key:"ttl",label:"TTL",render:r=>r.amount||"—"},
+              {key:"proxy",label:"Proxy",render:r=>r.category||"Not applicable"},
+            ]}/>:null}
+        </>:null}
       </div>
     </DashboardPage>
   </DashboardShell>;
