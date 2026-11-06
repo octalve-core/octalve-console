@@ -76,10 +76,10 @@ try{
   }
   $pgBin=$null
   foreach($dir in $candidates){
-    $missing=@(@('pg_dump.exe','pg_restore.exe','psql.exe','initdb.exe','pg_ctl.exe') | Where-Object {-not (Test-Path (Join-Path $dir $_))})
+    $missing=@(@('pg_dump.exe','pg_restore.exe','psql.exe','initdb.exe','pg_ctl.exe','postgres.exe') | Where-Object {-not (Test-Path (Join-Path $dir $_))})
     if($missing.Count -eq 0){$pgBin=$dir;break}
   }
-  if(-not $pgBin){throw 'Install PostgreSQL tools including pg_dump, pg_restore, initdb, pg_ctl and psql.'}
+  if(-not $pgBin){throw 'Install PostgreSQL tools including pg_dump, pg_restore, initdb, pg_ctl, postgres and psql.'}
   $pgDump=Join-Path $pgBin 'pg_dump.exe';$pgRestore=Join-Path $pgBin 'pg_restore.exe'
   $pgInit=Join-Path $pgBin 'initdb.exe';$pgCtl=Join-Path $pgBin 'pg_ctl.exe';$psql=Join-Path $pgBin 'psql.exe'
   $dbUri=[Uri]$dbUrl;$parts=$dbUri.UserInfo.Split(':',2)
