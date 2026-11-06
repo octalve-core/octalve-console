@@ -5,28 +5,28 @@ export const services:readonly Integration[]=[
   "slug": "cloudflare-dns",
   "name": "Cloudflare DNS",
   "category": "DNS & SSL",
-  "summary": "Read-only DNS zone and record verification through a fixed Cloudflare API origin. Never grants DNS changes automatically.",
+  "summary": "Connect Cloudflare to verify your domain and review its DNS records safely.",
   "documentation": "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
   "guide": "Cloudflare → Create API token",
   "requirements": [
    {
     "label": "Zone ID",
-    "guidance": "Verified DNS zone ownership"
+    "guidance": "Cloudflare → Your domain → Overview → API → Copy Zone ID."
    },
    {
     "label": "Account ID",
-    "guidance": "Approved account"
+    "guidance": "Cloudflare → Account Home → Copy Account ID."
    },
    {
     "label": "API token",
-    "guidance": "Create an API token with Zone: Read and DNS: Read permissions restricted to an owned zone. Configure INT01_CLOUDFLARE_DNS_TOKEN only in approved backend secret storage. Never paste credentials here.",
+    "guidance": "Create a custom API token with Zone Read and DNS Read for this domain. Paste the token itself into the secure connection form, not its ID or the example command."
     "sensitive": true
    }
   ],
   "capabilities": [
-   "INT-01 has a source-tested zone ownership and DNS-record digest probe; real connection is not certified until authenticated Cloudflare readback succeeds",
-   "Run operator-only int01_cloudflare_probe --scope dns --zone-id <owned-zone-id> with approved secret-store configuration",
-   "No record writes, nameserver changes or registrar purchases are enabled"
+   "Verify that the selected domain belongs to your Cloudflare account.",
+   "Review DNS records without editing them.",
+   "DNS changes and domain purchases require separate approval."
   ],
   "logo": "cloudflare",
   "stage": "Read-only"
@@ -35,25 +35,25 @@ export const services:readonly Integration[]=[
   "slug": "letsencrypt",
   "name": "Let's Encrypt",
   "category": "DNS & SSL",
-  "summary": "Free ACME certificate issuance on qualified hosting environments.",
+  "summary": "Set up free SSL certificates for approved domains and hosting services.",
   "documentation": "https://letsencrypt.org/docs/",
   "guide": "ACME and domain-validation guide",
   "requirements": [
    {
     "label": "Domain validation",
-    "guidance": "HTTP-01 or DNS-01 authority"
+    "guidance": "Confirm you control the website or its DNS settings."
    },
    {
     "label": "ACME account",
-    "guidance": "Trusted server-side ACME identity"
+    "guidance": "Use an approved account for SSL certificates."
    },
    {
     "label": "Installer",
-    "guidance": "Supported hosting panel or OPanel native agent"
+    "guidance": "Select the hosting control panel or server that will install the certificate."
    }
   ],
   "capabilities": [
-   "Issuance and renewals require staging acceptance"
+   "Certificate issuance and renewal are available only after the hosting service is connected and approved."
   ],
   "logo": "letsencrypt",
   "stage": "Research"
@@ -62,27 +62,27 @@ export const services:readonly Integration[]=[
   "slug": "paystack",
   "name": "Paystack",
   "category": "Payments",
-  "summary": "Merchant checkout and verified settlement through existing financial authority.",
+  "summary": "Connect Paystack to accept customer payments and confirm successful transactions.",
   "documentation": "https://support.paystack.com/en/articles/2123458",
   "guide": "Dashboard API Keys & Webhooks",
   "requirements": [
    {
     "label": "Merchant identity",
-    "guidance": "Approved business account"
+    "guidance": "Use your approved Paystack business account."
    },
    {
     "label": "Environment",
-    "guidance": "Test or Live"
+    "guidance": "Choose test or live credentials for the correct account."
    },
    {
     "label": "Secret key",
-    "guidance": "Backend-only merchant secret",
+    "guidance": "Copy the appropriate secret key from Paystack’s dashboard and keep it confidential."
     "sensitive": true
    }
   ],
   "capabilities": [
-   "Console's existing PaymentGateway remains authoritative",
-   "Not activated by this catalogue"
+   "Payment processing uses Octalve Cloud’s approved payment settings.",
+   "Saving a connection does not enable payments automatically."
   ],
   "stage": "Research"
  },
@@ -90,26 +90,27 @@ export const services:readonly Integration[]=[
   "slug": "flutterwave",
   "name": "Flutterwave",
   "category": "Payments",
-  "summary": "Payment gateway and webhook verification after merchant approval.",
+  "summary": "Connect Flutterwave to collect customer payments securely.",
   "documentation": "https://developer.flutterwave.com/docs",
   "guide": "Flutterwave developer guide",
   "requirements": [
    {
     "label": "Merchant account",
-    "guidance": "Eligible API account"
+    "guidance": "Use your authorized Flutterwave business account."
    },
    {
     "label": "API version",
-    "guidance": "Pin vendor contract"
+    "guidance": "Confirm the supported API version in your Flutterwave account."
    },
    {
     "label": "Secret key",
-    "guidance": "Vendor-specific merchant credential",
+    "guidance": "Create a secret key for the correct test or live environment."
     "sensitive": true
    }
   ],
   "capabilities": [
-   "No payments may be marked paid from callbacks alone"
+   "Transactions must be confirmed by the payment provider before orders are marked paid.",
+   "Payment collection is available only after approval."
   ],
   "stage": "Research"
  },
@@ -117,27 +118,28 @@ export const services:readonly Integration[]=[
   "slug": "monnify",
   "name": "Monnify",
   "category": "Payments",
-  "summary": "Business bank-transfer checkout and verified payment confirmation.",
+  "summary": "Connect Monnify for bank-transfer payments and payment confirmation.",
   "documentation": "https://developers.monnify.com/",
   "guide": "Monnify API documentation",
   "requirements": [
    {
     "label": "Merchant account",
-    "guidance": "Eligible Monnify merchant"
+    "guidance": "Use your approved Monnify merchant account."
    },
    {
     "label": "API key",
-    "guidance": "Issued merchant API key",
+    "guidance": "Copy the API key from your Monnify account."
     "sensitive": true
    },
    {
     "label": "API secret",
-    "guidance": "Issued merchant secret",
+    "guidance": "Copy the matching API secret and keep it confidential."
     "sensitive": true
    }
   ],
   "capabilities": [
-   "No screenshots as proof of payment"
+   "Customer payments must be verified through Monnify before orders are marked paid.",
+   "Payment processing remains unavailable until the merchant account is approved."
   ],
   "stage": "Research"
  }
