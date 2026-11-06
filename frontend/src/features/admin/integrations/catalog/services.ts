@@ -19,7 +19,7 @@ export const services:readonly Integration[]=[
    },
    {
     "label": "API token",
-    "guidance": "Create a custom API token with Zone Read and DNS Read for this domain. Paste the token itself into the secure connection form, not its ID or the example command."
+    "guidance": "Create a custom API token with Zone Read and DNS Read for this domain. Paste the token itself into the secure connection form, not its ID or the example command.",
     "sensitive": true
    }
   ],
@@ -76,7 +76,7 @@ export const services:readonly Integration[]=[
    },
    {
     "label": "Secret key",
-    "guidance": "Copy the appropriate secret key from Paystack’s dashboard and keep it confidential."
+    "guidance": "Copy the appropriate secret key from Paystack’s dashboard and keep it confidential.",
     "sensitive": true
    }
   ],
@@ -104,7 +104,7 @@ export const services:readonly Integration[]=[
    },
    {
     "label": "Secret key",
-    "guidance": "Create a secret key for the correct test or live environment."
+    "guidance": "Create a secret key for the correct test or live environment.",
     "sensitive": true
    }
   ],
@@ -128,12 +128,12 @@ export const services:readonly Integration[]=[
    },
    {
     "label": "API key",
-    "guidance": "Copy the API key from your Monnify account."
+    "guidance": "Copy the API key from your Monnify account.",
     "sensitive": true
    },
    {
     "label": "API secret",
-    "guidance": "Copy the matching API secret and keep it confidential."
+    "guidance": "Copy the matching API secret and keep it confidential.",
     "sensitive": true
    }
   ],
