@@ -309,7 +309,7 @@ class CloudflareINT01:
                         len(name) > 253 or
                         not isinstance(kind, str) or not re.fullmatch(r"[A-Z]{1,16}", kind) or
                         not isinstance(content, str) or len(content) > 4096 or
-                        type(ttl) is not int or ttl not in (1,) and not 60 <= ttl <= 86400 or
+                        type(ttl) is not int or ttl not in (1,) and not 30 <= ttl <= 86400 or
                         proxied is not None and type(proxied) is not bool or
                         priority is not None and (type(priority) is not int or
                                                   not 0 <= priority <= 65535)):
