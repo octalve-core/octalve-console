@@ -126,8 +126,10 @@ export function ClientDNSClaimPanel(){
         <CheckCircle2 className="h-4 w-4"/>Copied to clipboard</p>:null}
       <p className="mt-3 text-xs leading-5 text-console-muted">
         After adding the record, contact Octalve Cloud to verify it against the
-        saved, read-only Cloudflare connection. We will not request your
-        Cloudflare password or make DNS changes.
+        saved, read-only Cloudflare connection. Keep the TXT record in place
+        while using this connection: removing it suspends live DNS visibility
+        until the same proof is restored. We will not request your Cloudflare
+        password or make DNS changes.
       </p>
     </div>:null}
     {available&&claims.length>0?<div className="mt-5 border-t border-console-line pt-4">
