@@ -50,7 +50,7 @@ export type DomainRenewalStatus = {
 };
 export type ExternalDNSClaim = {
   id:string;domain_name:string;client_id:number;
-  state:"pending"|"verified"|"cancelled";
+  state:"pending"|"verified"|"cancelled"|"expired";
   expires_at:string;verified_at:string|null;
   domain_id:number|null;read_only:true;registration_confirmed:false;
   execution_enabled:false;
