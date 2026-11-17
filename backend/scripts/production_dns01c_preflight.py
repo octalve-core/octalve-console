@@ -200,6 +200,99 @@ def verify_dns_postflight(conn, *, require_empty=False):
         refuse("DNS-01C claim schema, indices, registrar-truth constraint or initial state is invalid.")
 
 
+
+def _direct_connection(raw_url):
+    """A new direct, TLS-verified connection, never a pooled Neon session."""
+    import psycopg
+    conn = psycopg.connect(raw_url, connect_timeout=15, autocommit=True)
+    if conn.pgconn.ssl_in_use is not True:
+        conn.close()
+        refuse("The Production PostgreSQL connection is not encrypted.")
+    return conn
+
+
+def _lock_release(conn):
+    """Do not conceal the original exception if Neon closed the session.
+
+    A terminated PostgreSQL session automatically loses all of its session
+    advisory locks. Attempt unlock only while the connection is usable.
+    """
+    if conn is None or conn.closed:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_unlock(hashtext(%s))", (LOCK,))
+            if cur.fetchone()[0] is not True:
+                print("WARNING: migration lock was no longer held by this session.",
+                      file=sys.stderr)
+    except Exception:
+        # A server-forced disconnect invalidates the connection and releases
+        # its advisory lock. Nothing may retry or mask a migration failure.
+        print("WARNING: migration session ended before lock cleanup; "
+              "verify the database ledger before any further action.",
+              file=sys.stderr)
+
+
+def _locked_fresh_session(raw_url, expected_ledger):
+    """Bounded, read-only reconnection BEFORE any schema command.
+
+    This is safe to retry once because no migration operation has started.
+    We never automatically retry after call_command('migrate') begins.
+    """
+    import psycopg
+    for attempt in range(2):
+        conn = None
+        locked = False
+        verified = False
+        try:
+            conn = _direct_connection(raw_url)
+            with conn.cursor() as cur:
+                cur.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (LOCK,))
+                locked = cur.fetchone()[0] is True
+            if not locked:
+                refuse("Another DNS-01C release process holds the migration lock.")
+            state, ledger = database_state(conn)
+            if state != "before" or ledger != expected_ledger:
+                refuse("Migration state changed since preflight. No schema change was attempted.")
+            if validated_plan() != [(TARGET[0], TARGET[1], False)]:
+                refuse("Migration plan changed since preflight. No schema change was attempted.")
+            verified = True
+            return conn
+        except (psycopg.OperationalError, psycopg.InterfaceError):
+            if attempt == 1:
+                raise
+            print("A Neon session ended during read-only release validation. "
+                  "Opening one fresh verified session before any schema write.",
+                  file=sys.stderr)
+        finally:
+            # On success, ownership transfers to the caller.
+            if conn is not None and not verified:
+                if locked:
+                    _lock_release(conn)
+                conn.close()
+    refuse("Could not verify a fresh Neon migration session.")
+
+
+def _readback_after_migration(raw_url):
+    """Independent postflight queries only: never run the migration twice."""
+    import psycopg
+    for attempt in range(2):
+        conn = None
+        try:
+            conn = _direct_connection(raw_url)
+            verify_dns_postflight(conn, require_empty=True)
+            return
+        except (psycopg.OperationalError, psycopg.InterfaceError):
+            if attempt == 1:
+                raise
+            print("Neon disconnected during read-only postflight; "
+                  "reconnecting once without rerunning any migration.",
+                  file=sys.stderr)
+        finally:
+            if conn is not None:
+                conn.close()
+
+
 def main():
     if len(sys.argv) != 2 or sys.argv[1] not in ("plan", "apply"):
         refuse("Specify only plan or apply.")
@@ -210,49 +303,60 @@ def main():
         verify_backup_and_restore()
         if os.environ.get("OCTALVE_DNS01C_SOURCE_APPROVED") != "true":
             refuse("The checked-out and CI-reviewed main commit has not been attested by the operator.")
-    import psycopg
-    with psycopg.connect(raw_url, connect_timeout=15, autocommit=True) as conn:
-        if conn.pgconn.ssl_in_use is not True:
-            refuse("The Production PostgreSQL connection is not encrypted.")
-        # No advisory lock needed for read-only planning. Acquire it before apply.
-        if action == "apply":
-            with conn.cursor() as cur:
-                cur.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (LOCK,))
-                if cur.fetchone()[0] is not True:
-                    refuse("Another DNS-01C release process holds the migration lock.")
+
+    # Step 1: READ-ONLY preflight, with no long-lived session lock.
+    # Close this session BEFORE waiting for human input. Neon can terminate an
+    # idle compute while the operator reads and types the approval phrase.
+    with _direct_connection(raw_url) as preflight:
+        prior, ledger = database_state(preflight)
+        plan = validated_plan()
+        if prior == "after":
+            if plan:
+                refuse("Migration ledger is applied but Django still shows it pending.")
+            verify_dns_postflight(preflight)
+            print("DNS-01C ALREADY APPLIED: qualified 64/117. No migration rerun.")
+            return
+        if plan != [(TARGET[0], TARGET[1], False)]:
+            refuse("Django did not produce the one authorized additive DNS-01C migration.")
+        if action == "plan":
+            print("PREFLIGHT PASS: exact Production Neon host, TLS, 63 migrations/116 tables.")
+            print("PREFLIGHT PASS: precisely domains.0003_external_dns_claims is pending.")
+            print("PLAN ONLY: no Production schema or customer records modified.")
+            return
+
+    # Step 2: The operator's decision must not leave a Neon session idle.
+    from django.db import connections
+    connections.close_all()
+    phrase = input("Type APPLY DNS01C 0003 TO OCTALVE PRODUCTION: ")
+    if phrase != "APPLY DNS01C 0003 TO OCTALVE PRODUCTION":
+        refuse("Exact operator approval phrase missing; no database changes attempted.")
+
+    # Step 3: NEW, locked and independently revalidated connection after
+    # approval; one bounded retry is allowed only while still read-only.
+    conn = _locked_fresh_session(raw_url, ledger)
+    try:
+        # Django's migration executor uses its own connection. Force a fresh
+        # one after the human approval to avoid any earlier idle/closed session.
+        connections.close_all()
+        from django.core.management import call_command
         try:
-            prior, ledger = database_state(conn)
-            plan = validated_plan()
-            if prior == "after":
-                if plan:
-                    refuse("Migration ledger is applied but Django still shows it pending.")
-                verify_dns_postflight(conn)
-                print("DNS-01C ALREADY APPLIED: qualified 64/117. No migration rerun.")
-                return
-            if plan != [(TARGET[0], TARGET[1], False)]:
-                refuse("Django did not produce the one authorized additive DNS-01C migration.")
-            if action == "plan":
-                print("PREFLIGHT PASS: exact Production Neon host, TLS, 63 migrations/116 tables.")
-                print("PREFLIGHT PASS: precisely domains.0003_external_dns_claims is pending.")
-                print("PLAN ONLY: no Production schema or customer records modified.")
-                return
-            phrase = input("Type APPLY DNS01C 0003 TO OCTALVE PRODUCTION: ")
-            if phrase != "APPLY DNS01C 0003 TO OCTALVE PRODUCTION":
-                refuse("Exact operator approval phrase missing; no database changes attempted.")
-            current, current_ledger = database_state(conn)
-            if current != "before" or current_ledger != ledger:
-                refuse("Migration ledger changed since the initial exact preflight.")
-            # Django owns transaction boundaries for the reviewed migration.
-            from django.core.management import call_command
-            call_command("migrate", TARGET[0], TARGET[1], interactive=False, verbosity=1)
-            verify_dns_postflight(conn, require_empty=True)
-            print("DNS-01C APPLY PASS: new claim table, exact foreign keys,")
-            print("indices, no pending claims, constraint and 64/117 ledger qualified.")
-            print("NOTE: The DNS-01C read-only feature flag remains default disabled.")
-        finally:
-            if action == "apply":
-                with conn.cursor() as cur:
-                    cur.execute("SELECT pg_advisory_unlock(hashtext(%s))", (LOCK,))
+            call_command("migrate", TARGET[0], TARGET[1],
+                         interactive=False, verbosity=1)
+        except Exception:
+            print("MIGRATION OUTCOME UNCERTAIN: no automatic retry. "
+                  "Independently inspect the exact ledger/schema and "
+                  "retain the verified backup.", file=sys.stderr)
+            raise
+
+        # Step 4: Query through a NEW independent TLS session; never rely on
+        # the lock-holder or attempt another schema operation during readback.
+        _readback_after_migration(raw_url)
+        print("DNS-01C APPLY PASS: new claim table, exact foreign keys,")
+        print("indices, no pending claims, constraint and 64/117 ledger qualified.")
+        print("NOTE: The DNS-01C read-only feature flag remains default disabled.")
+    finally:
+        _lock_release(conn)
+        conn.close()
 
 
 if __name__ == "__main__":
