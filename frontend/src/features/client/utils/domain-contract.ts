@@ -5,6 +5,7 @@ export type ClientDomainSnapshot = {
   id:string;name:string;status:string;registrar:string|null;
   registrationDate:string|null;expiryDate:string|null;nextDueDate:string|null;
   autoRenew:boolean;dnssecEnabled:boolean;registrationType:string;
+  managementKind:"registrar"|"dns_only";
   nameservers:DomainNameserver[];dnsRecords:DomainDns[];
 };
 const object=(v:unknown):v is Record<string,unknown>=>v!==null&&typeof v==="object"&&!Array.isArray(v);
@@ -40,6 +41,7 @@ export function normalizeDomain(value:unknown):ClientDomainSnapshot {
     nextDueDate:word(value.next_due_date),autoRenew:value.auto_renew===true,
     dnssecEnabled:value.dnssec_enabled===true,
     registrationType:word(value.registration_type)||"register",
+    managementKind:value.management_kind==="dns_only"?"dns_only":"registrar",
     dnsRecords,nameservers
   };
 }
