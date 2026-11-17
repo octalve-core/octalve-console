@@ -300,6 +300,19 @@ def _readback_after_migration(raw_url):
                 conn.close()
 
 
+def _close_django_connections():
+    """Close only Django's independent connections before/after operator input."""
+    from django.db import connections
+    connections.close_all()
+
+
+def _migrate_target_once():
+    """The sole schema operation, deliberately isolated for negative tests."""
+    from django.core.management import call_command
+    call_command("migrate", TARGET[0], TARGET[1],
+                 interactive=False, verbosity=1)
+
+
 def main():
     if len(sys.argv) != 2 or sys.argv[1] not in ("plan", "apply"):
         refuse("Specify only plan or apply.")
@@ -332,8 +345,7 @@ def main():
             return
 
     # Step 2: The operator's decision must not leave a Neon session idle.
-    from django.db import connections
-    connections.close_all()
+    _close_django_connections()
     phrase = input("Type APPLY DNS01C 0003 TO OCTALVE PRODUCTION: ")
     if phrase != "APPLY DNS01C 0003 TO OCTALVE PRODUCTION":
         refuse("Exact operator approval phrase missing; no database changes attempted.")
@@ -348,11 +360,9 @@ def main():
     try:
         # Django's migration executor uses its own connection. Force a fresh
         # one after the human approval to avoid any earlier idle/closed session.
-        connections.close_all()
-        from django.core.management import call_command
+        _close_django_connections()
         try:
-            call_command("migrate", TARGET[0], TARGET[1],
-                         interactive=False, verbosity=1)
+            _migrate_target_once()
         except Exception:
             print("MIGRATION OUTCOME UNCERTAIN: no automatic retry. "
                   "Independently inspect the exact ledger/schema and "
