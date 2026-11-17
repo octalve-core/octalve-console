@@ -55,6 +55,21 @@ class DomainViewSet(viewsets.ModelViewSet):
 
     # DNS-01: independent, explicitly authorized read-only Cloudflare service.
     # Every action inherits the owner-scoped get_object() queryset.
+    @action(detail=False, methods=['get'], url_path='dns-only-claims')
+    def dns_only_claims(self, request):
+        from .external_dns_claims import list_claims
+        return list_claims(request)
+
+    @action(detail=False, methods=['post'], url_path='dns-only-claim')
+    def dns_only_claim(self, request):
+        from .external_dns_claims import begin_claim
+        return begin_claim(request)
+
+    @action(detail=False, methods=['post'], url_path='dns-only-verify')
+    def dns_only_verify(self, request):
+        from .external_dns_claims import verify_claim
+        return verify_claim(request)
+
     @action(detail=True, methods=['get'], url_path='dns-access')
     def dns_access(self, request, pk=None):
         from . import dns_readonly
@@ -153,6 +168,13 @@ class DomainViewSet(viewsets.ModelViewSet):
         if getattr(request.user, 'role', '') != 'client' or not request.user.is_active:
             return Response({'detail': 'Unavailable.'}, status=404)
         domain = get_object_or_404(Domain, pk=pk, client_id=request.user.pk)
+        if domain.management_kind == "dns_only":
+            return Response({
+                'domain_id': domain.pk, 'state': 'unavailable',
+                'invoice_id': None, 'auto_renew': False,
+                'registration_date': None, 'expiry_date': None,
+                'next_due_date': None, 'registration_confirmed': False,
+            }, headers={'Cache-Control': 'private, no-store'})
         invoice = None
         if domain.status in ('active', 'expired'):
             invoice = (Invoice.objects.filter(

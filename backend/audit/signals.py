@@ -1,5 +1,6 @@
 # audit/signals.py
 
+from uuid import UUID
 from django.db import OperationalError, ProgrammingError, connection
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
@@ -63,6 +64,11 @@ def should_skip_audit(sender, instance=None, raw=False):
     return False
 
 
+def _json_pk(pk):
+    """JSON-safe primary key while retaining integer audit IDs unchanged."""
+    return str(pk) if isinstance(pk, UUID) else pk
+
+
 @receiver(post_save)
 def log_model_save(sender, instance, created, raw=False, **kwargs):
     """
@@ -80,7 +86,7 @@ def log_model_save(sender, instance, created, raw=False, **kwargs):
             entity_type=sender.__name__,
             entity_id=str(instance.pk),
             entity_name=str(instance)[:500],
-            new_value={"id": instance.pk} if created else None,
+            new_value={"id": _json_pk(instance.pk)} if created else None,
             details={"model": sender.__name__},
         )
     except (OperationalError, ProgrammingError):
@@ -102,7 +108,7 @@ def log_model_delete(sender, instance, **kwargs):
             entity_type=sender.__name__,
             entity_id=str(instance.pk),
             entity_name=str(instance)[:500],
-            old_value={"id": instance.pk},
+            old_value={"id": _json_pk(instance.pk)},
             details={"model": sender.__name__},
         )
     except (OperationalError, ProgrammingError):

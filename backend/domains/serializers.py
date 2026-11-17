@@ -46,12 +46,12 @@ class DomainSerializer(serializers.ModelSerializer):
         model = Domain
         fields = [
             'id', 'domain_name', 'tld', 'client', 'client_name', 'client_email',
-            'status', 'status_display', 'registration_type', 'registrar',
+            'status', 'status_display', 'registration_type', 'management_kind', 'registrar',
             'registration_date', 'expiry_date', 'next_due_date', 'auto_renew',
             'dnssec_enabled', 'days_until_expiry', 'is_expiring_soon',
             'nameservers', 'dns_records', 'created_at'
         ]
-        read_only_fields = ['id', 'created_at', 'days_until_expiry', 'is_expiring_soon']
+        read_only_fields = ['id', 'created_at', 'days_until_expiry', 'is_expiring_soon', 'management_kind']
     
     def get_days_until_expiry(self, obj):
         return obj.days_until_expiry()

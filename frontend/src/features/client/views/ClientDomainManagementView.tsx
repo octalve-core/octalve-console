@@ -121,7 +121,15 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
     liveDns.nameservers!.map(ns=>({
       id:ns,title:ns,reference:"Cloudflare zone nameserver",status:"active",
     })):[];
-  const info=[
+  const external=domain?.managementKind==="dns_only";
+  const info=external?[
+    ["Management","External DNS only"],
+    ["Cloudflare zone control","Verified during onboarding; live access needs retained TXT proof"],
+    ["Registrar","Not verified by Octalve Cloud"],
+    ["Registration / expiry","Not verified; managed with your registrar"],
+    ["Auto-renewal","Not provided for externally owned domains"],
+    ["DNSSEC",domain?.dnssecEnabled?"Enabled":"Not confirmed"],
+  ]:[
     ["Registration date",displayDomainDate(domain?.registrationDate||null)],
     ["Expiry date",displayDomainDate(domain?.expiryDate||null)],
     ["Next due",displayDomainDate(domain?.nextDueDate||null)],
@@ -147,12 +155,14 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
                 <span className="rounded-xl bg-blue-50 p-3 text-console-primary">
                   <Globe2 className="h-6 w-6" aria-hidden="true"/></span>
                 <div><h2 className="break-all text-lg font-medium text-console-ink">{domain.name}</h2>
-                  <p className="text-sm text-console-muted">Registration and ownership details</p></div>
+                  <p className="text-sm text-console-muted">
+                    {external?"External DNS zone management — registration not verified":"Registration and ownership details"}
+                  </p></div>
               </div>
               <StatusBadge>{domain.status.replaceAll("_"," ")}</StatusBadge>
             </div>
             <div className="mt-5 flex flex-wrap gap-2" aria-label="Domain sections">
-              {modes.map(item=><Link key={item.mode} href={item.mode==="overview"?prefix:prefix+"/"+item.mode}
+              {modes.filter(item=>!external||item.mode!=="renewal").map(item=><Link key={item.mode} href={item.mode==="overview"?prefix:prefix+"/"+item.mode}
                 aria-current={mode===item.mode?"page":undefined}
                 className={`inline-flex min-h-10 items-center rounded-xl px-4 text-sm font-medium
                   ${mode===item.mode?"bg-console-primary text-white":"bg-slate-100 text-console-ink hover:bg-slate-200"}`}>
@@ -173,9 +183,15 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
               </p>
               <ActionLink href={prefix+"/dns"} variant="outline" className="mt-4">View DNS records</ActionLink>
             </Panel>
-            <Panel><h3 className="text-base font-medium text-console-ink">Renewal</h3>
-              <p className="mt-2 text-sm text-console-muted">Expiry: {displayDomainDate(domain.expiryDate)}</p>
-              <ActionLink href={prefix+"/renewal"} variant="outline" className="mt-4">Review renewal options</ActionLink>
+            <Panel><h3 className="text-base font-medium text-console-ink">
+              {external?"External registration":"Renewal"}</h3>
+              {external?<p className="mt-2 text-sm text-console-muted">
+                Octalve Cloud has verified DNS zone control only. Your registrar
+                manages registration, renewal and expiry; those dates are not supplied here.
+              </p>:<>
+                <p className="mt-2 text-sm text-console-muted">Expiry: {displayDomainDate(domain.expiryDate)}</p>
+                <ActionLink href={prefix+"/renewal"} variant="outline" className="mt-4">Review renewal options</ActionLink>
+              </>}
             </Panel>
           </WorkspaceGrid>:null}
           {mode==="dns"?<div className="space-y-4">
@@ -268,7 +284,18 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
               columns={[{key:"hostname",label:"Nameserver hostname",render:r=>
                 <span className="break-all font-medium">{r.title}</span>}]}/>:null}
           </div>:null}
-          {mode==="renewal"?<Panel>
+          {mode==="renewal"&&external?<Panel>
+            <h3 className="flex items-center gap-2 text-lg font-medium text-console-ink">
+              <CalendarClock className="h-5 w-5 text-console-primary" aria-hidden="true"/>
+              External registrar manages your renewal
+            </h3>
+            <p className="mt-3 text-sm text-console-muted">
+              This is a DNS-only connection. Octalve Cloud has not confirmed its
+              registration, expiration date, or renewal price. Contact your registrar
+              for registry services.
+            </p>
+          </Panel>:null}
+          {mode==="renewal"&&!external?<Panel>
             <h3 className="flex items-center gap-2 text-lg font-medium text-console-ink">
               <CalendarClock className="h-5 w-5 text-console-primary" aria-hidden="true"/>Renew your domain</h3>
             <p className="mt-3 text-sm text-console-muted">

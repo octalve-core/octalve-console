@@ -21,12 +21,14 @@ class Domain(models.Model):
         ('suspended', 'Suspended'),
         ('transfer_pending', 'Transfer Pending'),
         ('transfer_complete', 'Transfer Complete'),
+        ('dns_only', 'External DNS only — registrar not verified'),
     ]
     
     REGISTRATION_TYPES = [
         ('register', 'New Registration'),
         ('transfer', 'Transfer'),
         ('renewal', 'Renewal'),
+        ('dns_only', 'External DNS management only'),
     ]
     
     # Relations
@@ -39,6 +41,12 @@ class Domain(models.Model):
     domain_name = models.CharField(max_length=255, unique=True)
     tld = models.CharField(max_length=50, help_text="Top Level Domain (e.g., .com, .ng)")
     
+    # Registration and DNS management are distinct authorities.
+    MANAGEMENT_KINDS = [('registrar', 'Registrar-backed'), ('dns_only', 'External DNS only')]
+    management_kind = models.CharField(
+        max_length=12, choices=MANAGEMENT_KINDS, default='registrar'
+    )
+
     # Registration
     registration_type = models.CharField(max_length=20, choices=REGISTRATION_TYPES, default='register')
     registrar = models.CharField(max_length=200, blank=True, null=True)
@@ -49,9 +57,9 @@ class Domain(models.Model):
     is_active = models.BooleanField(default=True)
     
     # Dates
-    registration_date = models.DateTimeField(default=timezone.now)
-    expiry_date = models.DateTimeField()
-    next_due_date = models.DateTimeField()
+    registration_date = models.DateTimeField(default=timezone.now, null=True, blank=True)
+    expiry_date = models.DateTimeField(null=True, blank=True)
+    next_due_date = models.DateTimeField(null=True, blank=True)
     
     # Auto-renewal
     auto_renew = models.BooleanField(default=True)
@@ -77,6 +85,24 @@ class Domain(models.Model):
     
     class Meta:
         ordering = ['domain_name']
+        constraints = [
+            models.CheckConstraint(
+                name="dns_only_requires_no_registrar_claim",
+                condition=(
+                    models.Q(management_kind="registrar") |
+                    (models.Q(management_kind="dns_only") &
+                     models.Q(status="dns_only") &
+                     models.Q(registration_type="dns_only") &
+                     models.Q(registration_date__isnull=True) &
+                     models.Q(expiry_date__isnull=True) &
+                     models.Q(next_due_date__isnull=True) &
+                     models.Q(order_item__isnull=True) &
+                     models.Q(auto_renew=False) &
+                     models.Q(registrar__isnull=True) &
+                     models.Q(provider_domain_id__isnull=True))
+                ),
+            ),
+        ]
         indexes = [
             models.Index(fields=['domain_name']),
             models.Index(fields=['client', 'status']),
@@ -84,6 +110,18 @@ class Domain(models.Model):
             models.Index(fields=['tld']),
         ]
     
+    def save(self, *args, **kwargs):
+        if self.management_kind == 'dns_only':
+            if (self.status != 'dns_only' or
+                    self.registration_type != 'dns_only' or
+                    self.registration_date is not None or
+                    self.expiry_date is not None or
+                    self.next_due_date is not None or self.auto_renew or
+                    self.order_item_id is not None or self.registrar or
+                    self.provider_domain_id):
+                raise ValueError("DNS-only domains cannot claim registrar registration, expiry or purchase.")
+        return super().save(*args, **kwargs)
+
     def set_epp_code(self, code):
         """Encrypt and store EPP code"""
         if code:
@@ -453,3 +491,41 @@ class DomainDNSBinding(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=["state", "connection"], name="domain_dns_state_conn_idx")]
+
+class DomainDNSClaim(models.Model):
+    """Customer request proving Cloudflare zone DNS control, not registry ownership.
+
+    The proof is a salted-by-entropy SHA-256 digest of a high-entropy one-time
+    TXT value. No Cloudflare token, challenge value or registrant PII is stored.
+    """
+    class State(models.TextChoices):
+        PENDING = "pending", "Awaiting TXT proof"
+        VERIFIED = "verified", "Zone control verified"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    domain_name = models.CharField(max_length=253, unique=True)
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="domain_dns_claims",
+    )
+    challenge_sha256 = models.CharField(max_length=64)
+    expires_at = models.DateTimeField()
+    state = models.CharField(max_length=12, choices=State.choices, default=State.PENDING)
+    domain = models.OneToOneField(
+        "domains.Domain", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="dns_control_claim",
+    )
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.PROTECT, related_name="dns_claims_verified",
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["client", "state"], name="dns_claim_owner_state_idx"),
+            models.Index(fields=["expires_at"], name="dns_claim_expiry_idx"),
+        ]

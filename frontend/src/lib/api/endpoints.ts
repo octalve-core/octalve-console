@@ -45,9 +45,21 @@ export type ServiceRenewalStatus = {
 };
 export type DomainRenewalStatus = {
   domain_id:number;state:"invoice_ready"|"request_assistance"|"unavailable";
-  invoice_id:number|null;auto_renew:boolean;registration_date:string;
-  expiry_date:string;next_due_date:string;
+  invoice_id:number|null;auto_renew:boolean;registration_date:string|null;
+  expiry_date:string|null;next_due_date:string|null;registration_confirmed?:false;
 };
+export type ExternalDNSClaim = {
+  id:string;domain_name:string;client_id:number;
+  state:"pending"|"verified"|"cancelled"|"expired";
+  expires_at:string;verified_at:string|null;
+  domain_id:number|null;read_only:true;registration_confirmed:false;
+  execution_enabled:false;
+};
+export type ExternalDNSClaimIssued = ExternalDNSClaim & {
+  challenge:{type:"TXT";name:string;value:string;expires_at:string};
+  next_step:string;
+};
+export type ExternalDNSClaimList = {results:ExternalDNSClaim[];execution_enabled:false};
 export type LiveDomainDNS = {
   state:"not_connected"|"awaiting_customer_approval"|"awaiting_octalve_approval"|"revoked"|"recheck_required"|"connected";
   domain:string;read_only:true;execution_enabled:false;
@@ -373,6 +385,15 @@ export const clientApi = {
     return api.get(byId(apiPaths.client.domains, id) + "dns_records/");
   },
 
+  dnsOnlyClaims(){
+    return api.get<ExternalDNSClaimList>(
+      apiPaths.client.domains+"dns-only-claims/");
+  },
+  beginDnsOnlyClaim(domain_name:string){
+    return api.post<ExternalDNSClaimIssued>(
+      apiPaths.client.domains+"dns-only-claim/",{domain_name});
+  },
+
   /** The provider is the only source for this read-only customer DNS view. */
   domainDnsLive(id:string) {
     return api.get<LiveDomainDNS>(byId(apiPaths.client.domains,id)+"live-dns/");
@@ -507,6 +528,16 @@ export const clientApi = {
 };
 
 export const adminApi = {
+  externalDnsClaims(){
+    return api.get<ExternalDNSClaimList>("/domains/domains/dns-only-claims/");
+  },
+  verifyExternalDnsClaim(payload:{
+    claim_id:string;connection_id:string;
+    confirm_password:string;totp_code:string;
+  }){
+    return api.post<ExternalDNSClaim & {next_step:string}>(
+      "/domains/domains/dns-only-verify/",payload);
+  },
   rewardStats(){return api.get<AdminRewardStatistics>("/rewards/admin/stats/");},
   affiliateApplications(){return api.get<{results:{id:number;client_id:number;status:string;created_at:string}[]}>("/rewards/admin/affiliates/");},
   reviewAffiliate(id:number,decision:"approve"|"reject"|"suspend"){
