@@ -124,7 +124,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
   const external=domain?.managementKind==="dns_only";
   const info=external?[
     ["Management","External DNS only"],
-    ["Cloudflare zone control","Verified during onboarding"],
+    ["Cloudflare zone control","Verified during onboarding; live access needs retained TXT proof"],
     ["Registrar","Not verified by Octalve Cloud"],
     ["Registration / expiry","Not verified; managed with your registrar"],
     ["Auto-renewal","Not provided for externally owned domains"],
