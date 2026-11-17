@@ -73,9 +73,10 @@ def database_state(conn):
         db_name, role, migration_count, table_count = cur.fetchone()
         cur.execute("SELECT app,name FROM public.django_migrations")
         ledger = frozenset(cur.fetchall())
-        cur.execute("""SELECT to_regclass('public.domains_domaindnsbinding'),
+        cur.execute("""SELECT to_regclass('public.domains_domaindnsclaim'),
+                              to_regclass('public.domains_domaindnsbinding'),
                               to_regclass('public.providers_integrationconnectionevent')""")
-        dns_table, provider_audit_table = cur.fetchone()
+        dns_table, dns_binding_table, provider_audit_table = cur.fetchone()
     if db_name != EXPECTED_DATABASE or role != EXPECTED_ROLE:
         refuse("Connected database or role differs from the approved Neon Production target.")
     required = {
@@ -85,7 +86,8 @@ def database_state(conn):
         ("providers", "0003_provider_vault_authenticator"),
         ("providers", "0004_provider_event_integrity"),
     }
-    if provider_audit_table is None or not required.issubset(ledger):
+    if (provider_audit_table is None or dns_binding_table is None
+            or not required.issubset(ledger)):
         refuse("Mandatory domain and provider audit prerequisites are missing.")
     present = TARGET in ledger
     if (migration_count, table_count) == EXPECTED_BEFORE and not present and dns_table is None:
