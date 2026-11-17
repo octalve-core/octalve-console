@@ -181,7 +181,7 @@ class DNS01CTransientSessionTests(unittest.TestCase):
             return release
         def migration(*args, **kwargs):
             self.assertEqual(seen, ["operator", "fresh-session"])
-            self.assertEqual(args, ("migrate", "domains", "0003_external_dns_claims"))
+            self.assertEqual(args, (), "The guarded migration helper must run exactly once.")
             seen.append("migration")
         def postflight(_url):
             self.assertEqual(seen, ["operator", "fresh-session", "migration"])
@@ -206,8 +206,9 @@ class DNS01CTransientSessionTests(unittest.TestCase):
              patch("scripts.production_dns01c_preflight._readback_after_migration",
                    side_effect=postflight), \
              patch("builtins.input", side_effect=operator_prompt), \
-             patch("django.db.connections.close_all"), \
-             patch("django.core.management.call_command", side_effect=migration) as run:
+             patch("scripts.production_dns01c_preflight._close_django_connections"), \
+             patch("scripts.production_dns01c_preflight._migrate_target_once",
+                   side_effect=migration) as run:
             main()
         self.assertEqual(seen, ["operator", "fresh-session", "migration", "postflight"])
         self.assertEqual(run.call_count, 1)
@@ -238,8 +239,8 @@ class DNS01CTransientSessionTests(unittest.TestCase):
                    return_value=release), \
              patch("scripts.production_dns01c_preflight._readback_after_migration") as post, \
              patch("builtins.input", return_value="APPLY DNS01C 0003 TO OCTALVE PRODUCTION"), \
-             patch("django.db.connections.close_all"), \
-             patch("django.core.management.call_command",
+             patch("scripts.production_dns01c_preflight._close_django_connections"), \
+             patch("scripts.production_dns01c_preflight._migrate_target_once",
                    side_effect=psycopg.OperationalError("server terminated")) as migration:
             with self.assertRaisesRegex(psycopg.OperationalError, "server terminated"):
                 main()
