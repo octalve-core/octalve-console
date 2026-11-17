@@ -208,6 +208,75 @@ class ExternalDNSClaimTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertFalse(Domain.objects.exists())
 
+    def test_expired_unverified_domain_request_must_require_a_new_txt_proof(self):
+        issued = self.issue()
+        old_digest = DomainDNSClaim.objects.get(pk=issued.data["id"]).challenge_sha256
+        past = timezone.now() - timedelta(hours=3)
+        DomainDNSClaim.objects.filter(pk=issued.data["id"]).update(
+            expires_at=past, updated_at=past,
+        )
+        self.as_user(self.foreign)
+        renewed = self.begin()
+        self.assertEqual(renewed.status_code, 201, renewed.data)
+        claim = DomainDNSClaim.objects.get(pk=issued.data["id"])
+        self.assertEqual(claim.client_id, self.foreign.pk)
+        self.assertNotEqual(claim.challenge_sha256, old_digest)
+        self.assertEqual(claim.state, "pending")
+        self.assertFalse(Domain.objects.exists())
+        self.as_user(self.owner)
+        self.assertEqual(self.api.get(self.url+"dns-only-claims/").data["results"], [])
+
+    def test_external_domain_requires_retained_txt_proof_on_approval_and_readback(self):
+        issued = self.issue()
+        record = self.proof(issued.data["challenge"]["value"])
+        verified = self.verify(issued.data["id"], record)
+        self.assertEqual(verified.status_code, 200, verified.data)
+        domain = Domain.objects.get(domain_name=NAME)
+        url = self.url + str(domain.pk) + "/"
+        self.as_user(self.owner)
+        consent = self.api.post(url+"dns-consent/", {
+            "accept": True, "consent_version": "dns-read-v1",
+        }, format="json")
+        self.assertEqual(consent.status_code, 200, consent.data)
+        self.as_user(self.admin)
+        missing = {"zone_name": NAME, "read_only": True, "records": [],
+                   "record_count": 0}
+        with patch("domains.dns_readonly._vault_read_ready"), \
+             patch("domains.dns_readonly.check_mutation"), \
+             patch("domains.dns_readonly._conn") as supplier:
+            supplier.return_value.dns_live_inventory.return_value = missing
+            approval = self.api.post(url+"dns-approve/", {
+                "confirm_password": "synthetic", "totp_code": "123456",
+            }, format="json")
+        self.assertEqual(approval.status_code, 503, approval.data)
+        self.assertEqual(DomainDNSBinding.objects.get(domain=domain).state, "pending")
+        with patch("domains.dns_readonly._vault_read_ready"), \
+             patch("domains.dns_readonly.check_mutation"), \
+             patch("domains.dns_readonly._conn") as supplier:
+            supplier.return_value.dns_live_inventory.return_value = record
+            approval = self.api.post(url+"dns-approve/", {
+                "confirm_password": "synthetic", "totp_code": "654321",
+            }, format="json")
+        self.assertEqual(approval.status_code, 200, approval.data)
+        self.assertEqual(DomainDNSBinding.objects.get(domain=domain).state, "active")
+        self.as_user(self.owner)
+        with patch("domains.dns_readonly._vault_read_ready"), \
+             patch("domains.dns_readonly.spend_durable_auth_attempt", return_value=0), \
+             patch("domains.dns_readonly._conn") as supplier:
+            supplier.return_value.dns_live_inventory.return_value = missing
+            live = self.api.get(url+"live-dns/")
+        self.assertEqual(live.status_code, 503, live.data)
+        self.assertEqual(live.data["records"], [])
+        with patch("domains.dns_readonly._vault_read_ready"), \
+             patch("domains.dns_readonly.spend_durable_auth_attempt", return_value=0), \
+             patch("domains.dns_readonly._conn") as supplier:
+            supplier.return_value.dns_live_inventory.return_value = record
+            live = self.api.get(url+"live-dns/")
+        self.assertEqual(live.status_code, 200, live.data)
+        self.assertEqual(live.data["record_count"], 1)
+        self.assertFalse(live.data["execution_enabled"])
+        self.assertIn("no-store", live["Cache-Control"])
+
     def test_disabled_flags_refuse_before_database_or_provider_read(self):
         with self.settings(CLOUD_DNS01_EXTERNAL_CLAIMS_ENABLED=False):
             self.as_user(self.owner)
