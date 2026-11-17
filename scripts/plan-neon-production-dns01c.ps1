@@ -5,7 +5,7 @@
 # Apply repeats preflight, makes fresh pg_dump, restores entire data archive to
 # disposable loopback-only PostgreSQL, then requests typed schema approval.
 [CmdletBinding()]
-param([switch]$Preflight,[switch]$Apply,[switch]$PlanOnly)
+param([switch]$Preflight,[switch]$Apply,[switch]$PlanOnly,[string]$PostgresBin="")
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $selected=[int][bool]$Preflight+[int][bool]$Apply+[int][bool]$PlanOnly
@@ -76,19 +76,67 @@ try{
   Write-Host 'PREFLIGHT PASSED: exact Production database, original ledger and one reviewed DNS-01C migration.'
   if(-not $Apply){Write-Host 'No database changes were made.';return}
 
+  # An explicit tool directory is optional. It lets the operator use the
+  # official portable PostgreSQL 18.7 binaries without replacing a separate
+  # locally running PostgreSQL service or cloning this repository again.
   $candidates=@()
-  $found=Get-Command pg_dump.exe -ErrorAction SilentlyContinue
-  if($found){$candidates+=(Split-Path -Parent $found.Source)}
-  $pgHome=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PostgreSQL'
-  if(Test-Path $pgHome){
-    $candidates+=@(Get-ChildItem $pgHome -Directory | Sort-Object Name -Descending | ForEach-Object {Join-Path $_.FullName 'bin'})
+  if($PostgresBin){
+    if(-not [IO.Path]::IsPathRooted($PostgresBin) -or
+        -not (Test-Path -LiteralPath $PostgresBin -PathType Container)){
+      throw 'Provide an existing absolute PostgreSQL 18.7 bin directory in -PostgresBin.'
+    }
+    $candidates+=([IO.Path]::GetFullPath($PostgresBin))
+  }else{
+    $found=Get-Command pg_dump.exe -ErrorAction SilentlyContinue
+    if($found){$candidates+=(Split-Path -Parent $found.Source)}
+    $pgHome=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PostgreSQL'
+    if(Test-Path $pgHome){
+      $candidates+=@(Get-ChildItem $pgHome -Directory | Sort-Object Name -Descending |
+        ForEach-Object {Join-Path $_.FullName 'bin'})
+    }
   }
+  # Neon currently runs patched PostgreSQL 18.7. PostgreSQL 18.3 does not
+  # understand the pg_attver column metadata introduced by recent upstream
+  # composite-type security fixes. A restore against an older server is NOT
+  # evidence of recoverability; never strip metadata or ignore restore errors.
+  # Require ONE complete, same-build, patched 18.x toolchain for both the
+  # custom pg_dump archive and the independently initialized restore server.
   $pgBin=$null
-  foreach($dir in $candidates){
-    $missing=@(@('pg_dump.exe','pg_restore.exe','psql.exe','initdb.exe','pg_ctl.exe','postgres.exe') | Where-Object {-not (Test-Path (Join-Path $dir $_))})
-    if($missing.Count -eq 0){$pgBin=$dir;break}
+  $requiredPgTools=@('pg_dump.exe','pg_restore.exe','psql.exe',
+                     'initdb.exe','pg_ctl.exe','postgres.exe')
+  foreach($dir in @($candidates | Select-Object -Unique)){
+    if(@($requiredPgTools | Where-Object {-not (Test-Path -LiteralPath (Join-Path $dir $_))}).Count -ne 0){continue}
+    $versions=@()
+    $compatible=$true
+    foreach($tool in $requiredPgTools){
+      $exe=Join-Path $dir $tool
+      try{
+        $versionText=(& $exe --version 2>&1 | Out-String).Trim()
+        if($LASTEXITCODE -ne 0){$compatible=$false;break}
+        $match=[regex]::Match($versionText,'\(PostgreSQL\)\s+18\.([0-9]+)(?:\s|$)')
+        if(-not $match.Success -or [int]$match.Groups[1].Value -lt 7){
+          $compatible=$false;break
+        }
+        $versions+=('18.'+$match.Groups[1].Value)
+      }catch{
+        $compatible=$false;break
+      }
+    }
+    if($compatible -and @($versions | Select-Object -Unique).Count -eq 1){
+      $pgBin=$dir
+      $pgVersion=$versions[0]
+      break
+    }
   }
-  if(-not $pgBin){throw 'Install PostgreSQL tools including pg_dump, pg_restore, initdb, pg_ctl, postgres and psql.'}
+  if(-not $pgBin){
+    throw ('Independent full-data restore requires a complete patched PostgreSQL 18.7'+
+      ' (or newer 18.x) Windows toolchain (all six binaries, same minor release). '+
+      'Your earlier PostgreSQL 18.3 installation cannot safely restore the '+
+      'Neon 18.7 archive containing pg_attver. Update PostgreSQL from '+
+      'https://www.postgresql.org/download/windows/ and retry; never edit '+
+      'the backup or bypass --exit-on-error.')
+  }
+  Write-Host "PASS: compatible patched PostgreSQL $pgVersion toolchain selected for backup and isolated restore."
   $pgDump=Join-Path $pgBin 'pg_dump.exe';$pgRestore=Join-Path $pgBin 'pg_restore.exe'
   $pgInit=Join-Path $pgBin 'initdb.exe';$pgCtl=Join-Path $pgBin 'pg_ctl.exe';$psql=Join-Path $pgBin 'psql.exe'
   $dbUri=[Uri]$dbUrl;$parts=$dbUri.UserInfo.Split(':',2)
