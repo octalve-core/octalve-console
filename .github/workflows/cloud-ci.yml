@@ -257,7 +257,7 @@ jobs:
           if($source.Contains('-A trust')){throw 'Passwordless localhost restore forbidden'}
           # Reproduce the exact version regex FROM the reviewed PowerShell script.
           # Reject pre-patch 18.3/18.6 and mixed or future-major binaries before backup.
-          $matcher = [regex]::Match($source, "\\$match=\\[regex\\]::Match\\(\\$versionText,'(?<pattern>[^']+)'\\)")
+          $matcher = [regex]::Match($source, '\$match=\[regex\]::Match\(\$versionText,''(?<pattern>[^'']+)''\)')
           if(-not $matcher.Success){throw 'Version compatibility parser was removed'}
           $pattern = $matcher.Groups['pattern'].Value
           foreach($example in @(
