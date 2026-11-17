@@ -76,7 +76,8 @@ def _public(claim):
         "id": str(claim.pk),
         "domain_name": claim.domain_name,
         "client_id": claim.client_id,
-        "state": claim.state,
+        "state": "expired" if (claim.state == DomainDNSClaim.State.PENDING and
+                              claim.expires_at <= timezone.now()) else claim.state,
         "expires_at": claim.expires_at.isoformat(),
         "verified_at": claim.verified_at.isoformat() if claim.verified_at else None,
         "domain_id": claim.domain_id,
