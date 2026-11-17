@@ -101,7 +101,7 @@ try{
       try{
         $versionText=(& $exe --version 2>&1 | Out-String).Trim()
         if($LASTEXITCODE -ne 0){$compatible=$false;break}
-        $match=[regex]::Match($versionText,'\\(PostgreSQL\\)\\s+18\\.([0-9]+)(?:\\s|$)')
+        $match=[regex]::Match($versionText,'\(PostgreSQL\)\s+18\.([0-9]+)(?:\s|$)')
         if(-not $match.Success -or [int]$match.Groups[1].Value -lt 7){
           $compatible=$false;break
         }
