@@ -2,6 +2,7 @@
 import os
 import sys
 import unittest
+from types import ModuleType
 from unittest.mock import patch, MagicMock
 
 from scripts.production_dns01c_preflight import (
@@ -88,6 +89,20 @@ class DNS01COperatorGuardTests(unittest.TestCase):
             self.assertEqual(checked_url(),VALID_URL)
 
 
+class _SimulatedNeonDisconnect(Exception):
+    """Simulates server-side SQLSTATE 57P01 without a PostgreSQL server."""
+
+
+class _SimulatedConnectionClosed(Exception):
+    """Simulates psycopg's InterfaceError after a terminated session."""
+
+
+_FAKE_PSYCOPG = ModuleType("psycopg")
+_FAKE_PSYCOPG.OperationalError = _SimulatedNeonDisconnect
+_FAKE_PSYCOPG.InterfaceError = _SimulatedConnectionClosed
+
+
+@patch.dict(sys.modules, {"psycopg": _FAKE_PSYCOPG})
 class DNS01CTransientSessionTests(unittest.TestCase):
     """Force the operator's observed Neon AdminShutdown without real writes."""
 
