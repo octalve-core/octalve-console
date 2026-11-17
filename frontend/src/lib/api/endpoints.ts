@@ -45,8 +45,8 @@ export type ServiceRenewalStatus = {
 };
 export type DomainRenewalStatus = {
   domain_id:number;state:"invoice_ready"|"request_assistance"|"unavailable";
-  invoice_id:number|null;auto_renew:boolean;registration_date:string;
-  expiry_date:string;next_due_date:string;
+  invoice_id:number|null;auto_renew:boolean;registration_date:string|null;
+  expiry_date:string|null;next_due_date:string|null;registration_confirmed?:false;
 };
 export type ExternalDNSClaim = {
   id:string;domain_name:string;client_id:number;
