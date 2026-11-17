@@ -256,6 +256,13 @@ def _locked_fresh_session(raw_url, expected_ledger):
                 refuse("Migration state changed since preflight. No schema change was attempted.")
             if validated_plan() != [(TARGET[0], TARGET[1], False)]:
                 refuse("Migration plan changed since preflight. No schema change was attempted.")
+            # The advisory lock is session-scoped; a server restart while
+            # Django rechecked the plan would release it. Prove that this exact
+            # locked connection is still usable immediately before DDL.
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                if cur.fetchone() != (1,):
+                    refuse("Locked database session failed final health verification.")
             verified = True
             return conn
         except (psycopg.OperationalError, psycopg.InterfaceError):
