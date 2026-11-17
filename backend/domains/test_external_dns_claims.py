@@ -11,6 +11,7 @@ from domains.external_dns_claims import (
     CHALLENGE_PREFIX, _contains_exact_proof,
 )
 from domains.models import Domain, DomainDNSBinding, DomainDNSClaim
+from audit.models import AuditLog
 from providers.connection_models import IntegrationConnection
 
 ACCOUNT = "a" * 32
@@ -71,6 +72,12 @@ class ExternalDNSClaimTests(TestCase):
         self.assertIn("no-store", result["Cache-Control"])
         claim = DomainDNSClaim.objects.get(pk=result.data["id"])
         self.assertNotIn(result.data["challenge"]["value"], claim.challenge_sha256)
+        audit = AuditLog.objects.filter(entity_type="DomainDNSClaim",
+                                        action="domaindnsclaim_created").first()
+        self.assertIsNotNone(audit, "UUID claim creations must remain audited.")
+        self.assertEqual(audit.new_value["id"], str(claim.pk))
+        self.assertNotIn(result.data["challenge"]["value"], str(audit.details))
+        self.assertNotIn(result.data["challenge"]["value"], str(audit.new_value))
         return result
 
     def proof(self, token):
