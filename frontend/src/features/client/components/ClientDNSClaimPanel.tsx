@@ -143,7 +143,7 @@ export function ClientDNSClaimPanel(){
           <p className="break-all text-sm font-medium text-console-ink">{item.domain_name}</p>
           <span className="text-xs text-console-muted">
             {item.state==="verified"?"Cloudflare zone proof verified":item.state==="pending"?
-              "Awaiting TXT verification":"Request cancelled"}
+              "Awaiting TXT verification":item.state==="expired"?"Challenge expired — request a new one":"Request cancelled"}
           </span>
         </div>)}
       </div>
