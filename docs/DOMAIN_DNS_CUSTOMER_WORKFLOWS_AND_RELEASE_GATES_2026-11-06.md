@@ -207,6 +207,69 @@ migrations and 117 tables**. It introduces the new claim table, distinct
 management kind and nullable unknown registrar dates, with a PostgreSQL
 constraint preventing DNS-only rows claiming registrar settlement.
 
+### November 17, 2026 — Neon AdminShutdown during DNS-01C operator approval
+
+A subsequent attempt using PostgreSQL 18.7 successfully completed exact
+**63/116 Preflight**, fresh Production `pg_dump`, full SCRAM-authenticated
+localhost recovery, checksum comparison and protected backup. After the
+operator typed the exact `0003` approval phrase, the long-lived Neon
+connection was terminated by the server with PostgreSQL SQLSTATE
+`57P01` (`AdminShutdown`). Its `finally` block then attempted to
+unlock that already-closed connection, obscuring the original error.
+Independent read-only Neon checks showed **63/116**, no `0003` ledger
+entry and no claims table: the migration had not started.
+
+We cannot infer the exact cause of the Neon termination (restart, provider
+maintenance, compute lifecycle or administrator action) from this error
+alone. See official Neon connection error guidance and the PostgreSQL
+`57P01` SQLSTATE. Never disable the advisory lock or ignore this error.
+
+**Revised, fail-closed release sequence:**
+
+1. Complete the existing exact-origin `Preflight`, create a *new* full
+   Production backup and independently verify complete localhost recovery.
+2. Have Django independently check the exact one-migration plan while
+   the separate Production connection remains read-only. **Close all
+   preflight and Django connections before requesting the typed approval.**
+3. After the operator enters the exact phrase, verify the protected backup
+   evidence is still fresh, then open a **new direct, TLS-verified** Neon
+   connection. Acquire its exclusive advisory lock. Under that new session,
+   recheck the entire original migration ledger, exact schema count, all
+   prerequisite domain/provider tables, and the one reviewed migration plan.
+   Confirm the same lock-holder connection is still alive immediately before
+   executing Django migration `0003`.
+4. At most one bounded reconnect is allowed for a transient connection
+   interruption **before any migration command has started**. Reacquire the
+   lock and restart all read-only checks after reconnect; never reuse the
+   terminated session. Release a lock only on a usable connection; session
+   loss releases PostgreSQL advisory locks automatically.
+5. Once `call_command("migrate", "domains", "0003_external_dns_claims")`
+   starts, **never automatically retry the migration**. In the event of an
+   interrupted/ambiguous result, stop and independently inspect the
+   Production ledger/schema. After successful Django completion, run the
+   **read-only** 64/117 postflight through a new independently verified
+   connection; read-only postflight may reconnect once without repeating DDL.
+
+The same reviewed local PowerShell workflow and protected 18.7 binaries
+remain in use:
+
+```powershell
+Set-Location (Join-Path $HOME "octalve-console")
+git checkout main
+git pull --ff-only origin main
+git status --short --untracked-files=all
+$pgBin = Join-Path $HOME "PostgreSQL-18.7-tools\pgsql\bin"
+
+powershell -ExecutionPolicy Bypass -File .\scripts\plan-neon-production-dns01c.ps1 -Preflight
+powershell -ExecutionPolicy Bypass -File .\scripts\plan-neon-production-dns01c.ps1 -Apply -PostgresBin "$pgBin"
+```
+
+The earlier failed attempts' backup archives remain protected but are not
+substitutes for a new, independently recovered backup. Do not rerun Apply
+against an uncertain ledger or claim that the feature is live. DNS-only
+enrollment remains disabled until independently confirmed 64/117 and a
+controlled same-SHA Console/API release.
+
 ### November 17, 2026 — patched PostgreSQL restore compatibility gate
 
 The first local DNS-01C `-Preflight` passed. The following `-Apply`
