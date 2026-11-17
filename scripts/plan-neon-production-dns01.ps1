@@ -14,7 +14,7 @@ if($env:CI -or $env:GITHUB_ACTIONS -or $env:VERCEL){throw 'Trusted local Windows
 $root=(& git rev-parse --show-toplevel 2>$null)
 if($LASTEXITCODE -ne 0 -or -not $root){throw 'Open your octalve-core/octalve-console Git checkout.'}
 Push-Location $root.Trim()
-$keys=@('DATABASE_URL','DJANGO_SECRET_KEY','OCTALVE_CLOUD_ENV','DEBUG','ALLOWED_HOSTS',
+$keys=@('DATABASE_URL','DJANGO_SECRET_KEY','OCTALVE_CLOUD_ENV','DEBUG','ALLOWED_HOSTS','FRONTEND_URL',
  'OCTALVE_DNS01_SOURCE_APPROVED','OCTALVE_DNS01_BACKUP_VERIFIED','OCTALVE_DNS01_RESTORE_VERIFIED',
  'OCTALVE_DNS01_BACKUP_FILE','OCTALVE_DNS01_BACKUP_SHA256','OCTALVE_DNS01_RESTORE_SHA256',
  'OCTALVE_DNS01_RESTORE_AT','PGHOST','PGPORT','PGDATABASE','PGUSER','PGPASSWORD','PGSSLMODE')
@@ -23,7 +23,12 @@ foreach($key in $keys){$previous[$key]=[Environment]::GetEnvironmentVariable($ke
 $pgCtl=$null;$cluster=$null;$started=$false;$dbUrl=$null;$passFile=$null
 try{
   if((& git branch --show-current).Trim() -cne 'main'){throw 'Only reviewed main may migrate Production.'}
-  if(@(& git status --porcelain).Count -ne 0){throw 'Git working tree is not clean.'}
+  $dirty=@(& git status --porcelain --untracked-files=all)
+  if($LASTEXITCODE -ne 0){throw 'Could not verify local Git working tree.'}
+  if($dirty.Count -ne 0){
+    Write-Warning ('Uncommitted or untracked local paths (first 12): '+(($dirty | Select-Object -First 12) -join '; '))
+    throw 'Git working tree is not clean. Preserve local work; inspect git status before continuing.'
+  }
   $origin=(& git remote get-url origin).Trim()
   if($LASTEXITCODE -ne 0 -or $origin -notmatch '^(https://github[.]com/|git@github[.]com:)octalve-core/octalve-console([.]git)?/?$'){
     throw 'Wrong repository origin. Refusing Production migration.'
@@ -55,6 +60,10 @@ try{
   $env:DATABASE_URL=$dbUrl
   $env:DJANGO_SECRET_KEY='dns01-migration-only-'+[guid]::NewGuid().ToString('N')
   $env:OCTALVE_CLOUD_ENV='production';$env:DEBUG='false';$env:ALLOWED_HOSTS='localhost,127.0.0.1'
+  # Django settings requires FRONTEND_URL on import. This is the existing
+  # Console origin, not a newly supplied credential or network operation.
+  # Restore the operator's previous value in finally, as with other settings.
+  $env:FRONTEND_URL='https://console.cloud.octalve.com'
   & $python backend/scripts/production_dns01_preflight.py plan
   if($LASTEXITCODE -ne 0){throw 'Neon Production preflight refused.'}
   Push-Location backend
