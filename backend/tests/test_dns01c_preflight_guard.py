@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from scripts.production_dns01c_preflight import (
-    checked_url, runtime_guard, main, EXPECTED_BEFORE, EXPECTED_AFTER,
+    checked_url, runtime_guard, main, database_state, EXPECTED_BEFORE, EXPECTED_AFTER,
     TARGET,
 )
 
@@ -31,6 +31,42 @@ class DNS01COperatorGuardTests(unittest.TestCase):
         },clear=True):
             with self.assertRaisesRegex(SystemExit,"backup and completed independent local restore"):
                 main()
+
+    def test_exact_new_claim_table_and_existing_binding_required(self):
+        from unittest.mock import MagicMock
+        def checked_database(old, binding=True):
+            cursor = MagicMock()
+            cursor.fetchone.side_effect = [
+                ("neondb", "neondb_owner", 63 if old else 64,
+                 116 if old else 117),
+                (None if old else "domains_domaindnsclaim",
+                 "domains_domaindnsbinding" if binding else None,
+                 "providers_integrationconnectionevent"),
+            ]
+            applied = {
+                ("domains", "0001_initial"),
+                ("domains", "0002_dns_readonly_binding"),
+                ("providers", "0002_integration_draft_vault"),
+                ("providers", "0003_provider_vault_authenticator"),
+                ("providers", "0004_provider_event_integrity"),
+            }
+            if not old:
+                applied.add(("domains", "0003_external_dns_claims"))
+            cursor.fetchall.return_value = list(applied)
+            connection = MagicMock()
+            connection.cursor.return_value.__enter__.return_value = cursor
+            return connection, cursor
+        db, cursor = checked_database(True)
+        state, _ = database_state(db)
+        self.assertEqual(state, "before")
+        query = cursor.execute.call_args_list[2].args[0]
+        self.assertIn("domains_domaindnsclaim", query)
+        self.assertIn("domains_domaindnsbinding", query)
+        db, _ = checked_database(False)
+        self.assertEqual(database_state(db)[0], "after")
+        db, _ = checked_database(True, binding=False)
+        with self.assertRaisesRegex(SystemExit, "prerequisites are missing"):
+            database_state(db)
 
     def test_ci_vercel_debug_and_wrong_sql_origin_are_rejected(self):
         for name in ("CI","GITHUB_ACTIONS","VERCEL","VERCEL_ENV","VERCEL_URL"):
