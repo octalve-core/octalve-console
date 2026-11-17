@@ -207,6 +207,62 @@ migrations and 117 tables**. It introduces the new claim table, distinct
 management kind and nullable unknown registrar dates, with a PostgreSQL
 constraint preventing DNS-only rows claiming registrar settlement.
 
+### November 17, 2026 — patched PostgreSQL restore compatibility gate
+
+The first local DNS-01C `-Preflight` passed. The following `-Apply`
+safely stopped **before Django migration** because its full recovery drill
+used locally installed **PostgreSQL 18.3** to restore a custom-format
+archive from the Neon Production server, which is **PostgreSQL 18.7**
+(`server_version_num=180007`). The old local server rejected
+`ALTER TABLE ... SET (pg_attver=...)` with *unrecognized parameter
+pg_attver*. This is associated with upstream composite-type security
+hardening in PostgreSQL 18.7 (released November 12, 2026):
+https://www.postgresql.org/docs/release/18.7/.
+
+**Resolution:** Use a full official patched PostgreSQL **18.7** Windows
+toolchain (or a later minor release in the same PostgreSQL 18 major):
+`postgres.exe`, `initdb.exe`, `pg_ctl.exe`, `pg_dump.exe`,
+`pg_restore.exe`, and `psql.exe` **all from the same patched build**.
+The revised operator script scans compatible installations, or accepts
+`-PostgresBin` with an existing absolute directory of trusted binaries.
+Official Windows downloads:
+https://www.postgresql.org/download/windows/
+and https://productsdl.enterprisedb.com/download-postgresql-binaries/.
+
+Do not disable the patched PostgreSQL security checks, suppress
+`pg_restore` errors, remove `pg_attver` statements, edit the custom-format
+archive, downgrade Neon, or skip the independent restore. This check
+runs *before* issuing another Production `pg_dump`, preserving the
+failed attempt's original backup and requiring a **fresh** backup on
+the next successful attempt.
+
+For the default official PostgreSQL installation, no extra argument is
+necessary. If using a separate official portable tool installation rather
+than upgrading the Windows PostgreSQL service, supply an explicit directory
+only for `-Apply`:
+
+```powershell
+# After reviewing and installing official PostgreSQL 18.7 binaries:
+& "C:\Program Files\PostgreSQL\18\bin\postgres.exe" --version
+& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" --version
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" --version
+
+# From the same original Octalve Cloud Git checkout:
+powershell -ExecutionPolicy Bypass -File .\scripts\plan-neon-production-dns01c.ps1 -Preflight
+powershell -ExecutionPolicy Bypass -File .\scripts\plan-neon-production-dns01c.ps1 -Apply
+
+# Optional: only when the trusted 18.7 bin is in a different absolute directory:
+# powershell -ExecutionPolicy Bypass -File .\scripts\plan-neon-production-dns01c.ps1 -Apply -PostgresBin "C:\Path\To\PostgreSQL\18.7\bin"
+```
+
+The new release guard rejects PostgreSQL 18.3, 18.6, mixed versions,
+PostgreSQL 17 and other major versions. It retains the original
+SCRAM-authenticated loopback restore, archive hash comparison, exact
+63/116 preflight and 64/117 postflight, operator consent phrase, and
+read-only feature flags. After a **confirmed** successful local
+`0003` migration, proceed to same-SHA manual API/Console deployment.
+Until then, keep DNS-only onboarding and DNS-01 read-only feature gates off.
+
 **Never use the old DNS-01 `0002` runner for this batch.** After reviewed PR
 merge, from the **original local Octalve Cloud Git directory** on a trusted,
 encrypted Windows workstation:
