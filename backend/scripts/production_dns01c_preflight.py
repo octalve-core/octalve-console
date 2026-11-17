@@ -26,7 +26,7 @@ EXPECTED_BEFORE = (63, 116)
 EXPECTED_AFTER = (64, 117)
 TARGET = ("domains", "0003_external_dns_claims")
 TABLE = "domains_domaindnsclaim"
-LOCK = "octalve_production_dns01c_migration_0002"
+LOCK = "octalve_production_dns01c_migration_0003"
 
 
 def refuse(reason):
@@ -92,7 +92,7 @@ def database_state(conn):
         return ("before", ledger)
     if (migration_count, table_count) == EXPECTED_AFTER and present and dns_table is not None:
         return ("after", ledger)
-    refuse("Production schema/ledger differs from exact 64/117 or 64/117 release state.")
+    refuse("Production schema/ledger differs from exact 63/116 before or 64/117 after states.")
 
 
 def validated_plan():
@@ -230,8 +230,8 @@ def main():
             if plan != [(TARGET[0], TARGET[1], False)]:
                 refuse("Django did not produce the one authorized additive DNS-01C migration.")
             if action == "plan":
-                print("PREFLIGHT PASS: exact Production Neon host, TLS, 62 migrations/115 tables.")
-                print("PREFLIGHT PASS: precisely domains.0002_dns_readonly_binding is pending.")
+                print("PREFLIGHT PASS: exact Production Neon host, TLS, 63 migrations/116 tables.")
+                print("PREFLIGHT PASS: precisely domains.0003_external_dns_claims is pending.")
                 print("PLAN ONLY: no Production schema or customer records modified.")
                 return
             phrase = input("Type APPLY DNS01C 0002 TO OCTALVE PRODUCTION: ")
