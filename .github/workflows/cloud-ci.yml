@@ -250,10 +250,16 @@ jobs:
           foreach($required in @('-Preflight','-Apply','git fetch',
               '0003_external_dns_claims.py','production_dns01c_preflight.py apply',
               'FRONTEND_URL','pg_dump','pg_restore','--clean --if-exists',
+              'domains_domaindnsclaim',
               'scram-sha-256','OCTALVE_DNS01C_RESTORE_VERIFIED')){
             if(-not $source.Contains($required)){ throw "Missing DNS-01C migration gate: $required" }
           }
           if($source.Contains('-A trust')){throw 'Passwordless localhost restore forbidden'}
+          $pythonRunner = Get-Content -Raw 'backend/scripts/production_dns01c_preflight.py'
+          foreach($word in @('APPLY DNS01C 0003 TO OCTALVE PRODUCTION',
+              'domains_domaindnsclaim','domains_domaindnsbinding')){
+            if(-not $pythonRunner.Contains($word)){throw "DNS-01C operator authority missing: $word"}
+          }
       - name: Django system check
         working-directory: backend
         run: python manage.py check
