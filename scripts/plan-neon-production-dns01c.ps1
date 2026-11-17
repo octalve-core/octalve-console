@@ -137,10 +137,10 @@ try{
   # loopback database, never in Neon Production.
   & $pgRestore --exit-on-error --clean --if-exists --no-owner --no-privileges --dbname="$localDb" "$archive"
   if($LASTEXITCODE -ne 0){throw 'Independent full-data restore failed; no Production schema changed.'}
-  $query="SELECT (SELECT COUNT(*) FROM public.django_migrations), (SELECT COUNT(*) FROM pg_catalog.pg_tables WHERE schemaname='public'), (to_regclass('public.domains_domaindnsbinding') IS NOT NULL)"
+  $query="SELECT (SELECT COUNT(*) FROM public.django_migrations), (SELECT COUNT(*) FROM pg_catalog.pg_tables WHERE schemaname='public'), (to_regclass('public.domains_domaindnsclaim') IS NOT NULL)"
   $lines=@(& $psql --dbname="$localDb" --tuples-only --no-align --quiet -c "$query")
   if($LASTEXITCODE -ne 0 -or -not $lines){throw 'Restore validation query failed.'}
-  if(($lines | Select-Object -Last 1).Trim() -cne '63|116|f'){throw 'Recovered database does not match the reviewed 62/115 snapshot.'}
+  if(($lines | Select-Object -Last 1).Trim() -cne '63|116|f'){throw 'Recovered database does not match the reviewed 63/116 snapshot.'}
   $again=(Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
   if($again -cne $sha){throw 'Archive mutated during the restore drill.'}
   Write-Host 'PASS: complete isolated restore, matching 63/116 Production ledger, same archive digest.'
