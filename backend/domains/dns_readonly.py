@@ -23,7 +23,7 @@ from providers.connection_models import IntegrationConnection, IntegrationCreden
 from providers.connection_stepup import assert_admin, check_mutation
 from providers.connection_vault import VaultUnavailable, unseal_version
 from providers.connection_views import connection_database_qualified
-from .models import Domain, DomainDNSBinding
+from .models import Domain, DomainDNSBinding, DomainDNSClaim
 
 CONSENT_VERSION = "dns-read-v1"
 NO_CACHE = {"Cache-Control": "private, no-store"}
@@ -95,7 +95,12 @@ def _binding_matches_domain(binding, domain):
     return (
         binding.client_id == domain.client_id and
         binding.zone_name == domain.domain_name and
-        domain.status == "active" and domain.is_active and
+        ((domain.management_kind == "registrar" and domain.status == "active")
+         or (domain.management_kind == "dns_only" and domain.status == "dns_only"
+             and DomainDNSClaim.objects.filter(
+                 domain=domain, client_id=domain.client_id,
+                 state=DomainDNSClaim.State.VERIFIED).exists()))
+        and domain.is_active and
         binding.connection.adapter_key == "cloudflare-dns" and
         binding.connection.environment == "live" and
         binding.connection.state == "draft" and
@@ -146,7 +151,17 @@ def prepare(request, domain):
         connection_uuid = uuid.UUID(connection_id)
     except (ValueError, AttributeError):
         raise ValidationError({"connection_id": "Choose a valid saved Cloudflare connection."}) from None
-    if domain.status != "active" or not domain.is_active:
+    if not domain.is_active or domain.status not in ("active", "dns_only"):
+        return Response({"detail": "Only an approved customer domain can be connected."},
+                        status=409, headers=NO_CACHE)
+    if (domain.status == "dns_only" and
+            (domain.management_kind != "dns_only" or
+             not DomainDNSClaim.objects.filter(
+                 domain=domain, client_id=domain.client_id,
+                 state=DomainDNSClaim.State.VERIFIED).exists())):
+        return Response({"detail": "Cloudflare zone control must be verified first."},
+                        status=409, headers=NO_CACHE)
+    if False:
         return Response({"detail": "Only an active customer domain can be connected."},
                         status=409, headers=NO_CACHE)
     if not isinstance(reference, str) or not AUTH_REF.fullmatch(reference):
@@ -177,13 +192,22 @@ def prepare(request, domain):
             locked_domain = Domain.objects.select_for_update().get(pk=domain.pk)
             if (locked_domain.client_id != domain.client_id or
                     locked_domain.domain_name != domain.domain_name or
-                    locked_domain.status != "active" or not locked_domain.is_active):
+                    locked_domain.status not in ("active","dns_only") or
+                    locked_domain.management_kind != domain.management_kind or
+                    not locked_domain.is_active):
                 return Response({"detail": "Domain ownership or status changed. Verify it again."},
                                 status=409, headers=NO_CACHE)
             if require_id(locked.public_settings.get("zone_id", "")) != zone_id:
                 return Response({"detail": "Provider zone changed. Verify it again."},
                                 status=409, headers=NO_CACHE)
             existing = DomainDNSBinding.objects.select_for_update().filter(domain=locked_domain).first()
+            if (locked_domain.management_kind == "dns_only" and
+                    (not existing or existing.zone_id != zone_id or
+                     not DomainDNSClaim.objects.filter(
+                         domain=locked_domain, client=locked_domain.client,
+                         state=DomainDNSClaim.State.VERIFIED).exists())):
+                return Response({"detail": "A new DNS-only zone requires fresh ownership proof."},
+                                status=409, headers=NO_CACHE)
             if (existing and existing.state != DomainDNSBinding.State.REVOKED and
                     _binding_matches_domain(existing, locked_domain)):
                 return Response({"detail": "This domain already has a pending or approved DNS connection."},
@@ -230,7 +254,12 @@ def consent(request, domain):
         raise ValidationError({"detail": "Please confirm read-only DNS access for your domain."})
     with transaction.atomic():
         current = Domain.objects.select_for_update().get(pk=domain.pk)
-        if (current.client_id != request.user.pk or current.status != "active" or
+        if (current.client_id != request.user.pk or
+                current.status not in ("active","dns_only") or
+                (current.management_kind == "dns_only" and not
+                 DomainDNSClaim.objects.filter(
+                     domain=current, client=request.user,
+                     state=DomainDNSClaim.State.VERIFIED).exists()) or
                 not current.is_active):
             return Response({"detail": "Domain ownership has changed."}, status=409, headers=NO_CACHE)
         binding = DomainDNSBinding.objects.select_for_update().select_related("connection").filter(domain=current).first()
