@@ -50,6 +50,25 @@ class Migration(migrations.Migration):
             model_name="domain", name="next_due_date",
             field=models.DateTimeField(null=True, blank=True),
         ),
+        migrations.AddConstraint(
+            model_name="domain",
+            constraint=models.CheckConstraint(
+                name="dns_only_requires_no_registrar_claim",
+                condition=(
+                    models.Q(management_kind="registrar") |
+                    (models.Q(management_kind="dns_only") &
+                     models.Q(status="dns_only") &
+                     models.Q(registration_type="dns_only") &
+                     models.Q(registration_date__isnull=True) &
+                     models.Q(expiry_date__isnull=True) &
+                     models.Q(next_due_date__isnull=True) &
+                     models.Q(order_item__isnull=True) &
+                     models.Q(auto_renew=False) &
+                     models.Q(registrar__isnull=True) &
+                     models.Q(provider_domain_id__isnull=True))
+                ),
+            ),
+        ),
         migrations.CreateModel(
             name="DomainDNSClaim",
             fields=[
