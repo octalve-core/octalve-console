@@ -152,6 +152,91 @@ disposable test zone. REG-02/03 require a persistent idempotent registrar
 operation/settlement ledger and reconciliation after ambiguous timeouts.
 No live purchases or DNS modifications are enabled by DNS-01.
 
+## DNS-01C — Customer-owned domain DNS-only onboarding (PR #122)
+
+This batch extends the **existing** Django `domains.Domain` and
+`domains.DomainDNSBinding` authority, not a parallel domain app. It permits a
+verified customer to request DNS-only visibility for a Cloudflare zone already
+under their control without claiming Octalve registered, renewed or transferred
+the domain.
+
+### Exact customer and administrator journey
+
+1. Client, with an active and verified email account, opens **My Domains →
+   Connect a domain you already own**. A durable database rate limit, unique
+   domain claim and random high-entropy challenge protect issuance.
+2. Octalve returns **once** a TXT value for
+   `_octalve-verify.<customer-zone>`; the database stores only SHA-256 of
+   the one-time value and its two-hour expiry. Nothing is purchased or changed
+   at Cloudflare by Octalve.
+3. Client places the TXT record **through their existing Cloudflare account**
+   and keeps it present. The pending claim is not a registered domain record.
+   A stale unverified claim can be superseded only with fresh random proof.
+4. Verified Super Admin selects the exact pending claim and saved
+   `cloudflare-dns` live account in the **existing Admin Domains** view,
+   supplies current account password and a nonreplayed vault MFA code.
+   Backend checks vault custody/audit chain, exact zone ID, zone name,
+   Cloudflare account ID, live status, bounded complete authoritative DNS
+   readback and exact TXT digest. No cached provider read is accepted.
+5. Under database locks, backend creates a single `Domain` row with
+   `management_kind=dns_only`, `status=dns_only`, no order, no supplier
+   purchase, `registration_date=NULL`, `expiry_date=NULL`,
+   `next_due_date=NULL`, `auto_renew=false`, and a **pending**
+   `DomainDNSBinding`. It also records audit evidence without plaintext
+   challenge or API token.
+6. The exact current customer must separately consent to DNS visibility in
+   My Domains. The Super Admin separately approves it with a fresh MFA code.
+   The TXT proof is checked again on approval and every live DNS read.
+   Customer revocation, credential rotation, removed proof, ownership changes
+   or mismatched provider zone fail closed.
+7. Client and Admin use existing responsive live-DNS tables only after
+   approval; registered-domain expiry and renewal are **not** shown for
+   DNS-only records. This is proof of Cloudflare-zone control, **not** public
+   delegation or ICANN registration ownership.
+
+The new independently disabled gate is
+`CLOUD_DNS01_EXTERNAL_CLAIMS_ENABLED=false`, which also requires the original
+`CLOUD_DNS01_READONLY_ENABLED`. Neither flag grants DNS Write or registrar
+purchase access, and neither is automatically switched on by source deployment.
+
+### Additive migration and operator release
+
+The Production baseline after DNS-01A/B is **63 migrations and 116 tables**.
+DNS-01C adds only `domains.0003_external_dns_claims`, expecting **64
+migrations and 117 tables**. It introduces the new claim table, distinct
+management kind and nullable unknown registrar dates, with a PostgreSQL
+constraint preventing DNS-only rows claiming registrar settlement.
+
+**Never use the old DNS-01 `0002` runner for this batch.** After reviewed PR
+merge, from the **original local Octalve Cloud Git directory** on a trusted,
+encrypted Windows workstation:
+
+```powershell
+Set-Location (Join-Path $HOME "octalve-console")
+git checkout main
+git pull --ff-only origin main
+git status --short --untracked-files=all
+
+powershell -ExecutionPolicy Bypass -File .\scripts\plan-neon-production-dns01c.ps1 -Preflight
+powershell -ExecutionPolicy Bypass -File .\scripts\plan-neon-production-dns01c.ps1 -Apply
+```
+
+The guarded 0003 workflow repeats exact direct-Neon identity and migration
+checks, makes a fresh protected `pg_dump`, verifies a full SCRAM-authenticated
+loopback restore and SHA-256, requires explicit typed approval, then verifies
+the new schema and empty claim table. **Do not reuse a previous backup**, and
+do not discard the retained 0002 backup. A schema migration alone is not
+customer onboarding or permission to enable the feature.
+
+**Production acceptance hold**: source CI, negative tenant/role tests,
+disposable PostgreSQL migration, successful operator backup/restoration,
+same-SHA Console/API deploy, verified-vault custody and a real approved
+disposable customer zone with no DNS mutations. Enable the two read-only
+flags only after API/Client/Admin smoke checks. No existing `octalve.com`
+DNS connection may be assigned to a different zone, and no supplier write
+credentials are needed. Registrar supplier qualification is REG-01; DNS-02
+writes and REG-02/03 purchases remain separately gated.
+
 ## DNS-02 — Safe changes with a separate write token
 
 1. A **different zone-scoped DNS Write token** per approved management scope. Never upgrade or overwrite the working DNS Read token. Allow only required Cloudflare methods to exact zone and record IDs.
