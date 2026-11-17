@@ -5,7 +5,7 @@
 # Apply repeats preflight, makes fresh pg_dump, restores entire data archive to
 # disposable loopback-only PostgreSQL, then requests typed schema approval.
 [CmdletBinding()]
-param([switch]$Preflight,[switch]$Apply,[switch]$PlanOnly)
+param([switch]$Preflight,[switch]$Apply,[switch]$PlanOnly,[string]$PostgresBin="")
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $selected=[int][bool]$Preflight+[int][bool]$Apply+[int][bool]$PlanOnly
@@ -76,12 +76,24 @@ try{
   Write-Host 'PREFLIGHT PASSED: exact Production database, original ledger and one reviewed DNS-01C migration.'
   if(-not $Apply){Write-Host 'No database changes were made.';return}
 
+  # An explicit tool directory is optional. It lets the operator use the
+  # official portable PostgreSQL 18.7 binaries without replacing a separate
+  # locally running PostgreSQL service or cloning this repository again.
   $candidates=@()
-  $found=Get-Command pg_dump.exe -ErrorAction SilentlyContinue
-  if($found){$candidates+=(Split-Path -Parent $found.Source)}
-  $pgHome=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PostgreSQL'
-  if(Test-Path $pgHome){
-    $candidates+=@(Get-ChildItem $pgHome -Directory | Sort-Object Name -Descending | ForEach-Object {Join-Path $_.FullName 'bin'})
+  if($PostgresBin){
+    if(-not [IO.Path]::IsPathRooted($PostgresBin) -or
+        -not (Test-Path -LiteralPath $PostgresBin -PathType Container)){
+      throw 'Provide an existing absolute PostgreSQL 18.7 bin directory in -PostgresBin.'
+    }
+    $candidates+=([IO.Path]::GetFullPath($PostgresBin))
+  }else{
+    $found=Get-Command pg_dump.exe -ErrorAction SilentlyContinue
+    if($found){$candidates+=(Split-Path -Parent $found.Source)}
+    $pgHome=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PostgreSQL'
+    if(Test-Path $pgHome){
+      $candidates+=@(Get-ChildItem $pgHome -Directory | Sort-Object Name -Descending |
+        ForEach-Object {Join-Path $_.FullName 'bin'})
+    }
   }
   # Neon currently runs patched PostgreSQL 18.7. PostgreSQL 18.3 does not
   # understand the pg_attver column metadata introduced by recent upstream
