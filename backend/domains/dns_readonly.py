@@ -161,9 +161,6 @@ def prepare(request, domain):
                  state=DomainDNSClaim.State.VERIFIED).exists())):
         return Response({"detail": "Cloudflare zone control must be verified first."},
                         status=409, headers=NO_CACHE)
-    if False:
-        return Response({"detail": "Only an active customer domain can be connected."},
-                        status=409, headers=NO_CACHE)
     if not isinstance(reference, str) or not AUTH_REF.fullmatch(reference):
         raise ValidationError({"authorization_reference": "Enter a documented customer-authorization reference (16-160 characters)."})
     _vault_read_ready()
