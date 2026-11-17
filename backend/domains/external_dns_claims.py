@@ -116,7 +116,9 @@ def begin_claim(request):
                 return Response({"detail": "This domain is already managed or has an existing claim."},
                                 status=409, headers=NO_CACHE)
             claim = DomainDNSClaim.objects.select_for_update().filter(domain_name=domain_name).first()
-            if claim and claim.client_id != request.user.pk:
+            if (claim and claim.client_id != request.user.pk and
+                    not (claim.state == DomainDNSClaim.State.PENDING and
+                         claim.expires_at <= now)):
                 return Response({"detail": "This domain is already managed or has an existing claim."},
                                 status=409, headers=NO_CACHE)
             if claim and claim.state == DomainDNSClaim.State.VERIFIED:
@@ -127,6 +129,9 @@ def begin_claim(request):
                 return Response({"detail": "A recent challenge exists. Check your current instructions."},
                                 status=409, headers=NO_CACHE)
             if claim:
+                # Expired, unverified claims cannot squat on another user's
+                # domain permanently. Fresh randomized proof is mandatory.
+                claim.client = request.user
                 claim.challenge_sha256 = digest
                 claim.expires_at = now + CHALLENGE_LIFETIME
                 claim.state = DomainDNSClaim.State.PENDING
