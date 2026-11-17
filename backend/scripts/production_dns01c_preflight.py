@@ -330,6 +330,10 @@ def main():
     phrase = input("Type APPLY DNS01C 0003 TO OCTALVE PRODUCTION: ")
     if phrase != "APPLY DNS01C 0003 TO OCTALVE PRODUCTION":
         refuse("Exact operator approval phrase missing; no database changes attempted.")
+    # A long pause during operator approval must never make an older restore
+    # receipt valid for a later schema change. Check the same protected archive
+    # again before opening any write-authorized database session.
+    verify_backup_and_restore()
 
     # Step 3: NEW, locked and independently revalidated connection after
     # approval; one bounded retry is allowed only while still read-only.
