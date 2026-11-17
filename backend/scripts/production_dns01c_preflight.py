@@ -236,8 +236,8 @@ def main():
                 print("PREFLIGHT PASS: precisely domains.0003_external_dns_claims is pending.")
                 print("PLAN ONLY: no Production schema or customer records modified.")
                 return
-            phrase = input("Type APPLY DNS01C 0002 TO OCTALVE PRODUCTION: ")
-            if phrase != "APPLY DNS01C 0002 TO OCTALVE PRODUCTION":
+            phrase = input("Type APPLY DNS01C 0003 TO OCTALVE PRODUCTION: ")
+            if phrase != "APPLY DNS01C 0003 TO OCTALVE PRODUCTION":
                 refuse("Exact operator approval phrase missing; no database changes attempted.")
             current, current_ledger = database_state(conn)
             if current != "before" or current_ledger != ledger:
