@@ -110,6 +110,21 @@ def _binding_matches_domain(binding, domain):
     )
 
 
+def _continued_dns_only_proof(domain, snapshot):
+    """Retained TXT proof is required for each external-zone disclosure."""
+    if domain.management_kind != "dns_only":
+        return True
+    claim = DomainDNSClaim.objects.filter(
+        domain=domain, client_id=domain.client_id,
+        state=DomainDNSClaim.State.VERIFIED,
+    ).first()
+    if not claim:
+        return False
+    # Local import avoids circular imports with the onboarding flow.
+    from .external_dns_claims import _contains_exact_proof
+    return _contains_exact_proof(snapshot, domain.domain_name, claim.challenge_sha256)
+
+
 def status(request, domain):
     _release_gate()
     if request.user.role != "client":
@@ -300,9 +315,13 @@ def approve(request, domain):
     if require_id(binding.connection.public_settings.get("zone_id", "")) != binding.zone_id:
         raise VaultUnavailable()
     try:
-        connector.dns_live_inventory(binding.zone_id, binding.zone_name)
+        snapshot = connector.dns_live_inventory(binding.zone_id, binding.zone_name)
     except CloudflareINT01Denied:
         return Response({"detail": "Current DNS zone ownership could not be confirmed."},
+                        status=503, headers=NO_CACHE)
+    if not _continued_dns_only_proof(domain, snapshot):
+        return Response({"detail": "The current Cloudflare TXT proof is missing.",
+                         "records": [], "state": "unavailable"},
                         status=503, headers=NO_CACHE)
     with transaction.atomic():
         current_conn = IntegrationConnection.objects.select_for_update().get(pk=binding.connection_id)
@@ -380,6 +399,11 @@ def live_inventory(request, domain):
     except (CloudflareINT01Denied, VaultUnavailable, DatabaseError):
         return Response({"detail": "Live DNS records are temporarily unavailable.",
                          "state": "unavailable", "records": []},
+                        status=503, headers=NO_CACHE)
+    if not _continued_dns_only_proof(domain, snapshot):
+        return Response({"detail": "External DNS proof needs to be restored.",
+                         "state": "unavailable", "records": [],
+                         "read_only": True, "execution_enabled": False},
                         status=503, headers=NO_CACHE)
     # The customer can revoke consent while a supplier read is in flight.
     # Check current rows again before disclosing the fetched record contents.
