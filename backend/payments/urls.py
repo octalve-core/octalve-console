@@ -4,7 +4,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     PaymentGatewayViewSet, TransactionViewSet,
-    PaymentInitializeView, PaymentVerifyView, CheckoutOptionsView, WebhookView
+    PaymentInitializeView, PaymentVerifyView, CheckoutOptionsView, GooglePayReviewConfigView, WebhookView
 )
 
 router = DefaultRouter()
@@ -16,5 +16,6 @@ urlpatterns = [
     path('checkout-options/', CheckoutOptionsView.as_view(), name='payment-checkout-options'),
     path('initialize/', PaymentInitializeView.as_view(), name='payment-initialize'),
     path('verify/', PaymentVerifyView.as_view(), name='payment-verify'),
+    path('google-pay/review-config/', GooglePayReviewConfigView.as_view(), name='google-pay-review-config'),
     path('webhook/<str:gateway_code>/', WebhookView.as_view(), name='payment-webhook'),
 ]
