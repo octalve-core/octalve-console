@@ -129,9 +129,14 @@ class CheckoutOptionsView(APIView):
                 if (gateway_can_read(gateway)
                         and secret_matches_mode(gateway, gateway.get_secret_key())):
                     gateways.append(gateway.code)
+        google_pay_review_enabled = bool(
+            getattr(settings, "CLOUD_GOOGLE_PAY_REVIEW_ENABLED", False)
+            and not getattr(settings, "CLOUD_GOOGLE_PAY_CHARGE_ENABLED", False)
+        )
         return Response(
             {"enabled": bool(gateways), "gateways": gateways,
-             "currency": "NGN"},
+             "currency": "NGN",
+             "google_pay_review_enabled": google_pay_review_enabled},
             headers={"Cache-Control": "private, no-store"},
         )
 
