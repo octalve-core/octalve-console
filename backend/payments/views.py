@@ -129,9 +129,61 @@ class CheckoutOptionsView(APIView):
                 if (gateway_can_read(gateway)
                         and secret_matches_mode(gateway, gateway.get_secret_key())):
                     gateways.append(gateway.code)
+        google_pay_review_enabled = bool(
+            getattr(settings, "CLOUD_GOOGLE_PAY_REVIEW_ENABLED", False)
+            and not getattr(settings, "CLOUD_GOOGLE_PAY_CHARGE_ENABLED", False)
+        )
         return Response(
             {"enabled": bool(gateways), "gateways": gateways,
-             "currency": "NGN"},
+             "currency": "NGN",
+             "google_pay_review_enabled": google_pay_review_enabled},
+            headers={"Cache-Control": "private, no-store"},
+        )
+
+
+class GooglePayReviewConfigView(APIView):
+    """Read-only Google Pay TEST configuration for an exact owned invoice.
+
+    This endpoint never initializes or charges a payment. It exists so the
+    real Google Pay SDK can be reviewed safely before the production charge
+    contract is approved.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if getattr(request.user, "role", None) != "client":
+            return Response(
+                {"enabled": False, "error": "Customer payment review requires a client account."},
+                status=status.HTTP_403_FORBIDDEN,
+                headers={"Cache-Control": "private, no-store"},
+            )
+
+        raw = request.query_params.get("invoice_id", "")
+        if not raw.isdigit() or raw.startswith("0") or len(raw) > 12:
+            return Response(
+                {"enabled": False, "error": "Invalid invoice ID."},
+                status=status.HTTP_400_BAD_REQUEST,
+                headers={"Cache-Control": "private, no-store"},
+            )
+
+        from .google_pay_review import (
+            GooglePayReviewRefused,
+            google_pay_review_for_invoice,
+        )
+
+        try:
+            result = google_pay_review_for_invoice(int(raw), request.user)
+        except GooglePayReviewRefused:
+            # Keep configuration/ownership details private. The customer only
+            # needs to know that direct Google Pay review is unavailable.
+            return Response(
+                {"enabled": False, "review_only": True, "charge_enabled": False},
+                status=status.HTTP_409_CONFLICT,
+                headers={"Cache-Control": "private, no-store"},
+            )
+
+        return Response(
+            result,
             headers={"Cache-Control": "private, no-store"},
         )
 

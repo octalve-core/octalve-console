@@ -38,7 +38,29 @@ export type CheckoutQuote = {
     unit_price:string;cycle_key:string;price_revision:number|null}[];
   message:string;
 };
-export type CheckoutOptions = {enabled:boolean;gateways:string[];currency:string};
+export type CheckoutOptions = {enabled:boolean;gateways:string[];currency:string;google_pay_review_enabled?:boolean};
+export type GooglePayReviewConfig = {
+  enabled:boolean;
+  review_only:true;
+  charge_enabled:false;
+  environment?:"TEST";
+  processor?:"paystack";
+  merchant_info?:{merchantName:string;merchantId?:string};
+  tokenization?:{
+    type:"PAYMENT_GATEWAY";
+    parameters:{gateway:"paystack";gatewayMerchantId:string};
+  };
+  allowed_auth_methods?:("CRYPTOGRAM_3DS"|"PAN_ONLY")[];
+  allowed_card_networks?:("VISA"|"MASTERCARD")[];
+  billing_address_required?:boolean;
+  assurance_details_required?:boolean;
+  transaction_info?:{
+    countryCode:"NG";
+    currencyCode:"NGN";
+    totalPriceStatus:"FINAL";
+    totalPrice:string;
+  };
+};
 export type ServiceRenewalStatus = {
   service_id:number;state:"invoice_ready"|"request_assistance"|"unavailable";
   invoice_id:number|null;auto_renew:boolean;next_due_date:string;
@@ -479,6 +501,11 @@ export const clientApi = {
 
   checkoutOptions() {
     return api.get<CheckoutOptions>("/payments/checkout-options/");
+  },
+  googlePayReviewConfig(invoiceId:number) {
+    return api.get<GooglePayReviewConfig>("/payments/google-pay/review-config/", {
+      params:{invoice_id:invoiceId},
+    });
   },
   paymentStatus(invoiceId:number) {
     return api.get<{invoice_id:number;invoice_status:string;amount_due:string;currency:string}>(

@@ -554,6 +554,17 @@ CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED = env.bool("CLOUD_SIGNED_WEBHOOK_INGEST_ENAB
 CLOUD_HOSTED_CHECKOUT_HTTP_ENABLED = env.bool("CLOUD_HOSTED_CHECKOUT_HTTP_ENABLED", default=False)
 CLOUD_PAYMENT_STATUS_HTTP_ENABLED = env.bool("CLOUD_PAYMENT_STATUS_HTTP_ENABLED", default=False)
 
+# Google Pay direct-button review is independently gated from hosted checkout and
+# from financial settlement. Review mode uses Google's TEST environment only and
+# never submits a wallet token for charge. Production charging remains prohibited
+# until Paystack confirms the custom PAN_ONLY transaction-ID contract and the
+# exact Octalve checkout domain is approved by Google.
+CLOUD_GOOGLE_PAY_REVIEW_ENABLED = env.bool("CLOUD_GOOGLE_PAY_REVIEW_ENABLED", default=False)
+CLOUD_GOOGLE_PAY_CHARGE_ENABLED = env.bool("CLOUD_GOOGLE_PAY_CHARGE_ENABLED", default=False)
+CLOUD_GOOGLE_PAY_MERCHANT_ID = env("CLOUD_GOOGLE_PAY_MERCHANT_ID", default="")
+CLOUD_GOOGLE_PAY_MERCHANT_NAME = env("CLOUD_GOOGLE_PAY_MERCHANT_NAME", default="")
+CLOUD_PAYSTACK_INTEGRATION_ID = env("CLOUD_PAYSTACK_INTEGRATION_ID", default="")
+
 CLOUD_PAYMENT_RETURN_URL = env("CLOUD_PAYMENT_RETURN_URL", default="")
 
 
