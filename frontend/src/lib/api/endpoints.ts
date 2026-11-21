@@ -38,7 +38,7 @@ export type CheckoutQuote = {
     unit_price:string;cycle_key:string;price_revision:number|null}[];
   message:string;
 };
-export type CheckoutOptions = {enabled:boolean;gateways:string[];currency:string};
+export type CheckoutOptions = {enabled:boolean;gateways:string[];currency:string;google_pay_review_enabled?:boolean};
 export type GooglePayReviewConfig = {
   enabled:boolean;
   review_only:true;
