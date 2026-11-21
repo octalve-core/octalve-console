@@ -32,7 +32,7 @@ export function ClientProcessingView(){
     setInvoiceId(id);
     let active=true;
     void clientApi.checkoutOptions().then(d=>{if(active)setOptions(d);})
-      .catch(()=>{if(active)setOptions({enabled:false,gateways:[],currency:"NGN"});});
+      .catch(()=>{if(active)setOptions({enabled:false,gateways:[],currency:"NGN",google_pay_review_enabled:false});});
     return()=>{active=false;};
   },[]);
 
@@ -115,7 +115,7 @@ export function ClientProcessingView(){
         {invoice&&invoice.status==="unpaid"&&!offered?<p className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
           Secure payment methods are being prepared. Your invoice remains unpaid. You can review it in Billing without paying or creating another order.
         </p>:null}
-        {invoiceId&&invoice?.status==="unpaid"?<GooglePayReviewButton invoiceId={invoiceId}/>:null}
+        {options?.google_pay_review_enabled&&invoiceId&&invoice?.status==="unpaid"?<GooglePayReviewButton invoiceId={invoiceId}/>:null}
         {offered?<section className="mt-6">
           <h3 className="mb-3 text-base font-medium">Choose a secure payment method</h3>
           <div className="flex flex-wrap gap-3">
