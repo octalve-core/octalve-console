@@ -7,6 +7,7 @@ import {DashboardPage} from "@/components/layout/DashboardPage";
 import {Panel} from "@/components/design-system/Panel";
 import {ActionLink} from "@/components/design-system/ActionLink";
 import {StatusBadge} from "@/components/design-system/StatusBadge";
+import {GooglePayReviewButton} from "../components/commerce/GooglePayReviewButton";
 import {clientApi,type CheckoutOptions} from "@/lib/api/endpoints";
 
 type InvoiceState={id:number;invoice_number?:string;status:string;currency:string;total:string;amount_due:string};
@@ -114,6 +115,7 @@ export function ClientProcessingView(){
         {invoice&&invoice.status==="unpaid"&&!offered?<p className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
           Secure payment methods are being prepared. Your invoice remains unpaid. You can review it in Billing without paying or creating another order.
         </p>:null}
+        {invoiceId&&invoice?.status==="unpaid"?<GooglePayReviewButton invoiceId={invoiceId}/>:null}
         {offered?<section className="mt-6">
           <h3 className="mb-3 text-base font-medium">Choose a secure payment method</h3>
           <div className="flex flex-wrap gap-3">
