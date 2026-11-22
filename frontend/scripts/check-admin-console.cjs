@@ -80,7 +80,7 @@ function countPages(dir){
  },0);
 }
 // DNS-01 adds exactly one reviewed Admin domain DNS authorization route.
-if(countPages(path.join(root,"app/admin"))!==86)throw Error("Admin 86-route audit drift");
+if(countPages(path.join(root,"app/admin"))!==87)throw Error("Admin 87-route audit drift");
 if(!fs.existsSync(path.join(root,"app/admin/billing/domains/[id]/dns/page.tsx")))
  throw Error("Reviewed Admin DNS-01 route is missing");
 if(process.argv.includes("--built")){
@@ -95,4 +95,4 @@ if(process.argv.includes("--built")){
  for(const token of [".bg-console-primary",".text-console-ink",".border-console-line",".min-h-48"])
   if(!compiled.includes(token))throw Error("Tailwind token missing: "+token);
 }
-console.log("PASS: Batch 7 Admin source and compiled Tailwind, 85 routes and backend authority");
+console.log("PASS: Batch 7 Admin source and compiled Tailwind, 87 routes and backend authority");
