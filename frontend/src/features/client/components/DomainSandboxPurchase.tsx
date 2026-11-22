@@ -23,31 +23,35 @@ const labels = {
   registered: "Sandbox domain registered",
 };
 
-export function DomainSandboxPurchase({ admin = false }: { admin?: boolean }) {
+export function DomainSandboxPurchase({ admin = false, domain }: { admin?: boolean; domain?: string }) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const requestUrl = domain ? `${endpoint}?${new URLSearchParams({ domain })}` : endpoint;
 
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
       try {
-        const response = await fetch(endpoint, { signal: controller.signal, cache: "no-store" });
-        if (response.ok) setOverview(await response.json());
+        const response = await fetch(requestUrl, { signal: controller.signal, cache: "no-store" });
+        if (response.ok) {
+          const data = await response.json();
+          if (!controller.signal.aborted) setOverview(data);
+        }
       } catch {
         // The purchase control is only available to eligible accounts.
       }
     }
     void load();
     return () => controller.abort();
-  }, []);
+  }, [requestUrl]);
 
   async function submit(action: string) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch(requestUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(action === "accept" ? { action, quote: quote?.quote } : { action }),
@@ -55,7 +59,7 @@ export function DomainSandboxPurchase({ admin = false }: { admin?: boolean }) {
       const data = await response.json();
       if (!response.ok) {
         setError(typeof data.detail === "string" ? data.detail : "This step could not be confirmed. Refresh to check the current status.");
-        const status = await fetch(endpoint, { cache: "no-store" });
+        const status = await fetch(requestUrl, { cache: "no-store" });
         if (status.ok) setOverview(await status.json());
         return;
       }
@@ -91,7 +95,7 @@ export function DomainSandboxPurchase({ admin = false }: { admin?: boolean }) {
       ];
 
   return (
-    <section className="space-y-3 rounded-xl border border-console-line bg-white p-4 text-sm">
+    <section id="sandbox-domain-purchase" className="space-y-3 rounded-xl border border-console-line bg-white p-4 text-sm">
       <h2 className="font-medium">Sandbox domain purchase</h2>
       <p>{overview.domain} · One year{quote && !purchase ? ` · NGN ${quote.amount}` : ""}</p>
       {admin && overview.readiness_issues && (

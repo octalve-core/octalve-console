@@ -1,4 +1,5 @@
 from django.test import TestCase
+from unittest.mock import patch
 from rest_framework.test import APIClient
 from catalog.models import ProductCategory, Product, Plan, PlanBillingCycle, PublishedCatalogOffer
 from domains.models import TLDPricing
@@ -80,6 +81,20 @@ class PublicStorefrontTests(TestCase):
         self.assertFalse(data["checkout_enabled"])
         self.assertFalse(data["registrar_connected"])
         self.assertEqual(self.api.get("/api/storefront/domains/lookup/?domain=not a domain").status_code,400)
+    def test_public_lookup_uses_selected_route_without_exposing_supplier_prices(self):
+        TLDPricing.objects.create(
+            tld=".com", register_price=20000, renewal_price=25000, transfer_price=20000,
+            metadata={"published_registrar": {"connection_id": "6be4f9cf-b8e7-4ef5-a904-8ef0264e1eb8", "credential_version": 1}},
+        )
+        with patch("domains.public_registrar.query_published_registrar") as query:
+            query.return_value = {"registrable": False, "reason": "domain_unavailable", "registration_cost": "9.14"}
+            response = self.api.get("/api/storefront/domains/lookup/?domain=example.com")
+        self.assertEqual(response.data["availability"], "unavailable")
+        self.assertTrue(response.data["registrar_connected"])
+        self.assertEqual(response.data["registration_price"], "20000.00")
+        self.assertNotIn("9.14", str(response.data))
+        self.assertFalse(response.data["checkout_enabled"])
+
     def test_internal_and_draft_articles_never_leave_admin(self):
         a=KnowledgeArticle.objects.create(title="DNS Tips",slug="dns-tips",category="Domains",
             summary="Manage records",body_markdown="Private",created_by=self.admin,

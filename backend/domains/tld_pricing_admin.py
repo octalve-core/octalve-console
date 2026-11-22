@@ -5,7 +5,8 @@ The public legacy TLD pricing endpoint only sees rows marked 'active'; this
 writer preserves active public rates while recording the replacement draft.
 """
 import re
-from decimal import Decimal
+from decimal import Decimal, ROUND_UP
+from django.core import signing
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -13,6 +14,8 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.response import Response
 from catalog.permissions import InternalSupplierAuthority
 from providers.connection_stepup import assert_admin, check_mutation
+from providers.connection_models import IntegrationConnection
+from providers.connection_registrar_views import TLD_SUPPLIER_QUOTE_SALT
 from providers.connection_views import VaultMutationThrottle
 from audit.models import AuditLog
 from .models import TLDPricing
@@ -65,6 +68,7 @@ def rate_card_draft(row):
         "revision": saved.get("revision", 0) if type(saved.get("revision", 0)) is int else 0,
         "updated_at": row.updated_at.isoformat(),
         "publication": "inactive_draft",
+        "published_registrar": metadata.get("published_registrar") if row.status == "active" else None,
         "registrar_quote_verified": False,
         "checkout_enabled": False,
     }
@@ -148,3 +152,83 @@ def admin_tld_price_cards(request):
     except IntegrityError:
         return Response({"detail": "Price card changed. Refresh before saving."}, status=409)
     return Response(output, headers={"Cache-Control": "private, no-store"})
+
+
+@api_view(["POST"])
+@permission_classes([InternalSupplierAuthority])
+@throttle_classes([VaultMutationThrottle])
+def publish_tld_price_card(request):
+    assert_admin(request.user)
+    payload = request.data
+    required = {"tld", "expected_revision", "confirm_password", "totp_code", "action"}
+    optional = {"supplier_quote", "ngn_per_supplier_unit", "pricing_mode", "registration", "renewal"}
+    if not isinstance(payload, dict) or not required <= payload.keys() or payload.keys() - (required | optional):
+        raise ValidationError("Supply the publication fields.")
+    action = payload["action"]
+    if action not in ("publish", "unpublish") or type(payload["expected_revision"]) is not int:
+        raise ValidationError("Choose a publication action and current revision.")
+    if not isinstance(payload["tld"], str) or len(payload["tld"]) > 50 or not TLD_RE.fullmatch(payload["tld"]):
+        raise ValidationError("Enter a valid lowercase extension.")
+    quote = None
+    if action == "publish":
+        token = payload.get("supplier_quote")
+        if not isinstance(token, str) or len(token) > 2048:
+            raise ValidationError("Check live supplier pricing before publishing.")
+        try:
+            quote = signing.loads(token, salt=TLD_SUPPLIER_QUOTE_SALT, max_age=300)
+        except signing.BadSignature:
+            raise ValidationError("Supplier quote expired. Check live pricing again.") from None
+        if quote["actor_id"] != str(request.user.pk) or quote["tld"] != payload["tld"]:
+            raise ValidationError("The supplier quote does not match this price card.")
+        fx = Decimal(1) if quote["currency"] == "NGN" else _money(payload.get("ngn_per_supplier_unit"))
+        retail = {}
+        for operation in ("registration", "renewal"):
+            cost = Decimal(quote[f"{operation}_cost"]) * fx
+            if payload.get("pricing_mode") == "fixed":
+                retail[operation] = _money(payload.get(operation))
+            elif payload.get("pricing_mode") == "markup":
+                markup = _money(payload.get(operation))
+                retail[operation] = _money(str((cost * (1 + markup / 100)).quantize(Decimal(".01"), rounding=ROUND_UP)))
+            else:
+                raise ValidationError("Choose fixed retail amounts or percentage markup.")
+            if retail[operation] < cost:
+                raise ValidationError("Retail price cannot be lower than the converted supplier cost.")
+
+    with transaction.atomic():
+        row = TLDPricing.objects.select_for_update().filter(tld=payload["tld"]).first()
+        if row is None:
+            return Response({"detail": "Save a TLD draft first."}, status=404)
+        metadata = dict(row.metadata or {})
+        draft = dict(metadata.get("period_pricing_v1", {}))
+        if draft.get("revision", 0) != payload["expected_revision"]:
+            return Response({"detail": "Price card changed. Refresh before publishing."}, status=409)
+        if quote and not IntegrationConnection.objects.select_for_update().filter(
+            pk=quote["connection_id"], environment="live", state="draft",
+            adapter_key="cloudflare-registrar-live", current_version=quote["credential_version"],
+            credential_versions__version=quote["credential_version"], credential_versions__revoked_at__isnull=True,
+        ).exists():
+            raise ValidationError("The quoted registrar credential changed. Check live pricing again.")
+        check_mutation(request.user, payload["confirm_password"], payload["totp_code"])
+        draft["revision"] = payload["expected_revision"] + 1
+        metadata["period_pricing_v1"] = draft
+        if quote:
+            metadata["published_registrar"] = {
+                "connection_id": quote["connection_id"], "credential_version": quote["credential_version"],
+                "revision": draft["revision"],
+            }
+            row.register_price = retail["registration"]
+            row.renewal_price = retail["renewal"]
+            row.status = "active"
+        else:
+            metadata.pop("published_registrar", None)
+            row.status = "inactive"
+        row.metadata = metadata
+        row.save()
+        AuditLog.objects.create(
+            actor=request.user, action="settings_updated", entity_type="TLDPricing",
+            entity_id=str(row.pk), entity_name=row.tld,
+            details={"publication": action, "revision": draft["revision"], "supplier_quote": quote,
+                     "ngn_per_supplier_unit": str(fx) if quote else None,
+                     "retail_registration": str(row.register_price), "retail_renewal": str(row.renewal_price)},
+        )
+    return Response(rate_card_draft(row), headers={"Cache-Control": "private, no-store"})

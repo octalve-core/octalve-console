@@ -19,7 +19,7 @@ from rest_framework.response import Response
 
 from billing.models import Invoice, InvoiceItem
 from orders.models import Order, OrderItem
-from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_test_gateway
+from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_test_gateway, selected_domain_test_allowed
 from payments.hosted_checkout import CheckoutRefused, _return_url, reserve_hosted_checkout
 from payments.models import PaymentGateway, PaymentIntent, WebhookEvent
 from payments.readback import PaymentReadbackRejected, verify_gateway_intent
@@ -31,6 +31,7 @@ from providers.connection_views import VaultMutationThrottle, connection_databas
 from providers.connection_vault import VaultUnavailable, unseal_version
 
 from .models import TLDPricing
+from .public_registrar import query_published_registrar
 from .tld_pricing_admin import rate_card_draft
 
 QUOTE_SALT = "octalve.sandbox-domain-purchase.v1"
@@ -98,11 +99,26 @@ def result(order):
             "state": evidence["state"], "payment_reference": evidence.get("payment_reference") or (intent.reference if intent else None)}
 
 
-def quote_domain(account, name):
+def _selected_rate(name, *, lock=False):
+    cards = TLDPricing.objects.select_for_update() if lock else TLDPricing.objects
+    card = cards.filter(tld="." + name.rsplit(".", 1)[1], status="active").first()
+    route = card.metadata.get("published_registrar") if card and isinstance(card.metadata, dict) else None
+    if not isinstance(route, dict) or card.register_price <= 0:
+        raise ValidationError("This extension does not have a published registrar and price.")
+    if type(route.get("revision")) is not int:
+        raise ValidationError("This extension does not have a valid published rate revision.")
+    return {"registration": {"1": str(card.register_price)}, "revision": route["revision"], "route": route}
+
+
+def quote_domain(account, name, *, selected=False):
     card = TLDPricing.objects.filter(tld=".com").first()
-    rate = rate_card_draft(card) if card else None
+    rate = _selected_rate(name) if selected else rate_card_draft(card) if card else None
     if not rate or Decimal(rate["registration"]["1"]) <= 0:
         raise ValidationError("Set a positive one-year .com rate first.")
+    if selected:
+        live = query_published_registrar(rate["route"], name)
+        if not live or live.get("registrable") is not True:
+            raise ValidationError("The live registrar did not confirm this name is available.")
     supplier, binding = registrar()
     availability = supplier.check(name)
     if not availability["registrable"]:
@@ -110,12 +126,14 @@ def quote_domain(account, name):
     snapshot = {"client": account, "domain": name, "amount": rate["registration"]["1"],
                 "price_revision": rate["revision"],
                 "registrar": binding, "supplier_quote": availability}
+    if selected:
+        snapshot.update(selected_domain=True, live_route=rate["route"])
     return {"quote": signing.dumps(snapshot, salt=QUOTE_SALT), "domain": name,
             "amount": snapshot["amount"], "currency": "NGN", "years": 1}
 
 
 @transaction.atomic
-def accept_quote(user, name, token):
+def accept_quote(user, name, token, *, selected=False):
     # The account lock serializes pilot creation, including a double-submit.
     type(user).objects.select_for_update().get(pk=user.pk)
     existing = pilot_order(user.pk, name)
@@ -125,12 +143,14 @@ def accept_quote(user, name, token):
         snapshot = signing.loads(token, salt=QUOTE_SALT, max_age=300)
     except signing.BadSignature:
         raise ValidationError("This quote expired. Request a fresh quote.") from None
-    if (snapshot["client"], snapshot["domain"]) != (user.pk, name):
+    if ((snapshot["client"], snapshot["domain"]) != (user.pk, name)
+            or bool(snapshot.get("selected_domain")) != selected):
         raise ValidationError("This quote does not match the pilot account.")
     card = TLDPricing.objects.select_for_update().filter(tld=".com").first()
-    rate = rate_card_draft(card) if card else None
+    rate = _selected_rate(name, lock=True) if selected else rate_card_draft(card) if card else None
     if (not rate or rate["registration"]["1"] != snapshot["amount"]
-            or rate["revision"] != snapshot["price_revision"]):
+            or rate["revision"] != snapshot["price_revision"]
+            or (selected and rate["route"] != snapshot.get("live_route"))):
         raise ValidationError("The price changed. Request a fresh quote.")
     registrar(snapshot)
     amount = Decimal(snapshot["amount"])
@@ -284,6 +304,11 @@ def reconcile(order):
 def domain_pilot(request):
     scope = pilot_configuration()
     user = request.user
+    selected_name = request.query_params.get("domain")
+    selected = selected_name is not None
+    if selected:
+        name = selected_name.strip().lower()
+        scope = (user.pk, name) if selected_domain_test_allowed(user, name) else None
     if not scope or not user.is_active:
         raise NotFound()
     account, name = scope
@@ -303,9 +328,9 @@ def domain_pilot(request):
         if action == "quote" and not order:
             if pilot_readiness(account):
                 raise ValidationError("The test setup is incomplete. Check the Admin domain pricing preflight.")
-            return Response(quote_domain(account, name), headers=headers)
+            return Response(quote_domain(account, name, selected=selected), headers=headers)
         if action == "accept" and isinstance(request.data.get("quote"), str):
-            return Response(result(accept_quote(user, name, request.data["quote"])), headers=headers)
+            return Response(result(accept_quote(user, name, request.data["quote"], selected=selected)), headers=headers)
         if action == "checkout" and order and order.metadata[PILOT]["state"] == "awaiting_payment":
             registrant_contact()
             registrar(order.metadata[PILOT])

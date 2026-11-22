@@ -4,7 +4,8 @@ import {DashboardPage} from "@/components/layout/DashboardPage";
 import {ClientDomainSearch} from "@/features/client/components/ClientDomainSearch";
 import {DomainSandboxPurchase} from "@/features/client/components/DomainSandboxPurchase";
 
-export default function ClientDomainRegistrationPage(){
+export default async function ClientDomainRegistrationPage({searchParams}:{searchParams:Promise<{domain?:string|string[]}>}){
+  const {domain} = await searchParams;
   return <DashboardShell role="client" title="Register a domain"
     description="Search your perfect domain and review available registration extensions.">
     <DashboardPage eyebrow="Domains" title="Register New Domain"
@@ -13,7 +14,8 @@ export default function ClientDomainRegistrationPage(){
         <Link href="/client/domains" className="text-sm font-medium text-console-primary">
           My Domains
         </Link>
-        <DomainSandboxPurchase/>
+        <DomainSandboxPurchase key={typeof domain === "string" ? domain : "pilot"}
+          domain={typeof domain === "string" ? domain : undefined}/>
         <ClientDomainSearch/>
         <p className="rounded-xl border border-console-line bg-white p-4 text-sm leading-6 text-console-muted">
           Registration is completed only after a registrar confirms availability,

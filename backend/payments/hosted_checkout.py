@@ -9,7 +9,7 @@ import json
 import re
 import secrets
 from decimal import Decimal
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 import requests
 from django.conf import settings
@@ -19,7 +19,7 @@ from django.utils import timezone
 from billing.models import Invoice
 from payments.models import PaymentGateway, PaymentIntent
 from payments.sandbox import gateway_can_read, secret_matches_mode
-from payments.domain_pilot_scope import is_pilot_invoice
+from payments.domain_pilot_scope import PILOT, is_pilot_invoice
 
 REFERENCE = re.compile(r"^OC[A-Z0-9]{30}$")
 ALLOWED_CHECKOUT = {"paystack": "checkout.paystack.com",
@@ -74,7 +74,9 @@ def _post_checkout(intent, *, poster=None):
         raise CheckoutRefused("Verified invoice contact email is required.")
     callback = _return_url()
     if is_pilot_invoice(invoice):
-        callback = urlsplit(callback)._replace(path="/client/domains/register").geturl()
+        snapshot = invoice.order.metadata.get(PILOT, {})
+        query = urlencode({"domain": snapshot["domain"]}) if snapshot.get("selected_domain") is True else ""
+        callback = urlsplit(callback)._replace(path="/client/domains/register", query=query).geturl()
     if intent.currency != "NGN":
         # Other currencies require independently audited subunit conventions.
         raise CheckoutRefused("Only audited NGN payment initialization is supported.")

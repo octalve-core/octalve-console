@@ -534,6 +534,8 @@ OPANEL_READBACK_ENABLED = env.bool("OPANEL_READBACK_ENABLED", default=False)
 # Paid hosting pipeline is disabled until approved isolated gateway and
 # provider acceptance. These switches never expose a customer endpoint.
 CLOUD_GATEWAY_READBACK_ENABLED = env.bool("CLOUD_GATEWAY_READBACK_ENABLED", default=False)
+CLOUD_PUBLIC_REGISTRAR_LOOKUP_ENABLED = env.bool("CLOUD_PUBLIC_REGISTRAR_LOOKUP_ENABLED", default=False)
+CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED = env.bool("CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED", default=False)
 # Gateway test mode is usable only for isolated read-back/hosted-link tests.
 # The financial-settlement and provisioning authorities still reject test_mode.
 CLOUD_GATEWAY_SANDBOX_READBACK_ENABLED = env.bool("CLOUD_GATEWAY_SANDBOX_READBACK_ENABLED", default=False)

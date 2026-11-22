@@ -1,7 +1,7 @@
 # domains/urls.py
 
 from django.urls import path, include
-from .tld_pricing_admin import admin_tld_price_cards
+from .tld_pricing_admin import admin_tld_price_cards, publish_tld_price_card
 from .pilot import domain_pilot
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -19,5 +19,6 @@ router.register(r'ssl-certificates', SSLCertificateViewSet, basename='ssl-certif
 urlpatterns = [
     path("sandbox-purchase/", domain_pilot, name="domain-sandbox-purchase"),
     path("admin/tld-price-cards/", admin_tld_price_cards, name="admin-tld-price-cards"),
+    path("admin/tld-price-cards/publication/", publish_tld_price_card, name="publish-tld-price-card"),
     path('', include(router.urls)),
 ]

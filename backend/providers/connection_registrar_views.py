@@ -7,6 +7,7 @@ customer-facing offer and cannot authorize a checkout.
 from datetime import timedelta
 
 from django.conf import settings
+from django.core import signing
 from django.db import DatabaseError
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -21,6 +22,9 @@ from .connection_models import IntegrationConnection, IntegrationCredentialVersi
 from .connection_stepup import assert_admin, check_mutation
 from .connection_views import VaultMutationThrottle, connection_database_qualified
 from .connection_vault import VaultUnavailable, unseal_version
+
+
+TLD_SUPPLIER_QUOTE_SALT = "domains.tld-supplier-quote.v1"
 
 
 @api_view(["POST"])
@@ -101,11 +105,23 @@ def live_registrar_quote(request, connection_id):
             {"detail": "Registrar check succeeded but its audit receipt was not retained."},
             status=503, headers={"Cache-Control": "private, no-store"}
         )
+    supplier_quote = None
+    if row.environment == "live" and quote.get("registrable") is True:
+        supplier_quote = signing.dumps({
+            "actor_id": str(request.user.pk),
+            "connection_id": str(row.pk),
+            "credential_version": version.version,
+            "tld": "." + domain.rsplit(".", 1)[1],
+            "currency": quote["currency"],
+            "registration_cost": quote["registration_cost"],
+            "renewal_cost": quote["renewal_cost"],
+        }, salt=TLD_SUPPLIER_QUOTE_SALT)
     return Response({
         "verified": True,
         "provider": "cloudflare-registrar",
         "domain": domain,
         "availability": quote,
+        "supplier_quote": supplier_quote,
         "supplier_price_only": True,
         "quote_is_retail_offer": False,
         "checkout_enabled": False,

@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core import signing
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from domains.pilot import QUOTE_SALT, accept_quote, pilot_readiness, reconcile
 from domains.models import TLDPricing
@@ -61,6 +62,37 @@ class DomainPilotTests(TestCase):
         self.assertFalse(gateway_can_read(self.gateway))
         invoice.metadata = {}
         self.assertFalse(gateway_can_read(self.gateway, invoice))
+
+    @override_settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=True)
+    def test_customer_can_use_search_name_and_pinned_price_instead_of_legacy_name(self):
+        route = {"connection_id": "fixture", "credential_version": 1, "revision": 2}
+        TLDPricing.objects.filter(tld=".com").update(metadata={"published_registrar": route})
+        name = "selected-by-customer.com"
+        other = get_user_model().objects.create_user(
+            username="otherclient", email="other@example.test", role="client", email_verified_at=timezone.now(),
+        )
+        api = APIClient()
+        path = f"/api/domains/sandbox-purchase/?domain={name}"
+        api.force_authenticate(other)
+        self.assertEqual(api.get(path).status_code, 404)
+        api.force_authenticate(self.owner)
+        self.assertEqual(api.get(path).data["domain"], name)
+        self.supplier.check.return_value = {"registrable": True}
+        with patch("domains.pilot.pilot_readiness", return_value=[]), patch(
+            "domains.pilot.query_published_registrar", return_value={"registrable": True},
+        ) as lookup:
+            quote = api.post(path, {"action": "quote"}, format="json")
+        self.assertEqual(quote.status_code, 200, quote.data)
+        lookup.assert_called_once_with(route, name)
+        accepted = api.post(path, {"action": "accept", "quote": quote.data["quote"]}, format="json")
+        self.assertEqual(accepted.status_code, 200, accepted.data)
+        self.assertEqual(accepted.data["domain"], name)
+        order = self.owner.orders.get(order_number=accepted.data["order"])
+        self.assertEqual(order.metadata[PILOT]["live_route"], route)
+        invoice = order.invoices.get()
+        self.assertTrue(gateway_can_read(self.gateway, invoice))
+        with self.settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=False):
+            self.assertFalse(gateway_can_read(self.gateway, invoice))
 
     def test_timeout_never_resubmits_and_success_never_posts_revenue(self):
         order = accept_quote(self.owner, self.domain, self.token)
