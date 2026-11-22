@@ -11,6 +11,8 @@ on:
       - "pnpm-lock.yaml"
       - "package.json"
       - ".github/workflows/cloud-ci.yml"
+      - "scripts/verify-cloud-vercel-links.ps1"
+      - "scripts/test-cloud-vercel-links.ps1"
       - "docs/CLOUD_**"
   workflow_dispatch:
 permissions:
@@ -29,6 +31,19 @@ jobs:
         run: python -m compileall -q backend
       - name: Verify migration script shell syntax (does not access database)
         run: bash -n backend/scripts/run_review_migrations.sh
+      - name: Guard Octalve Cloud Vercel monorepo links (synthetic configurations only)
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          foreach($path in @("scripts/verify-cloud-vercel-links.ps1",
+                             "scripts/test-cloud-vercel-links.ps1")){
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $path,[ref]$tokens,[ref]$errors) | Out-Null
+            if($errors.Count -gt 0){ throw "Invalid Vercel guard PowerShell syntax: $path" }
+          }
+          & ./scripts/test-cloud-vercel-links.ps1
+
       - name: Verify gateway signature contracts
         working-directory: backend
         run: python -m unittest discover -s tests -p 'test_*.py' -v
