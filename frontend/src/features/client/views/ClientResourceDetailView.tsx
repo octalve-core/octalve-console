@@ -64,7 +64,6 @@ function getDetailActions(resource: ClientResourceKey, record: ClientRecord) {
 
   if (resource === "orders") {
     return [
-      { label: "View invoice", href: "/client/invoices", variant: "primary" as const },
       { label: "Contact support", href: "/client/support/new", variant: "outline" as const },
     ];
   }

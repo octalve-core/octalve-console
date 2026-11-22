@@ -43,13 +43,12 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
+        orders = Order.objects.prefetch_related("invoices")
         if user.is_superuser or (user.is_staff and user.role == 'admin'):
-            return Order.objects.all()
+            return orders
         # No global Staff read: assignment-scoped access requires a separately
         # certified per-customer grant and cannot use a broad role flag.
-        if user.role == 'staff':
-            return Order.objects.filter(client=user)
-        return Order.objects.filter(client=user)
+        return orders.filter(client=user)
     
     @staticmethod
     def _refuse_unverified_change():

@@ -19,6 +19,7 @@ export type ClientRecord = {
   score?: number;
   service?: ClientServiceSnapshot;
   invoicePeriods?: {label: string; start: string; end: string; confirmed: boolean; domain: boolean}[];
+  invoiceDocuments?: {id: string; number: string}[];
 };
 
 export const clientDemo: Record<ClientResourceKey, ClientRecord[]> = {

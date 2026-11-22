@@ -6,6 +6,7 @@ import {formatStatus,getStatusTone} from "@/lib/constants/status";
 import type {ClientRecord} from "../../data/client-demo-data";
 import type {BillingResource} from "./BillingRecordDirectory";
 import {serviceDate} from "../../utils/service-contract";
+import {invoiceDownloadHref,invoiceHref} from "./invoice-links";
 type LinkAction={label:string;href:string;variant:"primary"|"outline"};
 function tone(status:string):StatusTone{const value=getStatusTone(status);return value==="danger"?"error":value;}
 export function BillingRecordDetail({record,resource,actions}:{
@@ -64,6 +65,11 @@ export function BillingRecordDetail({record,resource,actions}:{
    <Panel>
     <h3 className="text-lg font-medium text-console-ink">Quick actions</h3>
     <div className="mt-4 grid gap-3">
+     {resource==="invoices" && <a href={invoiceDownloadHref(record.id)} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-console-primary px-4 text-sm font-medium text-white">Download invoice PDF</a>}
+     {resource==="orders" && record.invoiceDocuments?.map(invoice=><div key={invoice.id} className="grid gap-2 rounded-lg border border-console-line p-3 text-sm">
+      <ActionLink href={invoiceHref(invoice.id)} variant="primary">View invoice {invoice.number}</ActionLink>
+      <a href={invoiceDownloadHref(invoice.id)} className="inline-flex min-h-11 items-center justify-center font-medium text-console-primary">Download invoice PDF</a>
+     </div>)}
      {actions.map(action=><ActionLink key={action.label} href={action.href}
       variant={action.variant} className="w-full">{action.label}</ActionLink>)}
     </div>

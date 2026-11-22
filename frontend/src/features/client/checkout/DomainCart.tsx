@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, Globe2, Server, ShieldCheck } from "lucide-react";
 import { Panel } from "@/components/design-system/Panel";
 import { formatPlanAmount } from "../data/client-order-data";
+import { invoiceDownloadHref, invoiceHref } from "../components/commerce/invoice-links";
 
 type Action = { action: string; text: string };
 
@@ -13,8 +14,8 @@ export function checkoutDate(value?: string | null) {
   }).format(date);
 }
 
-export function DomainCart({domain, amount, status, order, invoice, registeredAt, expiresAt, paymentVerified, actions, busy, error, onAction}: {
-  domain: string; amount?: string; status?: string; order?: string; invoice?: string;
+export function DomainCart({domain, amount, status, order, invoice, invoiceId, registeredAt, expiresAt, paymentVerified, actions, busy, error, onAction}: {
+  domain: string; amount?: string; status?: string; order?: string; invoice?: string; invoiceId?: number;
   registeredAt?: string | null; expiresAt?: string | null; paymentVerified: boolean;
   actions: readonly Action[]; busy: boolean; error: string; onAction: (action: string) => void;
 }) {
@@ -44,6 +45,10 @@ export function DomainCart({domain, amount, status, order, invoice, registeredAt
           </dl>
           {status && <p role="status" className="mt-4 text-sm font-medium text-console-ink">{status}</p>}
           {order && <p className="mt-1 break-words text-xs text-console-muted">{order}{invoice ? ` · ${invoice}` : ""}</p>}
+          {invoiceId && <div className="mt-3 flex flex-wrap items-center gap-x-4 text-sm font-medium text-console-primary">
+            <Link href={invoiceHref(invoiceId)} className="inline-flex min-h-11 items-center">View invoice</Link>
+            <a href={invoiceDownloadHref(invoiceId)} className="inline-flex min-h-11 items-center">Download PDF</a>
+          </div>}
         </div>
       </Panel>
     <Panel className="min-w-0 xl:sticky xl:top-24 xl:row-span-2">

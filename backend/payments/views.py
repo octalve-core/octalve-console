@@ -94,6 +94,10 @@ class PaymentInitializeView(APIView):
         if invoice is None:
             return Response({"error": "Invoice not found."},
                             status=status.HTTP_404_NOT_FOUND)
+        from .domain_pilot_scope import is_pilot_invoice
+        if is_pilot_invoice(invoice):
+            return Response({"error": "This invoice is managed by its domain checkout."},
+                            status=status.HTTP_409_CONFLICT)
         try:
             intent, created = reserve_hosted_checkout(
                 invoice.pk, request.data["gateway"])

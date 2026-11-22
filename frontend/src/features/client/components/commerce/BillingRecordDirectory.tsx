@@ -1,9 +1,10 @@
 "use client";
 import {useMemo} from "react";
-import {ShoppingCart,ReceiptText} from "lucide-react";
+import {Download,ShoppingCart,ReceiptText,FileText} from "lucide-react";
 import {RecordDirectory} from "@/components/design-system/record-directory/RecordDirectory";
 import type {DirectoryColumn,DirectoryRow} from "@/components/design-system/record-directory/types";
 import type {ClientRecord} from "../../data/client-demo-data";
+import {invoiceDownloadHref,invoiceHref} from "./invoice-links";
 export type BillingResource="orders"|"invoices";
 const cols:DirectoryColumn[]=[
  {key:"item",label:"Purchase",render:r=>r.title},
@@ -25,6 +26,12 @@ export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescrip
   icon:<Icon aria-hidden="true" className="h-5 w-5"/>,
   searchTerms:[r.id,r.meta,r.subtitle]
  })),[records,Icon]);
+ const linkedInvoice = (id:string) => records.find(record=>record.id===id)?.invoiceDocuments?.[0];
  return <RecordDirectory label={resource==="orders"?"Orders":"Invoices"} rows={rows} columns={cols}
+  actions={resource==="invoices"?[{key:"invoice-pdf",label:"Download invoice PDF",icon:Download,href:row=>invoiceDownloadHref(row.id)}]:[
+   {key:"view-invoice",label:"View latest invoice",icon:FileText,available:row=>!!linkedInvoice(row.id),href:row=>{
+    const invoice=linkedInvoice(row.id);return invoice?invoiceHref(invoice.id):undefined;
+   }},
+  ]}
   emptyMessage={emptyTitle+" — "+emptyDescription}/>;
 }

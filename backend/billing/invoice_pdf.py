@@ -157,7 +157,7 @@ def _document(invoice):
         tax_total=_amount(invoice.tax_total),
         total=_amount(invoice.total),
         amount_paid=_amount(invoice.amount_paid),
-        amount_due=_amount(invoice.amount_due),
+        amount_due=_amount(invoice.collectible_amount),
         notes=_clean(" | ".join(filter(None,[
             str(invoice.notes or ""),
             str((meta.get("invoice_policy") or {}).get("footer", ""))

@@ -47,6 +47,11 @@ class OrderSerializer(serializers.ModelSerializer):
     client_email = serializers.EmailField(source='client.email', read_only=True)
     client_name = serializers.CharField(source='client.full_name', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    invoice_documents = serializers.SerializerMethodField()
+
+    def get_invoice_documents(self, obj):
+        return [{"id": invoice.pk, "number": invoice.invoice_number} for invoice in obj.invoices.all()
+                if invoice.client_id == obj.client_id]
     
     class Meta:
         model = Order
@@ -55,7 +60,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'status', 'status_display', 'source', 'currency', 'subtotal',
             'discount_total', 'tax_total', 'total', 'coupon_code',
             'coupon_discount', 'notes', 'created_at', 'paid_at',
-            'provisioned_at', 'items'
+            'provisioned_at', 'items', 'invoice_documents'
         ]
         read_only_fields = ['order_number', 'created_at', 'paid_at', 'provisioned_at']
 

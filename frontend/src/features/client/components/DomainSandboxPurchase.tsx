@@ -7,6 +7,7 @@ const endpoint = "/api/cloud/domains/sandbox-purchase/";
 type Purchase = {
   order: string;
   invoice: string;
+  invoice_id?: number;
   domain: string;
   amount: string;
   state: keyof typeof labels;
@@ -110,6 +111,7 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
 
   if (checkoutPage) return <DomainCart domain={overview.domain} amount={purchase?.amount ?? quote?.amount}
     status={purchase ? labels[purchase.state] : undefined} order={purchase?.order} invoice={purchase?.invoice}
+    invoiceId={purchase?.invoice_id}
     registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={!!purchase && !awaitingPayment}
     actions={buttons} busy={busy} error={error} onAction={action => void submit(action)}/>;
 

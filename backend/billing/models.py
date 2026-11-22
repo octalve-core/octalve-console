@@ -61,6 +61,12 @@ class Invoice(models.Model):
             models.Index(fields=['due_date', 'status']),
             models.Index(fields=['-issue_date']),
         ]
+
+    @property
+    def collectible_amount(self):
+        if self.status in {"paid", "void", "cancelled", "refunded"}:
+            return Decimal("0.00")
+        return self.amount_due
     
     def save(self, *args, **kwargs):
         if not self.invoice_number:

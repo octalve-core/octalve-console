@@ -32,6 +32,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
     client_email = serializers.EmailField(source='client.email', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     is_overdue = serializers.SerializerMethodField()
+    amount_due = serializers.DecimalField(source="collectible_amount", max_digits=12, decimal_places=2, read_only=True)
+    payment_action_allowed = serializers.SerializerMethodField()
     
     class Meta:
         model = Invoice
@@ -39,13 +41,18 @@ class InvoiceSerializer(serializers.ModelSerializer):
             'id', 'invoice_number', 'order', 'client', 'client_name', 'client_email',
             'status', 'status_display', 'currency', 'subtotal', 'discount_total',
             'tax_total', 'total', 'amount_paid', 'amount_due', 'issue_date',
-            'due_date', 'paid_at', 'notes', 'items', 'is_overdue', 'created_at'
+            'due_date', 'paid_at', 'notes', 'items', 'is_overdue', 'created_at', 'payment_action_allowed'
         ]
         read_only_fields = ['invoice_number', 'amount_paid', 'amount_due', 'created_at']
     
     def get_is_overdue(self, obj):
         # Serializing an invoice is read-only; do not mutate payment/status fields on GET.
         return obj.status in ('unpaid', 'overdue') and timezone.now() > obj.due_date
+
+    def get_payment_action_allowed(self, obj):
+        from payments.domain_pilot_scope import is_pilot_invoice
+
+        return obj.status == "unpaid" and obj.collectible_amount > 0 and not is_pilot_invoice(obj)
 
 
 class TaxSerializer(serializers.ModelSerializer):

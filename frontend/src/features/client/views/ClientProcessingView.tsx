@@ -9,8 +9,9 @@ import {ActionLink} from "@/components/design-system/ActionLink";
 import {StatusBadge} from "@/components/design-system/StatusBadge";
 import {GooglePayReviewButton} from "../components/commerce/GooglePayReviewButton";
 import {clientApi,type CheckoutOptions} from "@/lib/api/endpoints";
+import {invoiceDownloadHref,invoiceHref} from "../components/commerce/invoice-links";
 
-type InvoiceState={id:number;invoice_number?:string;status:string;currency:string;total:string;amount_due:string};
+type InvoiceState={id:number;invoice_number?:string;status:string;currency:string;total:string;amount_due:string;payment_action_allowed?:boolean};
 const doneStates=["paid","void","cancelled","refunded"];
 const allowedHosts=new Set(["checkout.paystack.com","checkout.flutterwave.com"]);
 
@@ -70,7 +71,7 @@ export function ClientProcessingView(){
   },[invoiceId,reload]);
 
   async function beginPayment(gateway:"paystack"|"flutterwave"){
-    if(!invoiceId||!invoice||invoice.status!=="unpaid"||paying)return;
+    if(!invoiceId||!invoice||invoice.status!=="unpaid"||!invoice.payment_action_allowed||paying)return;
     setPaying(true);setError("");
     try{
       const response=await clientApi.initializeHostedPayment(invoiceId,gateway);
@@ -85,7 +86,7 @@ export function ClientProcessingView(){
   }
 
   const paid=invoice?.status==="paid";
-  const offered=options?.enabled&&invoice?.currency===options.currency&&invoice?.status==="unpaid";
+  const offered=options?.enabled&&invoice?.currency===options.currency&&invoice?.status==="unpaid"&&invoice.payment_action_allowed;
   return <DashboardShell role="client" title="Order status" description="Track your invoice and secure payment.">
     <DashboardPage eyebrow="Checkout · Order status" title="Your order progress"
       description="Your order status updates automatically while this page is open.">
@@ -96,10 +97,10 @@ export function ClientProcessingView(){
           </div>
           <div>
             <h2 className="text-xl font-medium text-slate-950">
-              {paid?"Payment recorded":invoice?"Your invoice is ready":"Checking your order"}
+              {paid?"Payment recorded":invoice?.status==="void"?"Invoice voided":invoice?"Your invoice is ready":"Checking your order"}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              {paid?"Your payment is recorded. Hosting readiness is verified separately.":
+              {paid?"Your payment is recorded. Service activation is verified separately.":invoice?.status==="void"?"No payment is due for this invoice.":
                "Payment and service activation are not yet confirmed."}
             </p>
           </div>
@@ -112,10 +113,10 @@ export function ClientProcessingView(){
           <div><p className="text-xs text-slate-500">Amount due</p><p className="mt-1 font-medium">{invoice.currency} {invoice.amount_due}</p></div>
         </div>:null}
         {error?<p role="alert" className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900"><AlertCircle className="mr-2 inline h-4 w-4"/>{error}</p>:null}
-        {invoice&&invoice.status==="unpaid"&&!offered?<p className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
+        {invoice&&invoice.status==="unpaid"&&invoice.payment_action_allowed&&!offered?<p className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
           Secure payment methods are being prepared. Your invoice remains unpaid. You can review it in Billing without paying or creating another order.
         </p>:null}
-        {options?.google_pay_review_enabled&&invoiceId&&invoice?.status==="unpaid"?<GooglePayReviewButton invoiceId={invoiceId}/>:null}
+        {options?.google_pay_review_enabled&&invoiceId&&invoice?.status==="unpaid"&&invoice.payment_action_allowed?<GooglePayReviewButton invoiceId={invoiceId}/>:null}
         {offered?<section className="mt-6">
           <h3 className="mb-3 text-base font-medium">Choose a secure payment method</h3>
           <div className="flex flex-wrap gap-3">
@@ -131,7 +132,8 @@ export function ClientProcessingView(){
           Automatic status checks have paused. Your account will show the latest recorded state when reopened.
         </p>:null}
         <div className="mt-7 flex flex-wrap gap-3">
-          {invoiceId?<a href={`/api/cloud/billing/invoices/${encodeURIComponent(String(invoiceId))}/download_pdf/`}
+          {invoice?<ActionLink href={invoiceHref(invoice.id)} variant="outline">View invoice</ActionLink>:null}
+          {invoice?<a href={invoiceDownloadHref(invoice.id)}
             className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-[#0064E0]">Download invoice</a>:null}
           <ActionLink href="/client/orders" variant="outline">View orders</ActionLink>
           <ActionLink href="/client/support/new" variant="outline">Contact support</ActionLink>

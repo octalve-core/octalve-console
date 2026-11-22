@@ -113,6 +113,7 @@ def result(order):
         checkout_state = ("expired" if intent.is_expired() else
                           "resume" if intent.authorization_url else "uncertain")
     return {"checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
+            "invoice_id": invoice.pk,
             "registered_at": registration.get("registered_at"), "expires_at": registration.get("expires_at"),
             "domain": evidence["domain"], "amount": str(invoice.total), "currency": "NGN",
             "state": evidence["state"], "payment_reference": evidence.get("payment_reference") or (intent.reference if intent else None)}

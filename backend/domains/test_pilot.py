@@ -170,6 +170,7 @@ class DomainPilotTests(TestCase):
         invoice.refresh_from_db()
         self.assertEqual(order.metadata[PILOT]["state"], "registered")
         self.assertEqual(invoice.status, "void")
+        self.assertEqual(invoice.collectible_amount, Decimal("0.00"))
         from billing.serializers import InvoiceItemSerializer
         from billing.invoice_pdf import _document
         line = invoice.items.get()

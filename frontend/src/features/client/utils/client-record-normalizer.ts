@@ -85,5 +85,9 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     score: undefined,
     service: resource === "services" ? normalizeServiceSnapshot(record) : undefined,
     invoicePeriods,
+    invoiceDocuments: resource === "orders" && Array.isArray(record.invoice_documents)
+      ? record.invoice_documents.flatMap(item => item && Number.isSafeInteger(item.id) && item.id > 0 && typeof item.number === "string"
+        ? [{id:String(item.id), number:item.number}] : [])
+      : undefined,
   };
 }
