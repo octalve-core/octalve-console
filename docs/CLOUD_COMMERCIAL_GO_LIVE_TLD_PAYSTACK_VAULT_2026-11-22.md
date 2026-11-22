@@ -98,7 +98,8 @@ API: `GET/POST /api/domains/admin/tld-price-cards/` (Super Admin only).
 - Explicit NGN 1, 2, 5 and 10-year total prices for registration and
   renewal; optional periods are null, not fabricated.
 - An annual transfer price can be supplied separately.
-- Pricing edits require the Super Admin account password, optimistic
+- Pricing edits require the Super Admin account password, fresh unused vault
+  TOTP, optimistic
   revision, strict decimal syntax and an atomic audit receipt.
 - Stored in existing `domains_tldpricing` with versioned
   `metadata.period_pricing_v1`. The original 1-year columns remain
