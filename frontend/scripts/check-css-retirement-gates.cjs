@@ -32,7 +32,7 @@ function routes(folder){
   return count+(e.isDirectory()?routes(p):e.name==="page.tsx"?1:0);
  },0);
 }
-const expected=[["admin",86],["client",33],["staff",10]];
+const expected=[["admin",87],["client",33],["staff",10]];
 let total=0;
 for(const [role,count] of expected){
  const actual=routes(path.join(src,"app",role));if(actual!==count)throw Error(role+" route regression: expected "+count+" got "+actual);
@@ -53,5 +53,5 @@ if(process.argv.includes("--built")){
  for(const rule of [".bg-console-primary",".text-console-ink",".border-console-line"])
   if(!built.includes(rule))throw Error("Missing required pre-retirement styling in compiled output: "+rule);
 }
-console.log("PASS: canonical Tailwind v3 configuration, 135 routes, <=300-line global entrypoint.");
+console.log("PASS: canonical Tailwind v3 configuration, 137 routes, <=300-line global entrypoint.");
 console.log("PENDING: exact role-authenticated browser parity is a separate acceptance gate.");
