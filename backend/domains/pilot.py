@@ -2,8 +2,10 @@
 import json
 import os
 import re
+from urllib.parse import urlsplit
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core import signing
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
@@ -16,9 +18,9 @@ from rest_framework.response import Response
 
 from billing.models import Invoice, InvoiceItem
 from orders.models import Order, OrderItem
-from payments.domain_pilot_scope import PILOT, pilot_configuration
-from payments.hosted_checkout import CheckoutRefused, reserve_hosted_checkout
-from payments.models import PaymentIntent, WebhookEvent
+from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_test_gateway
+from payments.hosted_checkout import CheckoutRefused, _return_url, reserve_hosted_checkout
+from payments.models import PaymentGateway, PaymentIntent, WebhookEvent
 from payments.readback import PaymentReadbackRejected, verify_gateway_intent
 from providers.cloudflare_int01 import CloudflareINT01, CloudflareINT01Denied, FixedCloudflareTransport
 from providers.connection_audit import verify_chain
@@ -84,9 +86,14 @@ def pilot_order(account, name):
 def result(order):
     invoice = order.invoices.get()
     evidence = order.metadata[PILOT]
-    return {"order": order.order_number, "invoice": invoice.invoice_number,
+    intent = invoice.payment_intents.first()
+    checkout_state = "available"
+    if intent:
+        checkout_state = ("expired" if intent.is_expired() else
+                          "resume" if intent.authorization_url else "uncertain")
+    return {"checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
             "domain": evidence["domain"], "amount": str(invoice.total), "currency": "NGN",
-            "state": evidence["state"], "payment_reference": evidence.get("payment_reference")}
+            "state": evidence["state"], "payment_reference": evidence.get("payment_reference") or (intent.reference if intent else None)}
 
 
 def quote_domain(account, name):
@@ -139,53 +146,131 @@ def accept_quote(user, name, token):
     return order
 
 
+def pilot_readiness(account):
+    issues = []
+    if not get_user_model().objects.filter(
+            pk=account, role="client", is_active=True, email_verified_at__isnull=False).exists():
+        issues.append("The configured client account must be active and email verified.")
+    if not TLDPricing.objects.filter(tld=".com", register_price__gt=0).exists():
+        issues.append("Save a positive one-year .com registration rate.")
+    try:
+        registrar()
+    except (CloudflareINT01Denied, VaultUnavailable, ValidationError,
+            IntegrationCredentialVersion.DoesNotExist, DjangoValidationError, KeyError, ValueError):
+        issues.append("Verify the configured Cloudflare Registrar Sandbox connection and vault.")
+    try:
+        registrant_contact()
+    except ValidationError:
+        issues.append("Configure the sandbox registrant contact on the API.")
+    gateway = PaymentGateway.objects.filter(code="paystack").first()
+    if not gateway or not pilot_test_gateway(gateway) or not gateway.get_secret_key():
+        issues.append("Bind a currently verified Paystack Test Mode connection.")
+    if not (settings.CLOUD_HOSTED_CHECKOUT_ENABLED and settings.CLOUD_GATEWAY_READBACK_ENABLED
+            and settings.CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED):
+        issues.append("Enable hosted checkout, gateway verification and signed webhook ingestion.")
+    try:
+        if urlsplit(_return_url()).netloc != urlsplit(settings.FRONTEND_URL).netloc:
+            raise CheckoutRefused("Unexpected Console origin.")
+    except CheckoutRefused:
+        issues.append("Set the payment return URL to the Production Console origin.")
+    return issues
+
+
+def update_registration(order, state, **evidence):
+    with transaction.atomic():
+        locked = Order.objects.select_for_update().get(pk=order.pk)
+        snapshot = locked.metadata[PILOT]
+        if snapshot["state"] in {"registered", "registration_rejected"}:
+            return
+        snapshot.update(state=state, **evidence)
+        locked.save(update_fields=["metadata", "updated_at"])
+
+
+def reconcile_registration(order, supplier, workflow=None):
+    domain = order.metadata[PILOT]["domain"]
+    try:
+        workflow = workflow or supplier.pilot_registration_status(domain)
+    except CloudflareINT01Denied:
+        # An unavailable readback cannot overwrite the last provider evidence.
+        return
+    state = workflow["state"]
+    if state == "failed":
+        update_registration(order, "registration_rejected")
+    elif state == "action_required":
+        update_registration(order, "registration_action_required")
+    elif state == "succeeded":
+        try:
+            confirmation = supplier.get_registration(domain)
+        except CloudflareINT01Denied:
+            update_registration(order, "registration_pending")
+            return
+        if confirmation["sandbox_status"] == "active":
+            update_registration(order, "registered", registration=confirmation)
+        else:
+            update_registration(order, "registration_pending")
+    else:
+        update_registration(order, "registration_pending")
+
+
+def inspect_payment(order):
+    intent = PaymentIntent.objects.filter(invoice__order=order, gateway__code="paystack").first()
+    if not intent:
+        raise ValidationError("Start the Paystack test checkout first.")
+    try:
+        proof = verify_gateway_intent(intent, inspect_pilot=True)
+    except PaymentReadbackRejected:
+        raise ValidationError(
+            "Paystack could not confirm the existing reference. Check that reference in Test Mode before taking any further action."
+        ) from None
+    if isinstance(proof, str):
+        raise ValidationError(f"Paystack reports {proof}. The purchase still uses the existing test reference.")
+    if not WebhookEvent.objects.filter(
+            gateway=intent.gateway, is_verified=True, event_type="charge.success",
+            payload__reference=proof.reference, payload__intent_id=intent.pk,
+            payload__remote_id=proof.remote_id).exists():
+        raise ValidationError("Paystack verified the payment. Waiting for the matching signed test webhook.")
+    return intent, proof
+
+
 def reconcile(order):
     snapshot = order.metadata[PILOT]
-    if snapshot["state"] == "registered":
+    if snapshot["state"] in {"registered", "registration_rejected"}:
         return
     supplier, _ = registrar(snapshot)
-    if snapshot["state"] == "awaiting_payment":
-        intent = PaymentIntent.objects.filter(invoice__order=order, gateway__code="paystack").first()
-        if not intent or not WebhookEvent.objects.filter(
-                gateway=intent.gateway, is_verified=True, event_type="charge.success",
-                payload__reference=intent.reference, payload__intent_id=intent.pk).exists():
-            raise ValidationError("Waiting for the signed Paystack test webhook.")
-        proof = verify_gateway_intent(intent)
-        if not WebhookEvent.objects.filter(
-                gateway=intent.gateway, is_verified=True, event_type="charge.success",
-                payload__reference=proof.reference, payload__intent_id=intent.pk,
-                payload__remote_id=proof.remote_id).exists():
-            raise ValidationError("Paystack verification does not match the webhook.")
-        contact = registrant_contact()
-        with transaction.atomic():
-            locked = Order.objects.select_for_update().get(pk=order.pk)
-            if locked.metadata[PILOT]["state"] != "awaiting_payment":
-                return
-            payment = PaymentIntent.objects.select_for_update().get(pk=intent.pk)
-            invoice = Invoice.objects.select_for_update().get(pk=intent.invoice_id)
-            if (payment.status != intent.status or payment.is_expired()
-                    or invoice.status != "unpaid" or invoice.amount_paid != 0
-                    or invoice.total != proof.amount or invoice.currency != proof.currency
-                    or locked.status != "pending_payment"):
-                raise ValidationError("The pilot payment changed during verification.")
-            locked.metadata[PILOT].update(state="registration_pending", payment_reference=proof.reference,
-                                         payment_remote_id=proof.remote_id)
-            locked.save(update_fields=["metadata", "updated_at"])
-            payment.status = "completed"
-            payment.save(update_fields=["status"])
-            # Preserve the invoice and proof without posting revenue or a ledger transaction.
-            invoice.status = "void"
-            invoice.save(update_fields=["status", "updated_at"])
-            locked.status = "needs_review"
-            locked.save(update_fields=["status", "updated_at"])
-        # The committed reservation precedes the only POST. Subsequent calls only read back.
-        supplier.submit_pilot_registration(snapshot["domain"], contact)
-    confirmation = supplier.get_registration(snapshot["domain"])
-    if confirmation["sandbox_status"] == "active":
-        with transaction.atomic():
-            locked = Order.objects.select_for_update().get(pk=order.pk)
-            locked.metadata[PILOT].update(state="registered", registration=confirmation)
-            locked.save(update_fields=["metadata", "updated_at"])
+    if snapshot["state"] != "awaiting_payment":
+        reconcile_registration(order, supplier)
+        return
+
+    intent, proof = inspect_payment(order)
+    contact = registrant_contact()
+    with transaction.atomic():
+        locked = Order.objects.select_for_update().get(pk=order.pk)
+        if locked.metadata[PILOT]["state"] != "awaiting_payment":
+            return
+        # Keep the lock order aligned with reserve_hosted_checkout.
+        invoice = Invoice.objects.select_for_update().get(pk=intent.invoice_id)
+        payment = PaymentIntent.objects.select_for_update().get(pk=intent.pk)
+        if (payment.status != intent.status or payment.reference != proof.reference
+                or payment.amount != proof.amount or payment.currency != proof.currency
+                or payment.gateway_id != intent.gateway_id
+                or invoice.status != "unpaid" or invoice.amount_paid != 0
+                or invoice.total != proof.amount or invoice.currency != proof.currency
+                or locked.status != "pending_payment"):
+            raise ValidationError("The pilot payment changed during verification.")
+        # Reserve before the POST. A crash at any point now requires readback only.
+        locked.metadata[PILOT].update(state="registration_uncertain", payment_reference=proof.reference,
+                                     payment_remote_id=proof.remote_id)
+        locked.status = "needs_review"
+        locked.save(update_fields=["metadata", "status", "updated_at"])
+        payment.status = "completed"
+        payment.save(update_fields=["status"])
+        invoice.status = "void"
+        invoice.save(update_fields=["status", "updated_at"])
+    try:
+        workflow = supplier.submit_pilot_registration(snapshot["domain"], contact)
+    except CloudflareINT01Denied:
+        return
+    reconcile_registration(order, supplier, workflow)
 
 
 @api_view(["GET", "POST"])
@@ -204,12 +289,15 @@ def domain_pilot(request):
     order = pilot_order(account, name)
     headers = {"Cache-Control": "private, no-store"}
     if request.method == "GET":
-        return Response({"domain": name, "purchase": result(order) if order else None}, headers=headers)
+        return Response({"domain": name, "purchase": result(order) if order else None,
+                         "readiness_issues": pilot_readiness(account) if is_admin else None}, headers=headers)
     if not isinstance(request.data, dict):
         raise ValidationError("Supply a purchase action.")
     action = request.data.get("action")
     try:
         if action == "quote" and not order:
+            if pilot_readiness(account):
+                raise ValidationError("The test setup is incomplete. Check the Admin domain pricing preflight.")
             return Response(quote_domain(account, name), headers=headers)
         if action == "accept" and isinstance(request.data.get("quote"), str):
             return Response(result(accept_quote(user, name, request.data["quote"])), headers=headers)

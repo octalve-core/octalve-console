@@ -33,7 +33,11 @@ def pilot_gateway_allowed(gateway, invoice):
                 and order.client_id == invoice.client_id
                 and invoice.client.is_active and invoice.client.role == "client"
                 and invoice.client.email_verified_at is not None
-                and gateway.code == "paystack" and gateway.test_mode
+                and pilot_test_gateway(gateway))
+
+
+def pilot_test_gateway(gateway):
+    return bool(gateway.code == "paystack" and gateway.test_mode
                 and gateway.status == "test" and not gateway.encrypted_secret_key
                 and isinstance(gateway.config, dict)
                 and "provider_vault_connection_id" in gateway.config)
