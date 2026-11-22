@@ -55,7 +55,8 @@ def resolve_paystack_test_key(gateway):
         if type(version) is not int or version < 1:
             return None
         row = IntegrationConnection.objects.get(pk=connection_id)
-        if row.current_version != version or not _verified_test_connection(row):
+        if (row.state != "draft" or row.environment != "test" or
+                row.current_version != version or not _verified_test_connection(row)):
             return None
         verify_chain(row)
         encrypted = IntegrationCredentialVersion.objects.select_related("connection").get(
