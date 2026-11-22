@@ -1,5 +1,6 @@
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
 import {normalizeServiceSnapshot} from "./service-contract.ts";
+import {invoicePaymentHref} from "../components/commerce/invoice-links.ts";
 
 export function unwrapClientList(value: unknown): Record<string, unknown>[] {
   const rows = Array.isArray(value)
@@ -87,7 +88,10 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     invoicePeriods,
     invoiceDocuments: resource === "orders" && Array.isArray(record.invoice_documents)
       ? record.invoice_documents.flatMap(item => item && Number.isSafeInteger(item.id) && item.id > 0 && typeof item.number === "string"
-        ? [{id:String(item.id), number:item.number}] : [])
+        ? [{id:String(item.id), number:item.number, paymentHref:invoicePaymentHref(item.id,item.payment_resume)}] : [])
       : undefined,
+    paymentHref: resource === "invoices" ? invoicePaymentHref(id, record.payment_resume) : undefined,
+    issuedDate: resource === "invoices" ? readClientString(record,["issue_date"],"") : undefined,
+    paidDate: resource === "invoices" ? readClientString(record,["paid_at"],"") : undefined,
   };
 }

@@ -68,6 +68,8 @@ def _line_description(item):
         if start and end:
             labels = ("Registered", "Expires") if period.get("kind") == "domain" else ("Activated", "Service period ends")
             return f"{description}. {labels[0]} {_date(start)}; {labels[1]} {_date(end)}."
+    if item.period_start and item.period_end:
+        return f"{description}. Billing period: {_date(item.period_start)} to {_date(item.period_end)}."
     return description
 
 

@@ -50,7 +50,11 @@ class OrderSerializer(serializers.ModelSerializer):
     invoice_documents = serializers.SerializerMethodField()
 
     def get_invoice_documents(self, obj):
-        return [{"id": invoice.pk, "number": invoice.invoice_number} for invoice in obj.invoices.all()
+        from billing.serializers import InvoiceSerializer
+
+        serializer = InvoiceSerializer()
+        return [{"id": invoice.pk, "number": invoice.invoice_number,
+                 "payment_resume": serializer.get_payment_resume(invoice)} for invoice in obj.invoices.all()
                 if invoice.client_id == obj.client_id]
     
     class Meta:

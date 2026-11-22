@@ -34,7 +34,9 @@ export function BillingRecordDetail({record,resource,actions}:{
     {[
      {key:"Reference",value:record.meta!=="—"?record.meta:record.id,icon:FileText},
      {key:"Status",value:formatStatus(record.status),icon:ShieldCheck},
-     {key:resource==="orders"?"Ordered":"Due / issued",value:record.date||"—",icon:CalendarDays},
+     {key:resource==="orders"?"Ordered":"Due date",value:serviceDate(record.date||null),icon:CalendarDays},
+     ...(resource==="invoices"?[{key:"Issued",value:serviceDate(record.issuedDate||null),icon:CalendarDays},
+      {key:"Paid on",value:record.paidDate?serviceDate(record.paidDate):"—",icon:CalendarDays}]:[]),
      {key:"Amount",value:record.amount||"—",icon:CreditCard}
     ].map(item=>{const Meta=item.icon;return <div key={item.key} className="min-w-0 rounded-xl bg-slate-50 p-4">
      <dt className="flex items-center gap-2 text-sm text-console-muted"><Meta aria-hidden="true" className="h-4 w-4"/>{item.key}</dt>
@@ -65,9 +67,11 @@ export function BillingRecordDetail({record,resource,actions}:{
    <Panel>
     <h3 className="text-lg font-medium text-console-ink">Quick actions</h3>
     <div className="mt-4 grid gap-3">
+     {resource==="invoices" && record.paymentHref && <ActionLink href={record.paymentHref} variant="primary">Pay now</ActionLink>}
      {resource==="invoices" && <a href={invoiceDownloadHref(record.id)} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-console-primary px-4 text-sm font-medium text-white">Download invoice PDF</a>}
      {resource==="orders" && record.invoiceDocuments?.map(invoice=><div key={invoice.id} className="grid gap-2 rounded-lg border border-console-line p-3 text-sm">
       <ActionLink href={invoiceHref(invoice.id)} variant="primary">View invoice {invoice.number}</ActionLink>
+      {invoice.paymentHref && <ActionLink href={invoice.paymentHref} variant="outline">Pay now</ActionLink>}
       <a href={invoiceDownloadHref(invoice.id)} className="inline-flex min-h-11 items-center justify-center font-medium text-console-primary">Download invoice PDF</a>
      </div>)}
      {actions.map(action=><ActionLink key={action.label} href={action.href}

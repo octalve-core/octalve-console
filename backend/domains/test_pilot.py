@@ -91,6 +91,10 @@ class DomainPilotTests(TestCase):
         order = self.owner.orders.get(order_number=accepted.data["order"])
         self.assertEqual(order.metadata[PILOT]["live_route"], route)
         invoice = order.invoices.get()
+        from billing.serializers import InvoiceSerializer
+        invoice_data = InvoiceSerializer(invoice).data
+        self.assertEqual(invoice_data["payment_resume"], {"kind": "domain", "domain": name})
+        self.assertFalse(invoice_data["payment_action_allowed"])
         self.assertTrue(gateway_can_read(self.gateway, invoice))
         def send(_url, **kwargs):
             body = kwargs["json"]
