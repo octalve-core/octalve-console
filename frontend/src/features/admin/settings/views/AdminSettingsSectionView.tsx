@@ -9,6 +9,7 @@ import {AccountEmailVerificationPanel} from "../components/AccountEmailVerificat
 import {ProviderVaultEnrollment} from "../../integrations/ProviderVaultEnrollment";
 import {ConsoleTaxEditor} from "../components/ConsoleTaxEditor";
 import {DomainRateCardSettings} from "../components/DomainRateCardSettings";
+import {DomainSandboxPurchase} from "@/features/client/components/DomainSandboxPurchase";
 import {OperationalSettingsStatus} from "../components/OperationalSettingsStatus";
 import {getAdminSettingsItem,type AdminSettingsKey} from "../data/admin-settings-config";
 export function AdminSettingsSectionView({section}:{section:AdminSettingsKey}){
@@ -27,6 +28,7 @@ export function AdminSettingsSectionView({section}:{section:AdminSettingsKey}){
     {(section==="mail"||section==="notifications")?<MailTemplateWorkbench/>:null}
     {(section==="mail"||section==="security")?<AccountEmailVerificationPanel/>:null}
     {section==="security"?<ProviderVaultEnrollment/>:null}
+    {section==="domain-pricing"?<DomainSandboxPurchase admin/>:null}
    </div>
   </DashboardPage>
  </DashboardShell>;

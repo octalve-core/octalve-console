@@ -19,6 +19,7 @@ from django.utils import timezone
 from billing.models import Invoice
 from payments.models import PaymentGateway, PaymentIntent
 from payments.sandbox import gateway_can_read, secret_matches_mode
+from payments.domain_pilot_scope import is_pilot_invoice
 
 REFERENCE = re.compile(r"^OC[A-Z0-9]{30}$")
 ALLOWED_CHECKOUT = {"paystack": "checkout.paystack.com",
@@ -63,15 +64,17 @@ def _checkout_url(value, gateway):
 
 def _post_checkout(intent, *, poster=None):
     gateway = intent.gateway
-    secret = gateway.get_secret_key()
-    if (gateway.code not in ALLOWED_CHECKOUT or not gateway_can_read(gateway)
-            or not secret_matches_mode(gateway, secret)):
-        raise CheckoutRefused("Authorized live gateway is unavailable.")
     invoice = intent.invoice
+    secret = gateway.get_secret_key()
+    if (gateway.code not in ALLOWED_CHECKOUT or not gateway_can_read(gateway, invoice)
+            or not secret_matches_mode(gateway, secret, invoice)):
+        raise CheckoutRefused("Authorized live gateway is unavailable.")
     email = invoice.client.email
     if not isinstance(email, str) or len(email) > 254 or "@" not in email:
         raise CheckoutRefused("Verified invoice contact email is required.")
     callback = _return_url()
+    if is_pilot_invoice(invoice):
+        callback = urlsplit(callback)._replace(path="/client/domains/register").geturl()
     if intent.currency != "NGN":
         # Other currencies require independently audited subunit conventions.
         raise CheckoutRefused("Only audited NGN payment initialization is supported.")
@@ -139,8 +142,7 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None):
         raise CheckoutRefused("Unsupported hosted gateway.")
     with transaction.atomic():
         try:
-            invoice = Invoice.objects.select_for_update().select_related(
-                "order", "client").get(pk=invoice_id)
+            invoice = Invoice.objects.select_for_update().select_related("client").get(pk=invoice_id)
         except (Invoice.DoesNotExist, ValueError, TypeError):
             raise CheckoutRefused("Invoice not found.") from None
         if (not invoice.order_id or invoice.order.status != "pending_payment"
@@ -150,7 +152,7 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None):
                 or invoice.total != invoice.order.total or invoice.currency != "NGN"):
             raise CheckoutRefused("Invoice is not eligible for hosted payment.")
         gateway = PaymentGateway.objects.filter(code=gateway_code).first()
-        if not gateway or not gateway_can_read(gateway):
+        if not gateway or not gateway_can_read(gateway, invoice):
             raise CheckoutRefused("Approved payment provider unavailable.")
         _return_url()
         active = list(PaymentIntent.objects.select_for_update().filter(invoice=invoice))

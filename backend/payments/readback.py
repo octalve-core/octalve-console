@@ -55,7 +55,7 @@ def verify_gateway_intent(intent, *, getter=None):
         raise PaymentReadbackRejected("Unknown server-issued payment intent.")
     gateway, invoice = intent.gateway, intent.invoice
     order = invoice.order
-    if (not gateway_can_read(gateway)
+    if (not gateway_can_read(gateway, invoice)
             or intent.status not in ("pending", "processing")
             or intent.is_expired() or invoice.status not in ("unpaid", "partially_paid")
             or not order or order.status != "pending_payment"
@@ -68,7 +68,7 @@ def verify_gateway_intent(intent, *, getter=None):
     if not isinstance(ref, str) or not REFERENCE.fullmatch(ref):
         raise PaymentReadbackRejected("Gateway payment reference is invalid.")
     secret = gateway.get_secret_key()
-    if not secret_matches_mode(gateway, secret):
+    if not secret_matches_mode(gateway, secret, invoice):
         raise PaymentReadbackRejected("Gateway credential does not match approved execution mode.")
     if gateway.code == "paystack":
         url = "https://api.paystack.co/transaction/verify/" + quote(ref, safe="")
