@@ -101,9 +101,6 @@ def admin_tld_price_cards(request):
     password = payload["confirm_password"]
     if not isinstance(password, str) or not (1 <= len(password) <= 512) or not request.user.check_password(password):
         raise PermissionDenied("Account password could not be verified.")
-    # An edited financial rate card requires a fresh, unused vault TOTP.
-    # The shared Super Admin authenticator prevents replay of the same code.
-    check_mutation(request.user, password, payload["totp_code"])
     registration = _matrix(payload["registration"])
     renewal = _matrix(payload["renewal"])
     transfer = _money(payload["transfer_price"])
@@ -122,6 +119,9 @@ def admin_tld_price_cards(request):
                 current = saved.get("revision", 0) if isinstance(saved, dict) else 0
                 if type(current) is not int or current != revision:
                     return Response({"detail": "Price card changed. Refresh before saving."}, status=409)
+            # Only consume an MFA code AFTER schema, money and optimistic
+            # revision validation; the OTP update rolls back with this write.
+            check_mutation(request.user, password, payload["totp_code"])
             row.description = description
             row.register_price = registration["1"]
             row.renewal_price = renewal["1"]
