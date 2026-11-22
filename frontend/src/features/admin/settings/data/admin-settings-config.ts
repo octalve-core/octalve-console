@@ -9,6 +9,7 @@ import {
   Palette,
   Percent,
   PlugZap,
+  Globe2,
   Settings,
   ShieldCheck,
   Ticket,
@@ -22,6 +23,7 @@ export type AdminSettingsKey =
   | "mail"
   | "tax"
   | "providers"
+  | "domain-pricing"
   | "api-keys"
   | "notifications"
   | "credits"
@@ -109,6 +111,19 @@ export const adminSettingsItems: AdminSettingsItem[] = [
       { label: "Provider identity", value: "Inspect live records under Servers / Providers" },
       { label: "Provisioning", value: "Disabled pending audited worker and payment authority" },
       { label: "Registrar and SSL", value: "Not yet configured as live integrations" },
+    ],
+  },
+  {
+    key: "domain-pricing",
+    title: "Domain TLD pricing",
+    description: "Set internal registration and renewal rate cards for 1, 2, 5 and 10 years.",
+    href: "/admin/settings/domain-pricing",
+    icon: Globe2,
+    status: "Draft",
+    fields: [
+      { label: "Currency", value: "NGN" },
+      { label: "Periods", value: "1 / 2 / 5 / 10 years" },
+      { label: "Registrar checkout", value: "Unavailable until supplier-qualified" },
     ],
   },
   {
