@@ -68,8 +68,8 @@ if(live.length)blockers.push("Route-reachable unmigrated legacy classes: "+live.
 if(remaining.length)blockers.push("Retired legacy global rules still present: "+remaining.length);
 if(otherCss.length)blockers.push("Unreviewed additional unscoped global stylesheets");
 if(weights||bold.length)blockers.push("Weights above medium remain");
-// DNS-01 adds exactly one reviewed Admin page; historical routes must stay intact.
-if(routes.length!==136)blockers.push("Route count changed: "+routes.length);
+// DNS-01 and approved TLD pricing editor add two reviewed Admin routes; historical routes remain intact.
+if(routes.length!==137)blockers.push("Route count changed: "+routes.length);
 if(!css.startsWith("@tailwind base;\n@tailwind components;\n@tailwind utilities;"))
  blockers.push("Canonical Tailwind directives missing");
 const report={mode:process.argv.includes("--enforce")?"enforce":"inventory",
@@ -77,6 +77,6 @@ const report={mode:process.argv.includes("--enforce")?"enforce":"inventory",
  liveLegacyClassConsumers:live,dormantLegacyFileCount:dormant.length,dormantSamples:dormant.slice(0,8),
  remainingHistoricalGlobalRules:remaining.length,unscopedCssCount:otherCss.length,
  highFontWeights:weights,boldSourceFiles:bold.length,sourceQualified:blockers.length===0,
- blockers,browserAcceptance:"135 routes x 6 viewports still require actual role-authenticated screenshots and owner review"};
+ blockers,browserAcceptance:"137 routes x 6 viewports still require actual role-authenticated screenshots and owner review"};
 console.log(JSON.stringify(report,null,2));
 if(process.argv.includes("--enforce")&&blockers.length)process.exitCode=1;
