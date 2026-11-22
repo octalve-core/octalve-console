@@ -55,6 +55,13 @@ SCHEMAS = {
         "ports": (),
         "guide": "https://developers.cloudflare.com/registrar/registrar-api/",
     },
+    "paystack": {
+        "name": "Paystack (credential verification only)",
+        "fields": {},
+        "secrets": ("secret_key",),
+        "ports": (),
+        "guide": "https://paystack.com/docs/v2/developer-tools/integration/api-keys",
+    },
     "brevo": {
         "name": "Brevo (transactional mail, primary)",
         "fields": {"sending_domain": "domain"},
@@ -119,7 +126,7 @@ def validate_public_settings(adapter, data):
         result[field]=v
     return result
 
-def validate_secrets(adapter, data):
+def validate_secrets(adapter, data, environment=None):
     schema=SCHEMAS.get(adapter)
     if not schema or not isinstance(data,dict) or set(data)!=set(schema["secrets"]):
         raise ValidationError({"secrets":"Exactly the required credential fields must be supplied."})
@@ -127,4 +134,10 @@ def validate_secrets(adapter, data):
         min_length = 32 if adapter == "opanel" else 12
         if not isinstance(v,str) or not (min_length<=len(v)<=4096) or v.strip()!=v or any(ord(c)<32 for c in v):
             raise ValidationError({"secrets":"A credential value has invalid length or characters."})
+    if adapter == "paystack":
+        key=data["secret_key"]
+        if not re.fullmatch(r"sk_(?:test|live)_[A-Za-z0-9_-]{12,200}", key):
+            raise ValidationError({"secrets":"A valid Paystack secret key is required (sk_test_ or sk_live_)."})
+        if environment not in ("test","live") or not key.startswith("sk_"+environment+"_"):
+            raise ValidationError({"secrets":"Paystack key and selected test/live environment must match."})
     return data

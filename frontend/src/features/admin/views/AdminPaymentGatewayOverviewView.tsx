@@ -7,6 +7,7 @@ import {Panel} from "@/components/design-system/Panel";
 import {ActionLink} from "@/components/design-system/ActionLink";
 import {ActionButton} from "@/components/design-system/ActionButton";
 import {schemaApi} from "@/lib/api/schema-api";
+import {PaystackTestBindingPanel} from "../components/PaystackTestBindingPanel";
 import type {Gateway} from "@/lib/api/types";
 
 type LoadState={loading:boolean;error:string;gateway:Gateway|null;checked:boolean;nextPage:boolean};
@@ -73,6 +74,7 @@ export function AdminPaymentGatewayOverviewView(){
        className="w-full sm:w-auto">View gateway record</ActionLink>:null}
      </div>
     </Panel>
+    <PaystackTestBindingPanel/>
     <Panel className="flex items-start gap-3">
      <ShieldCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-console-primary"/>
      <div>

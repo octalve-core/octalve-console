@@ -52,6 +52,47 @@ def brevo_readback(api_key):
     finally:
         session.close()
 
+def paystack_readback(secret_key, environment, *, session_factory=None):
+    """Paystack documented GET /balance authenticates a key without charging.
+
+    Responses may contain merchant balances: validate shape then discard them.
+    Fixed HTTPS origin, no redirect, proxies or unbounded responses. Key never
+    leaves the server except to the official Paystack API via TLS.
+    """
+    prefix="sk_test_" if environment=="test" else "sk_live_" if environment=="live" else None
+    if not prefix or not isinstance(secret_key,str) or not secret_key.startswith(prefix):
+        raise ProviderReadbackFailed()
+    session=(session_factory or requests.Session)()
+    session.trust_env=False
+    session.headers.clear()
+    try:
+        response=session.get(
+            "https://api.paystack.co/balance",
+            headers={"Authorization":"Bearer "+secret_key,"Accept":"application/json"},
+            timeout=(3,8),verify=True,allow_redirects=False,stream=True)
+        with response:
+            if response.status_code!=200:
+                raise ProviderReadbackFailed()
+            limit=response.headers.get("Content-Length","")
+            if limit and (not str(limit).isdigit() or int(limit)>32768):
+                raise ProviderReadbackFailed()
+            buf=bytearray()
+            for chunk in response.iter_content(chunk_size=4096):
+                buf.extend(chunk)
+                if len(buf)>32768:
+                    raise ProviderReadbackFailed()
+            data=json.loads(bytes(buf).decode("utf-8"))
+            if (not isinstance(data,dict) or data.get("status") is not True
+                    or not isinstance(data.get("data"),list)):
+                raise ProviderReadbackFailed()
+            return {"authenticated":True,"read_only":True,
+                    "payment_collection_enabled":False,"environment":environment}
+    except (requests.RequestException,ValueError,UnicodeError,TypeError) as exc:
+        raise ProviderReadbackFailed() from exc
+    finally:
+        session.close()
+
+
 @api_view(["POST"])
 @permission_classes([InternalSupplierAuthority])
 @throttle_classes([VaultMutationThrottle])
@@ -72,7 +113,7 @@ def verify_connection(request,connection_id):
         row=IntegrationConnection.objects.get(pk=connection_id,state="draft")
     except IntegrationConnection.DoesNotExist:
         return Response({"detail":"Connection draft not found."},status=404)
-    if row.adapter_key not in ("cloudflare-dns","cloudflare-registrar","brevo"):
+    if row.adapter_key not in ("cloudflare-dns","cloudflare-registrar","brevo","paystack"):
         return Response({"detail":"A certified read-only verification adapter is not yet available."},status=409)
     try:
         verify_chain(row)
@@ -87,8 +128,10 @@ def verify_connection(request,connection_id):
             connector=CloudflareINT01(row.public_settings["account_id"],
                 FixedCloudflareTransport(secrets["api_token"]))
             proof=connector.sandbox_readback()
-        else:
+        elif row.adapter_key=="brevo":
             proof=brevo_readback(secrets["api_key"])
+        else:
+            proof=paystack_readback(secrets["secret_key"],row.environment)
     except (CloudflareINT01Denied,ProviderReadbackFailed,VaultUnavailable,
             IntegrationCredentialVersion.DoesNotExist,KeyError,DatabaseError):
         return Response({"verified":False,"detail":"Credential readback failed or could not be certified."},

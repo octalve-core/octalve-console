@@ -62,7 +62,7 @@ export const services:readonly Integration[]=[
   "slug": "paystack",
   "name": "Paystack",
   "category": "Payments",
-  "summary": "Connect Paystack to accept customer payments and confirm successful transactions.",
+  "summary": "Save encrypted Paystack test/live keys and verify access. Charging customers requires separate settlement approval.",
   "documentation": "https://support.paystack.com/en/articles/2123458",
   "guide": "Dashboard API Keys & Webhooks",
   "requirements": [
@@ -76,15 +76,16 @@ export const services:readonly Integration[]=[
    },
    {
     "label": "Secret key",
-    "guidance": "Copy the appropriate secret key from Paystack’s dashboard and keep it confidential.",
+    "guidance": "Copy only sk_test_ or sk_live_ (not pk_ or a key identifier). Octalve encrypts it in the Super Admin vault and never displays it again.",
     "sensitive": true
    }
   ],
   "capabilities": [
-   "Payment processing uses Octalve Cloud’s approved payment settings.",
-   "Saving a connection does not enable payments automatically."
+   "Verify credentials safely using the official Paystack balance API without displaying your account balance.",
+   "Secret keys are encrypted, versioned and protected by Super Admin password plus authenticator.",
+   "Live transactions, webhooks and order fulfillment stay disabled until separate qualification."
   ],
-  "stage": "Research"
+  "stage": "Read-only"
  },
  {
   "slug": "flutterwave",

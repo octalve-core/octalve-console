@@ -360,6 +360,12 @@
       "fixtureRequired": false
     },
     {
+      "route": "/admin/settings/domain-pricing",
+      "role": "admin",
+      "source": "frontend/src/app/admin/settings/domain-pricing/page.tsx",
+      "fixtureRequired": false
+    },
+    {
       "route": "/admin/settings/general",
       "role": "admin",
       "source": "frontend/src/app/admin/settings/general/page.tsx",
