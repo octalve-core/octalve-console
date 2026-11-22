@@ -2,6 +2,7 @@ import Link from "next/link";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {ClientDomainSearch} from "@/features/client/components/ClientDomainSearch";
+import {DomainSandboxPurchase} from "@/features/client/components/DomainSandboxPurchase";
 
 export default function ClientDomainRegistrationPage(){
   return <DashboardShell role="client" title="Register a domain"
@@ -12,6 +13,7 @@ export default function ClientDomainRegistrationPage(){
         <Link href="/client/domains" className="text-sm font-medium text-console-primary">
           My Domains
         </Link>
+        <DomainSandboxPurchase/>
         <ClientDomainSearch/>
         <p className="rounded-xl border border-console-line bg-white p-4 text-sm leading-6 text-console-muted">
           Registration is completed only after a registrar confirms availability,

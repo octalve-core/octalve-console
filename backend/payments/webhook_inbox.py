@@ -29,7 +29,7 @@ def accept_signed_event(gateway_code, raw_body, headers):
     if not isinstance(raw_body, bytes) or not 0 < len(raw_body) <= 65536:
         raise WebhookRejected("Malformed or oversized webhook.")
     gateway = PaymentGateway.objects.filter(code=gateway_code).first()
-    if not gateway or not gateway_can_read(gateway):
+    if not gateway:
         raise WebhookRejected("Payment provider is unavailable.")
     secret = (gateway.get_secret_key() if gateway_code == "paystack"
               else gateway.get_webhook_secret())
@@ -59,6 +59,8 @@ def accept_signed_event(gateway_code, raw_body, headers):
     intent = PaymentIntent.objects.filter(reference=reference, gateway=gateway).first()
     if intent is None:
         return None, False
+    if not gateway_can_read(gateway, intent.invoice):
+        raise WebhookRejected("Payment provider is unavailable for this invoice.")
     fingerprint = hashlib.sha256(
         f"{gateway.code}|{event}|{reference}|{remote_id}".encode("utf-8")).hexdigest()
     # Only minimal non-sensitive evidence is persisted. No raw payload/card,

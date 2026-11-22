@@ -125,7 +125,9 @@ class FixedCloudflareTransport:
         if method=="GET" and is_check:
             raise CloudflareINT01Denied()
         if method=="POST":
-            if not isinstance(body,dict) or (set(body)!={"domains"} if is_check else set(body)!={"domain_name","years","auto_renew","privacy_mode"}):
+            registration_fields = {"domain_name", "years", "auto_renew", "privacy_mode"}
+            allowed = ({"domains"},) if is_check else (registration_fields, registration_fields | {"contacts"})
+            if not isinstance(body, dict) or set(body) not in allowed:
                 raise CloudflareINT01Denied()
         elif body is not None:
             raise CloudflareINT01Denied()
@@ -362,6 +364,18 @@ class CloudflareINT01:
     def get_registration(self,domain):
         domain=require_domain(domain)
         return _registration(self.transport("GET",self._path("registrations/"+domain)),domain)
+
+    def submit_pilot_registration(self, domain, contact):
+        from payments.domain_pilot_scope import pilot_configuration
+
+        scope = pilot_configuration()
+        if not scope or domain != scope[1]:
+            raise CloudflareINT01Denied()
+        registration = self.transport("POST", self._path("registrations"), {
+            "domain_name": domain, "years": 1, "auto_renew": False,
+            "privacy_mode": "redaction", "contacts": {"registrant": contact},
+        })
+        return _workflow(registration, domain)
 
     def simulate_registration(self,domain,*,operator_approved=False):
         """Only sandbox POST. Explicit approval; one attempt, NEVER automatic retry.
