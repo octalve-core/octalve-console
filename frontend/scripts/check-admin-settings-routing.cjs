@@ -13,8 +13,8 @@ assert.match(nav,/href:\s*routes\.admin\.settings/);
 assert.match(routes,/settings:\s*"\/admin\/settings"/);
 assert.match(layout,/RoleGuard allowed=\{\["admin"\]\}/);
 const keys=[...config.matchAll(/key:\s*"([a-z-]+)",\s*\n\s*title:/g)].map(x=>x[1]);
-assert.equal(keys.length,14,"Expected all 14 Admin Settings sections");
-assert.equal(new Set(keys).size,14,"Duplicate Admin Settings sections");
+assert.equal(keys.length,15,"Expected all 15 Admin Settings sections");
+assert.equal(new Set(keys).size,15,"Duplicate Admin Settings sections");
 for(const key of keys){
  const href="/admin/settings/"+key;
  assert.ok(config.includes('href: "'+href+'"'),"Settings link missing: "+key);
@@ -31,4 +31,4 @@ assert.ok(!notifications.includes("createHref:"),"Unqualified notification templ
 assert.ok(!newPage.includes("AdminOperationEditorView")&&newPage.includes('redirect("/admin/settings/notifications")'),
  "Legacy notification create link must fail safe to list");
 assert.ok(!config.includes('status: "Ready"'),"Static Settings overview incorrectly claims operational readiness");
-console.log("PASS: 14 admin-only Settings routes, valid management links, separate provider/gateway/domain paths, no unqualified notification Save.");
+console.log("PASS: 15 admin-only Settings routes, valid management links, separate provider/gateway/domain paths, no unqualified notification Save.");
