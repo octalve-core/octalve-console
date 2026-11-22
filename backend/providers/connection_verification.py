@@ -13,6 +13,7 @@ from rest_framework.exceptions import PermissionDenied,ValidationError
 from rest_framework.response import Response
 
 from catalog.permissions import InternalSupplierAuthority
+from .connection_specs import READBACK_ADAPTERS
 from .connection_audit import verify_chain
 from .connection_models import IntegrationConnection,IntegrationCredentialVersion
 from .connection_stepup import assert_admin,check_mutation
@@ -113,7 +114,7 @@ def verify_connection(request,connection_id):
         row=IntegrationConnection.objects.get(pk=connection_id,state="draft")
     except IntegrationConnection.DoesNotExist:
         return Response({"detail":"Connection draft not found."},status=404)
-    if row.adapter_key not in ("cloudflare-dns","cloudflare-registrar","brevo","paystack"):
+    if row.adapter_key not in READBACK_ADAPTERS:
         return Response({"detail":"A certified read-only verification adapter is not yet available."},status=409)
     try:
         verify_chain(row)

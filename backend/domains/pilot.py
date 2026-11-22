@@ -2,6 +2,7 @@
 import json
 import os
 import re
+from decimal import Decimal
 from urllib.parse import urlsplit
 
 from django.conf import settings
@@ -30,6 +31,7 @@ from providers.connection_views import VaultMutationThrottle, connection_databas
 from providers.connection_vault import VaultUnavailable, unseal_version
 
 from .models import TLDPricing
+from .tld_pricing_admin import rate_card_draft
 
 QUOTE_SALT = "octalve.sandbox-domain-purchase.v1"
 
@@ -98,14 +100,15 @@ def result(order):
 
 def quote_domain(account, name):
     card = TLDPricing.objects.filter(tld=".com").first()
-    if not card or card.register_price <= 0:
+    rate = rate_card_draft(card) if card else None
+    if not rate or Decimal(rate["registration"]["1"]) <= 0:
         raise ValidationError("Set a positive one-year .com rate first.")
     supplier, binding = registrar()
     availability = supplier.check(name)
     if not availability["registrable"]:
         raise ValidationError("The domain is unavailable in the registrar sandbox.")
-    snapshot = {"client": account, "domain": name, "amount": str(card.register_price),
-                "price_revision": card.metadata.get("period_pricing_v1", {}).get("revision", 0),
+    snapshot = {"client": account, "domain": name, "amount": rate["registration"]["1"],
+                "price_revision": rate["revision"],
                 "registrar": binding, "supplier_quote": availability}
     return {"quote": signing.dumps(snapshot, salt=QUOTE_SALT), "domain": name,
             "amount": snapshot["amount"], "currency": "NGN", "years": 1}
@@ -125,22 +128,24 @@ def accept_quote(user, name, token):
     if (snapshot["client"], snapshot["domain"]) != (user.pk, name):
         raise ValidationError("This quote does not match the pilot account.")
     card = TLDPricing.objects.select_for_update().filter(tld=".com").first()
-    if (not card or str(card.register_price) != snapshot["amount"]
-            or card.metadata.get("period_pricing_v1", {}).get("revision", 0) != snapshot["price_revision"]):
+    rate = rate_card_draft(card) if card else None
+    if (not rate or rate["registration"]["1"] != snapshot["amount"]
+            or rate["revision"] != snapshot["price_revision"]):
         raise ValidationError("The price changed. Request a fresh quote.")
     registrar(snapshot)
+    amount = Decimal(snapshot["amount"])
     label = f"Sandbox only: {name} registration (1 year)"
-    order = Order.objects.create(client=user, status="pending_payment", subtotal=card.register_price,
-                                 total=card.register_price, notes=label,
+    order = Order.objects.create(client=user, status="pending_payment", subtotal=amount,
+                                 total=amount, notes=label,
                                  metadata={PILOT: {**snapshot, "state": "awaiting_payment"}})
     OrderItem.objects.create(order=order, product_id=0, plan_id=0, billing_cycle_id=0,
                              item_type="domain", domain_name=name, description=label,
-                             unit_price=card.register_price, cycle_key="1yr", months=12)
-    invoice = Invoice.objects.create(order=order, client=user, subtotal=card.register_price,
-                                     total=card.register_price, notes=label, metadata={PILOT: True},
+                             unit_price=amount, cycle_key="1yr", months=12)
+    invoice = Invoice.objects.create(order=order, client=user, subtotal=amount,
+                                     total=amount, notes=label, metadata={PILOT: True},
                                      due_date=timezone.now() + timezone.timedelta(days=1))
     InvoiceItem.objects.create(invoice=invoice, description=label, domain_name=name,
-                               unit_price=card.register_price, subtotal=card.register_price,
+                               unit_price=amount, subtotal=amount,
                                quantity=1, period_start=invoice.issue_date,
                                period_end=invoice.issue_date + timezone.timedelta(days=365))
     return order

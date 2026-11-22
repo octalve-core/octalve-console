@@ -30,24 +30,28 @@ def status(request):
         stepup_key_ready and custody_verified and
         getattr(settings,"CLOUD_PROVIDER_STEPUP_ENROLLMENT_ENABLED",False))
     approved=approved_draft_adapters()
+    checks = {
+        "authenticator_verified": bool(record and record.verified and stepup_key_ready),
+        "vault_custody_verified": custody_verified,
+        "writes_enabled": bool(settings.CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED),
+        "production_vault_approved": bool(settings.CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED),
+        "production_mode": not settings.DEBUG,
+        "database_ready": connection_database_qualified(),
+        "encryption_and_audit_keys_ready": False,
+    }
     configured=False
-    if (record and record.verified and stepup_key_ready and approved and
-        getattr(settings,"CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED",False) and
-        getattr(settings,"CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED",False) and
-        getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False) and
-        not getattr(settings,"DEBUG",False) and
-        connection_database_qualified()):
-        try:
-            vault()
-            cipher()
-            audit_key()
-            configured=True
-        except VaultUnavailable:
-            pass
+    try:
+        vault()
+        audit_key()
+        checks["encryption_and_audit_keys_ready"] = True
+    except VaultUnavailable:
+        pass
+    configured = all(checks.values())
     return Response({"verified":bool(record and record.verified),"kind":"totp",
         "enrollment_available":enrollment_available,
         "credential_submission_available":configured,
         "approved_draft_adapters":sorted(approved) if configured else [],
+        "readiness_checks":checks,
         "provider_execution_enabled":False},headers={"Cache-Control":"private, no-store"})
 
 @api_view(["POST"])

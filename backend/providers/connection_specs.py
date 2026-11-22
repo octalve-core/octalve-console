@@ -78,10 +78,42 @@ SCHEMAS = {
     },
 }
 
+# These schemas admit credential storage only. Each runtime must separately
+# implement its authentication and supported operations before it consumes them.
+for key, name, fields, secrets, ports, guide in (
+    ("resellerclub", "ResellerClub", {"reseller_id": "name"}, ("api_key",), (),
+     "https://manage.resellerclub.com/kb/answer/753"),
+    ("namecheap", "Namecheap", {"api_username": "name"}, ("api_key",), (),
+     "https://www.namecheap.com/support/api/intro/"),
+    ("opensrs", "OpenSRS", {"reseller_username": "name"}, ("api_key",), (),
+     "https://opensrs.com/integrations/"),
+    ("flutterwave", "Flutterwave", {}, ("secret_key",), (),
+     "https://developer.flutterwave.com/docs"),
+    ("monnify", "Monnify", {"contract_code": "name"}, ("api_key", "api_secret"), (),
+     "https://developers.monnify.com/"),
+    ("plesk", "Plesk", {"server_url": "url"}, ("api_key",), (443, 8443),
+     "https://docs.plesk.com/en-US/obsidian/api-rpc/about-xml-api.28709/"),
+    ("hetzner", "Hetzner Cloud", {}, ("api_token",), (),
+     "https://docs.hetzner.cloud/"),
+    ("digitalocean", "DigitalOcean", {}, ("api_token",), (),
+     "https://docs.digitalocean.com/reference/api/create-personal-access-token/"),
+    ("proxmox", "Proxmox VE", {"server_url": "url"}, ("token_id", "token_secret"), (443, 8006),
+     "https://pve.proxmox.com/pve-docs/api-viewer/index.html"),
+    ("vultr", "Vultr", {}, ("api_key",), (), "https://www.vultr.com/api/"),
+    ("cloudflare-r2", "Cloudflare R2", {"account_id": "identifier", "bucket": "name"},
+     ("access_key_id", "secret_access_key"), (), "https://developers.cloudflare.com/r2/get-started/s3/"),
+    ("zoho-mail", "Zoho Mail", {"organization_id": "name", "client_id": "name"},
+     ("client_secret", "refresh_token"), (), "https://www.zoho.com/mail/help/api/using-oauth-2.html"),
+):
+    SCHEMAS[key] = {"name": name, "fields": fields, "secrets": secrets, "ports": ports, "guide": guide}
+
+READBACK_ADAPTERS = frozenset({"cloudflare-dns", "cloudflare-registrar", "brevo", "paystack"})
+
+
 def public_catalog():
     return [{"key":key,"name":spec["name"],"fields":spec["fields"],
              "secret_fields":list(spec["secrets"]),"guide":spec["guide"],
-             "enabled_for_execution":False}
+             "enabled_for_execution":False, "supports_verification":key in READBACK_ADAPTERS}
             for key,spec in SCHEMAS.items()]
 
 def validate_public_settings(adapter, data):

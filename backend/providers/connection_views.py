@@ -14,7 +14,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError, Throttl
 
 from catalog.permissions import InternalSupplierAuthority
 from .connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent
-from .connection_specs import SCHEMAS, public_catalog, validate_public_settings, validate_secrets
+from .connection_specs import READBACK_ADAPTERS, SCHEMAS, public_catalog, validate_public_settings, validate_secrets
 from .connection_vault import seal, vault, VaultUnavailable
 from .connection_stepup import check_mutation, assert_admin
 from .connection_audit import audit_key,append_event
@@ -42,27 +42,8 @@ class VaultMutationThrottle(BaseThrottle):
         return True
 
 def approved_draft_adapters():
-    """Exactly the individually approved adapters; malformed settings disable all."""
-    raw=getattr(settings,"CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS","")
-    if not isinstance(raw,str) or not raw or len(raw)>512:
-        return frozenset()
-    parts=raw.split(",")
-    if (len(parts)>len(SCHEMAS) or len(set(parts))!=len(parts)
-            or any(not re.fullmatch(r"[a-z0-9_-]{2,40}",part)
-                   or part not in SCHEMAS for part in parts)):
-        return frozenset()
-    return frozenset(parts)
-
-
-def require_adapter_intake(adapter):
-    # Synthetic local test harnesses may exercise every code-owned draft schema.
-    # Deployed environments never get this exception.
-    synthetic=(getattr(settings,"DEBUG",False)
-               and getattr(settings,"CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED",False)
-               and os.getenv("VERCEL","")!="1"
-               and os.getenv("VERCEL_ENV","").lower() not in ("production","preview","development"))
-    if not synthetic and adapter not in approved_draft_adapters():
-        raise VaultUnavailable()
+    """The reviewed schemas govern encrypted intake. Runtime authority is separate."""
+    return frozenset(SCHEMAS)
 
 
 def require_write_authority(request):
@@ -145,6 +126,7 @@ def safe_connection(row,receipts=None):
         "environment":row.environment,"public_settings":row.public_settings,
         "state":row.state,"credential_configured":row.state=="draft",
         "credential_version":row.current_version,
+        "supports_verification":row.adapter_key in READBACK_ADAPTERS,
         **safe_verification_status(row,receipts or {}),
         "created_at":row.created_at.isoformat(),
         "updated_at":row.updated_at.isoformat(),
@@ -175,7 +157,6 @@ def connections(request):
     adapter=data["adapter_key"]
     if adapter not in SCHEMAS:
         raise ValidationError({"adapter_key":"Adapter is not supported for secure draft storage."})
-    require_adapter_intake(adapter)
     label=data["label"]
     if not isinstance(label,str) or not 2<=len(label)<=120 or label!=label.strip():
         raise ValidationError({"label":"Enter a descriptive connection name."})
@@ -218,7 +199,6 @@ def rotate_connection(request, connection_id):
             return Response({"detail":"Connection not found."},status=404)
         if row.state!="draft":
             return Response({"detail":"Revoked connection cannot be rotated."},status=409)
-        require_adapter_intake(row.adapter_key)
         secrets=validate_secrets(row.adapter_key,data["secrets"],row.environment)
         next_version=row.current_version+1
         if next_version>65535:

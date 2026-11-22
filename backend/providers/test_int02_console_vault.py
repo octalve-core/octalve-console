@@ -48,16 +48,17 @@ class SecureConsoleCredentialTests(TestCase):
     self.assertIn(res.status_code,(401,403))
   self.assertEqual(IntegrationConnection.objects.count(),0)
 
- def test_production_storage_is_default_denied_without_explicit_adapter_approval(self):
+ def test_credential_intake_uses_schema_even_with_old_allowlist(self):
   with patch("providers.connection_views.connection_database_qualified",return_value=True),patch(
-      "providers.connection_views.check_mutation",return_value=None):
-   with override_settings(CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS=""):
-    denied=self.c.post("/api/providers/connections/",self.payload,format="json")
-    self.assertEqual(denied.status_code,503,denied.data)
-   with override_settings(CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS="cloudflare-dns,not-registered"):
-    denied=self.c.post("/api/providers/connections/",self.payload,format="json")
-    self.assertEqual(denied.status_code,503,denied.data)
-  self.assertFalse(IntegrationConnection.objects.exists())
+      "providers.connection_views.check_mutation",return_value=None),override_settings(
+      CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS="cloudflare-dns"):
+   payload={**self.payload,"adapter_key":"paystack","public_settings":{},
+            "secrets":{"secret_key":"sk_test_0123456789abcdef"}}
+   saved=self.c.post("/api/providers/connections/",payload,format="json")
+   self.assertEqual(saved.status_code,201,saved.data)
+   self.assertNotIn("sk_test_0123456789abcdef",json.dumps(saved.data))
+   denied=self.c.post("/api/providers/connections/",{**payload,"adapter_key":"unknown"},format="json")
+   self.assertEqual(denied.status_code,400,denied.data)
 
  def test_stepup_can_be_enrolled_before_provider_writes(self):
   from providers.connection_stepup import otp_at
@@ -77,7 +78,7 @@ class SecureConsoleCredentialTests(TestCase):
    self.assertFalse(self.c.get("/api/providers/security/stepup/").data["credential_submission_available"])
   self.assertFalse(IntegrationConnection.objects.exists())
 
- def test_credential_status_requires_totp_and_strict_adapter_allowlist(self):
+ def test_credential_status_requires_totp(self):
   with patch("providers.connection_security_views.connection_database_qualified",return_value=True):
    status=self.c.get("/api/providers/security/stepup/")
    self.assertFalse(status.data["credential_submission_available"])

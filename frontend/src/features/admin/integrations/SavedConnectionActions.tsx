@@ -10,7 +10,7 @@ export function SavedConnectionActions({connection,onVerified}:{
  connection:DraftConnection;onVerified?:()=>void;
 }){
  const [working,setWorking]=useState(false),[message,setMessage]=useState(""),[failed,setFailed]=useState(false);
- const supported=["cloudflare-dns","cloudflare-registrar","brevo","paystack"].includes(connection.adapter_key);
+ const supported=connection.supports_verification??["cloudflare-dns","cloudflare-registrar","brevo","paystack"].includes(connection.adapter_key);
  async function check(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(working||!supported||connection.state!=="draft")return;
   const form=e.currentTarget,fields=new FormData(form);

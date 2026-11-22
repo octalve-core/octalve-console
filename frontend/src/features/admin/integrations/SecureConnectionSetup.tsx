@@ -7,9 +7,9 @@ import {ProviderVaultEnrollment,type VaultSecurityStatus} from "./ProviderVaultE
 
 type FieldKind="url"|"name"|"domain"|"identifier";
 type ProviderSchema={key:string;name:string;fields:Record<string,FieldKind>;
- secret_fields:string[];enabled_for_execution:false};
+ secret_fields:string[];enabled_for_execution:false;supports_verification?:boolean};
 type SavedDraft={id:string;label:string;state:"draft";credential_version:number;execution_enabled:false};
-const labelFor=(value:string)=>({account_id:"Account ID",zone_id:"Zone ID",api_token:"API token",client_id:"Client ID",api_key:"API key",secret_key:"Paystack secret key"} as Record<string,string>)[value]??value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());
+const labelFor=(value:string)=>({account_id:"Account ID",zone_id:"Zone ID",api_token:"API token",client_id:"Client ID",api_key:"API key",secret_key:"Secret key"} as Record<string,string>)[value]??value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());
 const cloudflareHelp:Record<string,string>={
  account_id:"Cloudflare → Account Home → Copy Account ID.",
  zone_id:"Cloudflare → Select your domain → Overview → API → Zone ID.",
@@ -35,6 +35,7 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
  const [working,setWorking]=useState(false);
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
+ const [securityRevision,setSecurityRevision]=useState(0);
  useEffect(()=>{
   let active=true;
   setState("loading");setSchema(null);setSecurity(null);setError("");
@@ -49,7 +50,7 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
    setSecurity(result);setState("ready");
   }).catch(e=>{if(active)setState(e?.status===403?"unauthorized":"unavailable");});
   return()=>{active=false;};
- },[item.slug]);
+ },[item.slug,securityRevision]);
  async function save(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(working||!schema||!security?.verified||!security.credential_submission_available||
     !security.approved_draft_adapters?.includes(item.slug))return;
@@ -66,7 +67,7 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
    const result=await api.post<SavedDraft>("/providers/connections/",payload);
    if(!result||result.state!=="draft"||result.execution_enabled!==false||
       typeof result.id!=="string")throw Error("Invalid storage receipt");
-   setNotice("Connection saved securely. Select Verify access on your saved connection. Provider changes and purchases remain disabled.");
+   setNotice(schema.supports_verification ? "Connection saved securely. Select Verify access." : "Credentials saved securely. Provider verification is pending.");
    onSaved();
   }catch{setError(errorText());}
   finally{setWorking(false);}
@@ -74,21 +75,29 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
  if(state==="loading")return <p role="status" className="text-xs text-console-muted">Checking secure setup permissions…</p>;
  if(state==="unauthorized")return <p className="rounded-xl border border-console-line p-3 text-xs text-console-muted">This action requires a verified Super Admin account. Ordinary Admin and Staff accounts cannot see or change supplier credentials.</p>;
  if(state==="unavailable"||!security)return <p role="status" className="rounded-xl border border-amber-200 p-3 text-xs text-amber-800">Secure credential setup cannot be verified. No credentials have been submitted.</p>;
- if(!schema)return <p role="status" className="rounded-xl border border-console-line p-3 text-xs text-console-muted">Direct connection is not yet available for {item.name}. Review the account requirements below.</p>;
+ if(!schema)return <p role="status" className="rounded-xl border border-console-line p-3 text-xs text-console-muted">
+  {item.slug==="paystack"?"The connected API does not advertise the Paystack credential form. Check that the Console and API are on the current release.":"This connection requires its provider-specific setup flow."}
+ </p>;
+ const missing = Object.entries(security.readiness_checks??{}).filter(([,ready])=>!ready).map(([key])=>({
+  authenticator_verified:"Verify your authenticator",vault_custody_verified:"Vault key custody",
+  writes_enabled:"Vault writes",production_vault_approved:"Production vault approval",
+  production_mode:"Production API mode",database_ready:"Vault database and audit schema",
+  encryption_and_audit_keys_ready:"Encryption and audit keys",
+ } as Record<string,string>)[key]??key);
  const fieldStyle="min-h-11 w-full rounded-lg border border-console-line bg-white px-3 py-2 text-sm text-console-ink focus-visible:outline-2 focus-visible:outline-console-primary";
  return <section aria-label="Secure connection setup" className="rounded-xl border border-console-line p-4">
   <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-console-primary" aria-hidden="true"/><h3 className="text-sm font-medium">Connect your provider account</h3></div>
   <p className="mt-2 text-xs leading-5 text-console-muted">Enter the details from your provider dashboard. Your API key is encrypted and will not be shown again after saving. Saving does not change provider settings or place orders.</p>
   {!security.credential_submission_available?<div role="status" className="mt-3 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">
     <ShieldAlert className="mr-1 inline h-4 w-4" aria-hidden="true"/>
-    Secure connection setup is not available yet. Review Production security approvals before adding credentials.
+    Secure connection setup is not available yet. {missing.length ? `Pending: ${missing.join(", ")}.` : "Review vault readiness."}
    </div>:null}
   {security.verified&&security.credential_submission_available&&
     !security.approved_draft_adapters?.includes(item.slug)?<p role="status" className="mt-3 rounded-lg border border-amber-200 p-3 text-xs text-amber-900">
       Connections for this provider are not available yet. Please complete provider approval first.
     </p>:null}
   {!security.verified?<ProviderVaultEnrollment initialStatus={security}
-    embedded onVerified={()=>setSecurity(v=>v?{...v,verified:true}:v)}/>:null}
+    embedded onVerified={()=>setSecurityRevision(v=>v+1)}/>:null}
   {security.credential_submission_available&&security.verified&&security.approved_draft_adapters?.includes(item.slug)?<form onSubmit={save} autoComplete="off" className="mt-4 space-y-3">
    <div className="grid gap-3 sm:grid-cols-2">
     <label className="block text-xs">Connection name
@@ -102,15 +111,14 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
      <input name={"pub_"+key} type={kind==="url"?"url":"text"} required maxLength={220}
       placeholder={kind==="url"?"https://panel.example.com":undefined} spellCheck={false}
       autoCapitalize="off" autoComplete="off" className={fieldStyle}/>
-     {item.slug==="paystack"&&key==="secret_key"?<span className="mt-1 block text-xs leading-5 text-console-muted">
-      Use sk_test_ to verify a test merchant first. Use sk_live_ only with Live account type.
-      Saving and verifying keys does not accept payments or transfer money.
-     </span>:null}
        {item.slug==="cloudflare-dns"&&cloudflareHelp[key]?<span className="mt-1 block text-xs leading-5 text-console-muted">{cloudflareHelp[key]}</span>:null}
     </label>)}
    {schema.secret_fields.map(key=><label key={key} className="block text-xs"><KeyRound className="mr-1 inline h-3.5 w-3.5" aria-hidden="true"/>{labelFor(key)}
      <input name={"sec_"+key} type="password" required minLength={key==="client_secret"?32:12}
       maxLength={4096} autoComplete="off" spellCheck={false} className={fieldStyle}/>
+     {item.slug==="paystack"&&key==="secret_key"?<span className="mt-1 block text-xs text-console-muted">
+      Use a Paystack Test Mode secret for the sandbox purchase.
+     </span>:null}
      {item.slug==="cloudflare-dns"&&cloudflareHelp[key]?<span className="mt-1 block text-xs leading-5 text-console-muted">{cloudflareHelp[key]}</span>:null}
     </label>)}
    <div className="rounded-lg bg-slate-50 p-3 text-xs text-console-muted">Confirm this connection with your Octalve Cloud password and a fresh six-digit code from your authenticator app.</div>

@@ -110,3 +110,18 @@ class TLDPriceSettingsTests(TestCase):
         from orders.models import Order
         self.assertEqual(PaymentIntent.objects.count(),0)
         self.assertEqual(Order.objects.count(),0)
+
+
+    def test_draft_does_not_replace_public_rates(self):
+        TLDPricing.objects.create(tld=".com.ng", status="active", description="Published",
+                                  register_price=10000, renewal_price=11000, transfer_price=12000)
+        saved = self.client.post(URL, payload(), format="json")
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.assertEqual(saved.data["registration"]["1"], "15000.00")
+        self.assertEqual(saved.data["transfer_price"], "18000.00")
+        row = TLDPricing.objects.get(tld=".com.ng")
+        self.assertEqual(row.status, "active")
+        self.assertEqual(row.description, "Published")
+        self.assertEqual(row.register_price, Decimal("10000"))
+        self.assertEqual(row.renewal_price, Decimal("11000"))
+        self.assertEqual(row.transfer_price, Decimal("12000"))
