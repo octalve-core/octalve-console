@@ -1,5 +1,6 @@
 """TLD term-rate draft authority: synthetic Django data, no vendor writes."""
 from decimal import Decimal
+from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -16,7 +17,7 @@ def payload(**changes):
         "registration":{"1":"15000.00","2":"28500.00","5":"69000.00","10":"129000.00"},
         "renewal":{"1":"17000.00","2":"33000.00","5":"81000.00","10":"159000.00"},
         "transfer_price":"18000.00",
-        "expected_revision":0,"confirm_password":PASSWORD,
+        "expected_revision":0,"confirm_password":PASSWORD,"totp_code":"123456",
     }
     row.update(changes)
     return row
@@ -35,6 +36,9 @@ class TLDPriceSettingsTests(TestCase):
             password=PASSWORD,role="staff",is_staff=True)
         self.client=APIClient()
         self.client.force_authenticate(user=self.owner)
+        self.mfa_patch=patch("domains.tld_pricing_admin.check_mutation",return_value=None)
+        self.mfa_patch.start()
+        self.addCleanup(self.mfa_patch.stop)
 
     def test_super_admin_may_save_valid_versioned_prices_without_publication(self):
         res=self.client.post(URL,payload(),format="json")
