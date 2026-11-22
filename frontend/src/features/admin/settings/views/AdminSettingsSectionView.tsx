@@ -8,6 +8,7 @@ import {MailTemplateWorkbench} from "../components/MailTemplateWorkbench";
 import {AccountEmailVerificationPanel} from "../components/AccountEmailVerificationPanel";
 import {ProviderVaultEnrollment} from "../../integrations/ProviderVaultEnrollment";
 import {ConsoleTaxEditor} from "../components/ConsoleTaxEditor";
+import {DomainRateCardSettings} from "../components/DomainRateCardSettings";
 import {OperationalSettingsStatus} from "../components/OperationalSettingsStatus";
 import {getAdminSettingsItem,type AdminSettingsKey} from "../data/admin-settings-config";
 export function AdminSettingsSectionView({section}:{section:AdminSettingsKey}){
@@ -20,7 +21,9 @@ export function AdminSettingsSectionView({section}:{section:AdminSettingsKey}){
    <div className="grid min-w-0 gap-5 xl:grid-cols-3">
     {["general","theme","invoices","mail"].includes(section)?
       <ConsolePolicyEditor section={section}/>:
-      section==="tax"?<ConsoleTaxEditor/>:section==="notifications"?null:<OperationalSettingsStatus section={section}/>}
+      section==="tax"?<ConsoleTaxEditor/>:
+      section==="domain-pricing"?<DomainRateCardSettings/>:
+      section==="notifications"?null:<OperationalSettingsStatus section={section}/>}
     {(section==="mail"||section==="notifications")?<MailTemplateWorkbench/>:null}
     {(section==="mail"||section==="security")?<AccountEmailVerificationPanel/>:null}
     {section==="security"?<ProviderVaultEnrollment/>:null}
