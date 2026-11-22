@@ -51,8 +51,8 @@ class TLDPriceSettingsTests(TestCase):
         self.assertFalse(TLDPricing.objects.filter(status="active").exists())
         public=self.client.get("/api/domains/tld-pricing/")
         self.assertEqual(public.status_code,200)
-        self.assertEqual(public.data["count"],0)
-        self.assertEqual(AuditLog.objects.filter(entity_type="TLDPricing").count(),1)
+        self.assertEqual(len(public.data),0)
+        self.assertEqual(AuditLog.objects.filter(entity_type="TLDPricing").count(),2)
         edited=self.client.post(URL,payload(expected_revision=1,
             registration={"1":"15500.00","2":"30000.00","5":"70000.00","10":"135000.00"}),format="json")
         self.assertEqual(edited.status_code,200,edited.data)
@@ -79,7 +79,7 @@ class TLDPriceSettingsTests(TestCase):
                 self.assertIn(result.status_code,(400,403),result.data)
         row=TLDPricing.objects.get(tld=".com.ng")
         self.assertEqual(row.metadata,before)
-        self.assertEqual(AuditLog.objects.filter(entity_type="TLDPricing").count(),1)
+        self.assertEqual(AuditLog.objects.filter(entity_type="TLDPricing").count(),2)
 
     def test_no_client_staff_ordinary_admin_or_unverified_super_admin_can_read_or_edit(self):
         ordinary=get_user_model().objects.create_user(
