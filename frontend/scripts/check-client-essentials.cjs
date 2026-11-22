@@ -43,7 +43,7 @@ ensure("features/client/components/ClientDomainSearch.tsx",[
 ]);
 ensure("features/client/components/domain-search/DomainSearchResult.tsx",[
  "value.registrar_connected&&value.availability===\"available\"",
- "Availability not yet verified","StatusBadge","No registration or payment has been started"
+ "Availability not yet verified","StatusBadge","No domain has been reserved"
 ]);
 ensure("features/client/components/domain-search/DomainSearchForm.tsx",[
  'htmlFor="client-domain-search"','className="grid min-w-0 gap-3 sm:grid-cols-3',
