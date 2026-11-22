@@ -24,7 +24,8 @@ requires("app/client/order/checkout/page.tsx",['product === "domain"',"<DomainCh
 requires("features/client/checkout/DomainCheckout.tsx",["DomainSandboxPurchase","checkoutPage"]);
 requires("features/client/checkout/DomainCart.tsx",["Order summary","Registration date","Expiry date","Explore hosting"]);
 requires("features/client/components/commerce/HostingPlanCards.tsx",["Panel","StatusBadge","aria-pressed={selected}"]);
-requires("features/client/components/commerce/HostingOrderSummary.tsx",["defaultCycle","formatPlanAmount","onCycleChange","/client/order/checkout?plan="]);
+requires("features/client/components/commerce/HostingOrderSummary.tsx",["defaultCycle","formatPlanAmount","onCycleChange","AddToCartButton"]);
+requires("features/client/checkout/CartView.tsx",["readCart","removeFromCart","cartCheckoutHref"]);
 requires("features/client/components/commerce/CheckoutQuoteSummary.tsx",[
  "quote?Number(quote.total):cycle.price+cycle.setupFee","Number(quote.discount_total)","onChangeRequest",
  "final prices on the server"

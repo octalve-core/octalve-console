@@ -12,6 +12,7 @@ import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {authApi,clientApi,type AccountProfile,type CheckoutQuote} from "@/lib/api/endpoints";
 import {loadSellablePlans,formatPlanAmount,type ClientOrderPlan} from "../data/client-order-data";
+import {removeFromCart} from "./cart-selections";
 
 type Stage="domain"|"review"|"completed";
 type DomainChoice="later"|"existing"|"new";
@@ -125,6 +126,7 @@ export function ServiceCheckout(){
         return;
       }
       setConfirmation(result);setStage("completed");
+      void removeFromCart(`service:${planId}:${cycleKey}`).catch(()=>{});
       try{sessionStorage.removeItem("octalve-cloud-active-hosting-checkout");}catch{}
       if(result.invoice.status!=="unpaid") {
         setError("Order status changed. Please review its invoice before attempting payment.");

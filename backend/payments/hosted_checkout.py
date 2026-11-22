@@ -76,9 +76,9 @@ def _post_checkout(intent, *, poster=None):
     if is_pilot_invoice(invoice):
         snapshot = invoice.order.metadata.get(PILOT, {})
         selected = snapshot.get("selected_domain") is True
-        path = "/client/order/checkout" if selected else "/client/domains/register"
-        query = urlencode({"product": "domain", "domain": snapshot["domain"]}) if selected else ""
-        callback = urlsplit(callback)._replace(path=path, query=query).geturl()
+        selection = {"domain": snapshot["domain"]} if selected else {"existing": "1"}
+        query = urlencode({"product": "domain", **selection})
+        callback = urlsplit(callback)._replace(path="/client/order/checkout", query=query).geturl()
     if intent.currency != "NGN":
         # Other currencies require independently audited subunit conventions.
         raise CheckoutRefused("Only audited NGN payment initialization is supported.")

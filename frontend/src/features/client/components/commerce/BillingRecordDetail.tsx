@@ -56,14 +56,7 @@ export function BillingRecordDetail({record,resource,actions}:{
     </div>)}
    </div>
   </Panel>}
-  <div className="grid gap-5 lg:grid-cols-3">
-   <Panel className="lg:col-span-2">
-    <h3 className="text-lg font-medium text-console-ink">Activity</h3>
-    <p className="mt-3 text-sm leading-6 text-console-muted">
-     Verified transaction and activity events are not connected to this record view. Payment,
-     invoice settlement and provisioning are confirmed independently by Octalve Cloud.
-    </p>
-   </Panel>
+  <div>
    <Panel>
     <h3 className="text-lg font-medium text-console-ink">Quick actions</h3>
     <div className="mt-4 grid gap-3">

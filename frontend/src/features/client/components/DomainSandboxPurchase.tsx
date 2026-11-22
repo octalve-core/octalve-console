@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DomainCart } from "../checkout/DomainCart";
+import { removeFromCart } from "../checkout/cart-selections";
 
 const endpoint = "/api/cloud/domains/sandbox-purchase/";
 type Purchase = {
@@ -75,7 +76,12 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
       }
       if (action === "quote") setQuote(data);
       else if (action === "checkout") window.location.assign(data.checkout_url);
-      else setOverview((current) => current ? { ...current, purchase: data } : current);
+      else {
+        setOverview((current) => current ? { ...current, purchase: data } : current);
+        if (action === "accept" && domain && data.order && data.domain === domain) {
+          void removeFromCart(`domain:${domain}`).catch(()=>{});
+        }
+      }
     } catch {
       setError("The connection was interrupted. Refresh to check the current status.");
     } finally {

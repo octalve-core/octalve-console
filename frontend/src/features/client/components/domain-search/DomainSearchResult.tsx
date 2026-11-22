@@ -1,6 +1,6 @@
 import {BadgeCheck,Info} from "lucide-react";
-import Link from "next/link";
 import {StatusBadge} from "@/components/design-system/StatusBadge";
+import {AddToCartButton} from "../../checkout/AddToCartButton";
 import type {DomainLookup} from "./domain-types";
 import {formatDomainPrice} from "./domain-types";
 
@@ -24,12 +24,9 @@ export function DomainSearchResult({value}:{value:DomainLookup}){
      </p>}
      <p className="mt-2 flex items-center gap-2 text-xs font-medium text-[#61738B]">
        {verified?<BadgeCheck className="h-4 w-4 text-emerald-600"/>:<Info className="h-4 w-4 text-amber-600"/>}
-       {verified?"Registration can continue once checkout is enabled":"No registration or payment has been started"}
+       {verified?"Availability rechecked at checkout":"No domain has been reserved"}
      </p>
-     {verified&&value.test_checkout_enabled?<Link className="mt-3 inline-flex text-sm font-medium text-console-primary"
-       href={`/client/order/checkout?product=domain&domain=${encodeURIComponent(value.domain)}`}>
-       Continue to test checkout
-     </Link>:null}
+     {verified&&value.test_checkout_enabled?<AddToCartButton key={value.domain} className="mt-3" item={{kind:"domain",domain:value.domain}}/>:null}
    </div>
  </section>;
 }
