@@ -90,7 +90,8 @@ def _registration(reply,domain):
 
 def _workflow(reply,domain):
     value=_require_result(reply)
-    if not isinstance(value,dict) or value.get("state") not in ALLOWED_STATES or type(value.get("completed")) is not bool:
+    if (not isinstance(value, dict) or not isinstance(value.get("state"), str)
+            or value["state"] not in ALLOWED_STATES or type(value.get("completed")) is not bool):
         raise CloudflareINT01Denied()
     context=value.get("context")
     if isinstance(context,dict) and context.get("domain_name") not in (None,domain):
@@ -116,7 +117,7 @@ class FixedCloudflareTransport:
             raise CloudflareINT01Denied()
         # Network operations are defined solely in the adapter below; reject
         # generic paths and arbitrary request bodies even if called directly.
-        if not re.fullmatch(r"/zones(?:/[a-f0-9]{32})?(?:/dns_records\?page=(?:[1-9]|10)&per_page=100)?|/accounts/[a-f0-9]{32}/registrar-sandbox/(?:domain-check|extensions/(?:com|net)|registrations(?:/[a-z0-9.-]+)?)|/accounts/[a-f0-9]{32}/registrar/domain-check",path):
+        if not re.fullmatch(r"/zones(?:/[a-f0-9]{32})?(?:/dns_records\?page=(?:[1-9]|10)&per_page=100)?|/accounts/[a-f0-9]{32}/registrar-sandbox/(?:domain-check|extensions/(?:com|net)|registrations(?:/[a-z0-9.-]+(?:/registration-status)?)?)|/accounts/[a-f0-9]{32}/registrar/domain-check",path):
             raise CloudflareINT01Denied()
         is_register=path.endswith("/registrations")
         is_check=path.endswith("/domain-check")
@@ -364,6 +365,11 @@ class CloudflareINT01:
     def get_registration(self,domain):
         domain=require_domain(domain)
         return _registration(self.transport("GET",self._path("registrations/"+domain)),domain)
+
+    def pilot_registration_status(self, domain):
+        domain = require_domain(domain)
+        return _workflow(self.transport("GET", self._path(
+            f"registrations/{domain}/registration-status")), domain)
 
     def submit_pilot_registration(self, domain, contact):
         from payments.domain_pilot_scope import pilot_configuration

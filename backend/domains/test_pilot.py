@@ -4,14 +4,15 @@ from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.core import signing
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from domains.pilot import QUOTE_SALT, accept_quote, reconcile
+from domains.pilot import QUOTE_SALT, accept_quote, pilot_readiness, reconcile
 from domains.models import TLDPricing
 from payments.domain_pilot_scope import PILOT
 from payments.models import PaymentGateway, PaymentIntent, Transaction, WebhookEvent
-from payments.readback import ConfirmedGatewayPayment
+from payments.readback import ConfirmedGatewayPayment, PaymentReadbackRejected, verify_gateway_intent
+from payments.test_checkout_webhooks import reply
 from payments.sandbox import gateway_can_read
 from providers.cloudflare_int01 import CloudflareINT01Denied
 
@@ -67,7 +68,7 @@ class DomainPilotTests(TestCase):
         intent = PaymentIntent.objects.create(
             invoice=invoice, client=self.owner, gateway=self.gateway, reference="OC-PILOT-TEST",
             amount=invoice.total, currency="NGN", status="pending",
-            expires_at=timezone.now() + timezone.timedelta(minutes=20),
+            expires_at=timezone.now() - timezone.timedelta(minutes=2),
         )
         WebhookEvent.objects.create(
             gateway=self.gateway, is_verified=True, event_type="charge.success", event_id="pilot-test",
@@ -76,10 +77,10 @@ class DomainPilotTests(TestCase):
         self.supplier.submit_pilot_registration.side_effect = CloudflareINT01Denied
         proof = ConfirmedGatewayPayment("paystack", intent.reference, "NGN", Decimal("12500.00"), "123")
         with patch("domains.pilot.verify_gateway_intent", return_value=proof):
-            with self.assertRaises(CloudflareINT01Denied):
-                reconcile(order)
+            reconcile(order)
         order.refresh_from_db()
-        self.assertEqual(order.metadata[PILOT]["state"], "registration_pending")
+        self.assertEqual(order.metadata[PILOT]["state"], "registration_uncertain")
+        self.supplier.pilot_registration_status.return_value = {"state": "succeeded"}
         self.supplier.get_registration.return_value = {"domain_name": self.domain, "sandbox_status": "active"}
         reconcile(order)
         order.refresh_from_db()
@@ -88,3 +89,42 @@ class DomainPilotTests(TestCase):
         self.assertEqual(invoice.status, "void")
         self.assertFalse(Transaction.objects.exists())
         self.supplier.submit_pilot_registration.assert_called_once()
+
+    def test_registrar_rejection_is_terminal(self):
+        order = accept_quote(self.owner, self.domain, self.token)
+        order.metadata[PILOT]["state"] = "registration_uncertain"
+        order.save(update_fields=["metadata"])
+        self.supplier.pilot_registration_status.return_value = {"state": "failed"}
+        reconcile(order)
+        order.refresh_from_db()
+        self.assertEqual(order.metadata[PILOT]["state"], "registration_rejected")
+        reconcile(order)
+        self.supplier.pilot_registration_status.assert_called_once_with(self.domain)
+        self.supplier.submit_pilot_registration.assert_not_called()
+        self.supplier.get_registration.assert_not_called()
+
+    @override_settings(CLOUD_GATEWAY_READBACK_ENABLED=True)
+    def test_expired_reference_readback_can_report_failure_without_a_registration(self):
+        order = accept_quote(self.owner, self.domain, self.token)
+        invoice = order.invoices.get()
+        intent = PaymentIntent.objects.create(
+            invoice=invoice, client=self.owner, gateway=self.gateway, reference="OC-PILOT-EXPIRED",
+            amount=invoice.total, currency="NGN", status="pending",
+            expires_at=timezone.now() - timezone.timedelta(minutes=1),
+        )
+        packet = {"status": True, "data": {"status": "abandoned", "domain": "test",
+                  "reference": intent.reference, "amount": 1250000, "currency": "NGN", "id": 123}}
+        with patch.object(PaymentGateway, "get_secret_key", return_value="sk_test_fixture_key"):
+            self.assertEqual(verify_gateway_intent(
+                intent, getter=Mock(return_value=reply(packet)), inspect_pilot=True), "abandoned")
+            for change in ({"domain": "live"}, {"amount": 1250001}, {"reference": "another_ref"}):
+                altered = {**packet, "data": {**packet["data"], **change}}
+                with self.assertRaises(PaymentReadbackRejected):
+                    verify_gateway_intent(intent, getter=Mock(return_value=reply(altered)), inspect_pilot=True)
+        self.supplier.submit_pilot_registration.assert_not_called()
+
+    def test_preflight_explains_missing_gateway_and_contact(self):
+        with patch.dict("os.environ", {"CLOUD_DOMAIN_PILOT_CONTACT_JSON": "{}"}):
+            issues = pilot_readiness(self.owner.pk)
+        self.assertIn("Configure the sandbox registrant contact on the API.", issues)
+        self.assertIn("Bind a currently verified Paystack Test Mode connection.", issues)

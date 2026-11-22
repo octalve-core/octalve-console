@@ -12,7 +12,15 @@ The existing Production Console and API host this acceptance flow. The test is l
 
 ## Accept
 
-1. As the designated Client, open **Domains → Register a domain**. Check sandbox availability, accept the five-minute quote, and pay with Paystack's published test payment details.
-2. Use **Confirm payment and registration** after the signed test webhook arrives. Refresh the confirmation if the registrar is still processing. Super Admin can read the same purchase on the Domain TLD pricing page.
-3. Verify one order and invoice, a verified test Paystack reference and **Sandbox domain registered** after supplier readback. The invoice is voided after test verification and no live transaction or domain entitlement is posted.
-4. After acceptance, disable `CLOUD_DOMAIN_PILOT_ENABLED`. Retain the audit evidence. If the registrar submit timed out, use registrar readback and investigate the attempt before approving any new purchase. The pilot does not submit twice.
+1. In **Admin → Settings → Domain TLD pricing**, confirm that the Console preflight passes. This checks local readiness, including vault evidence and runtime flags. In Paystack, verify the Test Mode webhook URL separately.
+2. As the designated Client, open **Domains → Register a domain**. Check sandbox availability, accept the five-minute quote, and pay with Paystack's published test payment details.
+3. Use **Check existing Paystack reference** to verify the original test payment and reconcile the signed webhook. Then use **Check registrar status** if Cloudflare is still processing. Super Admin can read the same purchase on the Domain TLD pricing page.
+4. Verify one order and invoice, a verified test Paystack reference and **Sandbox domain registered** after supplier readback. The invoice is voided after test verification and no live transaction or domain entitlement is posted.
+5. After acceptance, disable `CLOUD_DOMAIN_PILOT_ENABLED`. Retain the audit evidence. If the registrar submit timed out, use registrar readback and investigate the attempt before approving any new purchase. The pilot does not submit twice.
+
+
+## Recovery
+
+- A valid existing hosted checkout can be resumed. If it expired or initialization was interrupted, check the displayed reference. A late Paystack success can still be reconciled when the amount, currency, test mode and signed event agree. If Paystack returns a failed or abandoned payment, retain that reference for operator resolution. The Console does not create a replacement attempt.
+- **Registrar response unconfirmed** means the submit could not be confirmed. **Registration pending** means the registrar reported progress or its active record is not yet confirmed. Use **Check registrar status** to read the workflow.
+- **Registrar rejected** means Cloudflare returned a terminal failed workflow. **Check Cloudflare for the required action** means Cloudflare paused the workflow for operator action. Inspect the sandbox dashboard before proceeding. Checking status does not send another registration request.

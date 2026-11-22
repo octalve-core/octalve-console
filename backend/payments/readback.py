@@ -12,6 +12,7 @@ from urllib.parse import quote
 
 import requests
 from django.conf import settings
+from .domain_pilot_scope import pilot_gateway_allowed
 from .sandbox import gateway_can_read, secret_matches_mode
 
 
@@ -26,6 +27,11 @@ class ConfirmedGatewayPayment:
     currency: str
     amount: Decimal
     remote_id: str
+
+
+PAYSTACK_STATES = frozenset({
+    "abandoned", "failed", "ongoing", "pending", "processing", "queued", "reversed", "success",
+})
 
 
 REFERENCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{3,119}$")
@@ -43,7 +49,7 @@ def _money(value):
     return amount
 
 
-def verify_gateway_intent(intent, *, getter=None):
+def verify_gateway_intent(intent, *, getter=None, inspect_pilot=False):
     """Exactly one bounded read-only GET, fixed HTTPS origin, no redirects.
 
     The caller must lock and revalidate the PaymentIntent/invoice before
@@ -55,9 +61,11 @@ def verify_gateway_intent(intent, *, getter=None):
         raise PaymentReadbackRejected("Unknown server-issued payment intent.")
     gateway, invoice = intent.gateway, intent.invoice
     order = invoice.order
+    if inspect_pilot and not pilot_gateway_allowed(gateway, invoice):
+        raise PaymentReadbackRejected("Only the configured sandbox purchase can be inspected.")
     if (not gateway_can_read(gateway, invoice)
             or intent.status not in ("pending", "processing")
-            or intent.is_expired() or invoice.status not in ("unpaid", "partially_paid")
+            or (intent.is_expired() and not inspect_pilot) or invoice.status not in ("unpaid", "partially_paid")
             or not order or order.status != "pending_payment"
             or invoice.client_id != intent.client_id or order.client_id != intent.client_id
             or invoice.currency != intent.currency or invoice.currency != order.currency
@@ -99,7 +107,7 @@ def verify_gateway_intent(intent, *, getter=None):
         if not isinstance(data, dict):
             raise PaymentReadbackRejected("Gateway verification response invalid.")
         if gateway.code == "paystack":
-            if packet.get("status") is not True or data.get("status") != "success":
+            if packet.get("status") is not True:
                 raise PaymentReadbackRejected("Paystack did not confirm settlement.")
             if (data.get("domain") == "test") != bool(gateway.test_mode) or data.get("reference") != ref:
                 raise PaymentReadbackRejected("Paystack verified another transaction.")
@@ -109,6 +117,14 @@ def verify_gateway_intent(intent, *, getter=None):
                 raise PaymentReadbackRejected("Invalid Paystack minor-unit amount.")
             amount = Decimal(minor) / Decimal(100)
             remote_id = data.get("id")
+            status = data.get("status")
+            if (not isinstance(status, str) or status not in PAYSTACK_STATES
+                    or data.get("currency") != intent.currency or amount != _money(intent.amount)):
+                raise PaymentReadbackRejected("Paystack payment details could not be confirmed.")
+            if status != "success":
+                if inspect_pilot:
+                    return status
+                raise PaymentReadbackRejected("Paystack did not confirm settlement.")
         else:
             if packet.get("status") != "success" or data.get("status") != "successful":
                 raise PaymentReadbackRejected("Flutterwave did not confirm settlement.")
