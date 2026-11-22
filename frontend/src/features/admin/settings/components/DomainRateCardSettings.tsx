@@ -58,7 +58,9 @@ export function DomainRateCardSettings(){
  async function save(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(saving||loading)return;
   const form=e.currentTarget;
-  const password=String(new FormData(form).get("confirm_password")||"");
+  const formData=new FormData(form);
+  const password=String(formData.get("confirm_password")||"");
+  const totp_code=String(formData.get("totp_code")||"");
   const cleanup=(value:Prices)=>Object.fromEntries(
    TERMS.map(year=>[year,value[year]?.trim()||null])) as Prices;
   const registration=cleanup(draft.registration);
@@ -71,7 +73,7 @@ export function DomainRateCardSettings(){
    const saved=await api.post<RateCard>("/domains/admin/tld-price-cards/",{
     tld:draft.tld.trim(),description:draft.description,
     registration,renewal,transfer_price:draft.transfer_price.trim(),
-    expected_revision:draft.revision,confirm_password:password
+    expected_revision:draft.revision,confirm_password:password,totp_code
    });
    if(saved.publication!=="inactive_draft"||saved.checkout_enabled!==false||
       saved.tld!==draft.tld.trim()||saved.revision!==draft.revision+1)
@@ -84,6 +86,8 @@ export function DomainRateCardSettings(){
   finally{
    const passwordInput=form.elements.namedItem("confirm_password");
    if(passwordInput instanceof HTMLInputElement)passwordInput.value="";
+   const totpInput=form.elements.namedItem("totp_code");
+   if(totpInput instanceof HTMLInputElement)totpInput.value="";
    setSaving(false);
   }
  }
@@ -156,6 +160,11 @@ export function DomainRateCardSettings(){
      <label className="block min-w-60 flex-1 text-xs text-console-ink">
       Super Admin account password
       <input name="confirm_password" type="password" required autoComplete="off" className={field+" mt-1"}/>
+     </label>
+     <label className="block min-w-52 flex-1 text-xs text-console-ink">
+      Fresh six-digit authenticator code
+      <input name="totp_code" inputMode="numeric" type="text" pattern="[0-9]{6}"
+       maxLength={6} required autoComplete="one-time-code" className={field+" mt-1"}/>
      </label>
      <button type="submit" disabled={saving} className="min-h-11 rounded-xl bg-console-primary px-5 py-2 text-sm font-medium text-white disabled:opacity-50">
       {saving?"Saving and auditing…":"Save draft prices"}
