@@ -44,10 +44,38 @@ entry mechanism (not an environment variable with a browser-facing copy).
   merchant balances. It creates a version-matched read-only audit receipt.
   **No payment is initialized**, settled or provisioned.
 
+## Paystack test-only gateway binding
+
+Once a Paystack test key has been saved and independently verified in
+`/admin/integrations?provider=paystack`, an active verified Super Admin
+may use `/admin/gateways/paystack` to bind that particular encrypted
+credential version to a **test-mode** gateway. This is implemented with a
+strictly disabled-by-default switch
+`CLOUD_PAYSTACK_TEST_BINDING_ENABLED`. It requires the same documented
+vault key custody, signed audit evidence, exact provider-vault PostgreSQL
+schema, current account password and fresh unused TOTP.
+
+The binding references the encrypted credential's immutable UUID/version.
+It NEVER copies the underlying secret into the legacy
+`payments_paymentgateway.encrypted_secret_key` column, and it rejects
+an existing independently configured live gateway. A rotation, revocation,
+expired verification receipt or mismatched version invalidates the
+binding's ability to access a test key.
+
+Test-only `PaymentGateway` state is `status=test` and `test_mode=true`.
+The existing `payments.sandbox.sandbox_review_allowed` forbids test
+checkout on Vercel Production even if the test binding feature is
+enabled. This is intentional; a real Paystack test checkout should run in
+a separately approved isolated Preview environment. Do not change
+`CLOUD_GATEWAY_SANDBOX_READBACK_ENABLED` or
+`CLOUD_ISOLATED_REVIEW_CONFIRMED` until Preview isolation is verified.
+
 **Paystack merchant payment release is separate.** The existing
 `payments_paymentgateway` record table uses legacy
-`ENCRYPTION_KEY` Fernet for gateway keys. It is NOT automatically connected
-to the provider vault, nor does a Paystack vault readback certify checkout.
+`ENCRYPTION_KEY` Fernet for gateway keys. It is not automatically connected
+to the provider vault: only an explicitly approved **test** binding stores
+a pointer to a current encrypted credential version. A Paystack vault
+readback or test gateway binding does not certify checkout.
 A gateway configured without a hardened link, matching mode and verified
 server-to-server settlement remains disabled. Do not duplicate a live secret
 into the gateway by browser workaround or automatically enable all
