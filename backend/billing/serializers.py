@@ -3,17 +3,23 @@
 from rest_framework import serializers
 from django.utils import timezone
 from .models import Invoice, InvoiceItem, Tax, Quote
+from .item_periods import confirmed_period
 
 
 class InvoiceItemSerializer(serializers.ModelSerializer):
     """Serializer for invoice items"""
+
+    confirmed_period = serializers.SerializerMethodField()
+
+    def get_confirmed_period(self, item):
+        return confirmed_period(item)
     
     class Meta:
         model = InvoiceItem
         fields = [
             'id', 'description', 'product_id', 'plan_id', 'service_id',
             'domain_name', 'quantity', 'unit_price', 'subtotal',
-            'period_start', 'period_end'
+            'period_start', 'period_end', 'confirmed_period'
         ]
         read_only_fields = ['subtotal']
 

@@ -120,6 +120,12 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
         service.next_due_date = result.checked_at + relativedelta(months=item.months)
         service.save(update_fields=[
             "status", "provider_identifier", "activated_at", "next_due_date", "updated_at"])
+        line = invoice.items.select_for_update().filter(metadata__order_item_id=item.pk).first()
+        if line:
+            line.metadata["confirmed_period"] = {
+                "kind": "service", "start": service.activated_at.isoformat(), "end": service.next_due_date.isoformat(),
+            }
+            line.save(update_fields=["metadata"])
         VerifiedHostingBinding.objects.create(
             service=service, provider_id_snapshot=provider.pk,
             account_digest=account_digest(service),

@@ -152,7 +152,7 @@ export function ServiceCheckout(){
               {([
                 ["later","Connect later"],
                 ["existing","I own a domain"],
-                ["new","Buy a new domain"]
+                ["new","Add a domain"]
               ] as const).map(([key,label])=><button key={key} type="button"
                 className={`${selectionClass} ${domainChoice===key?"border-[#0064E0] bg-[#EFF6FF] text-[#0064E0]":"border-slate-200 bg-white text-slate-700"}`}
                 aria-pressed={domainChoice===key} onClick={()=>{setDomainChoice(key);setQuote(null);setError("");}}>

@@ -21,7 +21,8 @@ requires("features/client/checkout/ServiceCheckout.tsx",[
  "CheckoutProgress","CheckoutQuoteSummary","domainChoice===\"new\""
 ]);
 requires("app/client/order/checkout/page.tsx",['product === "domain"',"<DomainCheckout","<ServiceCheckout"]);
-requires("features/client/checkout/DomainCheckout.tsx",["DomainSandboxPurchase","checkoutPage","Order summary"]);
+requires("features/client/checkout/DomainCheckout.tsx",["DomainSandboxPurchase","checkoutPage"]);
+requires("features/client/checkout/DomainCart.tsx",["Order summary","Registration date","Expiry date","Explore hosting"]);
 requires("features/client/components/commerce/HostingPlanCards.tsx",["Panel","StatusBadge","aria-pressed={selected}"]);
 requires("features/client/components/commerce/HostingOrderSummary.tsx",["defaultCycle","formatPlanAmount","onCycleChange","/client/order/checkout?plan="]);
 requires("features/client/components/commerce/CheckoutQuoteSummary.tsx",[

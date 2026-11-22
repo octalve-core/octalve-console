@@ -125,6 +125,7 @@ class Invoice(models.Model):
                 quantity=order_item.quantity,
                 unit_price=order_item.unit_price,
                 subtotal=order_item.subtotal,
+                metadata={"order_item_id": order_item.pk},
                 period_start=timezone.now(),
                 period_end=timezone.now() + timezone.timedelta(days=order_item.months * 30)
             )

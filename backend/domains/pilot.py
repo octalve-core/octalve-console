@@ -107,11 +107,13 @@ def result(order):
     invoice = order.invoices.get()
     evidence = order.metadata[PILOT]
     intent = invoice.payment_intents.first()
+    registration = evidence.get("registration", {}) if evidence["state"] == "registered" else {}
     checkout_state = "available"
     if intent:
         checkout_state = ("expired" if intent.is_expired() else
                           "resume" if intent.authorization_url else "uncertain")
     return {"checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
+            "registered_at": registration.get("registered_at"), "expires_at": registration.get("expires_at"),
             "domain": evidence["domain"], "amount": str(invoice.total), "currency": "NGN",
             "state": evidence["state"], "payment_reference": evidence.get("payment_reference") or (intent.reference if intent else None)}
 
@@ -276,7 +278,18 @@ def inspect_payment(order):
 
 def reconcile(order):
     snapshot = order.metadata[PILOT]
-    if snapshot["state"] in {"registered", "registration_rejected"}:
+    if snapshot["state"] == "registered":
+        if not snapshot.get("registration", {}).get("registered_at"):
+            supplier, _ = registrar(snapshot)
+            confirmation = supplier.get_registration(snapshot["domain"])
+            if confirmation["sandbox_status"] == "active" and confirmation.get("registered_at"):
+                with transaction.atomic():
+                    locked = Order.objects.select_for_update().get(pk=order.pk)
+                    if locked.metadata[PILOT]["state"] == "registered":
+                        locked.metadata[PILOT]["registration"] = confirmation
+                        locked.save(update_fields=["metadata", "updated_at"])
+        return
+    if snapshot["state"] == "registration_rejected":
         return
     supplier, _ = registrar(snapshot)
     if snapshot["state"] != "awaiting_payment":

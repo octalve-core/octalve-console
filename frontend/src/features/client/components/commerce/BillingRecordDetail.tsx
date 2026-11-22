@@ -5,6 +5,7 @@ import {StatusBadge,type StatusTone} from "@/components/design-system/StatusBadg
 import {formatStatus,getStatusTone} from "@/lib/constants/status";
 import type {ClientRecord} from "../../data/client-demo-data";
 import type {BillingResource} from "./BillingRecordDirectory";
+import {serviceDate} from "../../utils/service-contract";
 type LinkAction={label:string;href:string;variant:"primary"|"outline"};
 function tone(status:string):StatusTone{const value=getStatusTone(status);return value==="danger"?"error":value;}
 export function BillingRecordDetail({record,resource,actions}:{
@@ -40,6 +41,18 @@ export function BillingRecordDetail({record,resource,actions}:{
     </div>;})}
    </dl>
   </Panel>
+  {resource==="invoices" && !!record.invoicePeriods?.length && <Panel>
+   <h3 className="text-lg font-medium text-console-ink">Invoice items</h3>
+   <div className="mt-4 divide-y divide-slate-200">
+    {record.invoicePeriods.map((item,index)=><div key={index} className="py-3">
+     <p className="break-words text-sm font-medium">{item.label}</p>
+     <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+      <div><dt className="text-xs text-console-muted">{item.domain?"Registration date":item.confirmed?"Service start":"Billing period start"}</dt><dd>{serviceDate(item.start)}</dd></div>
+      <div><dt className="text-xs text-console-muted">{item.domain?"Expiry date":item.confirmed?"Service period end":"Billing period end"}</dt><dd>{serviceDate(item.end)}</dd></div>
+     </dl>
+    </div>)}
+   </div>
+  </Panel>}
   <div className="grid gap-5 lg:grid-cols-3">
    <Panel className="lg:col-span-2">
     <h3 className="text-lg font-medium text-console-ink">Activity</h3>

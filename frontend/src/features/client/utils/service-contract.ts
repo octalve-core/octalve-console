@@ -7,7 +7,7 @@ export type ServiceUsageSnapshot = {
 export type ClientServiceSnapshot = {
   id:string;label:string;domain:string|null;planName:string|null;
   serviceType:string;status:string;billingCycle:string;
-  nextDueDate:string|null;autoRenew:boolean;
+  nextDueDate:string|null;activatedAt?:string|null;autoRenew:boolean;
   currency:string;amount:string|null;
   usage:ServiceUsageSnapshot|null;
 };
@@ -39,6 +39,7 @@ export function normalizeServiceSnapshot(value:unknown):ClientServiceSnapshot {
     planName:clean(value.plan_name),serviceType:clean(value.service_type)||"other",
     status,billingCycle:clean(value.billing_cycle)||"—",
     nextDueDate:clean(value.next_due_date),
+    activatedAt:clean(value.activated_at),
     autoRenew:value.auto_renew===true,
     currency:clean(value.currency)||"NGN",
     amount:clean(value.amount),

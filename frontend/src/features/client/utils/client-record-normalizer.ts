@@ -61,6 +61,17 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
   const amount = readClientString(record, ["total", "price", "amount", "balance", "due", "paid"], "");
   const status = readClientString(record, ["status", "state", "payment_status"], "Unknown");
   const date = readClientString(record, ["expiry_date", "expiration_date", "next_due_date", "due_date", "date", "created_at", "updated_at", "dueDate", "expiry", "renews"], "");
+  const invoicePeriods = resource === "invoices" && Array.isArray(record.items) ? record.items.flatMap(item => {
+    if (!item || typeof item !== "object") return [];
+    const period = item.confirmed_period;
+    const confirmed = !!period && typeof period.start === "string" && typeof period.end === "string";
+    const start = confirmed ? period.start : item.period_start;
+    const end = confirmed ? period.end : item.period_end;
+    return typeof start === "string" && typeof end === "string" ? [{
+      label: typeof item.description === "string" ? item.description : "Invoice item",
+      start, end, confirmed, domain: confirmed && period.kind === "domain",
+    }] : [];
+  }) : undefined;
 
   return {
     id,
@@ -73,5 +84,6 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     actionHref: `${getClientResourceBasePath(resource)}/${encodeURIComponent(id)}`,
     score: undefined,
     service: resource === "services" ? normalizeServiceSnapshot(record) : undefined,
+    invoicePeriods,
   };
 }

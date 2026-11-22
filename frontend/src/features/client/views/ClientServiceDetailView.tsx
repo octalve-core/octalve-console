@@ -60,6 +60,7 @@ export function ClientServiceDetailView(){
     ["Connected domain",data?.domain||"Not connected"],
     ["Plan",data?.planName||"Plan information unavailable"],
     ["Billing cycle",data?.billingCycle||"—"],
+    ["Activation date",serviceDate(data?.activatedAt||null)],
     ["Next due date",serviceDate(data?.nextDueDate||null)],
     ["Auto-renew",data?.autoRenew?"Enabled":"Disabled"],
     ["Service type",data?.serviceType.replaceAll("_"," ")||"—"],

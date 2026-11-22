@@ -78,6 +78,8 @@ def _check_domain(reply, domain):
     return {"name":domain,"registrable":False,"reason":reason}
 
 def _registration(reply,domain):
+    from django.utils.dateparse import parse_datetime
+
     data=_require_result(reply)
     if not isinstance(data,dict) or data.get("domain_name")!=domain:
         raise CloudflareINT01Denied()
@@ -85,8 +87,19 @@ def _registration(reply,domain):
     if status not in ("active","registration_pending","transfer_pending","expired","suspended",
                       "redemption_period","pending_delete"):
         raise CloudflareINT01Denied()
-    return {"domain_name":domain,"sandbox_status":status,
-            "has_expiry":bool(data.get("expires_at"))}
+    result = {"domain_name": domain, "sandbox_status": status, "has_expiry": bool(data.get("expires_at"))}
+    dates = {}
+    for source, target in (("created_at", "registered_at"), ("expires_at", "expires_at")):
+        value = data.get(source)
+        try:
+            parsed = parse_datetime(value) if isinstance(value, str) and len(value) <= 40 else None
+        except ValueError:
+            parsed = None
+        if parsed is not None and parsed.utcoffset() is not None:
+            dates[target] = parsed
+    if len(dates) == 2 and dates["registered_at"] < dates["expires_at"]:
+        result.update({key: value.isoformat() for key, value in dates.items()})
+    return result
 
 def _workflow(reply,domain):
     value=_require_result(reply)

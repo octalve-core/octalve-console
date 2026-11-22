@@ -161,12 +161,22 @@ class DomainPilotTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.metadata[PILOT]["state"], "registration_uncertain")
         self.supplier.pilot_registration_status.return_value = {"state": "succeeded"}
-        self.supplier.get_registration.return_value = {"domain_name": self.domain, "sandbox_status": "active"}
+        self.supplier.get_registration.return_value = {
+            "domain_name": self.domain, "sandbox_status": "active",
+            "registered_at": "2026-11-22T12:00:00+00:00", "expires_at": "2027-11-22T12:00:00+00:00",
+        }
         reconcile(order)
         order.refresh_from_db()
         invoice.refresh_from_db()
         self.assertEqual(order.metadata[PILOT]["state"], "registered")
         self.assertEqual(invoice.status, "void")
+        from billing.serializers import InvoiceItemSerializer
+        from billing.invoice_pdf import _document
+        line = invoice.items.get()
+        self.assertEqual(InvoiceItemSerializer(line).data["confirmed_period"], {
+            "kind": "domain", "start": "2026-11-22T12:00:00+00:00", "end": "2027-11-22T12:00:00+00:00",
+        })
+        self.assertIn("Registered 22 Nov 2026; Expires 22 Nov 2027", _document(invoice).lines[0].description)
         self.assertFalse(Transaction.objects.exists())
         self.supplier.submit_pilot_registration.assert_called_once()
 
