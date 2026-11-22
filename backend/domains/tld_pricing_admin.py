@@ -12,7 +12,7 @@ from rest_framework.decorators import api_view, permission_classes, throttle_cla
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.response import Response
 from catalog.permissions import InternalSupplierAuthority
-from providers.connection_stepup import assert_admin
+from providers.connection_stepup import assert_admin, check_mutation
 from providers.connection_views import VaultMutationThrottle
 from audit.models import AuditLog
 from .models import TLDPricing
@@ -86,7 +86,7 @@ def admin_tld_price_cards(request):
         )
     payload = request.data
     expected = {"tld", "description", "registration", "renewal",
-                "transfer_price", "expected_revision", "confirm_password"}
+                "transfer_price", "expected_revision", "confirm_password", "totp_code"}
     if not isinstance(payload, dict) or set(payload) != expected:
         raise ValidationError({"detail": "Use the exact approved TLD price fields."})
     tld = payload["tld"]
@@ -101,6 +101,9 @@ def admin_tld_price_cards(request):
     password = payload["confirm_password"]
     if not isinstance(password, str) or not (1 <= len(password) <= 512) or not request.user.check_password(password):
         raise PermissionDenied("Account password could not be verified.")
+    # An edited financial rate card requires a fresh, unused vault TOTP.
+    # The shared Super Admin authenticator prevents replay of the same code.
+    check_mutation(request.user, password, payload["totp_code"])
     registration = _matrix(payload["registration"])
     renewal = _matrix(payload["renewal"])
     transfer = _money(payload["transfer_price"])
