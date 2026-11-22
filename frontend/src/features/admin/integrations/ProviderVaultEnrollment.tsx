@@ -7,7 +7,7 @@ import {api} from "@/lib/api/client";
 export type VaultSecurityStatus={
  verified:boolean;kind:"totp";enrollment_available:boolean;
  credential_submission_available:boolean;approved_draft_adapters?:string[];
- provider_execution_enabled:false;
+ provider_execution_enabled:false;readiness_checks?:Record<string,boolean>;
 };
 type Enrollment={secret:string;otpauth_url:string;expires_in_seconds:number};
 

@@ -574,7 +574,7 @@ CLOUD_PAYMENT_RETURN_URL = env("CLOUD_PAYMENT_RETURN_URL", default="")
 CLOUD_DNS01_READONLY_ENABLED = env.bool("CLOUD_DNS01_READONLY_ENABLED", default=False)
 # Separate default-off gate for customer DNS-only TXT ownership onboarding.
 CLOUD_DNS01_EXTERNAL_CLAIMS_ENABLED = env.bool("CLOUD_DNS01_EXTERNAL_CLAIMS_ENABLED", default=False)
-CLOUD_PAYSTACK_TEST_BINDING_ENABLED = env.bool("CLOUD_PAYSTACK_TEST_BINDING_ENABLED", default=False)
+CLOUD_PAYSTACK_TEST_BINDING_ENABLED = env.bool("CLOUD_PAYSTACK_TEST_BINDING_ENABLED", default=True)
 CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED = env.bool("CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED", default=False)
 # Production Console-side encrypted storage (NOT supplier activation); fail closed.
 CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED = env.bool("CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED", default=False)
@@ -584,7 +584,6 @@ CLOUD_PROVIDER_CUSTODY_VERIFIED = env.bool("CLOUD_PROVIDER_CUSTODY_VERIFIED", de
 # Independent synthetic review hold: deployed credential mutations remain prohibited.
 CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED = env.bool("CLOUD_PROVIDER_SYNTHETIC_REVIEW_WRITES_ENABLED", default=False)
 # No Production adapter may receive secrets until individually allowlisted.
-CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS = env("CLOUD_PROVIDER_ALLOWED_DRAFT_ADAPTERS",default="")
 # Live Cloudflare Registrar domain-check only; no registration/purchases/renewals.
 CLOUD_REGISTRAR_LIVE_QUOTE_READBACK_ENABLED = env.bool("CLOUD_REGISTRAR_LIVE_QUOTE_READBACK_ENABLED",default=False)
 CLOUD_PROVIDER_VAULT_KEY = env("CLOUD_PROVIDER_VAULT_KEY", default="")

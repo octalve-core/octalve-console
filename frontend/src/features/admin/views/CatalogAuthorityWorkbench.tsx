@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -163,6 +164,10 @@ export function CatalogAuthorityWorkbench() {
       description="Connect approved suppliers, organise hosting products, configure retail offers and publish with confidence.">
       <div className="space-y-5">
         <AdminCatalogIntro/>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-console-line bg-white p-4">
+          <p className="text-sm text-console-muted">Domain registration, renewal and transfer prices are managed by extension.</p>
+          <Link href="/admin/settings/domain-pricing" className="text-sm font-medium text-console-primary">Domain TLD pricing</Link>
+        </div>
         <CatalogWorkspaceNavigation active={section} onSelect={selectSection}/>
         {loading?<div role="status" className="rounded-xl border border-console-line bg-white p-5 text-sm text-console-muted">Loading catalogue records…</div>:null}
         {error?<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>:null}

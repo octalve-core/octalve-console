@@ -2,7 +2,7 @@
 
 Reuses the existing TLDPricing.metadata JSON column: no Production migration.
 The public legacy TLD pricing endpoint only sees rows marked 'active'; this
-writer always leaves edited/new rows 'inactive' until supplier qualification.
+writer preserves active public rates while recording the replacement draft.
 """
 import re
 from decimal import Decimal
@@ -47,7 +47,7 @@ def _matrix(value):
     return parsed
 
 
-def _rate_card(row):
+def rate_card_draft(row):
     metadata = row.metadata if isinstance(row.metadata, dict) else {}
     saved = metadata.get("period_pricing_v1")
     saved = saved if isinstance(saved, dict) else {}
@@ -57,11 +57,11 @@ def _rate_card(row):
         return {term: str(raw[term]) if isinstance(raw.get(term), str) else
                 str(yearly) if term == "1" else None for term in TERMS}
     return {
-        "tld": row.tld, "description": row.description or "",
+        "tld": row.tld, "description": saved.get("description", row.description) or "",
         "currency": "NGN",
         "registration": full("registration", row.register_price),
         "renewal": full("renewal", row.renewal_price),
-        "transfer_price": str(row.transfer_price),
+        "transfer_price": str(saved.get("transfer_price", row.transfer_price)),
         "revision": saved.get("revision", 0) if type(saved.get("revision", 0)) is int else 0,
         "updated_at": row.updated_at.isoformat(),
         "publication": "inactive_draft",
@@ -79,7 +79,7 @@ def admin_tld_price_cards(request):
     if request.method == "GET":
         rows = list(TLDPricing.objects.order_by("sort_order", "tld")[:301])
         return Response(
-            {"results": [_rate_card(row) for row in rows[:300]],
+            {"results": [rate_card_draft(row) for row in rows[:300]],
              "truncated": len(rows) > 300, "currency": "NGN",
              "checkout_enabled": False},
             headers={"Cache-Control": "private, no-store"},
@@ -122,16 +122,18 @@ def admin_tld_price_cards(request):
             # Only consume an MFA code AFTER schema, money and optimistic
             # revision validation; the OTP update rolls back with this write.
             check_mutation(request.user, password, payload["totp_code"])
-            row.description = description
-            row.register_price = registration["1"]
-            row.renewal_price = renewal["1"]
-            row.transfer_price = transfer
-            row.status = "inactive"
+            if row.status != "active":
+                row.description = description
+                row.register_price = registration["1"]
+                row.renewal_price = renewal["1"]
+                row.transfer_price = transfer
+                row.status = "inactive"
             metadata = dict(row.metadata) if isinstance(row.metadata, dict) else {}
             metadata["period_pricing_v1"] = {
                 "registration": {k: str(v) if v is not None else None for k, v in registration.items()},
                 "renewal": {k: str(v) if v is not None else None for k, v in renewal.items()},
                 "revision": current + 1, "currency": "NGN",
+                "description": description, "transfer_price": str(transfer),
             }
             row.metadata = metadata
             row.save()
@@ -142,7 +144,7 @@ def admin_tld_price_cards(request):
                          "status": "inactive_draft", "years": [1,2,5,10],
                          "registrar_execution_enabled": False},
             )
-            output = _rate_card(row)
+            output = rate_card_draft(row)
     except IntegrityError:
         return Response({"detail": "Price card changed. Refresh before saving."}, status=409)
     return Response(output, headers={"Cache-Control": "private, no-store"})

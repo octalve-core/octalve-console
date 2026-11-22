@@ -6,6 +6,7 @@ import {ProviderLogo} from "./ProviderLogo";
 import {ProviderRequirements} from "./ProviderRequirements";
 import {SecureConnectionSetup} from "./SecureConnectionSetup";
 import {SavedConnectionActions} from "./SavedConnectionActions";
+import {PaystackTestBindingPanel} from "../components/PaystackTestBindingPanel";
 import {RegistrarQuotePanel} from "./RegistrarQuotePanel";
 import type {DraftConnection} from "./connection-readback";
 export function ProviderSideSheet({item,onClose,drafts,overviewStatus,onSaved}:{item:Integration;onClose:()=>void;drafts:readonly DraftConnection[];draftSchemaAvailable:boolean;overviewStatus:"loading"|"ready"|"unavailable";onSaved:()=>void}){
@@ -34,7 +35,7 @@ export function ProviderSideSheet({item,onClose,drafts,overviewStatus,onSaved}:{
    <h3 className="text-sm font-medium">Your saved connections</h3>
    {drafts.map(c=><div key={c.id} className="rounded-xl border border-console-line bg-slate-50 p-3">
     <p className="text-sm font-medium">{c.label}</p>
-    <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} account · Version {c.credential_version} · {c.state==="revoked"?"Access revoked":c.verification_status==="verified"?"Verified":c.verification_status==="recheck_required"?"Recheck access":"Awaiting verification"}</p>
+    <p className="mt-1 text-xs text-console-muted">{c.environment==="test"?"Test":"Live"} account · Version {c.credential_version} · {c.state==="revoked"?"Access revoked":c.verification_status==="verified"?"Verified":c.verification_status==="recheck_required"?"Recheck access":c.supports_verification===false?"Credentials saved":"Awaiting verification"}</p>
     {c.last_verified_at&&c.state==="draft"?<p className="mt-1 text-xs text-console-muted">Last verified: {new Date(c.last_verified_at).toLocaleString("en-GB")}</p>:null}
     <SavedConnectionActions connection={c} onVerified={onSaved}/>
     {item.slug==="cloudflare-registrar-live"&&c.state==="draft"?<RegistrarQuotePanel connectionId={c.id}/>:null}
@@ -42,6 +43,7 @@ export function ProviderSideSheet({item,onClose,drafts,overviewStatus,onSaved}:{
    <p className="text-xs text-console-muted">Verify each saved connection before use. Account creation, DNS changes and purchases require separate approval.</p>
   </section>:null}
   <SecureConnectionSetup item={item} onSaved={onSaved}/>
+  {item.slug==="paystack"&&drafts.some(c=>c.environment==="test"&&c.verification_status==="verified")?<PaystackTestBindingPanel embedded/>:null}
   <ProviderRequirements item={item}/>
  </div>
  <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-console-line px-5 py-4 sm:px-6">

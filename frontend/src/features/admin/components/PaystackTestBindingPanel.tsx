@@ -12,7 +12,7 @@ type Status={
  live_payments_enabled:false;
 };
 const field="mt-1 min-h-11 w-full rounded-xl border border-console-line bg-white px-3 py-2 text-sm text-console-ink";
-export function PaystackTestBindingPanel(){
+export function PaystackTestBindingPanel({embedded=false}:{embedded?:boolean}={}){
  const [state,setState]=useState<Status|null>(null);
  const [selected,setSelected]=useState("");
  const [loading,setLoading]=useState(true);
@@ -77,10 +77,10 @@ export function PaystackTestBindingPanel(){
     className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-console-line px-3 text-xs font-medium text-console-primary disabled:opacity-50">
     <RefreshCcw className="h-4 w-4"/>Refresh</button>
   </div>
-  <Link href="/admin/integrations?provider=paystack"
+  {!embedded?<Link href="/admin/integrations?provider=paystack"
    className="mt-4 inline-flex min-h-10 items-center rounded-xl border border-console-line px-4 text-sm font-medium text-console-primary hover:bg-blue-50">
    Open secure Paystack credential setup
-  </Link>
+  </Link>:null}
   {loading?<p role="status" className="mt-4 text-sm text-console-muted">Checking verified test connections…</p>:null}
   {error?<p role="alert" className="mt-4 flex gap-2 text-xs text-rose-700">
    <ShieldAlert className="h-4 w-4 shrink-0"/>{error}</p>:null}

@@ -3,7 +3,7 @@ export type DraftConnection={
  id:string;adapter_key:string;label:string;environment:"test"|"live";
  state:"draft"|"revoked";credential_version:number;credential_configured:boolean;execution_enabled:false;
  verification_status:"verified"|"awaiting_verification"|"recheck_required"|"revoked";
- last_verified_at:string|null;
+ last_verified_at:string|null;supports_verification?:boolean;
 };
 type ConnectionResponse={results:DraftConnection[];truncated:boolean;execution_enabled:false};
 type SchemaResponse={integrations:{key:string;enabled_for_execution:false}[];execution_enabled:false};
