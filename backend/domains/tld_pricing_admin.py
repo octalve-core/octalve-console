@@ -23,6 +23,16 @@ from .models import TLDPricing
 TERMS = ("1", "2", "5", "10")
 TLD_RE = re.compile(r"^\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?){0,2}$")
 MONEY_RE = re.compile(r"^(?:0|[1-9][0-9]{0,7})\.[0-9]{2}$")
+PUBLICATION_NUMBER_RE = re.compile(r"(?:[0-9]{1,8}|[0-9]{1,3}(?:,[0-9]{3}){1,2})(?:\.[0-9]{1,2})?")
+
+
+def _publication_number(value, label, *, allow_zero=False):
+    if not isinstance(value, str) or not PUBLICATION_NUMBER_RE.fullmatch(value.strip()):
+        raise ValidationError(f"Enter a valid {label}, with up to two decimal places.")
+    result = Decimal(value.strip().replace(",", ""))
+    if result > Decimal("99999999.99") or (result == 0 and not allow_zero):
+        raise ValidationError(f"The {label} is outside the allowed range.")
+    return result
 
 
 def _money(value, *, optional=False):
@@ -180,14 +190,15 @@ def publish_tld_price_card(request):
             raise ValidationError("Supplier quote expired. Check live pricing again.") from None
         if quote["actor_id"] != str(request.user.pk) or quote["tld"] != payload["tld"]:
             raise ValidationError("The supplier quote does not match this price card.")
-        fx = Decimal(1) if quote["currency"] == "NGN" else _money(payload.get("ngn_per_supplier_unit"))
+        fx = (Decimal(1) if quote["currency"] == "NGN"
+              else _publication_number(payload.get("ngn_per_supplier_unit"), "exchange rate"))
         retail = {}
         for operation in ("registration", "renewal"):
             cost = Decimal(quote[f"{operation}_cost"]) * fx
             if payload.get("pricing_mode") == "fixed":
-                retail[operation] = _money(payload.get(operation))
+                retail[operation] = _publication_number(payload.get(operation), f"{operation} price").quantize(Decimal(".01"))
             elif payload.get("pricing_mode") == "markup":
-                markup = _money(payload.get(operation))
+                markup = _publication_number(payload.get(operation), f"{operation} markup", allow_zero=True)
                 retail[operation] = _money(str((cost * (1 + markup / 100)).quantize(Decimal(".01"), rounding=ROUND_UP)))
             else:
                 raise ValidationError("Choose fixed retail amounts or percentage markup.")

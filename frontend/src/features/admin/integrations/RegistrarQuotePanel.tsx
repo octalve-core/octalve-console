@@ -2,7 +2,7 @@
 
 import {useState,type FormEvent} from "react";
 import {ShieldCheck,ShieldAlert} from "lucide-react";
-import {api} from "@/lib/api/client";
+import {api,ApiError} from "@/lib/api/client";
 
 type Quote={
   verified:true;provider:"cloudflare-registrar";domain:string;
@@ -63,7 +63,10 @@ export function RegistrarQuotePanel({connectionId,publication}:{connectionId:str
    });
    setResult(null);setNotice(action==="publish"?"Domain route published.":"Domain route unpublished.");
    publication.onChanged();
-  }catch{setError("Could not update publication. Refresh the price card and check the supplier quote, prices, and authenticator code.");}
+  }catch(error){
+   setError(error instanceof ApiError && [400,403,404,409,429].includes(error.status)
+    ? error.message : "Could not update publication. Try again after refreshing the price card.");
+  }
   finally{
    for(const key of ["confirm_password","totp_code"]){const input=form.elements.namedItem(key);if(input instanceof HTMLInputElement)input.value="";}
    setWorking(false);

@@ -56,13 +56,13 @@ class TLDPriceSettingsTests(TestCase):
         }, salt=TLD_SUPPLIER_QUOTE_SALT)
         body = {"action": "publish", "tld": ".com", "expected_revision": 1,
                 "confirm_password": PASSWORD, "totp_code": "123456", "supplier_quote": quote,
-                "ngn_per_supplier_unit": "1500.00", "pricing_mode": "markup",
-                "registration": "20.00", "renewal": "25.00"}
+                "ngn_per_supplier_unit": "1,450", "pricing_mode": "markup",
+                "registration": "15", "renewal": "25"}
         response = self.client.post(URL + "publication/", body, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         row = TLDPricing.objects.get(tld=".com")
         self.assertEqual((row.status, row.register_price, row.renewal_price),
-                         ("active", Decimal("18000.00"), Decimal("22500.00")))
+                         ("active", Decimal("16675.00"), Decimal("21750.00")))
         self.assertEqual(row.metadata["published_registrar"]["connection_id"], str(connection.pk))
         self.assertEqual(self.client.post(URL + "publication/", body, format="json").status_code, 409)
         response = self.client.post(URL + "publication/", {
