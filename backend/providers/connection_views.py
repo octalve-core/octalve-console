@@ -182,7 +182,7 @@ def connections(request):
     if data["environment"] not in ("test","live"):
         raise ValidationError({"environment":"Choose test or live."})
     public=validate_public_settings(adapter,data["public_settings"])
-    secrets=validate_secrets(adapter,data["secrets"])
+    secrets=validate_secrets(adapter,data["secrets"],data["environment"])
     with transaction.atomic():
         row=IntegrationConnection.objects.create(adapter_key=adapter,label=label,
             environment=data["environment"],public_settings=public,
@@ -219,7 +219,7 @@ def rotate_connection(request, connection_id):
         if row.state!="draft":
             return Response({"detail":"Revoked connection cannot be rotated."},status=409)
         require_adapter_intake(row.adapter_key)
-        secrets=validate_secrets(row.adapter_key,data["secrets"])
+        secrets=validate_secrets(row.adapter_key,data["secrets"],row.environment)
         next_version=row.current_version+1
         if next_version>65535:
             raise ValidationError({"detail":"Maximum credential versions reached."})
