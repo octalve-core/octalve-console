@@ -51,7 +51,14 @@ class PaymentGateway(models.Model):
         ]
     
     def get_secret_key(self):
-        """Decrypt and return secret key"""
+        """Server-only gateway secret access; Paystack test vault must stay bound."""
+        if (self.code == "paystack" and isinstance(self.config, dict) and
+                "provider_vault_connection_id" in self.config):
+            # A verified draft is NOT permission to charge money. The only
+            # allowed vault-backed gateway here is TEST, gated again by
+            # payments.sandbox and independent checkout feature switches.
+            from .vault_binding import resolve_paystack_test_key
+            return resolve_paystack_test_key(self)
         if not self.encrypted_secret_key:
             return None
         try:
