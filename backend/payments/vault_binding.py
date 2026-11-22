@@ -42,7 +42,8 @@ def resolve_paystack_test_key(gateway):
     A rotated/revoked/old/unverified credential prevents new checkout. The
     existing hosted-checkout flags and sandbox-only gate still apply.
     """
-    if (gateway.code != "paystack" or not gateway.test_mode or
+    if (not getattr(settings, "CLOUD_PAYSTACK_TEST_BINDING_ENABLED", False)
+            or gateway.code != "paystack" or not gateway.test_mode or
             gateway.status != "test" or gateway.encrypted_secret_key):
         return None
     config = gateway.config if isinstance(gateway.config, dict) else {}
