@@ -27,7 +27,7 @@ export function DomainSearchResult({value}:{value:DomainLookup}){
        {verified?"Registration can continue once checkout is enabled":"No registration or payment has been started"}
      </p>
      {verified&&value.test_checkout_enabled?<Link className="mt-3 inline-flex text-sm font-medium text-console-primary"
-       href={`/client/domains/register?domain=${encodeURIComponent(value.domain)}#sandbox-domain-purchase`}>
+       href={`/client/order/checkout?product=domain&domain=${encodeURIComponent(value.domain)}`}>
        Continue to test checkout
      </Link>:null}
    </div>

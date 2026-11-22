@@ -11,7 +11,7 @@ import {CheckoutQuoteSummary} from "../components/commerce/CheckoutQuoteSummary"
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {authApi,clientApi,type AccountProfile,type CheckoutQuote} from "@/lib/api/endpoints";
-import {loadSellablePlans,defaultCycle,formatPlanAmount,type ClientOrderPlan} from "../data/client-order-data";
+import {loadSellablePlans,formatPlanAmount,type ClientOrderPlan} from "../data/client-order-data";
 
 type Stage="domain"|"review"|"completed";
 type DomainChoice="later"|"existing"|"new";
@@ -21,7 +21,7 @@ const domainPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a
 const selectionClass="min-h-24 rounded-xl border px-4 py-4 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary";
 const actionClass="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-console-primary px-5 py-3 text-sm font-medium text-white transition hover:bg-console-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto";
 
-export function ClientCheckoutView(){
+export function ServiceCheckout(){
   const [plans,setPlans]=useState<ClientOrderPlan[]>([]);
   const [account,setAccount]=useState<AccountProfile|null>(null);
   const [planId,setPlanId]=useState("");
@@ -133,13 +133,13 @@ export function ClientCheckoutView(){
     finally{setWorking(false);}
   }
   const currentStep=stage==="domain"?1:stage==="review"?2:3;
-  return <DashboardShell role="client" title="Checkout" description="Configure hosting and review your purchase.">
-    <DashboardPage eyebrow="Checkout" title="Set up your hosting"
+  return <DashboardShell role="client" title="Checkout" description="Configure your service and review your purchase.">
+    <DashboardPage eyebrow="Checkout" title={selected ? `Set up ${selected.product}` : "Set up your service"}
       description="A guided, secure checkout. Charges and activation are verified separately.">
       <CheckoutProgress currentStep={currentStep as 0|1|2|3}/>
       {error?<p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
-      {loading?<p role="status" className="rounded-2xl bg-white p-6 text-sm text-slate-600">Preparing your selected hosting package…</p>:null}
-      {!loading&&(!selected||!cycle)?<Link href="/client/order" className="font-medium text-[#0064E0]">Back to hosting plans</Link>:null}
+      {loading?<p role="status" className="rounded-2xl bg-white p-6 text-sm text-slate-600">Preparing your selected plan…</p>:null}
+      {!loading&&(!selected||!cycle)?<Link href="/client/order" className="font-medium text-[#0064E0]">Back to service plans</Link>:null}
       {selected&&cycle&&stage!=="completed"?<WorkspaceGrid variant="commerceColumns">
         <Panel className="min-w-0 lg:col-span-2">
           {stage==="domain"?<>
@@ -168,10 +168,9 @@ export function ClientCheckoutView(){
               </p>
               {normalizedDomain&&!validDomain?<p className="mt-2 text-sm text-rose-600">Enter a valid domain such as example.com.</p>:null}
             </div>:null}
-            {domainChoice==="new"?<div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              Domain registration will be available after our registrar connection is verified.
-              We cannot show live availability or accept payment for a new domain yet.
-              Select <strong>I own a domain</strong> or <strong>Connect later</strong> to continue with hosting.
+            {domainChoice==="new"?<div className="mt-6 rounded-xl border border-console-line bg-slate-50 p-4 text-sm leading-6 text-console-ink">
+              <Link href="/client/domains/register" className="font-medium text-console-primary">Search for a domain</Link> to start a domain order.
+              To order this service first, choose <strong>Connect later</strong>.
             </div>:null}
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
               <Link href="/client/order" className="inline-flex items-center gap-2 text-sm font-medium text-[#0064E0]"><ArrowLeft className="h-4 w-4"/>Change plan</Link>

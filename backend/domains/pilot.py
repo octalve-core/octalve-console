@@ -10,13 +10,15 @@ from django.contrib.auth import get_user_model
 from django.core import signing
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, Throttled, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import BaseThrottle
 
+from accounts.security_throttle import _spend as spend_durable_attempt
 from billing.models import Invoice, InvoiceItem
 from orders.models import Order, OrderItem
 from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_gateway_allowed, pilot_test_gateway, selected_domain_test_allowed
@@ -27,7 +29,7 @@ from providers.cloudflare_int01 import CloudflareINT01, CloudflareINT01Denied, F
 from providers.connection_audit import verify_chain
 from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion
 from providers.connection_status import safe_verification_status, verification_receipts
-from providers.connection_views import VaultMutationThrottle, connection_database_qualified
+from providers.connection_views import connection_database_qualified
 from providers.connection_vault import VaultUnavailable, unseal_version
 
 from .models import TLDPricing
@@ -35,6 +37,21 @@ from .public_registrar import query_published_registrar
 from .tld_pricing_admin import rate_card_draft
 
 QUOTE_SALT = "octalve.sandbox-domain-purchase.v1"
+
+
+class DomainPurchaseThrottle(BaseThrottle):
+    def allow_request(self, request, view):
+        if request.method == "GET":
+            return True
+        if not request.user.is_authenticated or not request.user.is_active:
+            return False
+        try:
+            retry = spend_durable_attempt("domains:sandbox_purchase", str(request.user.pk), 15, 300)
+        except DatabaseError as exc:
+            raise VaultUnavailable() from exc
+        if retry:
+            raise Throttled(wait=retry)
+        return True
 
 
 def registrar(snapshot=None):
@@ -337,7 +354,7 @@ def recover_locally_blocked_submission(order, supplier):
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
-@throttle_classes([VaultMutationThrottle])
+@throttle_classes([DomainPurchaseThrottle])
 def domain_pilot(request):
     scope = pilot_configuration()
     user = request.user

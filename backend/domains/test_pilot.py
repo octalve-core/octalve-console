@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 from domains.pilot import QUOTE_SALT, accept_quote, pilot_readiness, reconcile
 from domains.models import TLDPricing
 from payments.domain_pilot_scope import PILOT
+from payments.hosted_checkout import reserve_hosted_checkout
 from payments.models import PaymentGateway, PaymentIntent, Transaction, WebhookEvent
 from payments.readback import ConfirmedGatewayPayment, PaymentReadbackRejected, verify_gateway_intent
 from payments.test_checkout_webhooks import reply
@@ -91,6 +92,19 @@ class DomainPilotTests(TestCase):
         self.assertEqual(order.metadata[PILOT]["live_route"], route)
         invoice = order.invoices.get()
         self.assertTrue(gateway_can_read(self.gateway, invoice))
+        def send(_url, **kwargs):
+            body = kwargs["json"]
+            self.assertEqual(body["callback_url"],
+                             "https://console.example.test/client/order/checkout?product=domain&domain=selected-by-customer.com")
+            return reply({"status": True, "data": {"reference": body["reference"],
+                         "authorization_url": "https://checkout.paystack.com/test_12345"}})
+
+        with self.settings(CLOUD_HOSTED_CHECKOUT_ENABLED=True, CLOUD_PAYMENT_RETURN_URL="https://console.example.test/client/order/processing"), patch.object(
+            PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789",
+        ):
+            intent, created = reserve_hosted_checkout(invoice.pk, "paystack", poster=send)
+        self.assertTrue(created)
+        self.assertEqual(intent.reference, invoice.payment_intents.get().reference)
         with self.settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=False):
             self.assertFalse(gateway_can_read(self.gateway, invoice))
 

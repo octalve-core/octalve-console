@@ -23,11 +23,14 @@ const labels = {
   registered: "Sandbox domain registered",
 };
 
-export function DomainSandboxPurchase({ admin = false, domain }: { admin?: boolean; domain?: string }) {
+export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = false }: {
+  admin?: boolean; domain?: string; checkoutPage?: boolean;
+}) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const requestUrl = domain ? `${endpoint}?${new URLSearchParams({ domain })}` : endpoint;
 
   useEffect(() => {
@@ -41,6 +44,8 @@ export function DomainSandboxPurchase({ admin = false, domain }: { admin?: boole
         }
       } catch {
         // The purchase control is only available to eligible accounts.
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
     void load();
@@ -73,7 +78,11 @@ export function DomainSandboxPurchase({ admin = false, domain }: { admin?: boole
     }
   }
 
-  if (!overview) return null;
+  if (!overview) return checkoutPage ? (
+    <section className="rounded-xl border border-console-line bg-white p-5 text-sm" role="status">
+      {loading ? "Loading domain checkout…" : "Checkout is currently unavailable for this domain or account."}
+    </section>
+  ) : null;
   const purchase = overview.purchase;
   const awaitingPayment = purchase?.state === "awaiting_payment";
   const canCheckout = awaitingPayment && ["available", "resume"].includes(purchase.checkout_state);
@@ -96,7 +105,7 @@ export function DomainSandboxPurchase({ admin = false, domain }: { admin?: boole
 
   return (
     <section id="sandbox-domain-purchase" className="space-y-3 rounded-xl border border-console-line bg-white p-4 text-sm">
-      <h2 className="font-medium">Sandbox domain purchase</h2>
+      <h2 className="font-medium">{checkoutPage ? "Review domain registration" : "Sandbox domain purchase"}</h2>
       <p>{overview.domain} · One year{quote && !purchase ? ` · NGN ${quote.amount}` : ""}</p>
       {admin && overview.readiness_issues && (
         overview.readiness_issues.length ? (
