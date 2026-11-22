@@ -1,5 +1,5 @@
 """Paystack read-only encrypted-vault onboarding; never collect money in tests."""
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 from cryptography.fernet import Fernet
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -20,7 +20,7 @@ AUDIT=Fernet.generate_key().decode()
 
 
 def paystack_session(reply=None,status=200):
-    response=Mock(status_code=status,headers={})
+    response=MagicMock(status_code=status,headers={})
     response.__enter__=Mock(return_value=response)
     response.__exit__=Mock(return_value=False)
     response.iter_content.return_value=[reply or b'{"status":true,"message":"Balances retrieved","data":[{"currency":"NGN","balance":99999999}]}']
