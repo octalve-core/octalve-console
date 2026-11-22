@@ -9,7 +9,7 @@ type FieldKind="url"|"name"|"domain"|"identifier";
 type ProviderSchema={key:string;name:string;fields:Record<string,FieldKind>;
  secret_fields:string[];enabled_for_execution:false};
 type SavedDraft={id:string;label:string;state:"draft";credential_version:number;execution_enabled:false};
-const labelFor=(value:string)=>({account_id:"Account ID",zone_id:"Zone ID",api_token:"API token",client_id:"Client ID",api_key:"API key"} as Record<string,string>)[value]??value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());
+const labelFor=(value:string)=>({account_id:"Account ID",zone_id:"Zone ID",api_token:"API token",client_id:"Client ID",api_key:"API key",secret_key:"Paystack secret key"} as Record<string,string>)[value]??value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());
 const cloudflareHelp:Record<string,string>={
  account_id:"Cloudflare → Account Home → Copy Account ID.",
  zone_id:"Cloudflare → Select your domain → Overview → API → Zone ID.",
@@ -102,7 +102,11 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
      <input name={"pub_"+key} type={kind==="url"?"url":"text"} required maxLength={220}
       placeholder={kind==="url"?"https://panel.example.com":undefined} spellCheck={false}
       autoCapitalize="off" autoComplete="off" className={fieldStyle}/>
-     {item.slug==="cloudflare-dns"&&cloudflareHelp[key]?<span className="mt-1 block text-xs leading-5 text-console-muted">{cloudflareHelp[key]}</span>:null}
+     {item.slug==="paystack"&&key==="secret_key"?<span className="mt-1 block text-xs leading-5 text-console-muted">
+      Use sk_test_ to verify a test merchant first. Use sk_live_ only with Live account type.
+      Saving and verifying keys does not accept payments or transfer money.
+     </span>:null}
+       {item.slug==="cloudflare-dns"&&cloudflareHelp[key]?<span className="mt-1 block text-xs leading-5 text-console-muted">{cloudflareHelp[key]}</span>:null}
     </label>)}
    {schema.secret_fields.map(key=><label key={key} className="block text-xs"><KeyRound className="mr-1 inline h-3.5 w-3.5" aria-hidden="true"/>{labelFor(key)}
      <input name={"sec_"+key} type="password" required minLength={key==="client_secret"?32:12}
