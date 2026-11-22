@@ -81,10 +81,10 @@ def admin_paystack_test_binding(request):
     if request.method == "GET":
         connections = list(IntegrationConnection.objects.filter(
             adapter_key="paystack", state="draft", environment="test").order_by("-created_at")[:51])
+        receipts = verification_receipts(connections[:50])
         verified = [{"id":str(row.pk), "label":row.label,
                      "credential_version":row.current_version,
-                     "verification_status":safe_verification_status(
-                         row, verification_receipts([row]))["verification_status"]}
+                     "verification_status":safe_verification_status(row,receipts)["verification_status"]}
                     for row in connections[:50]]
         gateway = PaymentGateway.objects.filter(code="paystack").first()
         config = gateway.config if gateway and isinstance(gateway.config,dict) else {}
