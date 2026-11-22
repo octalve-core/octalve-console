@@ -371,11 +371,19 @@ class CloudflareINT01:
         return _workflow(self.transport("GET", self._path(
             f"registrations/{domain}/registration-status")), domain)
 
-    def submit_pilot_registration(self, domain, contact):
-        from payments.domain_pilot_scope import pilot_configuration
+    def submit_pilot_registration(self, order, contact):
+        from payments.domain_pilot_scope import PILOT, pilot_gateway_allowed
+        from payments.models import PaymentIntent
 
-        scope = pilot_configuration()
-        if not scope or domain != scope[1]:
+        snapshot = order.metadata.get(PILOT, {})
+        domain = require_domain(snapshot.get("domain"))
+        payment = PaymentIntent.objects.filter(
+            invoice__order=order, invoice__status="void", status="completed",
+            reference=snapshot.get("payment_reference"), gateway__code="paystack",
+        ).select_related("gateway", "invoice__client").first()
+        if (snapshot.get("state") != "registration_uncertain"
+                or snapshot.get("sandbox_submission_reserved") is not True
+                or not payment or not pilot_gateway_allowed(payment.gateway, payment.invoice)):
             raise CloudflareINT01Denied()
         registration = self.transport("POST", self._path("registrations"), {
             "domain_name": domain, "years": 1, "auto_renew": False,

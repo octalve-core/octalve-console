@@ -19,7 +19,7 @@ from rest_framework.response import Response
 
 from billing.models import Invoice, InvoiceItem
 from orders.models import Order, OrderItem
-from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_test_gateway, selected_domain_test_allowed
+from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_gateway_allowed, pilot_test_gateway, selected_domain_test_allowed
 from payments.hosted_checkout import CheckoutRefused, _return_url, reserve_hosted_checkout
 from payments.models import PaymentGateway, PaymentIntent, WebhookEvent
 from payments.readback import PaymentReadbackRejected, verify_gateway_intent
@@ -263,6 +263,8 @@ def reconcile(order):
         return
     supplier, _ = registrar(snapshot)
     if snapshot["state"] != "awaiting_payment":
+        if recover_locally_blocked_submission(order, supplier):
+            return
         reconcile_registration(order, supplier)
         return
 
@@ -284,18 +286,53 @@ def reconcile(order):
             raise ValidationError("The pilot payment changed during verification.")
         # Reserve before the POST. A crash at any point now requires readback only.
         locked.metadata[PILOT].update(state="registration_uncertain", payment_reference=proof.reference,
-                                     payment_remote_id=proof.remote_id)
+                                     payment_remote_id=proof.remote_id, sandbox_submission_reserved=True)
         locked.status = "needs_review"
         locked.save(update_fields=["metadata", "status", "updated_at"])
         payment.status = "completed"
         payment.save(update_fields=["status"])
         invoice.status = "void"
         invoice.save(update_fields=["status", "updated_at"])
+    submit_reserved_registration(locked, supplier, contact)
+
+
+def submit_reserved_registration(order, supplier, contact):
     try:
-        workflow = supplier.submit_pilot_registration(snapshot["domain"], contact)
+        workflow = supplier.submit_pilot_registration(order, contact)
     except CloudflareINT01Denied:
         return
     reconcile_registration(order, supplier, workflow)
+
+
+def recover_locally_blocked_submission(order, supplier):
+    """One operator-scoped recovery for an order blocked before the old transport call."""
+    if order.order_number != os.getenv("CLOUD_SANDBOX_LOCALLY_BLOCKED_ORDER"):
+        return False
+    legacy_scope = pilot_configuration()
+    contact = registrant_contact()
+    with transaction.atomic():
+        locked = Order.objects.select_for_update().get(pk=order.pk)
+        snapshot = locked.metadata[PILOT]
+        if (snapshot.get("selected_domain") is not True or snapshot["state"] != "registration_uncertain"
+                or "sandbox_submission_reserved" in snapshot or not legacy_scope
+                or snapshot["domain"] == legacy_scope[1]):
+            return False
+        payment = PaymentIntent.objects.filter(
+            invoice__order=locked, invoice__status="void", status="completed",
+            reference=snapshot.get("payment_reference"), gateway__code="paystack",
+        ).select_related("gateway", "invoice__client").first()
+        if (not payment or payment.amount != payment.invoice.total
+                or not pilot_gateway_allowed(payment.gateway, payment.invoice)
+                or not WebhookEvent.objects.filter(
+                    gateway=payment.gateway, is_verified=True, event_type="charge.success",
+                    payload__reference=payment.reference, payload__intent_id=payment.pk,
+                    payload__remote_id=snapshot.get("payment_remote_id"),
+                ).exists()):
+            return False
+        snapshot["sandbox_submission_reserved"] = True
+        locked.save(update_fields=["metadata", "updated_at"])
+    submit_reserved_registration(locked, supplier, contact)
+    return True
 
 
 @api_view(["GET", "POST"])

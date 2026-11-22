@@ -15,7 +15,7 @@ from payments.models import PaymentGateway, PaymentIntent, Transaction, WebhookE
 from payments.readback import ConfirmedGatewayPayment, PaymentReadbackRejected, verify_gateway_intent
 from payments.test_checkout_webhooks import reply
 from payments.sandbox import gateway_can_read
-from providers.cloudflare_int01 import CloudflareINT01Denied
+from providers.cloudflare_int01 import CloudflareINT01, CloudflareINT01Denied
 
 
 class DomainPilotTests(TestCase):
@@ -93,6 +93,40 @@ class DomainPilotTests(TestCase):
         self.assertTrue(gateway_can_read(self.gateway, invoice))
         with self.settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=False):
             self.assertFalse(gateway_can_read(self.gateway, invoice))
+
+    @override_settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=True)
+    def test_recover_selected_order_blocked_before_transport_only_once(self):
+        order = accept_quote(self.owner, self.domain, self.token)
+        snapshot = order.metadata[PILOT]
+        snapshot.update(domain="selected-by-customer.com", selected_domain=True,
+                        state="registration_uncertain", payment_reference="OC-RECOVERY", payment_remote_id="42")
+        order.save(update_fields=["metadata"])
+        invoice = order.invoices.get()
+        invoice.status = "void"
+        invoice.save(update_fields=["status"])
+        intent = PaymentIntent.objects.create(
+            invoice=invoice, client=self.owner, gateway=self.gateway, reference="OC-RECOVERY",
+            status="completed", amount=invoice.total, currency="NGN",
+            expires_at=timezone.now() + timezone.timedelta(minutes=1),
+        )
+        WebhookEvent.objects.create(
+            gateway=self.gateway, is_verified=True, event_type="charge.success", event_id="recovery-test",
+            payload={"reference": intent.reference, "remote_id": "42", "intent_id": intent.pk},
+        )
+        transport = Mock(return_value={"success": True, "result": {"state": "pending", "completed": False}})
+        adapter = CloudflareINT01("a" * 32, transport)
+        self.supplier.submit_pilot_registration.side_effect = adapter.submit_pilot_registration
+        self.supplier.pilot_registration_status.return_value = {"state": "pending"}
+        with patch.dict("os.environ", {"CLOUD_SANDBOX_LOCALLY_BLOCKED_ORDER": order.order_number}):
+            reconcile(order)
+            order.refresh_from_db()
+            self.assertTrue(order.metadata[PILOT]["sandbox_submission_reserved"])
+            reconcile(order)
+        transport.assert_called_once()
+        verb, path, payload = transport.call_args.args
+        self.assertEqual(verb, "POST")
+        self.assertTrue(path.endswith("/registrar-sandbox/registrations"))
+        self.assertEqual(payload["domain_name"], "selected-by-customer.com")
 
     def test_timeout_never_resubmits_and_success_never_posts_revenue(self):
         order = accept_quote(self.owner, self.domain, self.token)
