@@ -1,6 +1,9 @@
 import {authApi} from "@/lib/api/endpoints";
 
 export type CartSelection = {kind:"domain";domain:string} | {kind:"service";plan:string;cycle:string;revision:number;domain?:string};
+export const cartHref = "/client/order/checkout?view=cart";
+export const cartChangedEvent = "octalve:cart-changed";
+
 const domainPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 export function cartSelectionId(item:CartSelection){
@@ -22,10 +25,10 @@ function valid(item:unknown):item is CartSelection {
     && "revision" in item && typeof item.revision==="number" && Number.isSafeInteger(item.revision) && item.revision>0 && (!("domain" in item) || item.domain===undefined || (typeof item.domain==="string" && domainPattern.test(item.domain)));
 }
 
-async function accountCartKey(){
-  const profile=await authApi.profile();
-  if (!profile.email) throw new Error("Cart account is unavailable.");
-  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(profile.email.toLowerCase()));
+async function accountCartKey(email?: string){
+  const address = email ?? (await authApi.profile()).email;
+  if (!address) throw new Error("Cart account is unavailable.");
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(address.toLowerCase()));
   return `octalve-draft-cart:${Array.from(new Uint8Array(digest), byte=>byte.toString(16).padStart(2,"0")).join("")}`;
 }
 
@@ -36,19 +39,24 @@ function read(key:string):CartSelection[]{
   } catch {return [];}
 }
 
-export async function readCart(){return read(await accountCartKey());}
+export async function readCart(email?: string){return read(await accountCartKey(email));}
+
+function write(key: string, items: CartSelection[]) {
+  sessionStorage.setItem(key, JSON.stringify(items));
+  window.dispatchEvent(new Event(cartChangedEvent));
+}
 
 export async function addToCart(item:CartSelection){
   if (!valid(item)) throw new Error("Choose a current offer before adding it.");
   const key=await accountCartKey();
   const rest=read(key).filter(saved=>cartSelectionId(saved)!==cartSelectionId(item));
   if(rest.length>=20) throw new Error("The cart has reached its item limit.");
-  sessionStorage.setItem(key,JSON.stringify([...rest,item]));
+  write(key, [...rest, item]);
 }
 
 export async function removeFromCart(id:string){
   const key=await accountCartKey();
   const rest=read(key).filter(saved=>cartSelectionId(saved)!==id);
-  sessionStorage.setItem(key,JSON.stringify(rest));
+  write(key, rest);
   return rest;
 }

@@ -2,6 +2,7 @@
 import {useCallback,useState,type ReactNode} from "react";
 import {usePathname,useRouter} from "next/navigation";
 import {useAuth} from "@/context/AuthContext";
+import {ClientCartButton, ClientCartBar, useClientCartCount} from "@/features/client/checkout/ClientCartShortcuts";
 import {DashboardHeader} from "@/components/layout/DashboardHeader";
 import {ConsoleThemeSync} from "@/features/shell/components/ConsoleThemeSync";
 import {DashboardSidebar} from "@/components/layout/DashboardSidebar";
@@ -15,9 +16,11 @@ type Props={role:DashboardRole;title:string;description?:string;actions?:ReactNo
 /** One typed Console shell shared by Client, Staff and Admin. Django retains all role authority. */
 export function DashboardShell({role,title,description,actions,children}:Props){
  const pathname=usePathname(),router=useRouter();
- const {logout}=useAuth();
+ const {logout,user}=useAuth();
+ const cartCount=useClientCartCount(role==="client" && user?.role==="client" ? user.email : undefined);
  const {locale}=useLocale(),m=messages(locale);
  const [sidebarOpen,setSidebarOpen]=useState(false),[loggingOut,setLoggingOut]=useState(false);
+ const showCartBar=role==="client" && cartCount>0 && !sidebarOpen && pathname!=="/client/order/checkout" && pathname!=="/client/order/processing";
  const closeSidebar=useCallback(()=>setSidebarOpen(false),[]);
  async function handleLogout(){
   if(loggingOut)return;
@@ -35,13 +38,16 @@ export function DashboardShell({role,title,description,actions,children}:Props){
   <ConsoleMobileDrawer open={sidebarOpen} onClose={closeSidebar}>{side(closeSidebar)}</ConsoleMobileDrawer>
   <div className="flex min-h-dvh min-w-0 flex-col lg:h-dvh lg:min-h-0 lg:overflow-hidden lg:pl-64">
    <DashboardHeader role={role} onMenuClick={()=>setSidebarOpen(true)}
-    onLogout={()=>{void handleLogout();}} loggingOut={loggingOut}/>
+    onLogout={()=>{void handleLogout();}} loggingOut={loggingOut}
+    cartControl={role==="client" ? <ClientCartButton count={cartCount}/> : undefined}/>
    <main id="console-main" tabIndex={-1} className="mx-auto min-h-0 w-full max-w-[1560px] min-w-0 flex-1 px-4 py-4 sm:px-6 pb-28 lg:pb-4 lg:overflow-x-hidden lg:overflow-y-auto lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
     <span className="sr-only">{role} {title} {description??""}</span>
     {actions?<div className="mb-4 flex flex-wrap justify-end gap-2">{actions}</div>:null}
     {children}
+    {showCartBar && <div aria-hidden="true" className="h-20"/>}
    </main>
   </div>
+  {showCartBar && <ClientCartBar count={cartCount}/>}
   <ConsoleMobileBottomNav role={role} pathname={pathname} onMore={()=>setSidebarOpen(true)}/>
  </div>;
 }

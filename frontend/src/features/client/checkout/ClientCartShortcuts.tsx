@@ -1,0 +1,56 @@
+"use client";
+
+import Link from "next/link";
+import {ArrowRight, ShoppingCart} from "lucide-react";
+import {useEffect, useState} from "react";
+import {cartChangedEvent, cartHref, readCart} from "./cart-selections";
+
+export function useClientCartCount(email: string | undefined) {
+  const [cart, setCart] = useState<{email:string; count:number}>();
+  useEffect(() => {
+    if (!email) return;
+    const account = email;
+    let request = 0;
+    function refresh() {
+      const current = ++request;
+      void readCart(account).then(items => {
+        if (current === request) setCart({email:account, count:items.length});
+      }).catch(() => {
+        if (current === request) setCart({email:account, count:0});
+      });
+    }
+    refresh();
+    window.addEventListener(cartChangedEvent, refresh);
+    window.addEventListener("pageshow", refresh);
+    return () => {
+      request++;
+      window.removeEventListener(cartChangedEvent, refresh);
+      window.removeEventListener("pageshow", refresh);
+    };
+  }, [email]);
+
+  return cart && cart.email === email ? cart.count : 0;
+}
+
+export function ClientCartButton({count}: {count:number}) {
+  const label = count === 0 ? "Shopping cart" : `Shopping cart, ${count} ${count === 1 ? "item" : "items"}`;
+  return <Link href={cartHref} aria-label={label} title={label}
+    className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-console-primary">
+    <ShoppingCart className="h-5 w-5" aria-hidden="true"/>
+    {count > 0 && <span className="absolute right-0.5 top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-medium leading-none text-white" aria-hidden="true">{count}</span>}
+  </Link>;
+}
+
+export function ClientCartBar({count}: {count:number}) {
+  return <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 px-3 lg:bottom-5 lg:left-64 lg:px-6">
+    <aside aria-label="Cart shortcut" className="pointer-events-auto mx-auto flex w-full max-w-2xl items-center justify-between gap-3 rounded-2xl border border-slate-700 bg-slate-950 p-2.5 text-white shadow-xl sm:px-4">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <span className="hidden h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/10 min-[360px]:grid"><ShoppingCart className="h-5 w-5" aria-hidden="true"/></span>
+        <p className="text-sm font-medium">{count} {count === 1 ? "item" : "items"} <span className="hidden sm:inline">in your cart</span></p>
+      </div>
+      <Link href={cartHref} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-console-primary px-3 text-sm font-medium text-white hover:bg-console-hover focus-visible:ring-2 focus-visible:ring-white sm:px-4">
+        Proceed to checkout <ArrowRight className="h-4 w-4" aria-hidden="true"/>
+      </Link>
+    </aside>
+  </div>;
+}

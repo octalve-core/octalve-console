@@ -1,15 +1,15 @@
 "use client";
 import Link from "next/link";
 import {Bell,Menu,MessageSquare,Search,X} from "lucide-react";
-import {useState} from "react";
+import {useState, type ReactNode} from "react";
 import {ConsoleAccountMenu} from "@/features/shell/components/ConsoleAccountMenu";
 import {ConsolePageSearch} from "@/features/shell/components/ConsolePageSearch";
 import type {DashboardRole} from "@/lib/navigation/dashboard-nav";
 import {useLocale} from "@/lib/i18n/LocaleProvider";
 import {messages} from "@/lib/i18n/dictionary";
 
-export function DashboardHeader({role,onMenuClick,onLogout,loggingOut}:{
- role:DashboardRole;onMenuClick:()=>void;onLogout:()=>void;loggingOut:boolean;
+export function DashboardHeader({role,onMenuClick,onLogout,loggingOut,cartControl}:{
+ role:DashboardRole;onMenuClick:()=>void;onLogout:()=>void;loggingOut:boolean;cartControl?:ReactNode;
 }){
  const [searchOpen,setSearchOpen]=useState(false);
  const {locale}=useLocale(),m=messages(locale);
@@ -35,6 +35,7 @@ export function DashboardHeader({role,onMenuClick,onLogout,loggingOut}:{
       title={m.notifications} className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-console-primary">
       <Bell aria-hidden="true" className="h-5 w-5"/>
     </Link>:null}
+    {cartControl}
     <ConsoleAccountMenu role={role} onLogout={onLogout} loggingOut={loggingOut}/>
    </div>
   </div>
