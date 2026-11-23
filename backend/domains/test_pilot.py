@@ -251,6 +251,10 @@ class DomainPilotTests(TestCase):
         with patch("domains.pilot.verify_gateway_intent", return_value=proof):
             unsigned = api.post(status_url, {"action": "reconcile", "line_id": first["id"]}, format="json")
         self.assertEqual(unsigned.status_code, 400, unsigned.data)
+        waiting = api.post(status_url, {"action": "advance"}, format="json")
+        self.assertEqual(waiting.status_code, 200, waiting.data)
+        self.assertTrue(waiting.data["payment_started"])
+        self.assertFalse(waiting.data["payment_verified"])
         self.supplier.submit_cart_registration.assert_not_called()
 
         WebhookEvent.objects.create(
@@ -259,7 +263,11 @@ class DomainPilotTests(TestCase):
         )
         self.supplier.submit_cart_registration.side_effect = [CloudflareINT01Denied(), {"state": "failed"}]
         with patch("domains.pilot.verify_gateway_intent", return_value=proof):
-            first_result = api.post(status_url, {"action": "reconcile", "line_id": first["id"]}, format="json")
+            paid = api.post(status_url, {"action": "advance"}, format="json")
+        self.assertEqual(paid.status_code, 200, paid.data)
+        self.assertTrue(paid.data["payment_verified"])
+        self.supplier.submit_cart_registration.assert_not_called()
+        first_result = api.post(status_url, {"action": "advance"}, format="json")
         self.assertEqual(first_result.status_code, 200, first_result.data)
         self.assertEqual(first_result.data["domains"][0]["state"], "registration_uncertain")
         self.supplier.pilot_registration_status.return_value = {"state": "succeeded"}
@@ -269,7 +277,7 @@ class DomainPilotTests(TestCase):
         }
         reread = api.post(status_url, {"action": "reconcile", "line_id": first["id"]}, format="json")
         self.assertEqual(reread.data["domains"][0]["state"], "registered")
-        last = api.post(status_url, {"action": "reconcile", "line_id": second["id"]}, format="json")
+        last = api.post(status_url, {"action": "advance"}, format="json")
         self.assertEqual(last.data["domains"][1]["state"], "registration_rejected")
         self.assertEqual(self.supplier.submit_cart_registration.call_count, 2)
         self.supplier.pilot_registration_status.assert_called_once_with(first["name"])

@@ -12,7 +12,7 @@ import {cartSelectionId, readCart, removeFromCart, type CartSelection} from "./c
 
 type Quote = {quote:string; total:string; currency:string; lines:{name:string; amount:string; kind:string; domain?:string}[]};
 type Purchase = {invoice_id:number; invoice:string; order:string; total:string; currency:string;
-  payment_verified:boolean; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
+  payment_verified:boolean; payment_started:boolean; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
 
 const reviewHref = "/client/order/checkout?view=combined-review";
 const actionStyle = "inline-flex min-h-12 items-center justify-center rounded-xl bg-console-primary px-5 text-sm font-medium text-white disabled:opacity-50";
@@ -44,6 +44,8 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   const [purchase, setPurchase] = useState<Purchase>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const [statusRefresh, setStatusRefresh] = useState(0);
   const inFlight = useRef(false);
 
   useEffect(() => {
@@ -77,6 +79,49 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
     return () => { active = false; };
   }, [invoice]);
 
+  const statusInvoice = purchase?.invoice_id;
+  const needsAdvance = !!purchase && (purchase.payment_verified
+    ? purchase.domains.some(domain => domain.state === "awaiting_payment")
+    : purchase.payment_started);
+
+  useEffect(() => {
+    if (!statusInvoice || !needsAdvance) {
+      setWaiting(false);
+      return;
+    }
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    let attempts = 0;
+    async function advance() {
+      if (!active || !statusInvoice) return;
+      if (inFlight.current) {
+        timer = setTimeout(advance, 2500);
+        return;
+      }
+      inFlight.current = true;
+      try {
+        const next = await request<Purchase>(statusInvoice, {action:"advance"});
+        if (active) {
+          setPurchase(next);
+          setError("");
+          if (next.payment_verified && !next.domains.some(domain => domain.state === "awaiting_payment")) return;
+        }
+      } catch {
+        // Signed notification, gateway verification and registrar availability can arrive later.
+      } finally {
+        inFlight.current = false;
+      }
+      if (active && ++attempts < 10) timer = setTimeout(advance, 3500);
+      else if (active) setWaiting(false);
+    }
+    setWaiting(true);
+    void advance();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [needsAdvance, statusInvoice, statusRefresh]);
+
   async function run(action: "accept" | "checkout" | "reconcile", line?: number) {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -104,7 +149,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
 
   const address = [account?.address, account?.city, account?.state, account?.country, account?.postal_code].filter(Boolean).join(", ");
   return <DashboardShell role="client" title="Checkout" description="Review your products and payment.">
-    <DashboardPage eyebrow="Checkout" title="Review your order" description="Your items share one invoice and one test payment.">
+    <DashboardPage eyebrow="Checkout" title={purchase?.payment_verified ? "Test payment confirmed" : purchase ? "Order payment" : "Review your order"} description="Your items share one invoice and one test payment.">
       <Link href="/client/order/checkout?view=cart" className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-console-primary"><ArrowLeft size={16} aria-hidden="true"/> Back to cart</Link>
       {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-4 text-sm text-rose-700">{error}</p>}
       {!purchase && !quote && !error && <p role="status">Checking current prices and availability…</p>}
@@ -112,15 +157,18 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
         <h2 className="text-lg font-medium">{purchase.order}</h2>
         <Link href={`/client/invoices/${purchase.invoice_id}`} className="text-sm font-medium text-console-primary">View invoice {purchase.invoice}</Link>
         <p className="text-sm">{formatPlanAmount(Number(purchase.total), purchase.currency)}</p>
-        <p className="text-sm text-console-muted">{purchase.payment_verified ? "Test payment verified. Hosting will not be activated in this test." : "Awaiting test payment."}</p>
-        {!purchase.payment_verified && <button type="button" disabled={busy} className={actionStyle} onClick={() => void run("checkout")}>Continue to test payment</button>}
+        <p role="status" className="text-sm text-console-muted">{purchase.payment_verified
+          ? `${purchase.domains.filter(domain => domain.state === "registered").length} of ${purchase.domains.length} test registrations confirmed.`
+          : waiting ? "Confirming your test payment…" : "Test payment has not been confirmed."}</p>
+        {!purchase.payment_verified && !waiting && <button type="button" disabled={busy} className={actionStyle} onClick={() => void run("checkout")}>{purchase.payment_started ? "Resume existing test payment" : "Continue to test payment"}</button>}
+        {needsAdvance && !waiting && <button type="button" className="min-h-11 px-3 text-sm font-medium text-console-primary" onClick={() => setStatusRefresh(value => value + 1)}>Refresh order status</button>}
         <ul className="divide-y divide-console-line">
           {purchase.domains.map(domain => <li key={domain.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
-            <div><p className="break-all font-medium">{domain.name}</p><p className="text-sm text-console-muted">{statuses[domain.state] ?? domain.state}</p>
+            <div><p className="break-all font-medium">{domain.name}</p><p className="text-sm text-console-muted">{purchase.payment_verified && domain.state === "awaiting_payment" ? "Queued for registration" : statuses[domain.state] ?? domain.state}</p>
               {domain.registered_at && domain.expires_at && <p className="text-sm text-console-muted">Registered {domain.registered_at.slice(0,10)} · Expires {domain.expires_at.slice(0,10)}</p>}
             </div>
-            {domain.state !== "registered" && domain.state !== "registration_rejected" &&
-              <button type="button" disabled={busy} className="min-h-11 rounded-lg border border-console-line px-3 text-sm font-medium text-console-primary disabled:opacity-50" onClick={() => void run("reconcile", domain.id)}>{purchase.payment_verified ? "Check registration" : "Verify payment and check domain"}</button>}
+            {purchase.payment_verified && domain.state !== "awaiting_payment" && domain.state !== "registered" && domain.state !== "registration_rejected" &&
+              <button type="button" disabled={busy} className="min-h-11 rounded-lg border border-console-line px-3 text-sm font-medium text-console-primary disabled:opacity-50" onClick={() => void run("reconcile", domain.id)}>Check registration</button>}
           </li>)}
         </ul>
       </Panel> : quote && <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">

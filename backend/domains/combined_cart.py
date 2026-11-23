@@ -18,7 +18,7 @@ from payments.domain_pilot_scope import (
     CART, PILOT, pilot_gateway_allowed, selected_domain_test_account_allowed, selected_domain_test_allowed,
 )
 from payments.hosted_checkout import CheckoutRefused, reserve_hosted_checkout
-from payments.models import PaymentIntent
+from payments.models import PaymentIntent, WebhookEvent
 from providers.cloudflare_int01 import CloudflareINT01Denied
 from providers.connection_models import IntegrationCredentialVersion
 from providers.connection_vault import VaultUnavailable
@@ -153,7 +153,8 @@ def cart_result(order, invoice=None):
     invoice = invoice or order.invoices.get()
     return {"invoice_id": invoice.pk, "invoice": invoice.invoice_number, "order": order.order_number,
             "total": str(invoice.total), "currency": invoice.currency,
-            "payment_verified": invoice.status == "void",
+            "payment_verified": invoice.status == "void" and order.status == "needs_review",
+            "payment_started": invoice.payment_intents.exists(),
             "domains": [{"id": line.pk, "name": line.domain_name,
                          "state": line.config[CART]["state"],
                          "registered_at": line.config[CART].get("registration", {}).get("registered_at"),
@@ -162,6 +163,7 @@ def cart_result(order, invoice=None):
 
 
 def confirm_payment(order):
+    order.refresh_from_db(fields=["status"])
     if order.status == "needs_review":
         return
     intent, proof = inspect_payment(order)
@@ -236,6 +238,21 @@ def reconcile_line(order, line_id):
                 item.save(update_fields=["metadata"])
 
 
+def advance_cart(order, invoice):
+    """Advance at most one stage per request and use the stored provider reference."""
+    if order.status == "pending_payment" and invoice.status == "unpaid":
+        if WebhookEvent.objects.filter(
+                gateway__code="paystack", is_verified=True, event_type="charge.success",
+                payload__intent_id__in=list(invoice.payment_intents.values_list("pk", flat=True))).exists():
+            confirm_payment(order)
+        return
+    if order.status != "needs_review" or invoice.status != "void":
+        return
+    line = order.items.filter(item_type="domain", config__combined_domain_test_cart__state="awaiting_payment").order_by("pk").first()
+    if line:
+        reconcile_line(order, line.pk)
+
+
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 @throttle_classes([DomainPurchaseThrottle])
@@ -268,6 +285,10 @@ def combined_cart(request):
                 registrar(line.config[CART])
             intent, _ = reserve_hosted_checkout(invoice.pk, "paystack")
             return Response({"checkout_url": intent.authorization_url}, headers=headers)
+        if action == "advance":
+            advance_cart(order, invoice)
+            order.refresh_from_db()
+            return Response(cart_result(order), headers=headers)
         if action == "reconcile" and type(data.get("line_id")) is int:
             reconcile_line(order, data["line_id"])
             return Response(cart_result(order), headers=headers)
