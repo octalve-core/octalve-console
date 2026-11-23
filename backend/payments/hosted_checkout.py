@@ -19,7 +19,7 @@ from django.utils import timezone
 from billing.models import Invoice
 from payments.models import PaymentGateway, PaymentIntent
 from payments.sandbox import gateway_can_read, secret_matches_mode
-from payments.domain_pilot_scope import PILOT, is_pilot_invoice
+from payments.domain_pilot_scope import CART, PILOT, is_pilot_invoice
 
 REFERENCE = re.compile(r"^OC[A-Z0-9]{30}$")
 ALLOWED_CHECKOUT = {"paystack": "checkout.paystack.com",
@@ -73,7 +73,10 @@ def _post_checkout(intent, *, poster=None):
     if not isinstance(email, str) or len(email) > 254 or "@" not in email:
         raise CheckoutRefused("Verified invoice contact email is required.")
     callback = _return_url()
-    if is_pilot_invoice(invoice):
+    if invoice.metadata.get(CART) is True:
+        query = urlencode({"view": "combined-review", "invoice": invoice.pk})
+        callback = urlsplit(callback)._replace(path="/client/order/checkout", query=query).geturl()
+    elif is_pilot_invoice(invoice):
         snapshot = invoice.order.metadata.get(PILOT, {})
         selected = snapshot.get("selected_domain") is True
         selection = {"domain": snapshot["domain"]} if selected else {"existing": "1"}

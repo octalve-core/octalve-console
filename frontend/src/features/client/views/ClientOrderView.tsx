@@ -84,7 +84,7 @@ export function ClientOrderView() {
         <div className="min-w-0 lg:col-span-2">
           <HostingPlanCards plans={visiblePlans} selectedId={planId} onSelect={selectPlan}/>
         </div>
-        <HostingOrderSummary plan={selected} cycleKey={cycleKey} onCycleChange={setCycleKey}/>
+        <HostingOrderSummary plan={selected} cycleKey={cycleKey} onCycleChange={setCycleKey} forDomain={searchParams.get("forDomain") ?? ""}/>
       </WorkspaceGrid>}
     </DashboardPage>
   </DashboardShell>;

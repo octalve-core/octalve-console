@@ -91,6 +91,8 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
         ? [{id:String(item.id), number:item.number, paymentHref:invoicePaymentHref(item.id,item.payment_resume)}] : [])
       : undefined,
     paymentHref: resource === "invoices" ? invoicePaymentHref(id, record.payment_resume) : undefined,
+    testCheckoutHref: resource === "invoices" && record.test_checkout_status === true
+      ? invoicePaymentHref(id, {kind:"combined_domain"}) : undefined,
     issuedDate: resource === "invoices" ? readClientString(record,["issue_date"],"") : undefined,
     paidDate: resource === "invoices" ? readClientString(record,["paid_at"],"") : undefined,
   };

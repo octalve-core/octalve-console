@@ -60,6 +60,7 @@ export function BillingRecordDetail({record,resource,actions}:{
    <Panel>
     <h3 className="text-lg font-medium text-console-ink">Quick actions</h3>
     <div className="mt-4 grid gap-3">
+     {resource==="invoices" && record.testCheckoutHref && <ActionLink href={record.testCheckoutHref} variant="outline">View test registration status</ActionLink>}
      {resource==="invoices" && record.paymentHref && <ActionLink href={record.paymentHref} variant="primary">Pay now</ActionLink>}
      {resource==="invoices" && <a href={invoiceDownloadHref(record.id)} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-console-primary px-4 text-sm font-medium text-white">Download invoice PDF</a>}
      {resource==="orders" && record.invoiceDocuments?.map(invoice=><div key={invoice.id} className="grid gap-2 rounded-lg border border-console-line p-3 text-sm">

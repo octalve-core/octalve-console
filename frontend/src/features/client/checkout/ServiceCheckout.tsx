@@ -6,13 +6,14 @@ import {ArrowLeft,ArrowRight,Globe2,Loader2,ShieldCheck} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
 import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {TextField} from "@/components/design-system/TextField";
+import {ClientDomainSearch} from "../components/ClientDomainSearch";
 import {CheckoutProgress} from "../components/commerce/CheckoutProgress";
 import {CheckoutQuoteSummary} from "../components/commerce/CheckoutQuoteSummary";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {authApi,clientApi,type AccountProfile,type CheckoutQuote} from "@/lib/api/endpoints";
 import {loadSellablePlans,formatPlanAmount,type ClientOrderPlan} from "../data/client-order-data";
-import {removeFromCart} from "./cart-selections";
+import {cartSelectionId, removeFromCart} from "./cart-selections";
 
 type Stage="domain"|"review"|"completed";
 type DomainChoice="later"|"existing"|"new";
@@ -45,6 +46,8 @@ export function ServiceCheckout(){
     const requestedPlan=query.get("plan")||"";
     const requestedCycle=query.get("cycle")||"";
     const requestedRevision=query.get("revision")||"";
+    const requestedDomain=query.get("forDomain") ?? "";
+    if(domainPattern.test(requestedDomain)){setDomain(requestedDomain);setDomainChoice("existing");}
     // The stable checkout key is resolved against the exact cart selection
     // before requesting a quote. Do not bind a new cart to an older key.
     setCheckoutId(crypto.randomUUID());
@@ -126,7 +129,8 @@ export function ServiceCheckout(){
         return;
       }
       setConfirmation(result);setStage("completed");
-      void removeFromCart(`service:${planId}:${cycleKey}`).catch(()=>{});
+      const cartDomain=new URLSearchParams(window.location.search).get("forDomain") ?? undefined;
+      if(selected?.revision) void removeFromCart(cartSelectionId({kind:"service",plan:planId,cycle:cycleKey,revision:selected.revision,domain:cartDomain})).catch(()=>{});
       try{sessionStorage.removeItem("octalve-cloud-active-hosting-checkout");}catch{}
       if(result.invoice.status!=="unpaid") {
         setError("Order status changed. Please review its invoice before attempting payment.");
@@ -138,6 +142,7 @@ export function ServiceCheckout(){
   return <DashboardShell role="client" title="Checkout" description="Configure your service and review your purchase.">
     <DashboardPage eyebrow="Checkout" title={selected ? `Set up ${selected.product}` : "Set up your service"}
       description="A guided, secure checkout. Charges and activation are verified separately.">
+      <Link href="/client/order/checkout?view=cart" className="mb-3 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-console-primary"><ArrowLeft size={16} aria-hidden="true"/> Back to cart</Link>
       <CheckoutProgress currentStep={currentStep as 0|1|2|3}/>
       {error?<p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
       {loading?<p role="status" className="rounded-2xl bg-white p-6 text-sm text-slate-600">Preparing your selected plan…</p>:null}
@@ -171,8 +176,7 @@ export function ServiceCheckout(){
               {normalizedDomain&&!validDomain?<p className="mt-2 text-sm text-rose-600">Enter a valid domain such as example.com.</p>:null}
             </div>:null}
             {domainChoice==="new"?<div className="mt-6 rounded-xl border border-console-line bg-slate-50 p-4 text-sm leading-6 text-console-ink">
-              <Link href="/client/domains/register" className="font-medium text-console-primary">Search for a domain</Link> to start a domain order.
-              To order this service first, choose <strong>Connect later</strong>.
+              <ClientDomainSearch/>
             </div>:null}
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
               <Link href="/client/order" className="inline-flex items-center gap-2 text-sm font-medium text-[#0064E0]"><ArrowLeft className="h-4 w-4"/>Change plan</Link>

@@ -2,13 +2,15 @@ import {Panel} from "@/components/design-system/Panel";
 import {AddToCartButton} from "../../checkout/AddToCartButton";
 import {defaultCycle,formatPlanAmount,type ClientOrderPlan} from "../../data/client-order-data";
 
-export function HostingOrderSummary({plan,cycleKey,onCycleChange}:{
- plan:ClientOrderPlan|undefined;cycleKey:string;onCycleChange:(key:string)=>void;
+export function HostingOrderSummary({plan,cycleKey,onCycleChange,forDomain}:{
+ plan:ClientOrderPlan|undefined;cycleKey:string;forDomain?:string;onCycleChange:(key:string)=>void;
 }){
+ const domain=forDomain && /^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(forDomain) ? forDomain : undefined;
  const cycle=plan?.cycles.find(c=>c.key===cycleKey)||defaultCycle(plan);
  return <Panel className="h-fit lg:sticky lg:top-24">
   <h2 className="text-lg font-medium text-console-ink">Order summary</h2>
   <p className="mt-3 text-sm text-console-muted">{plan?.name??"Choose a hosting plan"}</p>
+  {domain && <p className="mt-2 break-all text-sm text-console-muted">Hosting for {domain}</p>}
   {plan?<><h3 className="mt-5 text-sm font-medium text-console-ink">Billing period</h3>
    <div role="group" aria-label="Billing period" className="mt-3 grid grid-cols-2 gap-2">
     {plan.cycles.map(item=><button key={item.key} type="button" aria-pressed={cycle?.key===item.key}
@@ -30,7 +32,7 @@ export function HostingOrderSummary({plan,cycleKey,onCycleChange}:{
     </div>
    </dl>
    {cycle&&plan.revision!==null?<AddToCartButton key={`${plan.id}:${cycle.key}:${plan.revision}`} className="mt-6"
-    item={{kind:"service",plan:plan.id,cycle:cycle.key,revision:plan.revision}}/>:null}
+    item={{kind:"service",plan:plan.id,cycle:cycle.key,revision:plan.revision,domain}}/>:null}
   </>:null}
   <p className="mt-4 text-xs leading-5 text-console-muted">Review your order before checkout. You won’t be charged on this page.</p>
  </Panel>;

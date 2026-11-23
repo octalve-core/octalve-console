@@ -21,6 +21,7 @@ export type ClientRecord = {
   invoicePeriods?: {label: string; start: string; end: string; confirmed: boolean; domain: boolean}[];
   invoiceDocuments?: {id: string; number: string; paymentHref?: string}[];
   paymentHref?: string;
+  testCheckoutHref?: string;
   issuedDate?: string;
   paidDate?: string;
 };

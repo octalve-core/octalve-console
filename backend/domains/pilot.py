@@ -19,6 +19,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import BaseThrottle
 
 from accounts.security_throttle import _spend as spend_durable_attempt
+from billing.contact import billing_contact_snapshot
 from billing.models import Invoice, InvoiceItem
 from orders.models import Order, OrderItem
 from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_gateway_allowed, pilot_test_gateway, selected_domain_test_allowed
@@ -159,6 +160,10 @@ def accept_quote(user, name, token, *, selected=False):
     existing = pilot_order(user.pk, name)
     if existing:
         return existing
+    from payments.domain_pilot_scope import CART
+    if OrderItem.objects.filter(order__client=user, item_type="domain", domain_name=name,
+                                order__metadata__has_key=CART).exists():
+        raise ValidationError("This domain belongs to a combined cart order. Open its invoice to continue.")
     try:
         snapshot = signing.loads(token, salt=QUOTE_SALT, max_age=300)
     except signing.BadSignature:
@@ -175,6 +180,7 @@ def accept_quote(user, name, token, *, selected=False):
     registrar(snapshot)
     amount = Decimal(snapshot["amount"])
     label = f"Sandbox only: {name} registration (1 year)"
+    contact = billing_contact_snapshot(user)
     order = Order.objects.create(client=user, status="pending_payment", subtotal=amount,
                                  total=amount, notes=label,
                                  metadata={PILOT: {**snapshot, "state": "awaiting_payment"}})
@@ -182,7 +188,8 @@ def accept_quote(user, name, token, *, selected=False):
                              item_type="domain", domain_name=name, description=label,
                              unit_price=amount, cycle_key="1yr", months=12)
     invoice = Invoice.objects.create(order=order, client=user, subtotal=amount,
-                                     total=amount, notes=label, metadata={PILOT: True},
+                                     total=amount, notes=label,
+                                     metadata={PILOT: True, "billing_contact": contact},
                                      due_date=timezone.now() + timezone.timedelta(days=1))
     InvoiceItem.objects.create(invoice=invoice, description=label, domain_name=name,
                                unit_price=amount, subtotal=amount,

@@ -4,7 +4,7 @@ import {AddToCartButton} from "../../checkout/AddToCartButton";
 import type {DomainLookup} from "./domain-types";
 import {formatDomainPrice} from "./domain-types";
 
-export function DomainSearchResult({value}:{value:DomainLookup}){
+export function DomainSearchResult({value,onAdded}:{value:DomainLookup;onAdded?:()=>void}){
  const verified=value.registrar_connected&&value.availability==="available";
  const unavailable=value.registrar_connected&&(value.availability==="registered"||value.availability==="unavailable");
  return <section aria-label="Domain lookup result"
@@ -26,7 +26,7 @@ export function DomainSearchResult({value}:{value:DomainLookup}){
        {verified?<BadgeCheck className="h-4 w-4 text-emerald-600"/>:<Info className="h-4 w-4 text-amber-600"/>}
        {verified?"Availability rechecked at checkout":"No domain has been reserved"}
      </p>
-     {verified&&value.test_checkout_enabled?<AddToCartButton key={value.domain} className="mt-3" item={{kind:"domain",domain:value.domain}}/>:null}
+     {verified&&value.test_checkout_enabled?<AddToCartButton key={value.domain} className="mt-3" onAdded={onAdded} item={{kind:"domain",domain:value.domain}}/>:null}
    </div>
  </section>;
 }

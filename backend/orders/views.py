@@ -182,19 +182,8 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # Immutable billing identity from the authenticated database account,
         # never from a browser-supplied customer name, tax flag or invoice total.
-        customer = request.user
-        billing_contact = {
-            "full_name": customer.full_name or "",
-            "email": customer.email,
-            "phone_number": customer.phone_number or "",
-            "company_name": customer.company_name or "",
-            "address": customer.address or "",
-            "city": customer.city or "",
-            "state": customer.state or "",
-            "country": customer.country or "",
-            "postal_code": customer.postal_code or "",
-            "tax_id": customer.tax_id or "",
-        }
+        from billing.contact import billing_contact_snapshot
+        billing_contact = billing_contact_snapshot(request.user)
         # Create order
         order = Order.objects.create(
             client=request.user,

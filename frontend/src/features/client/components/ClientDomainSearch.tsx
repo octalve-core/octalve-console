@@ -8,7 +8,7 @@ import {Panel} from "@/components/design-system/Panel";
 import {SectionHeading} from "@/components/design-system/SectionHeading";
 
 const API_BASE=process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/,"")||"https://api.cloud.octalve.com/api";
-export function ClientDomainSearch(){
+export function ClientDomainSearch({onAdded}: {onAdded?: () => void} = {}){
  const [domain,setDomain]=useState(""),[result,setResult]=useState<DomainLookup|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState("");
  const abort=useRef<AbortController|null>(null);
@@ -50,6 +50,6 @@ export function ClientDomainSearch(){
      </p>
      {error&&<p role="alert" className="mt-4 rounded-lg border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
    </div>
-   {result&&<DomainSearchResult value={result}/>}
+   {result&&<DomainSearchResult value={result} onAdded={onAdded}/>}
  </Panel>;
 }

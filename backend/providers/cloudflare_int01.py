@@ -398,6 +398,26 @@ class CloudflareINT01:
                 or snapshot.get("sandbox_submission_reserved") is not True
                 or not payment or not pilot_gateway_allowed(payment.gateway, payment.invoice)):
             raise CloudflareINT01Denied()
+        return self._submit_reserved_registration(domain, contact)
+
+    def submit_cart_registration(self, line, contact):
+        from payments.domain_pilot_scope import CART, pilot_gateway_allowed
+        from payments.models import PaymentIntent
+
+        snapshot = line.config.get(CART, {})
+        domain = require_domain(snapshot.get("domain"))
+        cart = line.order.metadata.get(CART, {})
+        payment = PaymentIntent.objects.filter(
+            invoice__order=line.order, invoice__status="void", status="completed",
+            reference=cart.get("payment_reference"), gateway__code="paystack",
+        ).select_related("gateway", "invoice__client").first()
+        if (line.item_type != "domain" or line.domain_name != domain or domain not in cart.get("domains", [])
+                or snapshot.get("state") != "registration_uncertain" or not payment
+                or not pilot_gateway_allowed(payment.gateway, payment.invoice)):
+            raise CloudflareINT01Denied()
+        return self._submit_reserved_registration(domain, contact)
+
+    def _submit_reserved_registration(self, domain, contact):
         registration = self.transport("POST", self._path("registrations"), {
             "domain_name": domain, "years": 1, "auto_renew": False,
             "privacy_mode": "redaction", "contacts": {"registrant": contact},

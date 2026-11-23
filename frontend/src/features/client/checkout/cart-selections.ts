@@ -1,16 +1,16 @@
 import {authApi} from "@/lib/api/endpoints";
 
-export type CartSelection = {kind:"domain";domain:string} | {kind:"service";plan:string;cycle:string;revision:number};
+export type CartSelection = {kind:"domain";domain:string} | {kind:"service";plan:string;cycle:string;revision:number;domain?:string};
 const domainPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 export function cartSelectionId(item:CartSelection){
-  return item.kind==="domain" ? `domain:${item.domain}` : `service:${item.plan}:${item.cycle}`;
+  return item.kind==="domain" ? `domain:${item.domain}` : `service:${item.plan}:${item.cycle}${item.domain ? `:${item.domain}` : ""}`;
 }
 
 export function cartCheckoutHref(item:CartSelection){
   const params = item.kind==="domain"
     ? new URLSearchParams({product:"domain",domain:item.domain})
-    : new URLSearchParams({plan:item.plan,cycle:item.cycle,revision:String(item.revision)});
+    : new URLSearchParams({plan:item.plan,cycle:item.cycle,revision:String(item.revision), ...(item.domain ? {forDomain:item.domain} : {})});
   return `/client/order/checkout?${params}`;
 }
 
@@ -19,7 +19,7 @@ function valid(item:unknown):item is CartSelection {
   if (item.kind==="domain") return "domain" in item && typeof item.domain==="string" && domainPattern.test(item.domain);
   return item.kind==="service" && "plan" in item && typeof item.plan==="string" && /^[1-9]\d{0,11}$/.test(item.plan)
     && "cycle" in item && typeof item.cycle==="string" && /^[a-z0-9_-]{1,25}$/i.test(item.cycle)
-    && "revision" in item && typeof item.revision==="number" && Number.isSafeInteger(item.revision) && item.revision>0;
+    && "revision" in item && typeof item.revision==="number" && Number.isSafeInteger(item.revision) && item.revision>0 && (!("domain" in item) || item.domain===undefined || (typeof item.domain==="string" && domainPattern.test(item.domain)));
 }
 
 async function accountCartKey(){
