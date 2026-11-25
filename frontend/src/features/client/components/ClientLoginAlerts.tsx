@@ -20,7 +20,7 @@ export function ClientLoginAlerts(){
   if(!critical.length)return null;
   const urgent=critical.filter(item=>item.severity==="urgent").length;
   return <section aria-label="Account reminders"
-    className={`rounded-2xl border p-4 bg-white shadow-console-surface ${urgent?"border-amber-200":"border-console-line"}`}>
+    className={`rounded-2xl p-4 bg-white shadow-console-surface`}>
     <div className="flex items-center justify-between gap-2">
       <div className="flex min-w-0 items-start gap-3">
         <span className="shrink-0 p-1.5 text-amber-700">

@@ -4,7 +4,7 @@
 export function DirectoryLoadingSkeleton({label}:{label:string}) {
  const shimmer="animate-pulse motion-reduce:animate-none rounded-md bg-slate-100";
  return <section role="status" aria-busy="true" aria-live="polite"
-  aria-label={`Loading ${label}`} className="min-w-0 overflow-hidden rounded-2xl border border-console-line bg-white shadow-sm">
+  aria-label={`Loading ${label}`} className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-console-surface">
   <span className="sr-only">Loading {label.toLowerCase()} from your account.</span>
   <div aria-hidden="true" className="border-b border-console-line p-4 sm:p-5">
    <div className="flex flex-col gap-3 md:flex-row md:items-center">
