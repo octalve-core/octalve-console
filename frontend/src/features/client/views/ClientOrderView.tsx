@@ -6,7 +6,7 @@ import Link from "next/link";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
-import { loadSellablePlans, defaultCycle, type ClientOrderPlan } from "../data/client-order-data";
+import { loadPublishedPlans, defaultCycle, type ClientOrderPlan } from "../data/client-order-data";
 import {HostingPlanCards} from "../components/commerce/HostingPlanCards";
 import {HostingOrderSummary} from "../components/commerce/HostingOrderSummary";
 
@@ -20,7 +20,7 @@ export function ClientOrderView() {
   const [error, setError] = useState("");
   useEffect(() => {
     let live = true;
-    loadSellablePlans().then(items => {
+    loadPublishedPlans().then(items => {
       if (!live) return;
       setPlans(items);
       const params = searchParams;
@@ -36,7 +36,7 @@ export function ClientOrderView() {
       const chosen = requestedPlan
         ? allowed.find(item => item.id === requestedPlan ||
             (requestedProduct && item.productSlug === requestedProduct && item.slug === requestedPlan))
-        : allowed[0];
+        : allowed.find(item => item.canOrder);
       const selectedCycle = requestedCycle
         ? chosen?.cycles.find(c => c.key === requestedCycle)
         : defaultCycle(chosen);
@@ -45,17 +45,17 @@ export function ClientOrderView() {
         requestedPlan && !chosen ||
         requestedCycle && !selectedCycle ||
         requestedRevision && (!/^[1-9][0-9]{0,9}$/.test(requestedRevision) ||
-          chosen?.revision !== Number(requestedRevision))
+          chosen?.revision !== Number(requestedRevision)) || chosen && !chosen.canOrder
       );
       if(mismatch){
         setPlanId("");setCycleKey("");
-        setError("The selected package, billing period or published offer has changed. Please review and choose an available plan; your cart was not substituted.");
+        setError("That offer is unavailable. Choose a current plan.");
       }else{
         setError("");
         setPlanId(chosen?.id || "");
         setCycleKey(selectedCycle?.key || "");
       }
-    }).catch(() => { if(live) setError("We couldn’t load service plans right now. Please try again. No order has been placed."); })
+    }).catch(() => { if(live) setError("Plans could not be loaded. Try again."); })
       .finally(() => {if(live) setLoading(false);});
     return () => {live = false;};
   }, [searchParams]);
@@ -84,7 +84,7 @@ export function ClientOrderView() {
         <div className="min-w-0 lg:col-span-2">
           <HostingPlanCards plans={visiblePlans} selectedId={planId} onSelect={selectPlan}/>
         </div>
-        <HostingOrderSummary plan={selected} cycleKey={cycleKey} onCycleChange={setCycleKey} forDomain={searchParams.get("forDomain") ?? ""}/>
+        {visiblePlans.some(plan=>plan.canOrder)&&<HostingOrderSummary plan={selected} cycleKey={cycleKey} onCycleChange={setCycleKey} forDomain={searchParams.get("forDomain") ?? ""}/>}
       </WorkspaceGrid>}
     </DashboardPage>
   </DashboardShell>;

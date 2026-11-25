@@ -9,7 +9,7 @@ export function HostingOrderSummary({plan,cycleKey,onCycleChange,forDomain}:{
  const cycle=plan?.cycles.find(c=>c.key===cycleKey)||defaultCycle(plan);
  return <Panel className="h-fit lg:sticky lg:top-24">
   <h2 className="text-lg font-medium text-console-ink">Order summary</h2>
-  <p className="mt-3 text-sm text-console-muted">{plan?.name??"Choose a hosting plan"}</p>
+  <p className="mt-3 text-sm text-console-muted">{plan?.name??"Choose a plan"}</p>
   {domain && <p className="mt-2 break-all text-sm text-console-muted">Hosting for {domain}</p>}
   {plan?<><h3 className="mt-5 text-sm font-medium text-console-ink">Billing period</h3>
    <div role="group" aria-label="Billing period" className="mt-3 grid grid-cols-2 gap-2">
@@ -18,7 +18,8 @@ export function HostingOrderSummary({plan,cycleKey,onCycleChange,forDomain}:{
      className={cycle?.key===item.key?
       "min-h-12 rounded-xl border border-console-primary bg-blue-50 px-3 py-2 text-sm font-medium text-console-primary focus-visible:ring-2 focus-visible:ring-console-primary":
       "min-h-12 rounded-xl border border-console-line bg-white px-3 py-2 text-sm text-console-muted hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-console-primary"}>
-      {item.label}
+      <span className="block">{item.label}</span>
+      <span className="block text-xs tabular-nums">{formatPlanAmount(item.price,plan.currency)}</span>
     </button>)}
    </div>
    <dl className="mt-5 space-y-3 text-sm">

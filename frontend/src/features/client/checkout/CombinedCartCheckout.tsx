@@ -6,6 +6,7 @@ import {ArrowLeft} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {Panel} from "@/components/design-system/Panel";
+import {CheckoutColumns,CheckoutSteps,CheckoutSummary} from "./ui/CheckoutSections";
 import {authApi, type AccountProfile} from "@/lib/api/endpoints";
 import {formatPlanAmount} from "../data/client-order-data";
 import {cartSelectionId, readCart, removeFromCart, type CartSelection} from "./cart-selections";
@@ -149,8 +150,9 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
 
   const address = [account?.address, account?.city, account?.state, account?.country, account?.postal_code].filter(Boolean).join(", ");
   return <DashboardShell role="client" title="Checkout" description="Review your products and payment.">
-    <DashboardPage eyebrow="Checkout" title={purchase?.payment_verified ? "Test payment confirmed" : purchase ? "Order payment" : "Review your order"} description="Your items share one invoice and one test payment.">
+    <DashboardPage eyebrow="Checkout" title={purchase?.payment_verified ? "Test payment confirmed" : purchase ? "Order payment" : "Review your order"} description={purchase ? "View your invoice and payment status." : "Review your items and billing address."}>
       <Link href="/client/order/checkout?view=cart" className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-console-primary"><ArrowLeft size={16} aria-hidden="true"/> Back to cart</Link>
+      <CheckoutSteps current={purchase ? "Payment" : "Review order"}/>
       {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-4 text-sm text-rose-700">{error}</p>}
       {!purchase && !quote && !error && <p role="status">Checking current prices and availability…</p>}
       {purchase ? <Panel className="space-y-4">
@@ -171,7 +173,15 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
               <button type="button" disabled={busy} className="min-h-11 rounded-lg border border-console-line px-3 text-sm font-medium text-console-primary disabled:opacity-50" onClick={() => void run("reconcile", domain.id)}>Check registration</button>}
           </li>)}
         </ul>
-      </Panel> : quote && <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+      </Panel> : quote && <CheckoutColumns summary={<CheckoutSummary title="Invoice summary">
+          <p className="text-2xl font-medium tabular-nums">{formatPlanAmount(Number(quote.total),quote.currency)}</p>
+          <div className="border-t border-console-line pt-4"><h3 className="text-sm font-medium">Billing address</h3>
+            <p className="mt-1 text-sm text-console-muted">{address || "No address saved"}</p>
+            <Link href="/client/profile" className="inline-flex min-h-11 items-center text-sm font-medium text-console-primary">Edit billing address</Link>
+          </div>
+          <p className="text-xs text-console-muted">Test checkout. No money will be charged.</p>
+          <button type="button" disabled={busy} className={actionStyle + " w-full"} onClick={() => void run("accept")}>{busy ? "Creating invoice…" : "Continue to payment"}</button>
+        </CheckoutSummary>}>
         <Panel>
           <h2 className="text-lg font-medium">Your items</h2>
           <ul className="mt-3 divide-y divide-console-line">
@@ -181,16 +191,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
             </li>)}
           </ul>
         </Panel>
-        <Panel className="h-fit space-y-4">
-          <h2 className="text-lg font-medium">Invoice summary</h2>
-          <p className="text-xl font-medium">{formatPlanAmount(Number(quote.total),quote.currency)}</p>
-          <div className="border-t border-console-line pt-4"><h3 className="text-sm font-medium">Billing address</h3>
-            <p className="mt-1 text-sm text-console-muted">{address || "No address saved"}</p>
-            <Link href="/client/profile" className="inline-flex min-h-11 items-center text-sm font-medium text-console-primary">Edit billing address</Link>
-          </div>
-          <button type="button" disabled={busy} className={actionStyle + " w-full"} onClick={() => void run("accept")}>{busy ? "Creating invoice…" : "Create one invoice"}</button>
-        </Panel>
-      </div>}
+      </CheckoutColumns>}
     </DashboardPage>
   </DashboardShell>;
 }

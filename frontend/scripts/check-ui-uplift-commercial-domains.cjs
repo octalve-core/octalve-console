@@ -19,14 +19,15 @@ for(const word of ["fetch(","axios(","localStorage","sessionStorage","authApi.",
 }
 const cases=[
  ["features/client/views/ClientOrderView.tsx",[
-  'WorkspaceGrid variant="commerceColumns"',"loadSellablePlans()","defaultCycle(chosen)",
+  'WorkspaceGrid variant="commerceColumns"',"loadPublishedPlans()","defaultCycle(chosen)",
   "categorySlug","setPlanId","onSelect={selectPlan}","HostingOrderSummary"
  ]],
  ["features/client/checkout/ServiceCheckout.tsx",[
-  'WorkspaceGrid variant="commerceColumns"','WorkspaceGrid variant="choiceColumns"',
-  "authApi","clientApi","placeOrder","setDomainChoice(key)","setQuote(null)",
+  'WorkspaceGrid variant="commerceColumns"','ServiceDomainChoice',
+  "authApi","clientApi","placeOrder","setDomainChoice(value)","setQuote(null)",
   "agreed","CheckoutQuoteSummary","stage!==\"completed\"","stage===\"completed\""
  ]],
+ ["features/client/checkout/ui/ServiceDomainChoice.tsx",['WorkspaceGrid variant="choiceColumns"','type="radio"',"ClientDomainSearch"]],
  ["features/client/views/ClientDomainManagementView.tsx",[
   'WorkspaceGrid variant="domainFacts" as="dl"','WorkspaceGrid variant="domainPanels"',
   "normalizeDomain","DomainRenewalStatus","mode===\"renewal\"","mode===\"dns\"",
@@ -38,7 +39,7 @@ const cases=[
   'role="client"'
  ]],
  ["features/client/components/commerce/HostingPlanCards.tsx",[
-  'WorkspaceGrid variant="planCards" as="section" ariaLabel="Available published hosting plans"',
+  'WorkspaceGrid variant="planCards" as="section" ariaLabel="Available published service plans"',
   "defaultCycle(plan)","formatPlanAmount(pricing.price,plan.currency)",
   "aria-pressed={selected}","onClick={()=>onSelect(plan)}","plan.features"
  ]],

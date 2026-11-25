@@ -1,10 +1,10 @@
 import Link from "next/link";
-import {ArrowRight} from "lucide-react";
+import {ArrowRight,Server,Ticket} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
-import {StatusBadge,type StatusTone} from "@/components/design-system/StatusBadge";
-import {formatStatus,getStatusTone} from "@/lib/constants/status";
+import {MobileRecordCard} from "@/components/design-system/record-directory/MobileRecordCard";
+
 import type {StaffRecord} from "../data/staff-demo-data";
-function tone(status:string):StatusTone{const t=getStatusTone(status);return t==="danger"?"error":t;}
+
 export function StaffRecentPanel({title,description,href,records,state}:{
  title:string;description:string;href:string;records:readonly StaffRecord[];
  state:"loading"|"ready"|"unavailable";
@@ -21,14 +21,15 @@ export function StaffRecentPanel({title,description,href,records,state}:{
    {state==="loading"?<p role="status" className="rounded-xl bg-slate-50 p-4 text-sm text-console-muted">Updating your records…</p>:null}
    {state==="unavailable"?<p role="status" className="rounded-xl bg-slate-50 p-4 text-sm text-console-muted">These details are temporarily unavailable.</p>:null}
    {state==="ready"&&records.length===0?<p className="rounded-xl bg-slate-50 p-4 text-sm text-console-muted">No records to show yet.</p>:null}
-   {state==="ready"&&records.slice(0,3).map(record=><Link href={record.actionHref} key={record.id}
-    className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-console-line bg-slate-50 px-4 py-3 hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary">
-    <span className="min-w-0 flex-1">
-     <span className="block truncate text-sm font-medium text-console-ink">{record.title}</span>
-     <span className="mt-1 block truncate text-xs text-console-muted">{record.subtitle}</span>
-    </span>
-    <StatusBadge tone={tone(record.status)}>{formatStatus(record.status)}</StatusBadge>
-   </Link>)}
+   {state==="ready"&&records.length>0&&<ul className="space-y-2">
+    {records.slice(0,3).map(record=>{
+     const Icon=href==="/staff/tickets"?Ticket:Server;
+     return <MobileRecordCard key={record.id} row={{id:record.id,title:record.title,
+      reference:record.meta!=="—"?record.meta:record.id,status:record.status,
+      href:record.actionHref,date:record.date?record.date.slice(0,10):undefined,
+      icon:<Icon className="size-5"/>}}/>;
+    })}
+   </ul>}
   </div>
  </Panel>;
 }

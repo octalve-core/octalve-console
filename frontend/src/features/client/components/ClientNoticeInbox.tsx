@@ -100,9 +100,6 @@ export function ClientNoticeInbox(){
         </div>
       </article>)}
     </div>:null}
-    <p className="mt-5 text-xs leading-5 text-console-muted">
-      Reminders reflect current account records. An in-app alert does not confirm that
-      an external registrar or email provider has delivered a legal notice.
-    </p>
+
   </Panel>;
 }

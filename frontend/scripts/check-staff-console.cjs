@@ -24,7 +24,7 @@ ensure("features/staff/components/StaffQuickActions.tsx",['WorkspaceQuickActions
 ensure("components/data/WorkspaceQuickActions.tsx",["/staff/tickets","/staff/provisioning","/staff/knowledge-base","/staff/orders","Panel","LucideIcon"]);
 ensure("features/staff/components/StaffRecentPanel.tsx",[
  "state===\"loading\"","state===\"unavailable\"","records.slice(0,3)",
- "record.actionHref","StatusBadge"
+ "record.actionHref","MobileRecordCard"
 ]);
 ensure("features/staff/views/StaffResourceListView.tsx",[
  "config.loader()","unwrapStaffList(response)","normalizeStaffRecord(item, config.key)",

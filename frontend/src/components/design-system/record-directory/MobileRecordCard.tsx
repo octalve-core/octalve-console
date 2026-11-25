@@ -24,7 +24,7 @@ export function MobileRecordCard({row,onOpen,onActions}:{row:DirectoryRow;
     <span title={leftDate} className={dateText}>{leftDate}</span>
     <span title={rightDate} className={dateText+" text-right"}>{rightDate}</span>
    </span>
-   {row.subtitle&&row.subtitle!==row.title&&row.subtitle!==reference?<span title={row.subtitle} className="mt-1 block truncate text-[11px] text-console-muted">{row.subtitle}</span>:null}
+
    {row.extra?<span className="mt-1 block min-w-0">{row.extra}</span>:null}
   </span>
  </>;

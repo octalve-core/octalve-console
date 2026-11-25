@@ -20,7 +20,7 @@ const options:Record<DashboardRole,readonly Shortcut[]>={
  client:[
   {href:"/client/order",label:"Order hosting",icon:navigationIcons.server,tone:"blue"},
   {href:"/client/domains/register",label:"Find a domain",icon:navigationIcons.globe2,tone:"violet"},
-  {href:"/client/support/new",label:"Open support ticket",icon:navigationIcons.lifeBuoy,tone:"rose"},
+  {href:"/client/support/new",label:"Open support",icon:navigationIcons.lifeBuoy,tone:"rose"},
   {href:"/client/invoices",label:"View invoices",icon:navigationIcons.receiptText,tone:"amber"}],
  staff:[
   {href:"/staff/tickets",label:"Support tickets",icon:LifeBuoy,tone:"blue"},
@@ -38,9 +38,9 @@ export function WorkspaceQuickActions({role}:{role:DashboardRole}){
   </h2>
   <WorkspaceGrid variant="quickActions">
    {options[role].map(({href,label,icon,tone})=><Link key={href} href={href}
-    className="group flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-2 rounded-xl px-0.5 py-3 text-center transition-colors hover:bg-slate-50 sm:px-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-console-primary">
+    className="group flex min-h-[76px] min-w-0 flex-col items-center justify-start gap-2 rounded-xl px-0.5 py-3 text-center transition-colors hover:bg-slate-50 sm:px-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-console-primary">
     <ConsoleIconTile icon={icon} tone={tone} size="lg" className={`!rounded-full ${medallions[tone]}`}/>
-    <span className="max-w-full text-center break-words text-[11px] font-medium leading-4 text-console-ink sm:text-[13px]">{translateNavigationLabel(label,locale)}</span>
+    <span className="min-h-8 max-w-full text-center break-words max-sm:max-w-[9ch] sm:min-h-0 text-[11px] font-medium leading-4 text-console-ink sm:text-[13px]">{translateNavigationLabel(label,locale)}</span>
    </Link>)}
   </WorkspaceGrid>
  </Panel>;
