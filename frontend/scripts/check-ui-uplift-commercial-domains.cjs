@@ -22,7 +22,7 @@ const cases=[
   'WorkspaceGrid variant="commerceColumns"',"loadSellablePlans()","defaultCycle(chosen)",
   "categorySlug","setPlanId","onSelect={selectPlan}","HostingOrderSummary"
  ]],
- ["features/client/views/ClientCheckoutView.tsx",[
+ ["features/client/checkout/ServiceCheckout.tsx",[
   'WorkspaceGrid variant="commerceColumns"','WorkspaceGrid variant="choiceColumns"',
   "authApi","clientApi","placeOrder","setDomainChoice(key)","setQuote(null)",
   "agreed","CheckoutQuoteSummary","stage!==\"completed\"","stage===\"completed\""

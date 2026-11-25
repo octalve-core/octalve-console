@@ -2,10 +2,13 @@
 from decimal import Decimal
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
+from django.core import signing
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 from audit.models import AuditLog
+from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion
+from providers.connection_registrar_views import TLD_SUPPLIER_QUOTE_SALT
 from .models import TLDPricing
 
 URL="/api/domains/admin/tld-price-cards/"
@@ -39,6 +42,37 @@ class TLDPriceSettingsTests(TestCase):
         self.mfa_patch=patch("domains.tld_pricing_admin.check_mutation",return_value=None)
         self.mfa_patch.start()
         self.addCleanup(self.mfa_patch.stop)
+
+    def test_publish_markup_and_unpublish_one_route(self):
+        self.assertEqual(self.client.post(URL, payload(tld=".com"), format="json").status_code, 200)
+        connection = IntegrationConnection.objects.create(
+            adapter_key="cloudflare-registrar-live", label="Supplier", environment="live",
+            state="draft", current_version=1, created_by=self.owner,
+        )
+        IntegrationCredentialVersion.objects.create(connection=connection, version=1, key_id="v1", ciphertext="synthetic")
+        quote = signing.dumps({
+            "actor_id": str(self.owner.pk), "connection_id": str(connection.pk), "credential_version": 1,
+            "tld": ".com", "currency": "USD", "registration_cost": "10.00", "renewal_cost": "12.00",
+        }, salt=TLD_SUPPLIER_QUOTE_SALT)
+        body = {"action": "publish", "tld": ".com", "expected_revision": 1,
+                "confirm_password": PASSWORD, "totp_code": "123456", "supplier_quote": quote,
+                "ngn_per_supplier_unit": "1,450", "pricing_mode": "markup",
+                "registration": "15", "renewal": "25"}
+        response = self.client.post(URL + "publication/", body, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        row = TLDPricing.objects.get(tld=".com")
+        self.assertEqual((row.status, row.register_price, row.renewal_price),
+                         ("active", Decimal("16675.00"), Decimal("21750.00")))
+        self.assertEqual(row.metadata["published_registrar"]["connection_id"], str(connection.pk))
+        self.assertEqual(self.client.post(URL + "publication/", body, format="json").status_code, 409)
+        response = self.client.post(URL + "publication/", {
+            "action": "unpublish", "tld": ".com", "expected_revision": 2,
+            "confirm_password": PASSWORD, "totp_code": "123456",
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        row.refresh_from_db()
+        self.assertEqual(row.status, "inactive")
+        self.assertNotIn("published_registrar", row.metadata)
 
     def test_super_admin_may_save_valid_versioned_prices_without_publication(self):
         res=self.client.post(URL,payload(),format="json")

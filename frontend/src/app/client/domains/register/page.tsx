@@ -2,7 +2,6 @@ import Link from "next/link";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {ClientDomainSearch} from "@/features/client/components/ClientDomainSearch";
-import {DomainSandboxPurchase} from "@/features/client/components/DomainSandboxPurchase";
 
 export default function ClientDomainRegistrationPage(){
   return <DashboardShell role="client" title="Register a domain"
@@ -10,16 +9,12 @@ export default function ClientDomainRegistrationPage(){
     <DashboardPage eyebrow="Domains" title="Register New Domain"
       description="Search for your domain and view published registration prices.">
       <div className="space-y-5">
-        <Link href="/client/domains" className="text-sm font-medium text-console-primary">
-          My Domains
-        </Link>
-        <DomainSandboxPurchase/>
-        <ClientDomainSearch/>
-        <p className="rounded-xl border border-console-line bg-white p-4 text-sm leading-6 text-console-muted">
-          Registration is completed only after a registrar confirms availability,
-          your final quote is approved, payment is verified and the registry acknowledges
-          the registration. Published prices alone do not reserve a domain.
-        </p>
+        <div className="flex flex-wrap items-center gap-5 text-sm font-medium text-console-primary">
+          <Link href="/client/domains">My domains</Link>
+          <Link href="/client/order/checkout?view=cart">View cart</Link>
+        </div>
+        <ClientDomainSearch discovery/>
+        <p className="text-xs text-console-muted">A quote doesn’t reserve the domain.</p>
       </div>
     </DashboardPage>
   </DashboardShell>;

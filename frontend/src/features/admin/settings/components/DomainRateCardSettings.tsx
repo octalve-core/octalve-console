@@ -3,6 +3,8 @@
 import {useEffect,useState,type FormEvent} from "react";
 import {AlertTriangle,CheckCircle2,RefreshCcw,ShieldCheck} from "lucide-react";
 import {api} from "@/lib/api/client";
+import {readConnectionOverview,type DraftConnection} from "../../integrations/connection-readback";
+import {RegistrarQuotePanel} from "../../integrations/RegistrarQuotePanel";
 
 type Period="1"|"2"|"5"|"10";
 type Prices=Record<Period,string|null>;
@@ -10,6 +12,7 @@ type RateCard={
  tld:string;description:string;currency:"NGN";registration:Prices;renewal:Prices;
  transfer_price:string;revision:number;updated_at:string;publication:"inactive_draft";
  registrar_quote_verified:false;checkout_enabled:false;
+ published_registrar?:{connection_id:string;credential_version:number;revision:number}|null;
 };
 type RateResponse={results:RateCard[];truncated:boolean;currency:"NGN";checkout_enabled:false};
 const TERMS:Period[]=["1","2","5","10"];
@@ -29,6 +32,9 @@ export function DomainRateCardSettings(){
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
  const [truncated,setTruncated]=useState(false);
+ const [registrars,setRegistrars]=useState<DraftConnection[]>([]);
+ const [registrarId,setRegistrarId]=useState("");
+ const [registrarError,setRegistrarError]=useState("");
  async function load(prefer?:string){
   setLoading(true);setError("");
   try{
@@ -47,6 +53,14 @@ export function DomainRateCardSettings(){
   finally{setLoading(false);}
  }
  useEffect(()=>{void load();/* load is intentionally mount-only */},[]);// eslint-disable-line react-hooks/exhaustive-deps
+ useEffect(()=>{
+  let active=true;
+  void readConnectionOverview().then(({connections})=>{
+   if(active)setRegistrars(connections.filter(connection=>connection.adapter_key==="cloudflare-registrar-live"&&
+    connection.environment==="live"&&connection.state==="draft"&&connection.credential_configured));
+  }).catch(()=>{if(active)setRegistrarError("Registrar connections could not be loaded.");});
+  return ()=>{active=false;};
+ },[]);
  function choose(value:string){
   setNotice("");setError("");setSelected(value);
   const item=cards.find(row=>row.tld===value);
@@ -172,9 +186,23 @@ export function DomainRateCardSettings(){
     </div>
     <div className="flex items-center gap-2 text-xs text-console-muted">
      <ShieldCheck className="h-4 w-4 text-console-primary"/>
-     Prices remain unpublished until supplier and release qualification. Every edit is audited.
+     Saving a draft preserves the published provider and retail prices. Every edit is audited.
     </div>
    </form>:null}
   </div>
+  {selected&&draft.tld===selected?<div className="rounded-2xl border border-console-line bg-white p-5">
+   <h2 className="text-base font-medium text-console-ink">Public registrar for {selected}</h2>
+   <p className="mt-1 text-xs text-console-muted">{draft.published_registrar?"This extension is published.":"This extension has no published registrar."}</p>
+   {registrarError?<p role="alert" className="mt-2 text-xs text-rose-700">{registrarError}</p>:null}
+   <label className="mt-3 block text-xs">Registrar connection
+    <select className={field+" mt-1"} value={registrarId} onChange={e=>setRegistrarId(e.target.value)}>
+     <option value="">Choose a live registrar</option>
+     {registrars.map(registrar=><option key={registrar.id} value={registrar.id}>{registrar.label}</option>)}
+    </select>
+   </label>
+   {registrarId?<RegistrarQuotePanel key={`${selected}:${registrarId}`} connectionId={registrarId} publication={{
+     tld:selected,revision:draft.revision,published:Boolean(draft.published_registrar),onChanged:()=>void load(selected),
+   }}/>:null}
+  </div>:null}
  </section>;
 }

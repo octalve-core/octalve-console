@@ -36,7 +36,7 @@ test("Google Pay review is attached only after an unpaid invoice exists",()=>{
   assert.match(processing,/invoiceId&&invoice\?\.status==="unpaid"/);
   assert.match(processing,/GooglePayReviewButton invoiceId=\{invoiceId\}/);
   assert.doesNotMatch(
-    readFileSync(new URL("../src/features/client/views/ClientCheckoutView.tsx",import.meta.url),"utf8"),
+    readFileSync(new URL("../src/features/client/checkout/ServiceCheckout.tsx",import.meta.url),"utf8"),
     /GooglePayReviewButton/,
   );
 });

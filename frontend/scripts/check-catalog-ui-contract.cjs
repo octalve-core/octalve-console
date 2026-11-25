@@ -26,7 +26,7 @@ has("features/admin/catalog/CatalogPlansTab.tsx",["Public plan URL slug","Includ
 has("features/admin/catalog/CatalogPublishTab.tsx",["drafts.map","onPublish(d.id)",'d.status==="draft"']);
 has("features/admin/catalog/CatalogWorkspaceNavigation.tsx",['role="tablist"','aria-selected={selected}',"ArrowRight","ArrowLeft","aria-controls"]);
 has("features/client/views/ClientOrderView.tsx",["requestedProduct","requestedRevision","setPlanId(\"\");setCycleKey(\"\")","selectedCycle","chosen?.revision"]);
-has("features/client/views/ClientCheckoutView.tsx",["requestedRevision","selected.revision!==Number(requestedRevision)"]);
+has("features/client/checkout/ServiceCheckout.tsx",["requestedRevision","selected.revision!==Number(requestedRevision)"]);
 has("lib/commerce/sanitize-commerce-next.ts",["sanitizeCommerceNext","/client/order","/client/domains/register","if(keys.some"]);
 has("features/auth/views/SignupPageClient.tsx",["sanitizeCommerceNext","commerceNext","router.replace"]);
 has("features/auth/views/LoginPageClient.tsx",["sanitizeCommerceNext","matchingRoute","/signup?next="]);

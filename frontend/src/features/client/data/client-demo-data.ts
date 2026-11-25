@@ -18,6 +18,12 @@ export type ClientRecord = {
   actionHref: string;
   score?: number;
   service?: ClientServiceSnapshot;
+  invoicePeriods?: {label: string; start: string; end: string; confirmed: boolean; domain: boolean}[];
+  invoiceDocuments?: {id: string; number: string; paymentHref?: string}[];
+  paymentHref?: string;
+  testCheckoutHref?: string;
+  issuedDate?: string;
+  paidDate?: string;
 };
 
 export const clientDemo: Record<ClientResourceKey, ClientRecord[]> = {

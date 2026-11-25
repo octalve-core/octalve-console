@@ -32,13 +32,13 @@ export function ConsoleMobileBottomNav({role,pathname,onMore}:{role:DashboardRol
     const Icon=navigationIcons[item.icon],active=isCurrent(pathname,item.href,role);
     return <Link key={item.href} href={item.href} aria-current={active?"page":undefined}
       className={`flex min-h-[56px] min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 text-center font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-console-primary ${active?"text-console-primary":"text-console-muted hover:text-console-primary"}`}>
-     <span className={`grid h-8 w-10 place-items-center rounded-xl ${active?"bg-blue-50":""}`}><Icon aria-hidden="true" className="h-[21px] w-[21px]" strokeWidth={active?2:1.8}/></span>
+     <span className={`grid h-8 w-10 place-items-center rounded-xl ${active?"bg-blue-100":""}`}><Icon aria-hidden="true" className="h-5 w-5" strokeWidth={active?2:1.8}/></span>
      <span className="max-w-full truncate text-[10px] leading-4">{translateNavigationLabel(item.label,locale)}</span>
     </Link>;
    })}
    <button type="button" aria-label="More Console pages" aria-haspopup="dialog" onClick={onMore}
     className={`flex min-h-[56px] min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 text-center font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-console-primary ${moreCurrent?"text-console-primary":"text-console-muted"}`}>
-    <span className={`grid h-8 w-10 place-items-center rounded-xl ${moreCurrent?"bg-blue-50":""}`}><MoreHorizontal aria-hidden="true" className="h-[21px] w-[21px]"/></span><span className="text-[10px] leading-4">More</span>
+    <span className={`grid h-8 w-10 place-items-center rounded-xl ${moreCurrent?"bg-blue-100":""}`}><MoreHorizontal aria-hidden="true" className="h-5 w-5"/></span><span className="text-[10px] leading-4">More</span>
    </button>
   </div>
  </nav>;

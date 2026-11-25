@@ -69,6 +69,35 @@ class BillingDocumentAuthorityTests(APITestCase):
         self.client.force_authenticate(user=None)
         self.assertIn(self.client.get(path).status_code, (401, 403))
 
+    def test_void_invoice_download_remains_available_without_a_payment_balance(self):
+        Invoice.objects.filter(pk=self.invoice.pk).update(status="void")
+        self.client.force_authenticate(self.owner)
+        response = self.client.get(f"/api/billing/invoices/{self.invoice.pk}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["amount_due"], "0.00")
+        self.assertFalse(response.data["payment_action_allowed"])
+        self.assertIsNone(response.data["payment_resume"])
+        self.invoice.refresh_from_db()
+        self.assertEqual(_document(self.invoice).amount_due, Decimal("0.00"))
+        download = self.client.get(f"/api/billing/invoices/{self.invoice.pk}/download_pdf/")
+        self.assertEqual(download.status_code, 200)
+        self.assertTrue(download.content.startswith(b"%PDF-"))
+
+    def test_order_links_only_its_customers_invoices(self):
+        from orders.models import Order
+        from orders.serializers import OrderSerializer
+
+        order = Order.objects.create(client=self.owner)
+        Invoice.objects.filter(pk=self.invoice.pk).update(order=order)
+        Invoice.objects.create(client=self.other, order=order, due_date=timezone.now())
+        documents = OrderSerializer(order).data["invoice_documents"]
+        self.assertEqual(documents, [{"id": self.invoice.pk, "number": self.invoice.invoice_number, "payment_resume": None}])
+
+    def test_unpaid_pdf_shows_the_saved_billing_period(self):
+        line = self.invoice.items.get()
+        expected = f"Billing period: {line.period_start:%d %b %Y} to {line.period_end:%d %b %Y}."
+        self.assertIn(expected, _document(self.invoice).lines[0].description)
+
     def test_serializing_overdue_invoice_does_not_change_persisted_status(self):
         self.client.force_authenticate(self.owner)
         response = self.client.get(f"/api/billing/invoices/{self.invoice.pk}/")

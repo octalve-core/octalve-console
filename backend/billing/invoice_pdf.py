@@ -13,6 +13,9 @@ from importlib import import_module
 from pathlib import Path
 
 from django.conf import settings
+from django.utils.dateparse import parse_datetime
+
+from .item_periods import confirmed_period
 
 MAX_ITEMS = 200
 LOGO_FILE = Path(__file__).resolve().parent / "assets" / "octalve-cloud-logo.png.b64"
@@ -52,6 +55,22 @@ def _date(value):
     if isinstance(value, datetime):
         return value.strftime("%d %b %Y")
     return _clean(value, 32)
+
+
+def _line_description(item):
+    description = _clean(item.description, 500) or "Invoice item"
+    period = confirmed_period(item)
+    if period:
+        try:
+            start, end = (parse_datetime(period[key]) for key in ("start", "end"))
+        except (KeyError, TypeError, ValueError):
+            return description
+        if start and end:
+            labels = ("Registered", "Expires") if period.get("kind") == "domain" else ("Activated", "Service period ends")
+            return f"{description}. {labels[0]} {_date(start)}; {labels[1]} {_date(end)}."
+    if item.period_start and item.period_end:
+        return f"{description}. Billing period: {_date(item.period_start)} to {_date(item.period_end)}."
+    return description
 
 
 @lru_cache(maxsize=1)
@@ -130,7 +149,7 @@ def _document(invoice):
         recipient_email=_clean(billing.get("email") or client.email, 120),
         recipient_tax_id=_clean(billing.get("tax_id"), 64),
         lines=tuple(InvoiceLine(
-            description=_clean(item.description, 500) or "Invoice item",
+            description=_line_description(item),
             quantity=_clean(item.quantity, 12),
             unit_price=_amount(item.unit_price),
             subtotal=_amount(item.subtotal),
@@ -140,7 +159,7 @@ def _document(invoice):
         tax_total=_amount(invoice.tax_total),
         total=_amount(invoice.total),
         amount_paid=_amount(invoice.amount_paid),
-        amount_due=_amount(invoice.amount_due),
+        amount_due=_amount(invoice.collectible_amount),
         notes=_clean(" | ".join(filter(None,[
             str(invoice.notes or ""),
             str((meta.get("invoice_policy") or {}).get("footer", ""))

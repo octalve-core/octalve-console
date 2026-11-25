@@ -13,15 +13,19 @@ requires("features/client/views/ClientOrderView.tsx",[
 requires("features/client/data/client-order-data.ts",[
  "publicApi.plans()",'p.status === "active" && p.is_public',"c.is_active && Number(c.price) > 0","published_revision"
 ]);
-requires("features/client/views/ClientCheckoutView.tsx",[
+requires("features/client/checkout/ServiceCheckout.tsx",[
  "crypto.randomUUID()","sessionStorage.getItem(storageKey)","checkoutKeyForSelection()",
  "clientApi.quoteOrder(checkoutPayload(stableKey))","clientApi.createOrder(checkoutPayload())",
  "result.currency!==selected?.currency","setConfirmation(result);setStage(\"completed\")",
  "result.invoice.status!==\"unpaid\"","stage===\"completed\"",
  "CheckoutProgress","CheckoutQuoteSummary","domainChoice===\"new\""
 ]);
+requires("app/client/order/checkout/page.tsx",['product === "domain"',"<DomainCheckout","<ServiceCheckout"]);
+requires("features/client/checkout/DomainCheckout.tsx",["DomainSandboxPurchase","checkoutPage"]);
+requires("features/client/checkout/DomainCart.tsx",["Order summary","Registration date","Expiry date","Explore hosting"]);
 requires("features/client/components/commerce/HostingPlanCards.tsx",["Panel","StatusBadge","aria-pressed={selected}"]);
-requires("features/client/components/commerce/HostingOrderSummary.tsx",["defaultCycle","formatPlanAmount","onCycleChange","/client/order/checkout?plan="]);
+requires("features/client/components/commerce/HostingOrderSummary.tsx",["defaultCycle","formatPlanAmount","onCycleChange","AddToCartButton"]);
+requires("features/client/checkout/CartView.tsx",["readCart","removeFromCart","cartCheckoutHref"]);
 requires("features/client/components/commerce/CheckoutQuoteSummary.tsx",[
  "quote?Number(quote.total):cycle.price+cycle.setupFee","Number(quote.discount_total)","onChangeRequest",
  "final prices on the server"

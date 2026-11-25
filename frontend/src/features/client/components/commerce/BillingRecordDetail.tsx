@@ -5,6 +5,8 @@ import {StatusBadge,type StatusTone} from "@/components/design-system/StatusBadg
 import {formatStatus,getStatusTone} from "@/lib/constants/status";
 import type {ClientRecord} from "../../data/client-demo-data";
 import type {BillingResource} from "./BillingRecordDirectory";
+import {serviceDate} from "../../utils/service-contract";
+import {invoiceDownloadHref,invoiceHref} from "./invoice-links";
 type LinkAction={label:string;href:string;variant:"primary"|"outline"};
 function tone(status:string):StatusTone{const value=getStatusTone(status);return value==="danger"?"error":value;}
 export function BillingRecordDetail({record,resource,actions}:{
@@ -32,7 +34,9 @@ export function BillingRecordDetail({record,resource,actions}:{
     {[
      {key:"Reference",value:record.meta!=="—"?record.meta:record.id,icon:FileText},
      {key:"Status",value:formatStatus(record.status),icon:ShieldCheck},
-     {key:resource==="orders"?"Ordered":"Due / issued",value:record.date||"—",icon:CalendarDays},
+     {key:resource==="orders"?"Ordered":"Due date",value:serviceDate(record.date||null),icon:CalendarDays},
+     ...(resource==="invoices"?[{key:"Issued",value:serviceDate(record.issuedDate||null),icon:CalendarDays},
+      {key:"Paid on",value:record.paidDate?serviceDate(record.paidDate):"—",icon:CalendarDays}]:[]),
      {key:"Amount",value:record.amount||"—",icon:CreditCard}
     ].map(item=>{const Meta=item.icon;return <div key={item.key} className="min-w-0 rounded-xl bg-slate-50 p-4">
      <dt className="flex items-center gap-2 text-sm text-console-muted"><Meta aria-hidden="true" className="h-4 w-4"/>{item.key}</dt>
@@ -40,17 +44,30 @@ export function BillingRecordDetail({record,resource,actions}:{
     </div>;})}
    </dl>
   </Panel>
-  <div className="grid gap-5 lg:grid-cols-3">
-   <Panel className="lg:col-span-2">
-    <h3 className="text-lg font-medium text-console-ink">Activity</h3>
-    <p className="mt-3 text-sm leading-6 text-console-muted">
-     Verified transaction and activity events are not connected to this record view. Payment,
-     invoice settlement and provisioning are confirmed independently by Octalve Cloud.
-    </p>
-   </Panel>
+  {resource==="invoices" && !!record.invoicePeriods?.length && <Panel>
+   <h3 className="text-lg font-medium text-console-ink">Invoice items</h3>
+   <div className="mt-4 divide-y divide-slate-200">
+    {record.invoicePeriods.map((item,index)=><div key={index} className="py-3">
+     <p className="break-words text-sm font-medium">{item.label}</p>
+     <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+      <div><dt className="text-xs text-console-muted">{item.domain?"Registration date":item.confirmed?"Service start":"Billing period start"}</dt><dd>{serviceDate(item.start)}</dd></div>
+      <div><dt className="text-xs text-console-muted">{item.domain?"Expiry date":item.confirmed?"Service period end":"Billing period end"}</dt><dd>{serviceDate(item.end)}</dd></div>
+     </dl>
+    </div>)}
+   </div>
+  </Panel>}
+  <div>
    <Panel>
     <h3 className="text-lg font-medium text-console-ink">Quick actions</h3>
     <div className="mt-4 grid gap-3">
+     {resource==="invoices" && record.testCheckoutHref && <ActionLink href={record.testCheckoutHref} variant="outline">View test registration status</ActionLink>}
+     {resource==="invoices" && record.paymentHref && <ActionLink href={record.paymentHref} variant="primary">Pay now</ActionLink>}
+     {resource==="invoices" && <a href={invoiceDownloadHref(record.id)} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-console-primary px-4 text-sm font-medium text-white">Download invoice PDF</a>}
+     {resource==="orders" && record.invoiceDocuments?.map(invoice=><div key={invoice.id} className="grid gap-2 rounded-lg border border-console-line p-3 text-sm">
+      <ActionLink href={invoiceHref(invoice.id)} variant="primary">View invoice {invoice.number}</ActionLink>
+      {invoice.paymentHref && <ActionLink href={invoice.paymentHref} variant="outline">Pay now</ActionLink>}
+      <a href={invoiceDownloadHref(invoice.id)} className="inline-flex min-h-11 items-center justify-center font-medium text-console-primary">Download invoice PDF</a>
+     </div>)}
      {actions.map(action=><ActionLink key={action.label} href={action.href}
       variant={action.variant} className="w-full">{action.label}</ActionLink>)}
     </div>

@@ -78,6 +78,8 @@ def _check_domain(reply, domain):
     return {"name":domain,"registrable":False,"reason":reason}
 
 def _registration(reply,domain):
+    from django.utils.dateparse import parse_datetime
+
     data=_require_result(reply)
     if not isinstance(data,dict) or data.get("domain_name")!=domain:
         raise CloudflareINT01Denied()
@@ -85,8 +87,19 @@ def _registration(reply,domain):
     if status not in ("active","registration_pending","transfer_pending","expired","suspended",
                       "redemption_period","pending_delete"):
         raise CloudflareINT01Denied()
-    return {"domain_name":domain,"sandbox_status":status,
-            "has_expiry":bool(data.get("expires_at"))}
+    result = {"domain_name": domain, "sandbox_status": status, "has_expiry": bool(data.get("expires_at"))}
+    dates = {}
+    for source, target in (("created_at", "registered_at"), ("expires_at", "expires_at")):
+        value = data.get(source)
+        try:
+            parsed = parse_datetime(value) if isinstance(value, str) and len(value) <= 40 else None
+        except ValueError:
+            parsed = None
+        if parsed is not None and parsed.utcoffset() is not None:
+            dates[target] = parsed
+    if len(dates) == 2 and dates["registered_at"] < dates["expires_at"]:
+        result.update({key: value.isoformat() for key, value in dates.items()})
+    return result
 
 def _workflow(reply,domain):
     value=_require_result(reply)
@@ -371,12 +384,40 @@ class CloudflareINT01:
         return _workflow(self.transport("GET", self._path(
             f"registrations/{domain}/registration-status")), domain)
 
-    def submit_pilot_registration(self, domain, contact):
-        from payments.domain_pilot_scope import pilot_configuration
+    def submit_pilot_registration(self, order, contact):
+        from payments.domain_pilot_scope import PILOT, pilot_gateway_allowed
+        from payments.models import PaymentIntent
 
-        scope = pilot_configuration()
-        if not scope or domain != scope[1]:
+        snapshot = order.metadata.get(PILOT, {})
+        domain = require_domain(snapshot.get("domain"))
+        payment = PaymentIntent.objects.filter(
+            invoice__order=order, invoice__status="void", status="completed",
+            reference=snapshot.get("payment_reference"), gateway__code="paystack",
+        ).select_related("gateway", "invoice__client").first()
+        if (snapshot.get("state") != "registration_uncertain"
+                or snapshot.get("sandbox_submission_reserved") is not True
+                or not payment or not pilot_gateway_allowed(payment.gateway, payment.invoice)):
             raise CloudflareINT01Denied()
+        return self._submit_reserved_registration(domain, contact)
+
+    def submit_cart_registration(self, line, contact):
+        from payments.domain_pilot_scope import CART, pilot_gateway_allowed
+        from payments.models import PaymentIntent
+
+        snapshot = line.config.get(CART, {})
+        domain = require_domain(snapshot.get("domain"))
+        cart = line.order.metadata.get(CART, {})
+        payment = PaymentIntent.objects.filter(
+            invoice__order=line.order, invoice__status="void", status="completed",
+            reference=cart.get("payment_reference"), gateway__code="paystack",
+        ).select_related("gateway", "invoice__client").first()
+        if (line.item_type != "domain" or line.domain_name != domain or domain not in cart.get("domains", [])
+                or snapshot.get("state") != "registration_uncertain" or not payment
+                or not pilot_gateway_allowed(payment.gateway, payment.invoice)):
+            raise CloudflareINT01Denied()
+        return self._submit_reserved_registration(domain, contact)
+
+    def _submit_reserved_registration(self, domain, contact):
         registration = self.transport("POST", self._path("registrations"), {
             "domain_name": domain, "years": 1, "auto_renew": False,
             "privacy_mode": "redaction", "contacts": {"registrant": contact},

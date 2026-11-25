@@ -3,14 +3,17 @@
 No browser-supplied prices, no supplier cost/config, no registrar availability
 guessing. The Console remains the exclusive checkout and payment authority.
 """
+from django.conf import settings
 from django.db.models import Prefetch
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+from rest_framework.throttling import AnonRateThrottle
 
 from .models import Plan, PlanBillingCycle, PlanFeature, ProductCategory
 from domains.models import TLDPricing
+from domains.public_registrar import public_availability
 from domains.registrar_quote import HOSTNAME
 from knowledge_base.models import KnowledgeArticle
 
@@ -92,27 +95,40 @@ class PublicDomainPrices(APIView):
                         headers={"Cache-Control": "public, max-age=60"})
 
 
+class PublicDomainLookupThrottle(AnonRateThrottle):
+    scope = "public_domain_lookup"
+    rate = "60/min"
+
+
 class PublicDomainLookup(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [PublicDomainLookupThrottle]
 
     def get(self, request):
         domain = request.query_params.get("domain", "").strip().lower()
         if not HOSTNAME.fullmatch(domain):
             raise ValidationError({"domain": "Enter a valid domain name."})
-        # Longest suffix wins (.com.ng over .ng). No supplier is connected,
-        # so this endpoint must never claim an available/registered result.
+        # Longest published suffix wins (.com.ng over .ng).
         supported = [p for p in TLDPricing.objects.filter(status="active")
                      if domain.endswith("." + p.tld.lstrip(".").lower())]
         price = max(supported, key=lambda p: len(p.tld), default=None)
+        availability = public_availability(price, domain)
+        message = {
+            "available": "The registrar reports this name is available.",
+            "unavailable": "This name cannot be registered through the selected registrar.",
+            "unverified": "A registrar availability check is required before you can register this domain.",
+        }[availability]
         return Response({
-            "domain": domain, "availability": "unverified",
-            "registrar_connected": False, "checkout_enabled": False,
+            "domain": domain, "availability": availability,
+            "registrar_connected": availability != "unverified", "checkout_enabled": False,
+            "test_checkout_enabled": (availability == "available" and domain.endswith(".com")
+                                      and settings.CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED),
             "tld": price.tld if price else None,
             "currency": "NGN" if price else None,
             "registration_price": str(price.register_price) if price else None,
             "renewal_price": str(price.renewal_price) if price else None,
-            "message": "A registrar availability check is required before you can register this domain.",
+            "message": message,
         }, headers={"Cache-Control": "no-store"})
 
 

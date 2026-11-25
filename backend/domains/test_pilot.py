@@ -6,21 +6,23 @@ from django.contrib.auth import get_user_model
 from django.core import signing
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from domains.pilot import QUOTE_SALT, accept_quote, pilot_readiness, reconcile
 from domains.models import TLDPricing
 from payments.domain_pilot_scope import PILOT
+from payments.hosted_checkout import reserve_hosted_checkout
 from payments.models import PaymentGateway, PaymentIntent, Transaction, WebhookEvent
 from payments.readback import ConfirmedGatewayPayment, PaymentReadbackRejected, verify_gateway_intent
 from payments.test_checkout_webhooks import reply
 from payments.sandbox import gateway_can_read
-from providers.cloudflare_int01 import CloudflareINT01Denied
+from providers.cloudflare_int01 import CloudflareINT01, CloudflareINT01Denied
 
 
 class DomainPilotTests(TestCase):
     def setUp(self):
         self.owner = get_user_model().objects.create_user(
-            username="pilot", email="pilot@example.test", role="client",
+            username="pilot", email="pilot@example.test", role="client", state="Lagos", country="NG",
             email_verified_at=timezone.now(),
         )
         self.domain = "octalve-pilot.com"
@@ -58,9 +60,93 @@ class DomainPilotTests(TestCase):
         self.assertEqual(accept_quote(self.owner, self.domain, self.token).pk, order.pk)
         invoice = order.invoices.get()
         self.assertTrue(gateway_can_read(self.gateway, invoice))
+        self.assertEqual(invoice.metadata["billing_contact"]["state"], "Lagos")
+        self.assertEqual(invoice.metadata["billing_contact"]["country"], "NG")
         self.assertFalse(gateway_can_read(self.gateway))
         invoice.metadata = {}
         self.assertFalse(gateway_can_read(self.gateway, invoice))
+
+    @override_settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=True)
+    def test_customer_can_use_search_name_and_pinned_price_instead_of_legacy_name(self):
+        route = {"connection_id": "fixture", "credential_version": 1, "revision": 2}
+        TLDPricing.objects.filter(tld=".com").update(metadata={"published_registrar": route})
+        name = "selected-by-customer.com"
+        other = get_user_model().objects.create_user(
+            username="otherclient", email="other@example.test", role="client", email_verified_at=timezone.now(),
+        )
+        api = APIClient()
+        path = f"/api/domains/sandbox-purchase/?domain={name}"
+        api.force_authenticate(other)
+        self.assertEqual(api.get(path).status_code, 404)
+        api.force_authenticate(self.owner)
+        self.assertEqual(api.get(path).data["domain"], name)
+        self.supplier.check.return_value = {"registrable": True}
+        with patch("domains.pilot.pilot_readiness", return_value=[]), patch(
+            "domains.pilot.query_published_registrar", return_value={"registrable": True},
+        ) as lookup:
+            quote = api.post(path, {"action": "quote"}, format="json")
+        self.assertEqual(quote.status_code, 200, quote.data)
+        lookup.assert_called_once_with(route, name)
+        accepted = api.post(path, {"action": "accept", "quote": quote.data["quote"]}, format="json")
+        self.assertEqual(accepted.status_code, 200, accepted.data)
+        self.assertEqual(accepted.data["domain"], name)
+        order = self.owner.orders.get(order_number=accepted.data["order"])
+        self.assertEqual(order.metadata[PILOT]["live_route"], route)
+        invoice = order.invoices.get()
+        from billing.serializers import InvoiceSerializer
+        invoice_data = InvoiceSerializer(invoice).data
+        self.assertEqual(invoice_data["payment_resume"], {"kind": "domain", "domain": name})
+        self.assertFalse(invoice_data["payment_action_allowed"])
+        self.assertTrue(gateway_can_read(self.gateway, invoice))
+        def send(_url, **kwargs):
+            body = kwargs["json"]
+            self.assertEqual(body["callback_url"],
+                             "https://console.example.test/client/order/checkout?product=domain&domain=selected-by-customer.com")
+            return reply({"status": True, "data": {"reference": body["reference"],
+                         "authorization_url": "https://checkout.paystack.com/test_12345"}})
+
+        with self.settings(CLOUD_HOSTED_CHECKOUT_ENABLED=True, CLOUD_PAYMENT_RETURN_URL="https://console.example.test/client/order/processing"), patch.object(
+            PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789",
+        ):
+            intent, created = reserve_hosted_checkout(invoice.pk, "paystack", poster=send)
+        self.assertTrue(created)
+        self.assertEqual(intent.reference, invoice.payment_intents.get().reference)
+        with self.settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=False):
+            self.assertFalse(gateway_can_read(self.gateway, invoice))
+
+    @override_settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=True)
+    def test_recover_selected_order_blocked_before_transport_only_once(self):
+        order = accept_quote(self.owner, self.domain, self.token)
+        snapshot = order.metadata[PILOT]
+        snapshot.update(domain="selected-by-customer.com", selected_domain=True,
+                        state="registration_uncertain", payment_reference="OC-RECOVERY", payment_remote_id="42")
+        order.save(update_fields=["metadata"])
+        invoice = order.invoices.get()
+        invoice.status = "void"
+        invoice.save(update_fields=["status"])
+        intent = PaymentIntent.objects.create(
+            invoice=invoice, client=self.owner, gateway=self.gateway, reference="OC-RECOVERY",
+            status="completed", amount=invoice.total, currency="NGN",
+            expires_at=timezone.now() + timezone.timedelta(minutes=1),
+        )
+        WebhookEvent.objects.create(
+            gateway=self.gateway, is_verified=True, event_type="charge.success", event_id="recovery-test",
+            payload={"reference": intent.reference, "remote_id": "42", "intent_id": intent.pk},
+        )
+        transport = Mock(return_value={"success": True, "result": {"state": "pending", "completed": False}})
+        adapter = CloudflareINT01("a" * 32, transport)
+        self.supplier.submit_pilot_registration.side_effect = adapter.submit_pilot_registration
+        self.supplier.pilot_registration_status.return_value = {"state": "pending"}
+        with patch.dict("os.environ", {"CLOUD_SANDBOX_LOCALLY_BLOCKED_ORDER": order.order_number}):
+            reconcile(order)
+            order.refresh_from_db()
+            self.assertTrue(order.metadata[PILOT]["sandbox_submission_reserved"])
+            reconcile(order)
+        transport.assert_called_once()
+        verb, path, payload = transport.call_args.args
+        self.assertEqual(verb, "POST")
+        self.assertTrue(path.endswith("/registrar-sandbox/registrations"))
+        self.assertEqual(payload["domain_name"], "selected-by-customer.com")
 
     def test_timeout_never_resubmits_and_success_never_posts_revenue(self):
         order = accept_quote(self.owner, self.domain, self.token)
@@ -81,14 +167,124 @@ class DomainPilotTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.metadata[PILOT]["state"], "registration_uncertain")
         self.supplier.pilot_registration_status.return_value = {"state": "succeeded"}
-        self.supplier.get_registration.return_value = {"domain_name": self.domain, "sandbox_status": "active"}
+        self.supplier.get_registration.return_value = {
+            "domain_name": self.domain, "sandbox_status": "active",
+            "registered_at": "2026-11-22T12:00:00+00:00", "expires_at": "2027-11-22T12:00:00+00:00",
+        }
         reconcile(order)
         order.refresh_from_db()
         invoice.refresh_from_db()
         self.assertEqual(order.metadata[PILOT]["state"], "registered")
         self.assertEqual(invoice.status, "void")
+        self.assertEqual(invoice.collectible_amount, Decimal("0.00"))
+        from billing.serializers import InvoiceItemSerializer
+        from billing.invoice_pdf import _document
+        line = invoice.items.get()
+        self.assertEqual(InvoiceItemSerializer(line).data["confirmed_period"], {
+            "kind": "domain", "start": "2026-11-22T12:00:00+00:00", "end": "2027-11-22T12:00:00+00:00",
+        })
+        self.assertIn("Registered 22 Nov 2026; Expires 22 Nov 2027", _document(invoice).lines[0].description)
         self.assertFalse(Transaction.objects.exists())
         self.supplier.submit_pilot_registration.assert_called_once()
+
+    @override_settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=True)
+    def test_combined_cart_one_invoice_distinct_registrar_submissions_and_no_revenue(self):
+        from uuid import uuid4
+        from billing.models import Invoice
+        from catalog.models import Plan, PlanBillingCycle, Product, ProductCategory
+        from catalog.test_published_fixture import attach_test_published_offer
+        from orders.models import Order
+        from payments.domain_pilot_scope import CART
+
+        connector = patch("domains.combined_cart.registrar", return_value=(self.supplier, {}))
+        connector.start()
+        self.addCleanup(connector.stop)
+
+        category = ProductCategory.objects.create(name="Hosting")
+        product = Product.objects.create(category=category, name="Hosting", product_type="shared_hosting",
+                                         status="active", is_public=True)
+        plan = Plan.objects.create(product=product, name="Starter", status="active", is_public=True, currency="NGN")
+        cycle = PlanBillingCycle.objects.create(plan=plan, cycle_key="1mo", months=1, is_active=True,
+                                               price=Decimal("3000.00"), setup_fee=Decimal("0.00"))
+        attach_test_published_offer(plan, cycle)
+        route = {"connection_id": "fixture", "credential_version": 1, "revision": 2}
+        TLDPricing.objects.filter(tld=".com").update(metadata={"published_registrar": route})
+        api = APIClient()
+        api.force_authenticate(self.owner)
+        path = "/api/domains/combined-cart/"
+        names = ["first-example.com", "second-example.com"]
+        self.supplier.check.return_value = {"registrable": True}
+        with patch("domains.combined_cart.pilot_readiness", return_value=[]), patch(
+            "domains.pilot.query_published_registrar", return_value={"registrable": True},
+        ):
+            quoted = api.post(path, {"action": "quote", "domains": names, "services": [
+                {"plan_id": plan.pk, "offer_revision": 1, "cycle_key": "1mo", "domain_name": names[0]},
+            ]}, format="json")
+        self.assertEqual(quoted.status_code, 200, quoted.data)
+        self.assertEqual(Decimal(quoted.data["total"]), Decimal("28000.00"))
+        self.assertFalse(Order.objects.exists())
+        data = {"action": "accept", "quote": quoted.data["quote"], "checkout_id": str(uuid4())}
+        created = api.post(path, data, format="json")
+        self.assertEqual(created.status_code, 200, created.data)
+        self.assertEqual(api.post(path, data, format="json").data["invoice_id"], created.data["invoice_id"])
+        invoice = Invoice.objects.get()
+        self.assertEqual(invoice.items.count(), 3)
+        self.assertEqual(invoice.metadata["billing_contact"]["state"], "Lagos")
+        self.assertTrue(invoice.metadata[CART])
+        self.assertTrue(gateway_can_read(self.gateway, invoice))
+        self.assertEqual(str(invoice.total), "28000.00")
+
+        def send(_url, **kwargs):
+            body = kwargs["json"]
+            self.assertEqual(body["amount"], "2800000")
+            self.assertEqual(body["callback_url"],
+                             f"https://console.example.test/client/order/checkout?view=combined-review&invoice={invoice.pk}")
+            return reply({"status": True, "data": {"reference": body["reference"],
+                         "authorization_url": "https://checkout.paystack.com/test_12345"}})
+
+        with self.settings(CLOUD_HOSTED_CHECKOUT_ENABLED=True, CLOUD_PAYMENT_RETURN_URL="https://console.example.test/client/order/processing"), patch.object(
+                PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789"):
+            intent, _ = reserve_hosted_checkout(invoice.pk, "paystack", poster=send)
+        proof = ConfirmedGatewayPayment("paystack", intent.reference, "NGN", invoice.total, "234")
+        status_url = f"{path}?invoice={invoice.pk}"
+        first, second = created.data["domains"]
+        with patch("domains.pilot.verify_gateway_intent", return_value=proof):
+            unsigned = api.post(status_url, {"action": "reconcile", "line_id": first["id"]}, format="json")
+        self.assertEqual(unsigned.status_code, 400, unsigned.data)
+        waiting = api.post(status_url, {"action": "advance"}, format="json")
+        self.assertEqual(waiting.status_code, 200, waiting.data)
+        self.assertTrue(waiting.data["payment_started"])
+        self.assertFalse(waiting.data["payment_verified"])
+        self.supplier.submit_cart_registration.assert_not_called()
+
+        WebhookEvent.objects.create(
+            gateway=self.gateway, is_verified=True, event_type="charge.success", event_id="cart-test",
+            payload={"reference": intent.reference, "remote_id": "234", "intent_id": intent.pk},
+        )
+        self.supplier.submit_cart_registration.side_effect = [CloudflareINT01Denied(), {"state": "failed"}]
+        with patch("domains.pilot.verify_gateway_intent", return_value=proof):
+            paid = api.post(status_url, {"action": "advance"}, format="json")
+        self.assertEqual(paid.status_code, 200, paid.data)
+        self.assertTrue(paid.data["payment_verified"])
+        self.supplier.submit_cart_registration.assert_not_called()
+        first_result = api.post(status_url, {"action": "advance"}, format="json")
+        self.assertEqual(first_result.status_code, 200, first_result.data)
+        self.assertEqual(first_result.data["domains"][0]["state"], "registration_uncertain")
+        self.supplier.pilot_registration_status.return_value = {"state": "succeeded"}
+        self.supplier.get_registration.return_value = {
+            "sandbox_status": "active", "registered_at": "2026-11-23T00:00:00Z",
+            "expires_at": "2027-11-23T00:00:00Z",
+        }
+        reread = api.post(status_url, {"action": "reconcile", "line_id": first["id"]}, format="json")
+        self.assertEqual(reread.data["domains"][0]["state"], "registered")
+        last = api.post(status_url, {"action": "advance"}, format="json")
+        self.assertEqual(last.data["domains"][1]["state"], "registration_rejected")
+        self.assertEqual(self.supplier.submit_cart_registration.call_count, 2)
+        self.supplier.pilot_registration_status.assert_called_once_with(first["name"])
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, "void")
+        self.assertEqual(invoice.items.get(description=f'{first["name"]} registration').metadata["confirmed_period"]["kind"], "domain")
+        self.assertFalse(Transaction.objects.exists())
 
     def test_registrar_rejection_is_terminal(self):
         order = accept_quote(self.owner, self.domain, self.token)

@@ -1,9 +1,11 @@
 "use client";
 import {useMemo} from "react";
-import {ShoppingCart,ReceiptText} from "lucide-react";
+import {CreditCard,Download,ShoppingCart,ReceiptText,FileText} from "lucide-react";
 import {RecordDirectory} from "@/components/design-system/record-directory/RecordDirectory";
 import type {DirectoryColumn,DirectoryRow} from "@/components/design-system/record-directory/types";
 import type {ClientRecord} from "../../data/client-demo-data";
+import {invoiceDownloadHref,invoiceHref} from "./invoice-links";
+import {serviceDate} from "../../utils/service-contract";
 export type BillingResource="orders"|"invoices";
 const cols:DirectoryColumn[]=[
  {key:"item",label:"Purchase",render:r=>r.title},
@@ -19,12 +21,24 @@ export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescrip
  const rows=useMemo<DirectoryRow[]>(()=>records.map(r=>({
   id:r.id,title:r.title,subtitle:r.subtitle,
   reference:r.meta!=="—"?r.meta:r.id,
-  amount:r.amount,status:r.status,date:r.date,
+  amount:r.amount,status:r.status,date:r.date?serviceDate(r.date):undefined,
   dateISO:r.date&&/^\d{4}-\d{2}-\d{2}/.test(r.date)?r.date.slice(0,10):undefined,
   href:r.actionHref,
   icon:<Icon aria-hidden="true" className="h-5 w-5"/>,
   searchTerms:[r.id,r.meta,r.subtitle]
  })),[records,Icon]);
+ const linkedInvoice = (id:string) => records.find(record=>record.id===id)?.invoiceDocuments?.[0];
+ const paymentHref = (id:string) => {
+  const record=records.find(item=>item.id===id);
+  return resource==="invoices"?record?.paymentHref:record?.invoiceDocuments?.find(invoice=>invoice.paymentHref)?.paymentHref;
+ };
+ const payAction={key:"pay-invoice",label:"Pay now",icon:CreditCard,available:(row:DirectoryRow)=>!!paymentHref(row.id),href:(row:DirectoryRow)=>paymentHref(row.id)};
  return <RecordDirectory label={resource==="orders"?"Orders":"Invoices"} rows={rows} columns={cols}
+  actions={resource==="invoices"?[payAction,{key:"invoice-pdf",label:"Download invoice PDF",icon:Download,href:row=>invoiceDownloadHref(row.id)}]:[
+   payAction,
+   {key:"view-invoice",label:"View latest invoice",icon:FileText,available:row=>!!linkedInvoice(row.id),href:row=>{
+    const invoice=linkedInvoice(row.id);return invoice?invoiceHref(invoice.id):undefined;
+   }},
+  ]}
   emptyMessage={emptyTitle+" — "+emptyDescription}/>;
 }

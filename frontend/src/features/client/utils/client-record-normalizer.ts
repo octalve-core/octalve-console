@@ -1,5 +1,6 @@
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
 import {normalizeServiceSnapshot} from "./service-contract.ts";
+import {invoicePaymentHref} from "../components/commerce/invoice-links.ts";
 
 export function unwrapClientList(value: unknown): Record<string, unknown>[] {
   const rows = Array.isArray(value)
@@ -61,6 +62,17 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
   const amount = readClientString(record, ["total", "price", "amount", "balance", "due", "paid"], "");
   const status = readClientString(record, ["status", "state", "payment_status"], "Unknown");
   const date = readClientString(record, ["expiry_date", "expiration_date", "next_due_date", "due_date", "date", "created_at", "updated_at", "dueDate", "expiry", "renews"], "");
+  const invoicePeriods = resource === "invoices" && Array.isArray(record.items) ? record.items.flatMap(item => {
+    if (!item || typeof item !== "object") return [];
+    const period = item.confirmed_period;
+    const confirmed = !!period && typeof period.start === "string" && typeof period.end === "string";
+    const start = confirmed ? period.start : item.period_start;
+    const end = confirmed ? period.end : item.period_end;
+    return typeof start === "string" && typeof end === "string" ? [{
+      label: typeof item.description === "string" ? item.description : "Invoice item",
+      start, end, confirmed, domain: confirmed && period.kind === "domain",
+    }] : [];
+  }) : undefined;
 
   return {
     id,
@@ -73,5 +85,15 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     actionHref: `${getClientResourceBasePath(resource)}/${encodeURIComponent(id)}`,
     score: undefined,
     service: resource === "services" ? normalizeServiceSnapshot(record) : undefined,
+    invoicePeriods,
+    invoiceDocuments: resource === "orders" && Array.isArray(record.invoice_documents)
+      ? record.invoice_documents.flatMap(item => item && Number.isSafeInteger(item.id) && item.id > 0 && typeof item.number === "string"
+        ? [{id:String(item.id), number:item.number, paymentHref:invoicePaymentHref(item.id,item.payment_resume)}] : [])
+      : undefined,
+    paymentHref: resource === "invoices" ? invoicePaymentHref(id, record.payment_resume) : undefined,
+    testCheckoutHref: resource === "invoices" && record.test_checkout_status === true
+      ? invoicePaymentHref(id, {kind:"combined_domain"}) : undefined,
+    issuedDate: resource === "invoices" ? readClientString(record,["issue_date"],"") : undefined,
+    paidDate: resource === "invoices" ? readClientString(record,["paid_at"],"") : undefined,
   };
 }

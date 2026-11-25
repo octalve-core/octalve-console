@@ -61,6 +61,12 @@ class Invoice(models.Model):
             models.Index(fields=['due_date', 'status']),
             models.Index(fields=['-issue_date']),
         ]
+
+    @property
+    def collectible_amount(self):
+        if self.status in {"paid", "void", "cancelled", "refunded"}:
+            return Decimal("0.00")
+        return self.amount_due
     
     def save(self, *args, **kwargs):
         if not self.invoice_number:
@@ -93,7 +99,7 @@ class Invoice(models.Model):
         self.save(update_fields=['subtotal', 'total'])
     
     @classmethod
-    def create_from_order(cls, order):
+    def create_from_order(cls, order, *, test_marker=None):
         """Create invoice from an order"""
         from .invoice_pdf import default_template_id
         from settings_registry.console_policy import invoice_issuance_policy
@@ -110,7 +116,8 @@ class Invoice(models.Model):
             metadata={"invoice_policy":policy, "billing_contact": (
                 dict(order.metadata.get("billing_contact", {}))
                 if isinstance(order.metadata, dict) else {}
-            ), "invoice_template_id": policy["template_id"]},
+            ), "invoice_template_id": policy["template_id"],
+                      **({test_marker: True} if test_marker else {})},
         )
         
         # Copy order items to invoice items
@@ -125,12 +132,14 @@ class Invoice(models.Model):
                 quantity=order_item.quantity,
                 unit_price=order_item.unit_price,
                 subtotal=order_item.subtotal,
+                metadata={"order_item_id": order_item.pk},
                 period_start=timezone.now(),
                 period_end=timezone.now() + timezone.timedelta(days=order_item.months * 30)
             )
         
         from settings_registry.mail_authority import queue_invoice_issued
-        queue_invoice_issued(invoice)
+        if not test_marker:
+            queue_invoice_issued(invoice)
         return invoice
     
     @classmethod
@@ -165,7 +174,8 @@ class Invoice(models.Model):
         )
         
         from settings_registry.mail_authority import queue_invoice_issued
-        queue_invoice_issued(invoice)
+        if not test_marker:
+            queue_invoice_issued(invoice)
         return invoice
     
     def mark_paid(self, transaction=None):

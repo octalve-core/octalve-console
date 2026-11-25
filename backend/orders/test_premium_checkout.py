@@ -57,6 +57,25 @@ class PremiumCheckoutTests(TestCase):
         self.assertEqual(Order.objects.count(),0)
         self.assertEqual(Invoice.objects.count(),0)
 
+    def test_service_cart_creates_one_invoice_for_two_domain_assignments(self):
+        payload = self.payload(domain="first.example.com")
+        payload["items"].append({**payload["items"][0], "domain_name": "second.example.com"})
+        quote = self.client.post("/api/orders/orders/quote/", payload, format="json")
+        self.assertEqual(quote.status_code, 200, quote.data)
+        self.assertEqual(Decimal(quote.data["total"]), Decimal("6000.00"))
+
+        order = self.client.post("/api/orders/orders/", payload, format="json")
+        self.assertEqual(order.status_code, 201, order.data)
+        invoice = Invoice.objects.get()
+        self.assertEqual(invoice.total, Decimal("6000.00"))
+        self.assertCountEqual(invoice.items.values_list("domain_name", flat=True),
+                              ["first.example.com", "second.example.com"])
+
+        retry = self.client.post("/api/orders/orders/", payload, format="json")
+        self.assertEqual(retry.status_code, 200, retry.data)
+        self.assertEqual(retry.data["invoice"]["id"], invoice.pk)
+        self.assertEqual(Invoice.objects.count(), 1)
+
     def test_domain_path_not_accepted_as_hostname(self):
         response=self.client.post("/api/orders/orders/quote/",
              self.payload(domain="https://example.com/"),format="json")

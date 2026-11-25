@@ -43,13 +43,12 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
+        orders = Order.objects.prefetch_related("invoices")
         if user.is_superuser or (user.is_staff and user.role == 'admin'):
-            return Order.objects.all()
+            return orders
         # No global Staff read: assignment-scoped access requires a separately
         # certified per-customer grant and cannot use a broad role flag.
-        if user.role == 'staff':
-            return Order.objects.filter(client=user)
-        return Order.objects.filter(client=user)
+        return orders.filter(client=user)
     
     @staticmethod
     def _refuse_unverified_change():
@@ -183,19 +182,8 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # Immutable billing identity from the authenticated database account,
         # never from a browser-supplied customer name, tax flag or invoice total.
-        customer = request.user
-        billing_contact = {
-            "full_name": customer.full_name or "",
-            "email": customer.email,
-            "phone_number": customer.phone_number or "",
-            "company_name": customer.company_name or "",
-            "address": customer.address or "",
-            "city": customer.city or "",
-            "state": customer.state or "",
-            "country": customer.country or "",
-            "postal_code": customer.postal_code or "",
-            "tax_id": customer.tax_id or "",
-        }
+        from billing.contact import billing_contact_snapshot
+        billing_contact = billing_contact_snapshot(request.user)
         # Create order
         order = Order.objects.create(
             client=request.user,

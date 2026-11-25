@@ -6,7 +6,7 @@ const root = process.cwd();
 const requiredFiles = [
   "src/lib/api/payload-mappers.ts",
   "src/features/admin/data/admin-resource-actions.ts",
-  "src/features/client/views/ClientCheckoutView.tsx",
+  "src/features/client/checkout/ServiceCheckout.tsx",
   "src/features/client/views/ClientSupportTicketEditorView.tsx",
   "src/features/admin/operations/views/AdminOperationEditorView.tsx",
 ];

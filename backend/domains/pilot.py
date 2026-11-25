@@ -10,16 +10,19 @@ from django.contrib.auth import get_user_model
 from django.core import signing
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, Throttled, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import BaseThrottle
 
+from accounts.security_throttle import _spend as spend_durable_attempt
+from billing.contact import billing_contact_snapshot
 from billing.models import Invoice, InvoiceItem
 from orders.models import Order, OrderItem
-from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_test_gateway
+from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_gateway_allowed, pilot_test_gateway, selected_domain_test_allowed
 from payments.hosted_checkout import CheckoutRefused, _return_url, reserve_hosted_checkout
 from payments.models import PaymentGateway, PaymentIntent, WebhookEvent
 from payments.readback import PaymentReadbackRejected, verify_gateway_intent
@@ -27,13 +30,29 @@ from providers.cloudflare_int01 import CloudflareINT01, CloudflareINT01Denied, F
 from providers.connection_audit import verify_chain
 from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion
 from providers.connection_status import safe_verification_status, verification_receipts
-from providers.connection_views import VaultMutationThrottle, connection_database_qualified
+from providers.connection_views import connection_database_qualified
 from providers.connection_vault import VaultUnavailable, unseal_version
 
 from .models import TLDPricing
+from .public_registrar import query_published_registrar
 from .tld_pricing_admin import rate_card_draft
 
 QUOTE_SALT = "octalve.sandbox-domain-purchase.v1"
+
+
+class DomainPurchaseThrottle(BaseThrottle):
+    def allow_request(self, request, view):
+        if request.method == "GET":
+            return True
+        if not request.user.is_authenticated or not request.user.is_active:
+            return False
+        try:
+            retry = spend_durable_attempt("domains:sandbox_purchase", str(request.user.pk), 15, 300)
+        except DatabaseError as exc:
+            raise VaultUnavailable() from exc
+        if retry:
+            raise Throttled(wait=retry)
+        return True
 
 
 def registrar(snapshot=None):
@@ -89,20 +108,38 @@ def result(order):
     invoice = order.invoices.get()
     evidence = order.metadata[PILOT]
     intent = invoice.payment_intents.first()
+    registration = evidence.get("registration", {}) if evidence["state"] == "registered" else {}
     checkout_state = "available"
     if intent:
         checkout_state = ("expired" if intent.is_expired() else
                           "resume" if intent.authorization_url else "uncertain")
     return {"checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
+            "invoice_id": invoice.pk,
+            "registered_at": registration.get("registered_at"), "expires_at": registration.get("expires_at"),
             "domain": evidence["domain"], "amount": str(invoice.total), "currency": "NGN",
             "state": evidence["state"], "payment_reference": evidence.get("payment_reference") or (intent.reference if intent else None)}
 
 
-def quote_domain(account, name):
+def _selected_rate(name, *, lock=False):
+    cards = TLDPricing.objects.select_for_update() if lock else TLDPricing.objects
+    card = cards.filter(tld="." + name.rsplit(".", 1)[1], status="active").first()
+    route = card.metadata.get("published_registrar") if card and isinstance(card.metadata, dict) else None
+    if not isinstance(route, dict) or card.register_price <= 0:
+        raise ValidationError("This extension does not have a published registrar and price.")
+    if type(route.get("revision")) is not int:
+        raise ValidationError("This extension does not have a valid published rate revision.")
+    return {"registration": {"1": str(card.register_price)}, "revision": route["revision"], "route": route}
+
+
+def quote_domain(account, name, *, selected=False):
     card = TLDPricing.objects.filter(tld=".com").first()
-    rate = rate_card_draft(card) if card else None
+    rate = _selected_rate(name) if selected else rate_card_draft(card) if card else None
     if not rate or Decimal(rate["registration"]["1"]) <= 0:
         raise ValidationError("Set a positive one-year .com rate first.")
+    if selected:
+        live = query_published_registrar(rate["route"], name)
+        if not live or live.get("registrable") is not True:
+            raise ValidationError("The live registrar did not confirm this name is available.")
     supplier, binding = registrar()
     availability = supplier.check(name)
     if not availability["registrable"]:
@@ -110,31 +147,40 @@ def quote_domain(account, name):
     snapshot = {"client": account, "domain": name, "amount": rate["registration"]["1"],
                 "price_revision": rate["revision"],
                 "registrar": binding, "supplier_quote": availability}
+    if selected:
+        snapshot.update(selected_domain=True, live_route=rate["route"])
     return {"quote": signing.dumps(snapshot, salt=QUOTE_SALT), "domain": name,
             "amount": snapshot["amount"], "currency": "NGN", "years": 1}
 
 
 @transaction.atomic
-def accept_quote(user, name, token):
+def accept_quote(user, name, token, *, selected=False):
     # The account lock serializes pilot creation, including a double-submit.
     type(user).objects.select_for_update().get(pk=user.pk)
     existing = pilot_order(user.pk, name)
     if existing:
         return existing
+    from payments.domain_pilot_scope import CART
+    if OrderItem.objects.filter(order__client=user, item_type="domain", domain_name=name,
+                                order__metadata__has_key=CART).exists():
+        raise ValidationError("This domain belongs to a combined cart order. Open its invoice to continue.")
     try:
         snapshot = signing.loads(token, salt=QUOTE_SALT, max_age=300)
     except signing.BadSignature:
         raise ValidationError("This quote expired. Request a fresh quote.") from None
-    if (snapshot["client"], snapshot["domain"]) != (user.pk, name):
+    if ((snapshot["client"], snapshot["domain"]) != (user.pk, name)
+            or bool(snapshot.get("selected_domain")) != selected):
         raise ValidationError("This quote does not match the pilot account.")
     card = TLDPricing.objects.select_for_update().filter(tld=".com").first()
-    rate = rate_card_draft(card) if card else None
+    rate = _selected_rate(name, lock=True) if selected else rate_card_draft(card) if card else None
     if (not rate or rate["registration"]["1"] != snapshot["amount"]
-            or rate["revision"] != snapshot["price_revision"]):
+            or rate["revision"] != snapshot["price_revision"]
+            or (selected and rate["route"] != snapshot.get("live_route"))):
         raise ValidationError("The price changed. Request a fresh quote.")
     registrar(snapshot)
     amount = Decimal(snapshot["amount"])
     label = f"Sandbox only: {name} registration (1 year)"
+    contact = billing_contact_snapshot(user)
     order = Order.objects.create(client=user, status="pending_payment", subtotal=amount,
                                  total=amount, notes=label,
                                  metadata={PILOT: {**snapshot, "state": "awaiting_payment"}})
@@ -142,7 +188,8 @@ def accept_quote(user, name, token):
                              item_type="domain", domain_name=name, description=label,
                              unit_price=amount, cycle_key="1yr", months=12)
     invoice = Invoice.objects.create(order=order, client=user, subtotal=amount,
-                                     total=amount, notes=label, metadata={PILOT: True},
+                                     total=amount, notes=label,
+                                     metadata={PILOT: True, "billing_contact": contact},
                                      due_date=timezone.now() + timezone.timedelta(days=1))
     InvoiceItem.objects.create(invoice=invoice, description=label, domain_name=name,
                                unit_price=amount, subtotal=amount,
@@ -239,10 +286,23 @@ def inspect_payment(order):
 
 def reconcile(order):
     snapshot = order.metadata[PILOT]
-    if snapshot["state"] in {"registered", "registration_rejected"}:
+    if snapshot["state"] == "registered":
+        if not snapshot.get("registration", {}).get("registered_at"):
+            supplier, _ = registrar(snapshot)
+            confirmation = supplier.get_registration(snapshot["domain"])
+            if confirmation["sandbox_status"] == "active" and confirmation.get("registered_at"):
+                with transaction.atomic():
+                    locked = Order.objects.select_for_update().get(pk=order.pk)
+                    if locked.metadata[PILOT]["state"] == "registered":
+                        locked.metadata[PILOT]["registration"] = confirmation
+                        locked.save(update_fields=["metadata", "updated_at"])
+        return
+    if snapshot["state"] == "registration_rejected":
         return
     supplier, _ = registrar(snapshot)
     if snapshot["state"] != "awaiting_payment":
+        if recover_locally_blocked_submission(order, supplier):
+            return
         reconcile_registration(order, supplier)
         return
 
@@ -264,26 +324,66 @@ def reconcile(order):
             raise ValidationError("The pilot payment changed during verification.")
         # Reserve before the POST. A crash at any point now requires readback only.
         locked.metadata[PILOT].update(state="registration_uncertain", payment_reference=proof.reference,
-                                     payment_remote_id=proof.remote_id)
+                                     payment_remote_id=proof.remote_id, sandbox_submission_reserved=True)
         locked.status = "needs_review"
         locked.save(update_fields=["metadata", "status", "updated_at"])
         payment.status = "completed"
         payment.save(update_fields=["status"])
         invoice.status = "void"
         invoice.save(update_fields=["status", "updated_at"])
+    submit_reserved_registration(locked, supplier, contact)
+
+
+def submit_reserved_registration(order, supplier, contact):
     try:
-        workflow = supplier.submit_pilot_registration(snapshot["domain"], contact)
+        workflow = supplier.submit_pilot_registration(order, contact)
     except CloudflareINT01Denied:
         return
     reconcile_registration(order, supplier, workflow)
 
 
+def recover_locally_blocked_submission(order, supplier):
+    """One operator-scoped recovery for an order blocked before the old transport call."""
+    if order.order_number != os.getenv("CLOUD_SANDBOX_LOCALLY_BLOCKED_ORDER"):
+        return False
+    legacy_scope = pilot_configuration()
+    contact = registrant_contact()
+    with transaction.atomic():
+        locked = Order.objects.select_for_update().get(pk=order.pk)
+        snapshot = locked.metadata[PILOT]
+        if (snapshot.get("selected_domain") is not True or snapshot["state"] != "registration_uncertain"
+                or "sandbox_submission_reserved" in snapshot or not legacy_scope
+                or snapshot["domain"] == legacy_scope[1]):
+            return False
+        payment = PaymentIntent.objects.filter(
+            invoice__order=locked, invoice__status="void", status="completed",
+            reference=snapshot.get("payment_reference"), gateway__code="paystack",
+        ).select_related("gateway", "invoice__client").first()
+        if (not payment or payment.amount != payment.invoice.total
+                or not pilot_gateway_allowed(payment.gateway, payment.invoice)
+                or not WebhookEvent.objects.filter(
+                    gateway=payment.gateway, is_verified=True, event_type="charge.success",
+                    payload__reference=payment.reference, payload__intent_id=payment.pk,
+                    payload__remote_id=snapshot.get("payment_remote_id"),
+                ).exists()):
+            return False
+        snapshot["sandbox_submission_reserved"] = True
+        locked.save(update_fields=["metadata", "updated_at"])
+    submit_reserved_registration(locked, supplier, contact)
+    return True
+
+
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
-@throttle_classes([VaultMutationThrottle])
+@throttle_classes([DomainPurchaseThrottle])
 def domain_pilot(request):
     scope = pilot_configuration()
     user = request.user
+    selected_name = request.query_params.get("domain")
+    selected = selected_name is not None
+    if selected:
+        name = selected_name.strip().lower()
+        scope = (user.pk, name) if selected_domain_test_allowed(user, name) else None
     if not scope or not user.is_active:
         raise NotFound()
     account, name = scope
@@ -303,9 +403,9 @@ def domain_pilot(request):
         if action == "quote" and not order:
             if pilot_readiness(account):
                 raise ValidationError("The test setup is incomplete. Check the Admin domain pricing preflight.")
-            return Response(quote_domain(account, name), headers=headers)
+            return Response(quote_domain(account, name, selected=selected), headers=headers)
         if action == "accept" and isinstance(request.data.get("quote"), str):
-            return Response(result(accept_quote(user, name, request.data["quote"])), headers=headers)
+            return Response(result(accept_quote(user, name, request.data["quote"], selected=selected)), headers=headers)
         if action == "checkout" and order and order.metadata[PILOT]["state"] == "awaiting_payment":
             registrant_contact()
             registrar(order.metadata[PILOT])

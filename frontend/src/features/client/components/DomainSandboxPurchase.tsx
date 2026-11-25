@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DomainCart } from "../checkout/DomainCart";
+import { removeFromCart } from "../checkout/cart-selections";
 
 const endpoint = "/api/cloud/domains/sandbox-purchase/";
 type Purchase = {
   order: string;
   invoice: string;
+  invoice_id?: number;
   domain: string;
   amount: string;
   state: keyof typeof labels;
   checkout_state: "available" | "resume" | "uncertain" | "expired";
   payment_reference?: string;
+  registered_at?: string | null;
+  expires_at?: string | null;
 };
 type Overview = { domain: string; purchase: Purchase | null; readiness_issues?: string[] | null };
 type Quote = { quote: string; amount: string };
@@ -18,50 +23,65 @@ const labels = {
   awaiting_payment: "Awaiting test payment",
   registration_uncertain: "Test payment verified. Registrar response unconfirmed.",
   registration_rejected: "Test payment verified. Registrar rejected the registration.",
-  registration_action_required: "Test payment verified. Check Cloudflare for the required action.",
+  registration_action_required: "Test payment verified. Registration needs review.",
   registration_pending: "Test payment verified. Registration pending.",
   registered: "Sandbox domain registered",
 };
 
-export function DomainSandboxPurchase({ admin = false }: { admin?: boolean }) {
+export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = false }: {
+  admin?: boolean; domain?: string; checkoutPage?: boolean;
+}) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const requestUrl = domain ? `${endpoint}?${new URLSearchParams({ domain })}` : endpoint;
 
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
       try {
-        const response = await fetch(endpoint, { signal: controller.signal, cache: "no-store" });
-        if (response.ok) setOverview(await response.json());
+        const response = await fetch(requestUrl, { signal: controller.signal, cache: "no-store" });
+        if (response.ok) {
+          const data = await response.json();
+          if (!controller.signal.aborted) setOverview(data);
+        }
       } catch {
         // The purchase control is only available to eligible accounts.
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
     void load();
     return () => controller.abort();
-  }, []);
+  }, [requestUrl]);
 
   async function submit(action: string) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch(requestUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(action === "accept" ? { action, quote: quote?.quote } : { action }),
       });
       const data = await response.json();
       if (!response.ok) {
-        setError(typeof data.detail === "string" ? data.detail : "This step could not be confirmed. Refresh to check the current status.");
-        const status = await fetch(endpoint, { cache: "no-store" });
+        const message: string = typeof data.detail === "string" ? data.detail : "This step could not be confirmed. Refresh to check the current status.";
+        setError(admin ? message : message.replace(/Paystack Test Mode|Paystack|Cloudflare/gi, name => /paystack/i.test(name) ? "the payment service" : "the registrar"));
+        const status = await fetch(requestUrl, { cache: "no-store" });
         if (status.ok) setOverview(await status.json());
         return;
       }
       if (action === "quote") setQuote(data);
       else if (action === "checkout") window.location.assign(data.checkout_url);
-      else setOverview((current) => current ? { ...current, purchase: data } : current);
+      else {
+        setOverview((current) => current ? { ...current, purchase: data } : current);
+        if (action === "accept" && domain && data.order && data.domain === domain) {
+          void removeFromCart(`domain:${domain}`).catch(()=>{});
+        }
+      }
     } catch {
       setError("The connection was interrupted. Refresh to check the current status.");
     } finally {
@@ -69,7 +89,11 @@ export function DomainSandboxPurchase({ admin = false }: { admin?: boolean }) {
     }
   }
 
-  if (!overview) return null;
+  if (!overview) return checkoutPage ? (
+    <section className="rounded-xl border border-console-line bg-white p-5 text-sm" role="status">
+      {loading ? "Loading domain checkout…" : "Checkout is currently unavailable for this domain or account."}
+    </section>
+  ) : null;
   const purchase = overview.purchase;
   const awaitingPayment = purchase?.state === "awaiting_payment";
   const canCheckout = awaitingPayment && ["available", "resume"].includes(purchase.checkout_state);
@@ -77,22 +101,29 @@ export function DomainSandboxPurchase({ admin = false }: { admin?: boolean }) {
   const buttons = !purchase
     ? [
         ...(quote ? [{ action: "accept", text: "Accept quote" }] : []),
-        { action: "quote", text: quote ? "Get a fresh quote" : "Check sandbox availability" },
+        { action: "quote", text: quote ? "Get a fresh quote" : "Check availability and price" },
       ]
     : [
         ...(canCheckout ? [{
           action: "checkout",
-          text: purchase.checkout_state === "resume" ? "Resume Paystack test checkout" : "Pay with Paystack Test Mode",
+          text: purchase.checkout_state === "resume" ? "Resume test payment" : "Continue to payment",
         }] : []),
         ...(!terminal && (!awaitingPayment || purchase.checkout_state !== "available") ? [{
           action: "reconcile",
-          text: awaitingPayment ? "Check existing Paystack reference" : "Check registrar status",
+          text: awaitingPayment ? "Check payment status" : "Check registration status",
         }] : []),
+        ...(purchase.state === "registered" && !purchase.registered_at ? [{action:"reconcile",text:"Refresh registration dates"}] : []),
       ];
 
+  if (checkoutPage) return <DomainCart domain={overview.domain} amount={purchase?.amount ?? quote?.amount}
+    status={purchase ? labels[purchase.state] : undefined} order={purchase?.order} invoice={purchase?.invoice}
+    invoiceId={purchase?.invoice_id}
+    registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={!!purchase && !awaitingPayment}
+    actions={buttons} busy={busy} error={error} onAction={action => void submit(action)}/>;
+
   return (
-    <section className="space-y-3 rounded-xl border border-console-line bg-white p-4 text-sm">
-      <h2 className="font-medium">Sandbox domain purchase</h2>
+    <section id="sandbox-domain-purchase" className="space-y-3 rounded-xl border border-console-line bg-white p-4 text-sm">
+      <h2 className="font-medium">{checkoutPage ? "Review domain registration" : "Sandbox domain purchase"}</h2>
       <p>{overview.domain} · One year{quote && !purchase ? ` · NGN ${quote.amount}` : ""}</p>
       {admin && overview.readiness_issues && (
         overview.readiness_issues.length ? (
@@ -107,11 +138,11 @@ export function DomainSandboxPurchase({ admin = false }: { admin?: boolean }) {
         <div role="status" className="space-y-1">
           <p>{labels[purchase.state]}</p>
           {awaitingPayment && purchase.checkout_state === "expired" &&
-            <p>Checkout expired. Check the existing reference in Paystack Test Mode.</p>}
+            <p>Checkout expired. Check the existing payment reference.</p>}
           {awaitingPayment && purchase.checkout_state === "uncertain" &&
             <p>Checkout was interrupted. Check the existing reference before proceeding.</p>}
           <p>{purchase.order} · {purchase.invoice} · NGN {purchase.amount}</p>
-          {purchase.payment_reference && <p>Paystack test reference {purchase.payment_reference}</p>}
+          {purchase.payment_reference && <p>Test payment reference {purchase.payment_reference}</p>}
         </div>
       )}
       {!admin && (
