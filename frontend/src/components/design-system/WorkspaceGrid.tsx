@@ -11,7 +11,7 @@ const variants:Record<WorkspaceGridVariant,string>={
  filters:"grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2",
  adminMetrics:"grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6",
  staffMetrics:"grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5",
- clientMetrics:"grid min-w-0 grid-flow-col auto-cols-[minmax(140px,46%)] snap-x snap-mandatory gap-3 overflow-x-auto px-0.5 pb-3 pt-1 [&>*]:snap-start sm:auto-cols-[32%] md:grid-flow-row md:auto-cols-auto md:grid-cols-3 md:overflow-visible xl:grid-cols-5 xl:gap-4 2xl:grid-cols-5",
+ clientMetrics:"grid min-w-0 grid-flow-col auto-cols-[minmax(136px,46%)] snap-x snap-mandatory gap-3 overflow-x-auto px-0.5 pb-3 pt-1 [&>*]:snap-start sm:auto-cols-[32%] xl:grid-flow-row xl:auto-cols-auto xl:overflow-visible xl:grid-cols-5 xl:gap-4 2xl:grid-cols-5",
  quickActions:"grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4",
  overviewPair:"grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2",
  directory:"grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3",
