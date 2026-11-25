@@ -30,7 +30,7 @@ export function ClientDashboardView(){
   const waiting=summary.status==="loading";
   return <DashboardShell role="client" title={m.dashboard}
     description={m.dashboardIntro}>
-    <div className="space-y-5">
+    <div className="space-y-6">
       <ClientHero name={firstName} balance={balance} balanceVisible={balanceVisible} onToggleBalance={()=>setBalanceVisible(value=>!value)}/>
       <ClientLoginAlerts/>
       <ClientRecognitionBanner/>

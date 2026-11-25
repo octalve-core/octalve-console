@@ -1,12 +1,13 @@
 "use client";
 import Link from "next/link";
-import {BookOpen,Boxes,Globe2,LifeBuoy,PackagePlus,ReceiptText,ShoppingCart,Sparkles,TicketCheck,Zap,type LucideIcon} from "lucide-react";
+import {BookOpen,Boxes,LifeBuoy,PackagePlus,ShoppingCart,Sparkles,TicketCheck,Zap,type LucideIcon} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
 import {ConsoleIconTile} from "@/components/design-system/ConsoleIconTile";
 import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import type {DashboardRole} from "@/lib/navigation/dashboard-nav";
 import {useLocale} from "@/lib/i18n/LocaleProvider";
 import {translateNavigationLabel} from "@/lib/i18n/dictionary";
+import {navigationIcons} from "@/features/shell/lib/navigation-icons";
 type Tone="blue"|"green"|"amber"|"rose"|"violet";
 type Shortcut={href:string;label:string;icon:LucideIcon;tone:Tone};
 const options:Record<DashboardRole,readonly Shortcut[]>={
@@ -16,10 +17,10 @@ const options:Record<DashboardRole,readonly Shortcut[]>={
   {href:"/admin/support",label:"Support desk",icon:TicketCheck,tone:"rose"},
   {href:"/admin/orders",label:"Review orders",icon:ShoppingCart,tone:"amber"}],
  client:[
-  {href:"/client/order",label:"Order hosting",icon:PackagePlus,tone:"blue"},
-  {href:"/client/domains/register",label:"Find a domain",icon:Globe2,tone:"green"},
-  {href:"/client/support/new",label:"Open support ticket",icon:LifeBuoy,tone:"rose"},
-  {href:"/client/invoices",label:"View invoices",icon:ReceiptText,tone:"amber"}],
+  {href:"/client/order",label:"Order hosting",icon:navigationIcons.server,tone:"blue"},
+  {href:"/client/domains/register",label:"Find a domain",icon:navigationIcons.globe2,tone:"violet"},
+  {href:"/client/support/new",label:"Open support ticket",icon:navigationIcons.lifeBuoy,tone:"rose"},
+  {href:"/client/invoices",label:"View invoices",icon:navigationIcons.receiptText,tone:"amber"}],
  staff:[
   {href:"/staff/tickets",label:"Support tickets",icon:LifeBuoy,tone:"blue"},
   {href:"/staff/provisioning",label:"Provisioning queue",icon:Zap,tone:"green"},

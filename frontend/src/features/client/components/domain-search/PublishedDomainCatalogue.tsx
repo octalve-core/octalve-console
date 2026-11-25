@@ -1,4 +1,4 @@
-import {Globe} from "lucide-react";
+import {navigationIcons} from "@/features/shell/lib/navigation-icons";
 import {ConsoleIconTile} from "@/components/design-system/ConsoleIconTile";
 import {Panel} from "@/components/design-system/Panel";
 import {formatDomainPrice,type PublishedDomainPrice} from "./domain-types";
@@ -15,7 +15,7 @@ export function PublishedDomainCatalogue({prices,currency,onSelect}:{
     const tone=tones[index%tones.length];
     return <Panel key={price.tld} tone={tone} className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-       <ConsoleIconTile icon={Globe} tone={tone} size="sm"/>
+       <ConsoleIconTile icon={navigationIcons.globe2} tone={tone} size="sm"/>
        <h3 className="min-w-0 break-all text-base font-medium">{price.tld}</h3>
       </div>
       <p className="break-words text-base font-medium tabular-nums">{formatDomainPrice(price.registration_price,currency)} <span className="text-xs">/ first year</span></p>
