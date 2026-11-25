@@ -2,11 +2,10 @@
 
 import {useEffect,useMemo,useState,type FormEvent} from "react";
 import Link from "next/link";
-import {ArrowLeft,ArrowRight,Globe2,Loader2,ShieldCheck} from "lucide-react";
+import {ArrowLeft,ArrowRight,Loader2,ShieldCheck} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
 import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
-import {TextField} from "@/components/design-system/TextField";
-import {ClientDomainSearch} from "../components/ClientDomainSearch";
+import {ServiceDomainChoice,type DomainChoice} from "./ui/ServiceDomainChoice";
 import {CheckoutProgress} from "../components/commerce/CheckoutProgress";
 import {CheckoutQuoteSummary} from "../components/commerce/CheckoutQuoteSummary";
 import {DashboardShell} from "@/components/layout/DashboardShell";
@@ -16,11 +15,9 @@ import {loadSellablePlans,formatPlanAmount,type ClientOrderPlan} from "../data/c
 import {cartSelectionId, removeFromCart} from "./cart-selections";
 
 type Stage="domain"|"review"|"completed";
-type DomainChoice="later"|"existing"|"new";
 type Confirmation={id?:number;order_number?:string;total?:string;currency?:string;
   invoice?:{id:number;invoice_number:string;status:string;amount_due:string}};
 const domainPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/;
-const selectionClass="min-h-24 rounded-xl border px-4 py-4 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary";
 const actionClass="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-console-primary px-5 py-3 text-sm font-medium text-white transition hover:bg-console-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto";
 
 export function ServiceCheckout(){
@@ -141,7 +138,7 @@ export function ServiceCheckout(){
   const currentStep=stage==="domain"?1:stage==="review"?2:3;
   return <DashboardShell role="client" title="Checkout" description="Configure your service and review your purchase.">
     <DashboardPage eyebrow="Checkout" title={selected ? `Set up ${selected.product}` : "Set up your service"}
-      description="A guided, secure checkout. Charges and activation are verified separately.">
+      description="Choose a domain, then review your order.">
       <Link href="/client/order/checkout?view=cart" className="mb-3 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-console-primary"><ArrowLeft size={16} aria-hidden="true"/> Back to cart</Link>
       <CheckoutProgress currentStep={currentStep as 0|1|2|3}/>
       {error?<p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
@@ -150,34 +147,9 @@ export function ServiceCheckout(){
       {selected&&cycle&&stage!=="completed"?<WorkspaceGrid variant="commerceColumns">
         <Panel className="min-w-0 lg:col-span-2">
           {stage==="domain"?<>
-            <div className="flex items-center gap-3"><Globe2 className="h-5 w-5 text-[#0064E0]"/>
-              <h2 className="text-xl font-medium text-slate-950">Connect your domain</h2></div>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Choose how your website will use a domain. You can connect one after buying hosting.
-            </p>
-            <WorkspaceGrid variant="choiceColumns" className="mt-6">
-              {([
-                ["later","Connect later"],
-                ["existing","I own a domain"],
-                ["new","Add a domain"]
-              ] as const).map(([key,label])=><button key={key} type="button"
-                className={`${selectionClass} ${domainChoice===key?"border-[#0064E0] bg-[#EFF6FF] text-[#0064E0]":"border-slate-200 bg-white text-slate-700"}`}
-                aria-pressed={domainChoice===key} onClick={()=>{setDomainChoice(key);setQuote(null);setError("");}}>
-                <span className="mb-2 block">{domainChoice===key?"●":"○"}</span>{label}
-              </button>)}
-            </WorkspaceGrid>
-            {domainChoice==="existing"?<div className="mt-6">
-              <TextField id="existing-domain" label="Your domain name" autoComplete="off"
-                maxLength={253} placeholder="example.com" value={domain}
-                onChange={event=>{setDomain(event.target.value);setQuote(null);}}/>
-              <p className="mt-2 text-xs leading-5 text-slate-500">
-                We'll guide you through updating its DNS after hosting is activated. Ownership will be verified before changes.
-              </p>
-              {normalizedDomain&&!validDomain?<p className="mt-2 text-sm text-rose-600">Enter a valid domain such as example.com.</p>:null}
-            </div>:null}
-            {domainChoice==="new"?<div className="mt-6 rounded-xl border border-console-line bg-slate-50 p-4 text-sm leading-6 text-console-ink">
-              <ClientDomainSearch/>
-            </div>:null}
+            <ServiceDomainChoice choice={domainChoice} domain={domain} invalid={!!normalizedDomain&&!validDomain}
+              onChoice={value=>{setDomainChoice(value);setQuote(null);setError("");}}
+              onDomainChange={value=>{setDomain(value);setQuote(null);}}/>
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
               <Link href="/client/order" className="inline-flex items-center gap-2 text-sm font-medium text-[#0064E0]"><ArrowLeft className="h-4 w-4"/>Change plan</Link>
               <button type="button" disabled={!canReview} onClick={()=>{void review();}} className={actionClass}>
@@ -212,14 +184,11 @@ export function ServiceCheckout(){
                 </p></div>
               <Link href="/client/profile" className="shrink-0 text-sm font-medium text-[#0064E0]">Edit account</Link>
             </div>
-            <p className="mt-5 text-xs leading-5 text-slate-500">
-              Your billing details are recorded at order creation. Updating your account afterward does not rewrite an issued invoice.
-            </p>
+
             <label className="mt-6 flex items-start gap-3 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
               <input type="checkbox" required checked={agreed} onChange={e=>setAgreed(e.target.checked)}
                 className="mt-1 h-4 w-4 accent-[#0064E0]"/>
-              I have reviewed the selected hosting package, billing details and price. I understand an unpaid invoice will be created;
-              payment and hosting activation are separate verified steps.
+              I confirm my order and billing details.
             </label>
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
               <button type="button" className="inline-flex gap-2 text-sm font-medium text-[#0064E0]"

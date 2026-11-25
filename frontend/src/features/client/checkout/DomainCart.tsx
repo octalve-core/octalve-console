@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Globe2, Server, ShieldCheck } from "lucide-react";
+import {CheckoutSteps} from "./ui/CheckoutSections";
 import { Panel } from "@/components/design-system/Panel";
 import { formatPlanAmount } from "../data/client-order-data";
 import { invoiceDownloadHref, invoiceHref } from "../components/commerce/invoice-links";
@@ -20,12 +21,8 @@ export function DomainCart({domain, amount, status, order, invoice, invoiceId, r
   actions: readonly Action[]; busy: boolean; error: string; onAction: (action: string) => void;
 }) {
   const price = amount && Number.isFinite(Number(amount)) ? formatPlanAmount(Number(amount), "NGN") : null;
-  const step = paymentVerified ? "Confirmation" : order ? "Payment" : "Review";
   return <div id="sandbox-domain-purchase" className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(17rem,1fr)]">
-    <ol aria-label="Checkout progress" className="grid grid-cols-3 gap-2 xl:col-span-2">
-      {["Review", "Payment", "Confirmation"].map(label=><li key={label} aria-current={label===step?"step":undefined}
-        className={label===step?"rounded-lg bg-blue-50 px-2 py-2 text-center text-xs font-medium text-console-primary sm:text-sm":"px-2 py-2 text-center text-xs text-console-muted sm:text-sm"}>{label}</li>)}
-    </ol>
+    <div className="xl:col-span-2"><CheckoutSteps current={order||paymentVerified?"Payment":"Review order"}/></div>
       <Panel className="min-w-0 overflow-hidden xl:col-start-1">
         <div className="flex flex-wrap items-start gap-4">
           <span className="rounded-xl bg-blue-50 p-3 text-console-primary"><Globe2 aria-hidden="true" className="h-6 w-6"/></span>
@@ -70,7 +67,7 @@ export function DomainCart({domain, amount, status, order, invoice, invoiceId, r
       <Panel className="flex flex-wrap items-center gap-4">
         <Server aria-hidden="true" className="h-5 w-5 text-console-primary"/>
         <div className="min-w-0 flex-1"><h3 className="text-sm font-medium">Add web hosting</h3><p className="mt-1 text-xs text-console-muted">Optional. Browse plans for this domain.</p></div>
-        <Link href="/client/order" className="inline-flex min-h-11 items-center rounded-lg border border-console-line px-3 text-sm font-medium text-console-primary">Explore hosting</Link>
+        <Link href={`/client/order?forDomain=${encodeURIComponent(domain)}`} className="inline-flex min-h-11 items-center rounded-lg border border-console-line px-3 text-sm font-medium text-console-primary">Explore hosting</Link>
       </Panel>
       <Link href="/client/domains/register" className="inline-flex min-h-11 items-center text-sm font-medium text-console-primary">Choose a different domain</Link>
     </div>

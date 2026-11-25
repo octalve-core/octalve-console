@@ -18,17 +18,20 @@ export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescrip
  resource:BillingResource;records:readonly ClientRecord[];emptyTitle:string;emptyDescription:string;
 }){
  const Icon=resource==="orders"?ShoppingCart:ReceiptText;
- const rows=useMemo<DirectoryRow[]>(()=>records.map(r=>({
-  id:r.id,title:r.title,subtitle:r.subtitle,
-  reference:r.meta!=="—"?r.meta:r.id,
-  amount:r.amount,status:r.status,date:r.date?serviceDate(r.date):undefined,
-  secondaryDate:resource==="invoices"&&r.issuedDate?serviceDate(r.issuedDate):undefined,
-  secondaryDateLabel:"Issued",dateLabel:resource==="invoices"?"Due":"Ordered",
-  dateISO:r.date&&/^\d{4}-\d{2}-\d{2}/.test(r.date)?r.date.slice(0,10):undefined,
-  href:r.actionHref,
-  icon:<Icon aria-hidden="true" className="h-5 w-5"/>,
-  searchTerms:[r.id,r.meta,r.subtitle]
- })),[records,Icon,resource]);
+ const rows=useMemo<DirectoryRow[]>(()=>records.map(r=>{
+  const date=resource==="invoices"?r.dueDate:r.createdDate||r.date;
+  return {
+   id:r.id,title:r.title,subtitle:r.subtitle,
+   reference:r.meta!=="—"?r.meta:r.id,
+   amount:r.amount,status:r.status,date:date?serviceDate(date):undefined,
+   secondaryDate:resource==="invoices"&&r.issuedDate?serviceDate(r.issuedDate):undefined,
+   secondaryDateLabel:resource==="invoices"?"Issued":undefined,dateLabel:resource==="invoices"?"Due":"Ordered",
+   dateISO:date&&/^\d{4}-\d{2}-\d{2}/.test(date)?date.slice(0,10):undefined,
+   href:r.actionHref,
+   icon:<Icon aria-hidden="true" className="h-5 w-5"/>,
+   searchTerms:[r.id,r.meta,r.subtitle]
+  };
+ }),[records,Icon,resource]);
  const linkedInvoice = (id:string) => records.find(record=>record.id===id)?.invoiceDocuments?.[0];
  const paymentHref = (id:string) => {
   const record=records.find(item=>item.id===id);

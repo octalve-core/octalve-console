@@ -28,7 +28,7 @@ export function ClientLoginAlerts(){
         <div>
           <h2 className="font-medium text-console-ink">You have {critical.length} account reminder{critical.length===1?"":"s"}</h2>
           <p className="mt-1 text-xs leading-5 text-console-muted">
-            {urgent===1?"1 needs urgent attention. ":urgent?urgent+" need urgent attention. ":""}Review your outstanding invoices and domain expirations.
+            {urgent===1?"1 needs urgent attention.":urgent?urgent+" need urgent attention.":null}
           </p>
         </div>
       </div>

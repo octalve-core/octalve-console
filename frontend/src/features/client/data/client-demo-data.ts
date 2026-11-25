@@ -23,6 +23,8 @@ export type ClientRecord = {
   paymentHref?: string;
   testCheckoutHref?: string;
   issuedDate?: string;
+  createdDate?: string;
+  dueDate?: string;
   paidDate?: string;
 };
 

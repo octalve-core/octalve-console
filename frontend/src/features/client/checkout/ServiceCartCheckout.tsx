@@ -5,6 +5,7 @@ import Link from "next/link";
 import {ArrowLeft} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
+import {CheckoutColumns,CheckoutSteps,CheckoutSummary} from "./ui/CheckoutSections";
 import {Panel} from "@/components/design-system/Panel";
 import {authApi, clientApi, type AccountProfile, type CheckoutQuote} from "@/lib/api/endpoints";
 import {formatPlanAmount} from "../data/client-order-data";
@@ -67,12 +68,19 @@ export function ServiceCartCheckout() {
   return <DashboardShell role="client" title="Checkout" description="Review your order and invoice.">
     <DashboardPage eyebrow="Checkout" title="Review your order" description="Review all services before creating your invoice.">
       <Link href="/client/order/checkout?view=cart" className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-console-primary"><ArrowLeft size={16} aria-hidden="true"/> Back to cart</Link>
+      <CheckoutSteps current={confirmation ? "Payment" : "Review order"}/>
       {error && <p role="alert" className="mb-4 text-sm text-rose-700">{error}</p>}
       {!draft && !error && <p role="status">Checking current prices…</p>}
       {confirmation ? <Panel>
         <p>Invoice {confirmation.invoice_number} is ready.</p>
         <Link className="mt-3 inline-flex min-h-11 items-center font-medium text-console-primary" href={`/client/invoices/${confirmation.id}`}>View invoice</Link>
-      </Panel> : draft && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+      </Panel> : draft && <CheckoutColumns summary={<CheckoutSummary title="Invoice summary">
+          <p className="text-2xl font-medium tabular-nums">{formatPlanAmount(Number(draft.quote.total), draft.quote.currency)}</p>
+          <h3 className="mt-4 text-sm font-medium">Billing address</h3>
+          <p className="mt-1 text-sm text-console-muted">{address || "No address saved"}</p>
+          <Link href="/client/profile" className="inline-flex min-h-11 items-center text-sm font-medium text-console-primary">Edit billing address</Link>
+          <button type="button" disabled={busy} onClick={() => void placeOrder()} className="mt-3 min-h-12 w-full rounded-xl bg-console-primary px-4 text-sm font-medium text-white disabled:opacity-50">{busy ? "Creating invoice…" : "Create one invoice"}</button>
+        </CheckoutSummary>}>
         <Panel>
           <h2 className="text-lg font-medium">Your services</h2>
           <ul className="mt-3 divide-y divide-console-line">
@@ -82,15 +90,7 @@ export function ServiceCartCheckout() {
             </li>)}
           </ul>
         </Panel>
-        <Panel>
-          <h2 className="text-lg font-medium">Invoice summary</h2>
-          <p className="mt-3 text-sm font-medium">{formatPlanAmount(Number(draft.quote.total), draft.quote.currency)}</p>
-          <h3 className="mt-4 text-sm font-medium">Billing address</h3>
-          <p className="mt-1 text-sm text-console-muted">{address || "No address saved"}</p>
-          <Link href="/client/profile" className="inline-flex min-h-11 items-center text-sm font-medium text-console-primary">Edit billing address</Link>
-          <button type="button" disabled={busy} onClick={() => void placeOrder()} className="mt-3 min-h-12 w-full rounded-xl bg-console-primary px-4 text-sm font-medium text-white disabled:opacity-50">{busy ? "Creating invoice…" : "Create one invoice"}</button>
-        </Panel>
-      </div>}
+      </CheckoutColumns>}
     </DashboardPage>
   </DashboardShell>;
 }

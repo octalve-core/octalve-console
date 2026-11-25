@@ -1,4 +1,5 @@
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
+import {displayMoney} from "../../../lib/i18n/formatters.ts";
 import {normalizeServiceSnapshot} from "./service-contract.ts";
 import {invoicePaymentHref} from "../components/commerce/invoice-links.ts";
 
@@ -60,6 +61,7 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     "—",
   );
   const amount = readClientString(record, ["total", "price", "amount", "balance", "due", "paid"], "");
+  const currency = readClientString(record, ["currency", "currency_code"], "").trim().toUpperCase();
   const status = readClientString(record, ["status", "state", "payment_status"], "Unknown");
   const date = readClientString(record, ["expiry_date", "expiration_date", "next_due_date", "due_date", "date", "created_at", "updated_at", "dueDate", "expiry", "renews"], "");
   const invoicePeriods = resource === "invoices" && Array.isArray(record.items) ? record.items.flatMap(item => {
@@ -79,7 +81,7 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     title,
     subtitle,
     meta,
-    amount,
+    amount: amount && /^[A-Z]{3}$/.test(currency) ? displayMoney(amount,currency,"en") : amount,
     status,
     date,
     actionHref: `${getClientResourceBasePath(resource)}/${encodeURIComponent(id)}`,
@@ -93,6 +95,8 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     paymentHref: resource === "invoices" ? invoicePaymentHref(id, record.payment_resume) : undefined,
     testCheckoutHref: resource === "invoices" && record.test_checkout_status === true
       ? invoicePaymentHref(id, {kind:"combined_domain"}) : undefined,
+    createdDate: readClientString(record,["created_at","date_created"],""),
+    dueDate: resource === "invoices" ? readClientString(record,["due_date","dueDate"],"") : undefined,
     issuedDate: resource === "invoices" ? readClientString(record,["issue_date"],"") : undefined,
     paidDate: resource === "invoices" ? readClientString(record,["paid_at"],"") : undefined,
   };

@@ -88,6 +88,7 @@ const frenchNav:Record<string,string> = {
   "Order hosting":"Commander un hébergement",
   "Find a domain":"Rechercher un domaine",
   "Open support ticket":"Ouvrir un ticket",
+  "Open support":"Contacter le support",
   "View invoices":"Voir les factures",
   "Unpaid invoices":"Factures impayées",
   "Wallet balance":"Solde du portefeuille",

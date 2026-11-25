@@ -6,7 +6,7 @@ export type OrderCycle = {
 export type ClientOrderPlan = {
   id: string; slug: string; productSlug: string; name: string; product: string; description: string;
   currency: string; features: string[]; popular: boolean; cycles: OrderCycle[]; revision: number | null;
-  categorySlug: string; categoryName: string;
+  categorySlug: string; categoryName: string; canOrder: boolean;
 };
 
 type ApiCycle = {cycle_key: string; label: string; price: string; setup_fee: string; is_active: boolean; is_default: boolean};
@@ -18,19 +18,17 @@ type ApiPlan = {
   billing_cycles: ApiCycle[];
 };
 
-export async function loadSellablePlans(): Promise<ClientOrderPlan[]> {
+export async function loadPublishedPlans(): Promise<ClientOrderPlan[]> {
   const response: unknown = await publicApi.plans();
   const raw = Array.isArray(response) ? response :
     (response && typeof response === "object" && "results" in response
       ? (response as {results: unknown}).results : []);
   if (!Array.isArray(raw)) throw new Error("Catalog returned an invalid plan list.");
   return (raw as ApiPlan[]).filter(p =>
-    p.status === "active" && p.is_public && Number.isSafeInteger(p.published_revision) && Number(p.published_revision)>0 &&
-    // Django CreateOrderSerializer currently authorizes these three types only.
-    // The dynamic sidebar discovers ALL published categories independently.
-    ["shared_hosting", "wordpress_hosting", "vps"].includes(p.product_type)
+    p.status === "active" && p.is_public && Number.isSafeInteger(p.published_revision) && Number(p.published_revision)>0
   ).map(p => ({
     id: String(p.id), slug: p.slug || "", productSlug: p.product_slug || "", name: p.name, product: p.product_name || "Hosting",
+    canOrder: ["shared_hosting", "wordpress_hosting", "vps"].includes(p.product_type),
     categorySlug: p.category_slug || "", categoryName: p.category_name || "",
     description: p.description || "", currency: p.currency,
     popular: p.is_popular, revision: p.published_revision ?? null,
@@ -39,6 +37,10 @@ export async function loadSellablePlans(): Promise<ClientOrderPlan[]> {
       .map(c => ({key:c.cycle_key,label:c.label,price:Number(c.price),
         setupFee:Number(c.setup_fee || 0),isDefault:c.is_default})),
   })).filter(p => p.cycles.length > 0);
+}
+
+export async function loadSellablePlans(): Promise<ClientOrderPlan[]> {
+  return (await loadPublishedPlans()).filter(plan => plan.canOrder);
 }
 
 export function formatPlanAmount(value: number, currency: string): string {

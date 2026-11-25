@@ -1,3 +1,4 @@
+import {displayMoney} from "../../../lib/i18n/formatters.ts";
 import type {AdminResourceKey} from "../data/admin-resource-config";
 import type {AdminRecord} from "../data/admin-demo-data";
 export {unwrapAdminList,getAdminRecordId,findExactAdminRecord,readAdminString,getAdminResourceBasePath} from "./admin-record-shared.ts";
@@ -31,12 +32,14 @@ export function normalizeAdminRecord(value:unknown,key:AdminResourceKey):AdminRe
  const item=value as Record<string,unknown>;
  if(key==="customers")return normalizeCustomer(item);
  const id=getAdminRecordId(item);
- const title=readAdminString(item,["name","title","domain","display_name","customer","client","email"],id);
+ const title=readAdminString(item,["name","title","domain","display_name","invoice_number","order_number","customer","client","email"],id);
  const subtitle=readAdminString(item,["email","summary","description","product","category","adapter_type","domain","subject"],"");
  const meta=readAdminString(item,["type","cycle","adapter","registrar","provider","department"],"—");
- const reference=readAdminString(item,["reference","code","domain","slug"],"");
+ const reference=readAdminString(item,["invoice_number","order_number","reference","code","domain","slug"],"");
  const dateISO=isoDate(item.created_at)||isoDate(item.updated_at)||isoDate(item.date)||isoDate(item.expiry);
- return {id,title,subtitle,meta,reference,amount:readAdminString(item,["total","price","amount","balance","credited"],""),
+ const amount=readAdminString(item,["total","price","amount","balance","credited"],"");
+ const currency=readAdminString(item,["currency","currency_code"],"").trim().toUpperCase();
+ return {id,title,subtitle,meta,reference,amount:amount&&/^[A-Z]{3}$/.test(currency)?displayMoney(amount,currency,"en"):amount,
   status:readAdminString(item,["status","state","payment_status"],"Unknown"),
   date:dateISO?dateText(dateISO):readAdminString(item,["date","created_at","updated_at","expiry"],""),
   dateISO,actionHref:getAdminResourceBasePath(key)+"/"+encodeURIComponent(id)};
