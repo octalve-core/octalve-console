@@ -16,7 +16,7 @@ function tone(status:string):keyof typeof styles{
  return "neutral";
 }
 export function DirectoryStatus({status}:{status:string}){
- return <span className={`inline-flex max-w-full items-center rounded-md px-2 py-1 text-[10px] font-medium sm:text-xs ${styles[tone(status)].chip}`}>
+ return <span title={status.replaceAll("_"," ")} className={`block w-fit min-w-0 max-w-full truncate rounded-md px-2 py-1 text-[10px] font-medium sm:text-xs ${styles[tone(status)].chip}`}>
  {status.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase())}</span>;
 }
 export function DirectoryIcon({row}:{row:DirectoryRow}){

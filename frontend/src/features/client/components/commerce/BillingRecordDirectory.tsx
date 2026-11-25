@@ -22,11 +22,13 @@ export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescrip
   id:r.id,title:r.title,subtitle:r.subtitle,
   reference:r.meta!=="—"?r.meta:r.id,
   amount:r.amount,status:r.status,date:r.date?serviceDate(r.date):undefined,
+  secondaryDate:resource==="invoices"&&r.issuedDate?serviceDate(r.issuedDate):undefined,
+  secondaryDateLabel:"Issued",dateLabel:resource==="invoices"?"Due":"Ordered",
   dateISO:r.date&&/^\d{4}-\d{2}-\d{2}/.test(r.date)?r.date.slice(0,10):undefined,
   href:r.actionHref,
   icon:<Icon aria-hidden="true" className="h-5 w-5"/>,
   searchTerms:[r.id,r.meta,r.subtitle]
- })),[records,Icon]);
+ })),[records,Icon,resource]);
  const linkedInvoice = (id:string) => records.find(record=>record.id===id)?.invoiceDocuments?.[0];
  const paymentHref = (id:string) => {
   const record=records.find(item=>item.id===id);

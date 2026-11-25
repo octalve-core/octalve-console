@@ -39,7 +39,7 @@ export function RecordDirectory({label,rows,columns,actions=[],onOpen,create,emp
  const selectedActions=selected?actions.filter(a=>a.available?.(selected)!==false):[];
  const showActions=Boolean(onOpen||rows.some(row=>Boolean(row.href))||actions.length);
  function chooseStatus(s:string){if(server)server.onStatus(s);else{setStatus(s);setPage(1);}}
- return <section aria-label={label} className="min-w-0 overflow-hidden rounded-2xl border border-console-line bg-white shadow-[0_2px_12px_rgba(0,25,62,0.035)]">
+ return <section aria-label={label} className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-console-surface">
   <StatusTabs label={label} items={statuses} value={server?.status??status} onChange={chooseStatus}/>
   <DirectoryToolbar label={label} count={server?.count??filtered.length} query={server?.query??search}
    onQuery={v=>{if(server)server.onQuery(v);else{setSearch(v);setPage(1);}}}

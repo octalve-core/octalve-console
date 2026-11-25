@@ -63,9 +63,7 @@ export function ClientDNSClaimPanel(){
         <div>
           <h2 className="text-base font-medium text-console-ink">Connect a domain you already own</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-console-muted">
-            Verify control of its Cloudflare DNS zone without transferring or
-            purchasing the domain. DNS access is read-only and requires your
-            approval after verification.
+            Verify your domain to connect it to Octalve Cloud.
           </p>
         </div>
       </div>
@@ -89,10 +87,7 @@ export function ClientDNSClaimPanel(){
         </button>
       </div>
       {error?<p role="alert" className="text-sm text-rose-700">{error}</p>:null}
-      <p className="text-xs text-console-muted">
-        Only request domains you control. Verification confirms Cloudflare DNS
-        zone control, not registrar ownership, renewal or public nameserver delegation.
-      </p>
+
     </form>:null}
     {issued?<div className="mt-5 rounded-xl border border-console-line bg-slate-50 p-4">
       <div className="flex items-center gap-2">
@@ -100,7 +95,7 @@ export function ClientDNSClaimPanel(){
         <h3 className="text-sm font-medium text-console-ink">One-time DNS verification</h3>
       </div>
       <p className="mt-2 text-sm text-console-muted">
-        Add this TXT record inside the Cloudflare zone for
+        Add this TXT record in the DNS settings for
         <span className="font-medium text-console-ink"> {issued.domain_name}</span>.
         The record expires for verification on {new Date(issued.challenge.expires_at).toLocaleString("en-NG")}.
       </p>
@@ -125,11 +120,7 @@ export function ClientDNSClaimPanel(){
       {copied?<p role="status" className="mt-2 flex items-center gap-2 text-xs text-console-muted">
         <CheckCircle2 className="h-4 w-4"/>Copied to clipboard</p>:null}
       <p className="mt-3 text-xs leading-5 text-console-muted">
-        After adding the record, contact Octalve Cloud to verify it against the
-        saved, read-only Cloudflare connection. Keep the TXT record in place
-        while using this connection: removing it suspends live DNS visibility
-        until the same proof is restored. We will not request your Cloudflare
-        password or make DNS changes.
+        Contact support after adding the record. Keep it in place to maintain read-only DNS access.
       </p>
     </div>:null}
     {available&&claims.length>0?<div className="mt-5 border-t border-console-line pt-4">
@@ -142,7 +133,7 @@ export function ClientDNSClaimPanel(){
           className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-console-line px-3 py-2">
           <p className="break-all text-sm font-medium text-console-ink">{item.domain_name}</p>
           <span className="text-xs text-console-muted">
-            {item.state==="verified"?"Cloudflare zone proof verified":item.state==="pending"?
+            {item.state==="verified"?"Domain verified":item.state==="pending"?
               "Awaiting TXT verification":item.state==="expired"?"Challenge expired — request a new one":"Request cancelled"}
           </span>
         </div>)}

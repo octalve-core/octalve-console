@@ -119,12 +119,12 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
   })):[];
   const nameservers:CloudRecord[]=liveDns?.state==="connected"?
     liveDns.nameservers!.map(ns=>({
-      id:ns,title:ns,reference:"Cloudflare zone nameserver",status:"active",
+      id:ns,title:ns,reference:"Domain nameserver",status:"active",
     })):[];
   const external=domain?.managementKind==="dns_only";
   const info=external?[
     ["Management","External DNS only"],
-    ["Cloudflare zone control","Verified during onboarding; live access needs retained TXT proof"],
+    ["Domain verification","Keep your TXT record in place to maintain DNS access."],
     ["Registrar","Not verified by Octalve Cloud"],
     ["Registration / expiry","Not verified; managed with your registrar"],
     ["Auto-renewal","Not provided for externally owned domains"],
@@ -205,7 +205,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
                 Live DNS access could not be verified. No stored records are shown as current.
               </p>:null}
               {liveDns?.state==="connected"?<p className="mt-3 text-xs text-console-muted">
-                Cloudflare records checked {new Date(liveDns.checked_at!).toLocaleString("en-NG")}.
+                DNS records checked {new Date(liveDns.checked_at!).toLocaleString("en-NG")}.
                 {" "}Showing {liveDns.record_count} provider records.
               </p>:null}
               {liveDns?.state==="not_connected"?<p className="mt-3 text-sm text-console-muted">
@@ -255,7 +255,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
             </Panel>
             {liveDns?.state==="connected"&&!dnsError?<CloudRecordDirectory
               label="Live DNS records" records={dns}
-              emptyMessage="Cloudflare returned no DNS records for this domain."
+              emptyMessage="No DNS records found."
               columns={[
                 {key:"name",label:"Host",render:r=><span className="break-all font-medium">{r.title}</span>},
                 {key:"type",label:"Type",render:r=>r.reference||"—"},
@@ -265,22 +265,22 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
               ]}/>:null}
           </div>:null}
           {mode==="nameservers"?<div className="space-y-4">
-            <Panel><h3 className="text-base font-medium text-console-ink">Cloudflare nameservers</h3>
+            <Panel><h3 className="text-base font-medium text-console-ink">Nameservers</h3>
               <p className="mt-2 text-sm text-console-muted">
-                Nameservers reported by your approved Cloudflare zone appear here.
+                Nameservers for your connected domain.
                 Public registrar delegation has not been independently confirmed.
                 Nameserver changes remain disabled.
               </p>
               {dnsError?<p role="alert" className="mt-3 text-sm text-rose-700">
-                Current Cloudflare nameservers could not be verified.</p>:null}
+                Current Nameservers could not be verified.</p>:null}
               {liveDns&&liveDns.state!=="connected"?<p className="mt-3 text-sm text-console-muted">
                 {liveDns.state==="recheck_required"?"Provider access needs fresh verification.":
                   "Connect and approve read-only DNS access to view your provider's nameservers."}
               </p>:null}
             </Panel>
             {liveDns?.state==="connected"&&!dnsError?<CloudRecordDirectory
-              label="Cloudflare zone nameservers" records={nameservers}
-              emptyMessage="No Cloudflare nameservers could be confirmed."
+              label="Domain nameservers" records={nameservers}
+              emptyMessage="No Nameservers could be confirmed."
               columns={[{key:"hostname",label:"Nameserver hostname",render:r=>
                 <span className="break-all font-medium">{r.title}</span>}]}/>:null}
           </div>:null}

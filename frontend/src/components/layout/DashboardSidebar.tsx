@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import {useEffect,useState} from "react";
 import {LifeBuoy,LogOut,X} from "lucide-react";
 import {CloudBrandLogo} from "@/components/branding/CloudBrandLogo";
 import {getDashboardNavGroups,type DashboardRole} from "@/lib/navigation/dashboard-nav";
@@ -7,10 +8,39 @@ import {ConsoleNavigationGroup} from "@/features/shell/components/ConsoleNavigat
 import {useLocale} from "@/lib/i18n/LocaleProvider";
 import {messages} from "@/lib/i18n/dictionary";
 
+type NavigationState = { group: string | null; item: string | null };
+
 export function DashboardSidebar({role,pathname,onClose,onLogout,loggingOut}:{
  role:DashboardRole;pathname:string;onClose:()=>void;onLogout:()=>void;loggingOut:boolean;
 }){
  const {locale}=useLocale(),m=messages(locale);
+ const groups=getDashboardNavGroups(role);
+ const storageKey="octalve:sidebar:"+role;
+ const [navigation,setNavigation]=useState<NavigationState>({group:groups[0]?.title??null,item:null});
+ useEffect(()=>{
+  function restore(){
+   try{
+    const saved=sessionStorage.getItem(storageKey);
+    if(!saved)return;
+    const value=JSON.parse(saved) as Partial<NavigationState>;
+    if((typeof value.group==="string"||value.group===null)&&(typeof value.item==="string"||value.item===null)){
+     setNavigation({group:value.group,item:value.item});
+    }
+   }catch{}
+  }
+  restore();
+  window.addEventListener(storageKey,restore);
+  return ()=>window.removeEventListener(storageKey,restore);
+ },[storageKey]);
+
+ function updateNavigation(next:NavigationState){
+  setNavigation(next);
+  try{
+   sessionStorage.setItem(storageKey,JSON.stringify(next));
+   window.dispatchEvent(new Event(storageKey));
+  }catch{}
+ }
+
  const support=role==="admin"?"/admin/support":role==="staff"?"/staff/tickets":"/client/support";
  return <aside className="flex h-full min-h-0 flex-col bg-console-sidebar text-white">
   <div className="flex h-16 shrink-0 items-center justify-between border-b border-console-line bg-white pr-2">
@@ -21,8 +51,10 @@ export function DashboardSidebar({role,pathname,onClose,onLogout,loggingOut}:{
    </button>
   </div>
   <nav aria-label={role+" "+m.nav} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-   {getDashboardNavGroups(role).map(group=><ConsoleNavigationGroup key={group.title} group={group}
-    role={role} pathname={pathname} onNavigate={onClose}/>)}
+   {groups.map(group=><ConsoleNavigationGroup key={group.title} group={group}
+    role={role} pathname={pathname} onNavigate={onClose} expanded={navigation.group===group.title}
+    onToggle={()=>updateNavigation({group:navigation.group===group.title?null:group.title,item:null})}
+    openItem={navigation.item} onItem={href=>updateNavigation({group:group.title,item:navigation.item===href?null:href})}/>)}
   </nav>
   <div className="shrink-0 border-t border-white/10 px-3 py-3">
    <Link href={support} onClick={onClose}

@@ -3,7 +3,7 @@ import type {ReactNode} from "react";
 /** Presentational snapshot of an authorized API row. No business mutation authority. */
 export type DirectoryRow={
  id:string;title:string;subtitle?:string;reference?:string;
- amount?:string;amountLabel?:string;date?:string;dateISO?:string;dateLabel?:string;
+ amount?:string;amountLabel?:string;date?:string;dateISO?:string;dateLabel?:string;secondaryDate?:string;secondaryDateLabel?:string;
  status:string;category?:string;icon?:ReactNode;extra?:ReactNode;
  href?:string;searchTerms?:readonly string[];
 };

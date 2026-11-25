@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import {useEffect,useId,useState} from "react";
-import {ChevronDown,Globe2,PackageCheck} from "lucide-react";
+import {ChevronDown,type LucideIcon} from "lucide-react";
+import {navigationIcons} from "@/features/shell/lib/navigation-icons";
 import {publicApi,type PublishedServiceCategory} from "@/lib/api/endpoints";
 import {routes} from "@/lib/routes";
 import {cn} from "@/lib/utils";
@@ -23,7 +24,7 @@ function NavChild({href,label,pathname,onNavigate}:{
 
 function NavRoot({href,label,active,onNavigate,expanded,onExpand,controls,icon:Icon}:{
   href:string;label:string;active:boolean;onNavigate:()=>void;expanded:boolean;
-  onExpand:()=>void;controls:string;icon:typeof PackageCheck;
+  onExpand:()=>void;controls:string;icon:LucideIcon;
 }){
   const {locale}=useLocale(),m=messages(locale);
   return <div className={cn("flex min-w-0 items-center rounded-xl",active?"bg-console-primary":"hover:bg-white/10")}>
@@ -40,11 +41,10 @@ function NavRoot({href,label,active,onNavigate,expanded,onExpand,controls,icon:I
 }
 
 /** Authenticated client sidebar discovery only; published category != supplier readiness. */
-export function ClientServicesNavigation({pathname,onNavigate}:{
-  pathname:string;onNavigate:()=>void;
-}){
+type SectionProps = { pathname: string; onNavigate: () => void; expanded: boolean; onExpand: () => void };
+export function ClientServicesNavigation({pathname,onNavigate,expanded,onExpand}:SectionProps){
   const {locale}=useLocale(),m=messages(locale);
-  const [expanded,setExpanded]=useState(true);
+
   const [categories,setCategories]=useState<PublishedServiceCategory[]>([]);
   const [unavailable,setUnavailable]=useState(false);
   const id=useId();
@@ -65,12 +65,12 @@ export function ClientServicesNavigation({pathname,onNavigate}:{
     return ()=>{mounted=false;};
   },[]);
   const active=pathname===routes.client.services||pathname.startsWith("/client/services/")
-    ||pathname.startsWith("/client/order");
+    ||pathname===routes.client.order||pathname.startsWith(routes.client.order+"/");
   return <li className="min-w-0">
-    <NavRoot href={routes.client.services} label={translateNavigationLabel("Services",locale)} icon={PackageCheck}
+    <NavRoot href={routes.client.services} label={translateNavigationLabel("Services",locale)} icon={navigationIcons.packageCheck}
       active={active} onNavigate={onNavigate} expanded={expanded}
-      onExpand={()=>setExpanded(v=>!v)} controls={id}/>
-    {expanded?<ul id={id} className="ml-7 mt-1 space-y-0.5 border-l border-white/15 pl-2">
+      onExpand={onExpand} controls={id}/>
+    <ul hidden={!expanded} id={id} className="ml-7 mt-1 space-y-0.5 border-l border-white/15 pl-2">
       <NavChild href={routes.client.services} label={translateNavigationLabel("My Services",locale)} pathname={pathname} onNavigate={onNavigate}/>
       <NavChild href={routes.client.order} label={translateNavigationLabel("Order New Service",locale)} pathname={pathname} onNavigate={onNavigate}/>
       {categories.map(item=><NavChild key={item.slug} href={routes.client.order+"?category="+encodeURIComponent(item.slug)}
@@ -78,25 +78,43 @@ export function ClientServicesNavigation({pathname,onNavigate}:{
       {unavailable?<li className="px-3 py-1 text-xs text-slate-400">
         {m.categoriesUnavailable}
       </li>:null}
-    </ul>:null}
+    </ul>
   </li>;
 }
 
-export function ClientDomainsNavigation({pathname,onNavigate}:{
-  pathname:string;onNavigate:()=>void;
-}){
+export function ClientDomainsNavigation({pathname,onNavigate,expanded,onExpand}:SectionProps){
   const {locale}=useLocale();
-  const [expanded,setExpanded]=useState(true);
+
   const id=useId();
   const active=pathname===routes.client.domains||pathname.startsWith("/client/domains/");
   return <li>
-    <NavRoot href={routes.client.domains} label={translateNavigationLabel("Domains",locale)} icon={Globe2}
+    <NavRoot href={routes.client.domains} label={translateNavigationLabel("Domains",locale)} icon={navigationIcons.globe2}
       active={active} onNavigate={onNavigate} expanded={expanded}
-      onExpand={()=>setExpanded(v=>!v)} controls={id}/>
-    {expanded?<ul id={id} className="ml-7 mt-1 space-y-0.5 border-l border-white/15 pl-2">
+      onExpand={onExpand} controls={id}/>
+    <ul hidden={!expanded} id={id} className="ml-7 mt-1 space-y-0.5 border-l border-white/15 pl-2">
       <NavChild href={routes.client.domains} label={translateNavigationLabel("My Domains",locale)} pathname={pathname} onNavigate={onNavigate}/>
       <NavChild href={routes.client.domainRegister} label={translateNavigationLabel("Register New Domain",locale)} pathname={pathname} onNavigate={onNavigate}/>
       <NavChild href={routes.client.domainTransfer} label={translateNavigationLabel("Transfer Domain to Us",locale)} pathname={pathname} onNavigate={onNavigate}/>
-    </ul>:null}
+    </ul>
+  </li>;
+}
+
+export function ClientPurchasesNavigation({pathname,onNavigate,expanded,onExpand}:SectionProps){
+  const {locale}=useLocale();
+  const id=useId();
+  const links=[
+    {href:routes.client.orders,label:"Orders"},
+    {href:routes.client.invoices,label:"Invoices"},
+  ];
+  const active=[routes.client.purchases,...links.map(link=>link.href)]
+    .some(href=>pathname===href||pathname.startsWith(href+"/"));
+  return <li>
+    <NavRoot href={routes.client.purchases} label={translateNavigationLabel("Purchases",locale)}
+      icon={navigationIcons.shoppingCart} active={active} onNavigate={onNavigate}
+      expanded={expanded} onExpand={onExpand} controls={id}/>
+    <ul id={id} hidden={!expanded} className="ml-7 mt-1 space-y-0.5 border-l border-white/15 pl-2">
+      {links.map(link=><NavChild key={link.href} href={link.href}
+        label={translateNavigationLabel(link.label,locale)} pathname={pathname} onNavigate={onNavigate}/>)}
+    </ul>
   </li>;
 }
