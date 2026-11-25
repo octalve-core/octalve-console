@@ -36,3 +36,11 @@ test("only well-formed Client purchase/domain intents survive authentication",()
   assert.equal(sanitizeCommerceNext(bad),"",bad);
  }
 });
+
+test("domain bundle intent survives login only for unique valid identifiers",()=>{
+ const valid="/client/domains/register?bundle=brand.com%2Cbrand.ng%2Cbrand.cloud%2Cbrand.ai";
+ assert.equal(sanitizeCommerceNext(valid),valid);
+ for(const bad of ["brand.com,brand.com","brand.com,evil%20name.ng","brand.com,a.ng,b.ai,c.cloud,d.com",""]){assert.equal(sanitizeCommerceNext("/client/domains/register?bundle="+bad),"");}
+ assert.equal(sanitizeCommerceNext(valid+"&price=1"),"");
+ assert.equal(sanitizeCommerceNext(valid+"&domain=brand.com"),"");
+});

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import {ActionButton} from "@/components/design-system/ActionButton";
+import {sanitizeCommerceNext} from "@/lib/commerce/sanitize-commerce-next";
 import { getRoleDashboard, useAuth } from "@/context/AuthContext";
 import type { UserRole } from "@/lib/api/types";
 
@@ -24,7 +25,8 @@ export function RoleGuard({ allowed, children }: RoleGuardProps) {
     if (isLoading || authUnavailable) return;
 
     if (!isAuthenticated || !user) {
-      const next = encodeURIComponent(pathname);
+      const continuation = pathname === "/client/domains/register" ? sanitizeCommerceNext(pathname + window.location.search) : "";
+      const next = encodeURIComponent(continuation || pathname);
       router.replace(`/login?next=${next}`);
       return;
     }
