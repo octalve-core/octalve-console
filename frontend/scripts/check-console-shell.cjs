@@ -6,12 +6,12 @@ function must(file,parts){const body=read(file);for(const item of parts)if(!body
 must("components/layout/DashboardShell.tsx",["ConsoleMobileDrawer","DashboardSidebar","DashboardHeader","href=\"#console-main\"","m.skip","id=\"console-main\"","min-h-dvh"]);
 must("components/layout/DashboardSidebar.tsx",["getDashboardNavGroups(role)","ConsoleNavigationGroup","bg-console-sidebar","CloudBrandLogo"]);
 must("components/layout/DashboardSidebar.tsx",["[scrollbar-width:none]","[&::-webkit-scrollbar]:hidden"]);
-must("components/layout/DashboardShell.tsx",["ConsoleMobileBottomNav role={role}","pb-28 lg:pb-4","onMore={()=>setSidebarOpen(true)}"]);
+must("components/layout/DashboardShell.tsx",["ConsoleMobileBottomNav role={role}","pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-4","onMore={()=>setSidebarOpen(true)}"]);
 must("features/shell/components/ConsoleMobileBottomNav.tsx",["getDashboardNavGroups(role)","primary[role]","aria-current","aria-haspopup=\"dialog\"","pb-[max(0.65rem,env(safe-area-inset-bottom))]","onClick={onMore}","grid-cols-5"]);
 must("features/shell/lib/navigation-icons.ts",["navigationIcons","DashboardNavIcon","LucideIcon"]);
 must("features/shell/components/ConsoleNavigationGroup.tsx",["navigationIcons[item.icon]"]);
 must("components/data/WorkspaceQuickActions.tsx",["WorkspaceGrid variant=\"quickActions\"","role:DashboardRole","/client/domains/register","ConsoleIconTile","translateNavigationLabel"]);
-must("components/data/WorkspaceMetricTile.tsx",["Panel","ConsoleIconTile","text-xl font-medium","shadow-"]);
+must("components/data/WorkspaceMetricTile.tsx",["Panel","ConsoleIconTile","text-xl font-medium"]);
 must("components/design-system/WorkspaceGrid.tsx",["variants[variant]","2xl:grid-cols-6","2xl:grid-cols-5","sm:grid-cols-4"]);
 must("features/admin/views/AdminResourceListView.tsx",["DirectoryLoadingSkeleton","adminResourceConfig","config.loader()","unwrapAdminList"]);
 must("components/design-system/DirectoryLoadingSkeleton.tsx",["aria-busy=","animate-pulse","motion-reduce:animate-none","md:hidden","hidden p-4 md:block"]);
@@ -58,3 +58,5 @@ if(process.argv.includes("--built")){
   if(!output.includes(selector))throw Error("Shell Tailwind token not emitted: "+selector);
 }
 console.log("PASS: Batch 2 role shell, keyboard mobile drawer, login/signup/reset styling and Tailwind output");
+
+must("components/design-system/Panel.tsx",["shadow-console-surface"]);

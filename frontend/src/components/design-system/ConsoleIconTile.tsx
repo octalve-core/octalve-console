@@ -1,14 +1,15 @@
 import type {LucideIcon} from "lucide-react";
 import {cn} from "@/lib/utils";
 
-type Tone="blue"|"green"|"amber"|"violet"|"rose"|"slate";
+type Tone="blue"|"green"|"amber"|"violet"|"rose"|"slate"|"cyan";
 const tones:Record<Tone,string>={
- blue:"bg-blue-50 text-console-primary",
- green:"bg-emerald-50 text-emerald-700",
- amber:"bg-amber-50 text-amber-700",
- violet:"bg-violet-50 text-violet-700",
- rose:"bg-rose-50 text-rose-700",
- slate:"bg-slate-100 text-slate-700",
+ blue:"text-blue-700",
+ green:"text-emerald-700",
+ amber:"text-amber-700",
+ violet:"text-violet-700",
+ rose:"text-rose-700",
+ slate:"text-slate-700",
+ cyan:"text-cyan-800",
 };
 /** Shared Invoice-style Lucide treatment; no external icons or brand asset swap. */
 export function ConsoleIconTile({icon:Icon,tone="blue",size="md",className}:{
@@ -18,5 +19,5 @@ export function ConsoleIconTile({icon:Icon,tone="blue",size="md",className}:{
   "inline-flex shrink-0 items-center justify-center rounded-lg",
   size==="sm"?"h-9 w-9":size==="lg"?"h-12 w-12":"h-10 w-10",
   tones[tone],className
- )}><Icon className={size==="sm"?"h-4 w-4":"h-5 w-5"} strokeWidth={1.9}/></span>;
+ )}><Icon className={size==="sm"?"h-4 w-4":"h-5 w-5"} strokeWidth={1.8}/></span>;
 }

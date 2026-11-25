@@ -1,6 +1,7 @@
 "use client";
 
-import {useMemo} from "react";
+import {formatCurrency} from "@/lib/formatters";
+import {useMemo,useState} from "react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {useAuth} from "@/context/AuthContext";
 import {useLocale} from "@/lib/i18n/LocaleProvider";
@@ -24,15 +25,17 @@ export function ClientDashboardView(){
     const name=user?.name||user?.full_name||"there";
     return name.trim().split(/\s+/)[0]||"there";
   },[user]);
+  const [balanceVisible,setBalanceVisible]=useState(false);
+  const balance=summary.status==="loading"?"Loading":summary.wallet===null?"Unavailable":balanceVisible?formatCurrency(summary.wallet):"••••••";
   const waiting=summary.status==="loading";
   return <DashboardShell role="client" title={m.dashboard}
     description={m.dashboardIntro}>
     <div className="space-y-5">
-      <ClientHero name={firstName}/>
+      <ClientHero name={firstName} balance={balance} balanceVisible={balanceVisible} onToggleBalance={()=>setBalanceVisible(value=>!value)}/>
       <ClientLoginAlerts/>
       <ClientRecognitionBanner/>
+      <ClientOverviewMetrics summary={summary} balanceVisible={balanceVisible}/>
       <ClientOverviewActions/>
-      <ClientOverviewMetrics summary={summary}/>
       <WorkspaceGrid variant="overviewPair">
         <ClientOverviewRecent title={m.servicesRecent} description={m.servicesRecentDesc}
           href="/client/services" records={summary.serviceRecords}

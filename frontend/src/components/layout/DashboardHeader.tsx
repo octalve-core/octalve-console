@@ -14,14 +14,14 @@ export function DashboardHeader({role,onMenuClick,onLogout,loggingOut,cartContro
  const [searchOpen,setSearchOpen]=useState(false);
  const {locale}=useLocale(),m=messages(locale);
  const support=role==="admin"?"/admin/support":role==="staff"?"/staff/tickets":"/client/support";
- return <header className="sticky top-0 z-30 h-16 min-h-16 shrink-0 border-b border-console-line bg-white">
-  <div className="flex h-16 items-center gap-2 px-3 sm:gap-3 sm:px-6">
+ return <header className="sticky top-0 z-30 h-16 min-h-16 shrink-0 border-b border-console-line bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+  <div className="flex h-16 items-center gap-1 px-2 min-[360px]:gap-2 min-[360px]:px-3 sm:gap-3 sm:px-6">
    <button type="button" onClick={onMenuClick} aria-label={m.menu}
     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-console-line text-console-ink focus-visible:ring-2 focus-visible:ring-console-primary lg:hidden">
     <Menu aria-hidden="true" className="h-5 w-5"/>
    </button>
    <div className="hidden w-full max-w-md min-w-0 sm:block"><ConsolePageSearch role={role}/></div>
-   <div className="ml-auto flex items-center gap-1 sm:gap-2">
+   <div className="ml-auto flex items-center min-[360px]:gap-1 sm:gap-2">
     <button type="button" aria-label={searchOpen?m.searchClose:m.searchOpen}
      aria-expanded={searchOpen} onClick={()=>setSearchOpen(v=>!v)}
      className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-console-primary sm:hidden">

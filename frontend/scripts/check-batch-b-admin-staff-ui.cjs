@@ -8,7 +8,7 @@ function check(file,tokens){const body=src(file);
 }
 const grid=check("components/design-system/WorkspaceGrid.tsx",["WorkspaceGridVariant","variants[variant]","aria-busy={busy}","aria-label={ariaLabel}","adminMetrics","staffMetrics","clientMetrics","includes(variant)","2xl:grid-cols-5","2xl:grid-cols-6"]);
 if(fs.existsSync(path.join(root,"src/components/design-system/WorkspaceGrid.module.css")))throw Error("Obsolete grid CSS Module returned");
-const metricTile=check("components/data/WorkspaceMetricTile.tsx",["ConsoleIconTile","Panel","text-xl font-medium","shadow-"]);
+const metricTile=check("components/data/WorkspaceMetricTile.tsx",["ConsoleIconTile","Panel","text-xl font-medium"]);
 const icon=check("components/design-system/IconActionButton.tsx",['aria-label={label}','type="button"','focus-visible:ring-console-primary',"disabled:opacity-50"]);
 const tile=check("components/design-system/ConsoleIconTile.tsx",["LucideIcon","tone","rose:"]);
 const barrel=check("components/design-system/index.ts",["WorkspaceGrid","WorkspaceGridVariant","IconActionButton"]);
@@ -56,3 +56,5 @@ if(process.argv.includes("--built")){
 }
 console.log("PASS: Admin/Staff shared medium KPI cards, filters, icons and Tailwind-only responsive grids.");
 console.log("PENDING: 570 authenticated Admin/Staff viewport and role-interaction cases.");
+
+check("components/design-system/Panel.tsx",["shadow-console-surface"]);

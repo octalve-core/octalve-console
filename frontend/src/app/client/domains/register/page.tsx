@@ -13,7 +13,7 @@ export default function ClientDomainRegistrationPage(){
           <Link href="/client/domains">My domains</Link>
           <Link href="/client/order/checkout?view=cart">View cart</Link>
         </div>
-        <ClientDomainSearch/>
+        <ClientDomainSearch discovery/>
         <p className="text-xs text-console-muted">A quote doesn’t reserve the domain.</p>
       </div>
     </DashboardPage>

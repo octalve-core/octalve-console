@@ -8,3 +8,5 @@ export function formatDomainPrice(amount:string,currency:string|null){
   try{return new Intl.NumberFormat("en-NG",{style:"currency",currency:currency||"NGN",maximumFractionDigits:2}).format(value)}
   catch{return `NGN ${value.toLocaleString("en-NG")}`;}
 }
+
+export type PublishedDomainPrice = {tld:string; registration_price:string; renewal_price:string};

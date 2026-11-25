@@ -40,7 +40,7 @@ export function DashboardShell({role,title,description,actions,children}:Props){
    <DashboardHeader role={role} onMenuClick={()=>setSidebarOpen(true)}
     onLogout={()=>{void handleLogout();}} loggingOut={loggingOut}
     cartControl={role==="client" ? <ClientCartButton count={cartCount}/> : undefined}/>
-   <main id="console-main" tabIndex={-1} className="mx-auto min-h-0 w-full max-w-[1560px] min-w-0 flex-1 px-4 py-4 sm:px-6 pb-28 lg:pb-4 lg:overflow-x-hidden lg:overflow-y-auto lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
+   <main id="console-main" tabIndex={-1} className="mx-auto min-h-0 w-full max-w-[1560px] min-w-0 flex-1 px-4 py-4 sm:px-6 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-4 lg:overflow-x-hidden lg:overflow-y-auto lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
     <span className="sr-only">{role} {title} {description??""}</span>
     {actions?<div className="mb-4 flex flex-wrap justify-end gap-2">{actions}</div>:null}
     {children}

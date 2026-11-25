@@ -29,15 +29,15 @@ const options:Record<DashboardRole,readonly Shortcut[]>={
 /** Single Invoice-style Quick Access section shared by all authenticated roles. */
 export function WorkspaceQuickActions({role}:{role:DashboardRole}){
  const {locale}=useLocale();
- return <Panel className="shadow-[0_2px_12px_rgba(0,25,62,0.035)]">
+ return <Panel>
   <h2 className="mb-3 flex items-center gap-2 text-base font-medium text-console-ink">
    <Sparkles aria-hidden="true" className="h-5 w-5 text-console-primary"/>
    {translateNavigationLabel("Quick actions",locale)}
   </h2>
   <WorkspaceGrid variant="quickActions">
    {options[role].map(({href,label,icon,tone})=><Link key={href} href={href}
-    className="group flex min-h-[100px] min-w-0 flex-col items-center justify-center gap-2 rounded-xl border border-transparent px-2 py-3 text-center transition-colors hover:border-blue-100 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-console-primary">
-    <ConsoleIconTile icon={icon} tone={tone} size="lg" className="rounded-full transition-transform group-hover:scale-105"/>
+    className="group flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-2 rounded-xl border border-transparent px-2 py-3 text-center transition-colors hover:border-blue-100 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-console-primary">
+    <ConsoleIconTile icon={icon} tone={tone} size="lg" className="rounded-xl"/>
     <span className="max-w-full text-center text-[12px] font-medium leading-5 text-console-ink sm:text-[13px]">{translateNavigationLabel(label,locale)}</span>
    </Link>)}
   </WorkspaceGrid>

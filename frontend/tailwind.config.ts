@@ -54,6 +54,7 @@ const config: Config = {
       },
       boxShadow: {
         "soft": "0 18px 60px rgba(15, 23, 42, 0.08)",
+        "console-surface": "0 2px 4px rgba(15,23,42,.035), 0 8px 22px rgba(15,23,42,.065)",
       },
     },
   },
