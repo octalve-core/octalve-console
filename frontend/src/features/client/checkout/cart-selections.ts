@@ -60,3 +60,22 @@ export async function removeFromCart(id:string){
   write(key, rest);
   return rest;
 }
+
+/** Import identifiers only after rechecking the public registrar. One atomic draft write. */
+export async function addDomainBundle(names:string[]){
+ if(!Array.isArray(names)||names.length<1||names.length>4||new Set(names).size!==names.length||!names.every(name=>typeof name==="string"&&domainPattern.test(name)))throw Error("Invalid domain selection.");
+ const key=await accountCartKey();
+ const api=process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/,"")||"https://api.cloud.octalve.com/api";
+ const results=await Promise.all(names.map(async name=>{
+  const response=await fetch(api+"/storefront/domains/lookup/?domain="+encodeURIComponent(name),{credentials:"omit",cache:"no-store",signal:AbortSignal.timeout(10000)});
+  if(!response.ok)throw Error("Could not verify every domain.");
+  const value=await response.json();
+  if(value.domain!==name||value.registrar_connected!==true||value.availability!=="available"||!Number.isFinite(Number(value.registration_price))||Number(value.registration_price)<=0)throw Error("A selected domain is no longer available or priced.");
+  return {kind:"domain" as const,domain:name};
+ }));
+ if(await accountCartKey()!==key)throw Error("Account changed. Please retry.");
+ const merged=new Map(read(key).map(item=>[cartSelectionId(item),item]));
+ for(const item of results)merged.set(cartSelectionId(item),item);
+ if(merged.size>20)throw Error("Your cart can contain up to 20 items.");
+ write(key,[...merged.values()]);
+}

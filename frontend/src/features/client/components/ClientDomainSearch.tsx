@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {ArrowLeftRight,Globe2,ShieldCheck} from "lucide-react";
+import {DomainBundleImport} from "./domain-search/DomainBundleImport";
 import {DomainSearchForm} from "./domain-search/DomainSearchForm";
 import {DomainSearchResult} from "./domain-search/DomainSearchResult";
 import {PublishedDomainCatalogue} from "./domain-search/PublishedDomainCatalogue";
@@ -56,7 +57,7 @@ export function ClientDomainSearch({onAdded,discovery=false}: {onAdded?: () => v
    }catch(e){if(!next.signal.aborted)setError(e instanceof Error?e.message:"Domain search is temporarily unavailable.");}
    finally{if(!next.signal.aborted)setBusy(false);}
  }
- return <div className="min-w-0 space-y-6"><Panel padded={false} id="domain-search" aria-label="Find and check a domain name"
+ return <div className="min-w-0 space-y-6">{discovery&&<DomainBundleImport/>}<Panel padded={false} id="domain-search" aria-label="Find and check a domain name"
    className="scroll-mt-24 overflow-hidden">
    {discovery?<div ref={searchArea} className="relative isolate overflow-hidden rounded-[22px] bg-[#123bc4] px-4 py-7 text-white sm:px-8 sm:py-10">
      <div className="mx-auto max-w-4xl">

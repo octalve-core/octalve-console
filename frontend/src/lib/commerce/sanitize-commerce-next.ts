@@ -14,7 +14,7 @@ export function sanitizeCommerceNext(raw: string | null): string {
   const keys=[...url.searchParams.keys()];
   const allowed=url.pathname==="/client/order"
    ? new Set(["product","plan","cycle","revision","category"])
-   : new Set(["domain"]);
+   : new Set(["domain","bundle"]);
   if(keys.some(k=>!allowed.has(k))||keys.length>5||keys.length!==new Set(keys).size)return "";
   if(url.pathname==="/client/order"){
    const product=url.searchParams.get("product"),plan=url.searchParams.get("plan");
@@ -26,6 +26,8 @@ export function sanitizeCommerceNext(raw: string | null): string {
    if(product&&!plan || plan&&!cycle)return "";
   }else{
    const domain=url.searchParams.get("domain");
+   const bundle=url.searchParams.get("bundle");
+   if(bundle!==null){const names=bundle.split(",");if(domain||names.length<1||names.length>4||new Set(names).size!==names.length||!names.every(n=>/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(n)))return "";}
    if(domain&&!/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/.test(domain))return "";
   }
   return url.pathname+url.search;

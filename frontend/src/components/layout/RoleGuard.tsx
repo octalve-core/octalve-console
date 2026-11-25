@@ -24,7 +24,7 @@ export function RoleGuard({ allowed, children }: RoleGuardProps) {
     if (isLoading || authUnavailable) return;
 
     if (!isAuthenticated || !user) {
-      const next = encodeURIComponent(pathname);
+      const next = encodeURIComponent(pathname === "/client/domains/register" ? pathname + window.location.search : pathname);
       router.replace(`/login?next=${next}`);
       return;
     }
