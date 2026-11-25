@@ -17,10 +17,10 @@ export function DesktopRecordTable({label,rows,columns,onOpen,onActions}:{label:
    </tr></thead>
    <tbody>{rows.map(row=><tr key={row.id} className="group">
     <td className="rounded-l-lg bg-slate-50 px-2 py-2 group-hover:bg-blue-50/50"><DirectoryIcon row={row}/></td>
-    {columns.map((c,i)=><td key={c.key} className={`overflow-hidden bg-slate-50 px-2 py-2.5 group-hover:bg-blue-50/50 ${c.wideOnly?"hidden xl:table-cell":""}`}>
-     <div className="min-w-0 break-words">{i===0&&row.href?<Link href={row.href} className="font-medium text-console-primary hover:underline focus-visible:outline-2 focus-visible:outline-console-primary">{c.render(row)}</Link>:
-     i===0&&onOpen?<button type="button" onClick={()=>onOpen(row)} className="text-left font-medium text-console-primary hover:underline">{c.render(row)}</button>:c.render(row)}</div>
-    </td>)}
+    {columns.map((c,i)=>{ const value=c.render(row); return <td key={c.key} className={`overflow-hidden bg-slate-50 px-2 py-2.5 group-hover:bg-blue-50/50 ${c.wideOnly?"hidden xl:table-cell":""}`}>
+     <div className="min-w-0 truncate" title={typeof value==="string"?value:undefined}>{i===0&&row.href?<Link href={row.href} className="font-medium text-console-primary hover:underline focus-visible:outline-2 focus-visible:outline-console-primary">{value}</Link>:
+     i===0&&onOpen?<button type="button" onClick={()=>onOpen(row)} className="text-left font-medium text-console-primary hover:underline">{value}</button>:value}</div>
+    </td>;})}
     <td className="bg-slate-50 px-2 py-2 group-hover:bg-blue-50/50"><DirectoryStatus status={row.status}/></td>
     {onActions?<td className="rounded-r-lg bg-slate-50 px-2 py-2 group-hover:bg-blue-50/50">
      <button type="button" aria-label={"Actions for "+row.title} aria-haspopup="dialog"

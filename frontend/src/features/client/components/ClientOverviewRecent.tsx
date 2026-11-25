@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+import {MobileRecordCard} from "@/components/design-system/record-directory/MobileRecordCard";
+import {navigationIcons} from "@/features/shell/lib/navigation-icons";
 import {ArrowRight} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
 import {SectionHeading} from "@/components/design-system/SectionHeading";
@@ -27,8 +29,20 @@ export function ClientOverviewRecent({title,description,href,records,state}:{
    {state==="loading"?<p role="status" className="rounded-xl bg-slate-50 px-4 py-5 text-sm text-console-muted">{m.updating}</p>:null}
    {state==="unavailable"?<p role="status" className="rounded-xl bg-slate-50 px-4 py-5 text-sm text-console-muted">{m.unavailable}</p>:null}
    {state==="ready"&&records.length===0?<p className="rounded-xl bg-slate-50 px-4 py-5 text-sm text-console-muted">{m.empty}</p>:null}
+   {state==="ready"&&records.length>0&&<ul className="space-y-2 lg:hidden">
+    {records.slice(0,3).map(record=>{
+     const invoice=href==="/client/invoices";
+     const Icon=invoice?navigationIcons.receiptText:navigationIcons.packageCheck;
+     return <MobileRecordCard key={record.id} row={{id:record.id,title:record.title,
+      reference:record.meta!=="—"?record.meta:record.id,amount:record.amount,status:record.status,
+      href:record.actionHref,icon:<Icon className="h-5 w-5"/>,
+      date:record.date&&/^\d{4}-\d{2}-\d{2}/.test(record.date)?displayDate(record.date.slice(0,10),locale):undefined,
+      dateLabel:invoice?"Due":"Created",secondaryDate:record.issuedDate?displayDate(record.issuedDate.slice(0,10),locale):undefined,
+      secondaryDateLabel:invoice?"Issued":undefined}}/>;
+    })}
+   </ul>}
    {state==="ready"&&records.slice(0,3).map(record=><Link key={record.id} href={record.actionHref}
-     className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-console-line bg-slate-50 px-4 py-3 transition-colors hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary">
+     className="hidden min-w-0 flex-wrap lg:flex items-center justify-between gap-3 rounded-xl border border-console-line bg-slate-50 px-4 py-3 transition-colors hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary">
      <span className="min-w-0 flex-1">
       <span className="block truncate text-sm font-medium text-console-ink">{record.title}</span>
       <span className="mt-1 block truncate text-xs text-console-muted">{record.subtitle}</span>

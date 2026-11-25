@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import {BookOpen,Boxes,LifeBuoy,PackagePlus,ShoppingCart,Sparkles,TicketCheck,Zap,type LucideIcon} from "lucide-react";
+import {BookOpen,Boxes,LifeBuoy,PackagePlus,ShoppingCart,TicketCheck,Zap,type LucideIcon} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
 import {ConsoleIconTile} from "@/components/design-system/ConsoleIconTile";
 import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
@@ -9,6 +9,7 @@ import {useLocale} from "@/lib/i18n/LocaleProvider";
 import {translateNavigationLabel} from "@/lib/i18n/dictionary";
 import {navigationIcons} from "@/features/shell/lib/navigation-icons";
 type Tone="blue"|"green"|"amber"|"rose"|"violet";
+const medallions:Record<Tone,string>={blue:"bg-blue-100",green:"bg-emerald-100",amber:"bg-orange-100",rose:"bg-rose-100",violet:"bg-violet-100"};
 type Shortcut={href:string;label:string;icon:LucideIcon;tone:Tone};
 const options:Record<DashboardRole,readonly Shortcut[]>={
  admin:[
@@ -32,14 +33,14 @@ export function WorkspaceQuickActions({role}:{role:DashboardRole}){
  const {locale}=useLocale();
  return <Panel>
   <h2 className="mb-3 flex items-center gap-2 text-base font-medium text-console-ink">
-   <Sparkles aria-hidden="true" className="h-5 w-5 text-console-primary"/>
+   <Zap aria-hidden="true" className="h-5 w-5 text-orange-600"/>
    {translateNavigationLabel("Quick actions",locale)}
   </h2>
   <WorkspaceGrid variant="quickActions">
    {options[role].map(({href,label,icon,tone})=><Link key={href} href={href}
-    className="group flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-2 rounded-xl border border-transparent px-2 py-3 text-center transition-colors hover:border-blue-100 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-console-primary">
-    <ConsoleIconTile icon={icon} tone={tone} size="lg" className="rounded-xl"/>
-    <span className="max-w-full text-center text-[12px] font-medium leading-5 text-console-ink sm:text-[13px]">{translateNavigationLabel(label,locale)}</span>
+    className="group flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-2 rounded-xl px-0.5 py-3 text-center transition-colors hover:bg-slate-50 sm:px-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-console-primary">
+    <ConsoleIconTile icon={icon} tone={tone} size="lg" className={`!rounded-full ${medallions[tone]}`}/>
+    <span className="max-w-full text-center break-words text-[11px] font-medium leading-4 text-console-ink sm:text-[13px]">{translateNavigationLabel(label,locale)}</span>
    </Link>)}
   </WorkspaceGrid>
  </Panel>;
