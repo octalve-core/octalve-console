@@ -55,11 +55,13 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [statusRefresh, setStatusRefresh] = useState(0);
+  const [returningFromGateway,setReturningFromGateway]=useState(false);
   const [reload,setReload]=useState(0);
   const inFlight = useRef(false);
 
   useEffect(() => {
     let active = true;
+    if(invoice){const params=new URLSearchParams(window.location.search);setReturningFromGateway(params.has("reference")||params.has("trxref"));}
     async function load() {
       if (invoice) {
         const current = await request<Purchase>(invoice);
@@ -97,7 +99,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   const statusInvoice = purchase?.invoice_id;
   const needsAdvance = !!purchase && (purchase.payment_verified
     ? !purchase.public_payment_test && purchase.domains.some(domain => domain.state === "awaiting_payment")
-    : purchase.payment_started);
+    : purchase.payment_started&&(returningFromGateway||statusRefresh>0));
 
   useEffect(() => {
     if (!statusInvoice || !needsAdvance) {
@@ -185,7 +187,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
         <PaymentGatewayChoices options={options} selected={gateway} onChange={setGateway}/>
         {!waiting&&<><CheckoutConsent checked={consent} onChange={setConsent} disabled={busy}/><button type="button" disabled={!canPay} className={primary+" w-full"} onClick={()=>void run("pay")}>{busy?"Preparing secure payment…":purchase?.payment_started?"Resume payment":"Pay now"}</button></>}
         {purchase&&<Link href={`/client/invoices/${purchase.invoice_id}`} className={secondary+" w-full"}>View invoice {purchase.invoice}</Link>}
-        {needsAdvance&&!waiting&&<button className={secondary+" w-full"} onClick={()=>setStatusRefresh(n=>n+1)}>Check payment status</button>}
+        {purchase?.payment_started&&!waiting&&<button className={secondary+" w-full"} onClick={()=>setStatusRefresh(n=>n+1)}>Check payment status</button>}
         <p className="text-xs text-slate-600">Test Mode only. No real money will be charged.</p>
       </CheckoutSummary>}>
         {lines.map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}

@@ -92,7 +92,10 @@ def existing_domain_order(user, names):
 
 def gateway_choices(user, public_test, require_domain):
     # This checkout currently has exactly one qualified provider contract.
-    ready = not pilot_readiness(user.pk, public_payment_test=public_test, require_domain=require_domain)
+    try:
+        ready = not pilot_readiness(user.pk, public_payment_test=public_test, require_domain=require_domain)
+    except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError, ValidationError):
+        ready = False
     return [{"code": "paystack", "enabled": ready, "test": True},
             *({"code": code, "enabled": False} for code in ("flutterwave", "monnify", "google_pay"))]
 
@@ -128,8 +131,11 @@ def payment_response(user, invoice):
     if result["payment_verified"]:
         return result
     try:
-        result["checkout_url"] = start_cart_payment(user, invoice)
+        link = start_cart_payment(user, invoice)
+        result["checkout_url"] = link
+        result["payment_started"] = True
     except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError, ValidationError, Throttled):
+        result["payment_started"] = invoice.payment_intents.exists()
         result["checkout_error"] = "Payment could not start. Your invoice is saved. Check the existing payment or retry."
     return result
 
