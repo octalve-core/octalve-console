@@ -550,6 +550,7 @@ CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED = env.bool("CLOUD_CREATE_ATTEMPT_RESERV
 CLOUD_HOSTING_READY_QUEUE_ENABLED = env.bool("CLOUD_HOSTING_READY_QUEUE_ENABLED", default=False)
 # Hosted payment initiation and signature-authenticated inbox are separate
 # opt-ins. Never enable for real money without isolated browser acceptance.
+CLOUD_UNIFIED_SHOPPING_ENABLED = env.bool("CLOUD_UNIFIED_SHOPPING_ENABLED", default=False)
 CLOUD_HOSTED_CHECKOUT_ENABLED = env.bool("CLOUD_HOSTED_CHECKOUT_ENABLED", default=False)
 CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED = env.bool("CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED", default=False)
 # Separate browser-facing opt-in: never infer enablement from internal CLI.

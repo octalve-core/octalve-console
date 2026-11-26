@@ -10,6 +10,9 @@ export function sanitizeCommerceNext(raw: string | null): string {
  try {
   const url=new URL(raw,"https://console.cloud.octalve.com");
   if(url.origin!=="https://console.cloud.octalve.com"||url.hash)return "";
+  if(url.pathname==="/client/order/checkout"){
+   return url.search==="?view=cart"?url.pathname+url.search:"";
+  }
   if(!["/client/order","/client/domains/register"].includes(url.pathname))return "";
   const keys=[...url.searchParams.keys()];
   const allowed=url.pathname==="/client/order"
