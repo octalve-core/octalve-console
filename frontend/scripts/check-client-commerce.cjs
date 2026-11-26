@@ -8,7 +8,7 @@ function requires(file,tokens){
  for(const token of tokens)if(!source.includes(token))throw Error(file+": missing contract "+token);
 }
 requires("features/client/views/ClientOrderView.tsx",[
- "loadPublishedPlans().then","allowed.find(item => item.id === requestedPlan", "requestedProduct", "chosen?.revision !== Number(requestedRevision)", "setPlanId(\"\");setCycleKey(\"\")","HostingPlanCards","HostingOrderSummary","defaultCycle"
+ "loadPublishedPlans().then","allowed.find(item => item.id === requestedPlan", "requestedProduct", "chosen?.revision !== Number(requestedRevision)", "setPlanId(\"\");setCycleKey(\"\")","HostingPlanCards","selectedCycle={cycleKey}","defaultCycle"
 ]);
 requires("features/client/data/client-order-data.ts",[
  "publicApi.plans()",'p.status === "active" && p.is_public',"c.is_active && Number(c.price) > 0","published_revision"
@@ -24,7 +24,7 @@ requires("features/client/checkout/ui/ServiceDomainChoice.tsx",['choice==="new"'
 requires("app/client/order/checkout/page.tsx",['product === "domain"',"<DomainCheckout","<ServiceCheckout"]);
 requires("features/client/checkout/DomainCheckout.tsx",["DomainSandboxPurchase","checkoutPage"]);
 requires("features/client/checkout/DomainCart.tsx",["Order summary","Registration date","Expiry date","Explore hosting"]);
-requires("features/client/components/commerce/HostingPlanCards.tsx",["PublishedPackageCard","StatusBadge","aria-pressed={selected}"]);
+requires("features/client/components/commerce/HostingPlanCards.tsx",["PublishedPackageCard","StatusBadge","AddToCartButton","plan.canOrder","Billing period"]);
 requires("features/client/components/commerce/HostingOrderSummary.tsx",["defaultCycle","formatPlanAmount","onCycleChange","AddToCartButton"]);
 requires("features/client/checkout/CartView.tsx",["readCart","removeFromCart","cartCheckoutHref"]);
 requires("features/client/components/commerce/CheckoutQuoteSummary.tsx",[
