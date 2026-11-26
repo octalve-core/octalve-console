@@ -428,6 +428,10 @@ def domain_pilot(request):
         raise ValidationError("Supply a purchase action.")
     action = request.data.get("action")
     try:
+        if public_test and action in ("quote", "checkout"):
+            retry = spend_durable_attempt("domains:public_payment_test", "global", 100, 3600)
+            if retry:
+                raise Throttled(wait=retry)
         if action == "quote" and not order:
             if (pilot_readiness(account, public_payment_test=True) if public_test else pilot_readiness(account)):
                 raise ValidationError("The test setup is incomplete. Check the Admin domain pricing preflight.")

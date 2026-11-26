@@ -324,3 +324,60 @@ class DomainPilotTests(TestCase):
             issues = pilot_readiness(self.owner.pk)
         self.assertIn("Configure the sandbox registrant contact on the API.", issues)
         self.assertIn("Bind a currently verified Paystack Test Mode connection.", issues)
+
+    @override_settings(CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED=True)
+    def test_public_payment_only_never_calls_registrar_or_records_revenue(self):
+        route = {"connection_id": "fixture", "credential_version": 1, "revision": 2}
+        TLDPricing.objects.filter(tld=".com").update(metadata={"published_registrar": route})
+        customer = get_user_model().objects.create_user(
+            username="publictrial", email="publictrial@example.test", role="client",
+            email_verified_at=timezone.now(),
+        )
+        api = APIClient()
+        name = "public-trial-example.com"
+        path = f"/api/domains/sandbox-purchase/?domain={name}"
+        api.force_authenticate(customer)
+        self.assertTrue(api.get(path).data["public_payment_test"])
+        with patch("domains.pilot.registrar") as registrar_call, patch(
+            "domains.pilot.query_published_registrar", return_value={"registrable": True},
+        ), patch("domains.pilot.pilot_readiness", return_value=[]):
+            quote = api.post(path, {"action": "quote"}, format="json")
+            self.assertEqual(quote.status_code, 200, quote.data)
+            accepted = api.post(path, {"action": "accept", "quote": quote.data["quote"]}, format="json")
+            self.assertEqual(accepted.status_code, 200, accepted.data)
+            order = customer.orders.get(order_number=accepted.data["order"])
+            self.assertTrue(order.metadata[PILOT]["public_payment_test"])
+            invoice = order.invoices.get()
+            self.assertTrue(gateway_can_read(self.gateway, invoice))
+            self.gateway.test_mode = False
+            self.assertFalse(gateway_can_read(self.gateway, invoice))
+            self.gateway.test_mode = True
+            intent = PaymentIntent.objects.create(
+                invoice=invoice, client=customer, gateway=self.gateway, reference="OC-PUBLIC-TEST",
+                amount=invoice.total, currency="NGN", status="pending",
+                expires_at=timezone.now() + timezone.timedelta(minutes=5),
+            )
+            proof = ConfirmedGatewayPayment("paystack", intent.reference, "NGN", invoice.total, "456")
+            with patch("domains.pilot.verify_gateway_intent", return_value=proof):
+                self.assertEqual(api.post(path, {"action": "reconcile"}, format="json").status_code, 400)
+                WebhookEvent.objects.create(gateway=self.gateway, is_verified=True,
+                    event_type="charge.success", event_id="public-trial",
+                    payload={"reference": intent.reference, "remote_id": "456", "intent_id": intent.pk})
+                result = api.post(path, {"action": "reconcile"}, format="json")
+            self.assertEqual(result.status_code, 200, result.data)
+            self.assertEqual(result.data["state"], "test_payment_verified")
+            registrar_call.assert_not_called()
+            invoice.refresh_from_db()
+            intent.refresh_from_db()
+            self.assertEqual(invoice.status, "void")
+            self.assertEqual(intent.status, "completed")
+            self.assertFalse(Transaction.objects.exists())
+            self.assertEqual(api.post(path, {"action": "reconcile"}, format="json").data["state"], "test_payment_verified")
+        api.force_authenticate(self.owner)
+        self.assertIsNone(api.get(path).data["purchase"])
+        api.force_authenticate(customer)
+        with self.settings(CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED=False):
+            self.assertEqual(api.get(path).status_code, 404)
+        customer.email_verified_at = None
+        customer.save(update_fields=["email_verified_at"])
+        self.assertEqual(api.get(path).status_code, 404)
