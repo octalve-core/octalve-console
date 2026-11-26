@@ -17,6 +17,8 @@ All routes are under `/api/orders/shopping/`. The unified flag defaults off. Pri
 - `account/`: authenticated Client via Console BFF. GET reads; POST adds `{selections:[...]}`; DELETE removes `{id}`.
 - `grant/`: authenticated Client POST via BFF for a one-use claim grant valid for 45 seconds.
 - `claim/`: exact Console Origin POST `{grant}` with the guest cookie. Merges eligible selections, allowing existing account selections to take precedence, and consumes the guest state.
+- `PATCH guest/` and `PATCH account/` accept `{id,domain,register}`. For an existing selection, the domain must be in the cart or an active domain owned by the authenticated client. An empty domain clears the configuration. New registrations are checked through the registrar before the cart transaction. The service and registration selection are committed together.
+- Authenticated snapshots include up to 100 eligible domain names in `domains`. Anonymous snapshots contain an empty list.
 - Cart responses include `{lines,subtotal,currency}`, with server-priced `{id,selection,kind,name,ready,currency,amount,period,renewal?,setup_fee?}` lines. An invalidated line remains visible for removal. A subtotal is available for ready same-currency lines only. An empty claim can return `{lines:[]}`.
 
 ## Release boundary

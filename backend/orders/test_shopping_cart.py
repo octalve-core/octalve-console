@@ -5,7 +5,7 @@ from django.core.cache import cache
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from domains.models import TLDPricing
+from domains.models import Domain, TLDPricing
 from orders.models import Cart
 from orders.shopping_cart import COOKIE, CONSOLE, STOREFRONT
 
@@ -98,3 +98,62 @@ class ShoppingCartTests(TestCase):
         self.assertEqual(answer.status_code, 200)
         self.assertEqual(Cart.objects.filter(client=self.owner).count(), 1)
         self.assertEqual(Cart.objects.filter(client__isnull=True).count(), 1)
+
+    def test_guest_configuration_is_atomic_and_retryable(self):
+        service = {"kind": "service", "plan": "1", "cycle": "1mo", "revision": 1}
+        service_price = {"kind": "hosting", "name": "Hosting", "currency": "NGN", "amount": "1000", "period": "Monthly"}
+        from orders.shopping_cart import priced_line
+
+        def quote(item, **options):
+            return service_price if item["kind"] == "service" else priced_line(item, **options)
+
+        with patch("orders.shopping_cart.priced_line", side_effect=quote), patch(
+            "orders.shopping_cart.public_availability", side_effect=["unavailable", "available", "available"]
+        ):
+            self.assertEqual(self.public.post(self.guest, service, format="json", HTTP_ORIGIN=STOREFRONT).status_code, 200)
+            change = {"id": "service:1:1mo", "domain": "example.com", "register": True}
+            denied = self.public.patch(self.guest, change, format="json", HTTP_ORIGIN=CONSOLE)
+            self.assertEqual(denied.status_code, 403)
+            failed = self.public.patch(self.guest, change, format="json", HTTP_ORIGIN=STOREFRONT)
+            self.assertEqual(failed.status_code, 400)
+            self.assertEqual(Cart.objects.get().items, [service])
+            for _ in range(2):
+                applied = self.public.patch(self.guest, change, format="json", HTTP_ORIGIN=STOREFRONT)
+                self.assertEqual(applied.status_code, 200)
+                self.assertEqual({line["id"] for line in applied.data["lines"]},
+                                 {"service:1:1mo:example.com", "domain:example.com"})
+
+    def test_guest_cannot_connect_a_domain_outside_the_cart(self):
+        self.assertEqual(self.add().status_code, 200)
+        cart = Cart.objects.get()
+        cart.items.append({"kind": "service", "plan": "1", "cycle": "1mo", "revision": 1})
+        cart.save()
+        denied = self.public.patch(
+            self.guest, {"id": "service:1:1mo", "domain": "other.com", "register": False},
+            format="json", HTTP_ORIGIN=STOREFRONT,
+        )
+        self.assertEqual(denied.status_code, 400)
+        self.assertEqual(Cart.objects.get().items, cart.items)
+
+    def test_account_configuration_only_lists_and_connects_owned_domains(self):
+        from orders.shopping_cart import account_cart
+
+        self.console.force_authenticate(user=self.owner)
+        other = get_user_model().objects.create_user(
+            email="other-owner@example.test", username="otherowner", role="client",
+        )
+        Domain.objects.create(client=self.owner, domain_name="mine.com", tld=".com", status="active")
+        Domain.objects.create(client=other, domain_name="theirs.com", tld=".com", status="active")
+        cart = account_cart(self.owner.pk)
+        cart.items = [{"kind": "service", "plan": "1", "cycle": "1mo", "revision": 1}]
+        cart.save()
+        with patch("orders.shopping_cart.priced_line", return_value={
+            "kind": "hosting", "name": "Hosting", "currency": "NGN", "amount": "1000", "period": "Monthly",
+        }):
+            change = {"id": "service:1:1mo", "domain": "theirs.com", "register": False}
+            self.assertEqual(self.console.patch(self.account, change, format="json").status_code, 400)
+            change["domain"] = "mine.com"
+            applied = self.console.patch(self.account, change, format="json")
+            self.assertEqual(applied.status_code, 200)
+            self.assertEqual(applied.data["domains"], ["mine.com"])
+            self.assertEqual([line["id"] for line in applied.data["lines"]], ["service:1:1mo:mine.com"])
