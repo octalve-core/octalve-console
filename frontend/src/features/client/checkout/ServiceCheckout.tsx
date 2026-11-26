@@ -3,7 +3,7 @@
 import {useEffect,useMemo,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {ArrowLeft,ArrowRight,Loader2,ShieldCheck} from "lucide-react";
-import {OrderConfirmation} from "@/components/shared-commerce/CommerceUI";
+import {OrderConfirmation,CommercePanel} from "@/components/shared-commerce/CommerceUI";
 import {Panel} from "@/components/design-system/Panel";
 import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {ServiceDomainChoice,type DomainChoice} from "./ui/ServiceDomainChoice";
@@ -146,7 +146,7 @@ export function ServiceCheckout(){
       {loading?<p role="status" className="rounded-2xl bg-white p-6 text-sm text-slate-600">Preparing your selected plan…</p>:null}
       {!loading&&(!selected||!cycle)?<Link href="/client/order" className="font-medium text-[#0064E0]">Back to service plans</Link>:null}
       {selected&&cycle&&stage!=="completed"?<WorkspaceGrid variant="commerceColumns">
-        <Panel className="min-w-0 lg:col-span-2">
+        <CommercePanel className="min-w-0 lg:col-span-2">
           {stage==="domain"?<>
             <ServiceDomainChoice choice={domainChoice} domain={domain} invalid={!!normalizedDomain&&!validDomain}
               onChoice={value=>{setDomainChoice(value);setQuote(null);setError("");}}
@@ -202,7 +202,7 @@ export function ServiceCheckout(){
               </button>
             </div>
           </form>}
-        </Panel>
+        </CommercePanel>
         <CheckoutQuoteSummary plan={selected} cycleKey={cycleKey} quote={quote}
           coupon={coupon} stage={stage} onCouponChange={value=>{setCoupon(value);setQuote(null);}}
           onChangeRequest={()=>{setStage("domain");setQuote(null);setAgreed(false);}}/>

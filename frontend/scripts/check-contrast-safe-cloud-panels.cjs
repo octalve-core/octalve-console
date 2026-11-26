@@ -10,7 +10,7 @@ const root=path.resolve(__dirname,"../src");
 const paths=[
   ["components/data/WorkspaceWelcomePanel.tsx",["aria-label=\"Console welcome\"","text-console-ink","text-console-muted","font-medium"]],
   ["features/client/components/ClientDomainSearch.tsx",["bg-slate-50","text-slate-950"]],
-  ["features/client/components/domain-search/DomainSearchForm.tsx",["items-center","gap-3","focus-within:border-[#0064E0]"]],
+  ["components/shared-commerce/DomainCommerce.tsx",["items-center","gap-2","focus-within:border-violet-400","bg-[#141414]","text-white"]],
   ["features/client/components/KnowledgeBaseHero.tsx",["bg-white","text-slate-950"]],
   ["components/branding/CloudBrandLogo.tsx",["max-w-[133px]","px-14"]]
 ];
@@ -33,15 +33,12 @@ for(const filename of wrappers){
   throw new Error(`${filename}: shared workspace hero missing`);
 }
 
-const domainForm=fs.readFileSync(path.join(root,"features/client/components/domain-search/DomainSearchForm.tsx"),"utf8");
-if(!domainForm.includes('className="grid min-w-0 gap-3 sm:grid-cols-3') ||
-   !domainForm.includes('className="flex h-14 min-h-14 w-full min-w-0 items-center sm:col-span-2') ||
-   !domainForm.includes('className="h-5 w-5 shrink-0') ||
-   !domainForm.includes('className="block h-12 min-h-12 w-full min-w-0 flex-1') ||
-   !domainForm.includes('htmlFor="client-domain-search"') ||
-   domainForm.includes("absolute left-") || domainForm.includes("translate-y-1/2")){
- throw new Error("Domain search icon and text must share an in-flow, vertically centered flex row");
-}
+const domainWrapper=fs.readFileSync(path.join(root,"features/client/components/domain-search/DomainSearchForm.tsx"),"utf8");
+const domainForm=fs.readFileSync(path.join(root,"components/shared-commerce/DomainCommerce.tsx"),"utf8");
+if(!domainWrapper.includes("<DomainSearchField")||!domainForm.includes("flex min-w-0 items-center gap-2")||
+   !domainForm.includes("h-11 min-w-0 flex-1")||!domainForm.includes("htmlFor={id}")||
+   !domainForm.includes("focus-visible:outline-white")||domainForm.includes("absolute left-")||
+   domainForm.includes("translate-y-1/2"))throw Error("Shared search requires aligned controls, an accessible label and visible focus");
 // Batch 5 extracted the forms into typed Tailwind sections. Keep enforcing
 // responsive layout and 48px controls at their actual component boundaries.
 const supportViews=[

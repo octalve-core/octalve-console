@@ -53,17 +53,18 @@ export function ClientDomainSearch({onAdded,discovery=false}: {onAdded?: () => v
      const response=await fetch(url,{signal:next.signal,credentials:"omit",cache:"no-store"});
      if(!response.ok)throw new Error(response.status===400?"Enter a valid domain name, for example yourbrand.com.":"Domain search is temporarily unavailable.");
      const data=await response.json() as DomainLookup;
+     if(data.domain!==clean)throw Error("Mismatched domain lookup.");
      if(!next.signal.aborted)setResult(data);
    }catch(e){if(!next.signal.aborted)setError(e instanceof Error?e.message:"Domain search is temporarily unavailable.");}
    finally{if(!next.signal.aborted)setBusy(false);}
  }
  return <div className="min-w-0 space-y-6">{discovery&&<DomainBundleImport/>}<Panel padded={false} id="domain-search" aria-label="Find and check a domain name"
    className="scroll-mt-24 overflow-hidden">
-   {discovery?<div ref={searchArea} className="relative isolate overflow-hidden rounded-[22px] bg-[#123bc4] px-4 py-7 text-white sm:px-8 sm:py-10">
+   {discovery?<div ref={searchArea} className="relative isolate overflow-hidden rounded-[22px] bg-black px-4 py-7 text-white sm:px-8 sm:py-10">
      <div className="mx-auto max-w-4xl">
-       <h2 className="text-2xl font-medium tracking-tight sm:text-3xl">Find your perfect domain</h2>
-       <p className="mb-5 mt-2 text-sm leading-6 text-blue-100">Your next big idea starts with the right domain name.</p>
-       <DomainSearchForm domain={domain} onChange={setDomain} busy={busy} onSubmit={submit}/>
+       <h2 className="text-2xl font-normal tracking-tight sm:text-3xl">Find your perfect domain</h2>
+       <p className="mb-5 mt-2 text-sm leading-6 text-zinc-400">Your next big idea starts with the right domain name.</p>
+       <DomainSearchForm domain={domain} onChange={value=>{abort.current?.abort();setBusy(false);setResult(null);setError("");setDomain(value)}} busy={busy} onSubmit={submit}/>
        <div className="mt-3 flex flex-wrap items-center gap-2">
          {catalogue?.tlds.slice(0,6).map(price=><button key={price.tld} type="button" onClick={()=>selectTld(price.tld)} className="min-h-11 rounded-lg border border-white/40 px-3 text-sm hover:bg-white/15">{price.tld}</button>)}
          <Link href="/client/domains/transfer" className="inline-flex min-h-11 items-center gap-2 px-2 text-sm underline underline-offset-4"><ArrowLeftRight aria-hidden="true" size={16}/>Transfer a domain</Link>
@@ -81,7 +82,7 @@ export function ClientDomainSearch({onAdded,discovery=false}: {onAdded?: () => v
      </div>
    </div>
    <div className="px-5 py-5 sm:px-7 sm:py-6">
-     <DomainSearchForm domain={domain} onChange={setDomain} busy={busy} onSubmit={submit}/>
+     <DomainSearchForm domain={domain} onChange={value=>{abort.current?.abort();setBusy(false);setResult(null);setError("");setDomain(value)}} busy={busy} onSubmit={submit}/>
      <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-[#64748B]">
        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0064E0]"/>
        Domain availability and final charges require registrar verification before checkout.

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Globe2, Server, ShieldCheck } from "lucide-react";
 import {CheckoutSteps} from "./ui/CheckoutSections";
-import { Panel } from "@/components/design-system/Panel";
+import {CommercePanel,ProductIcon,primary,secondary} from "@/components/shared-commerce/CommerceUI";
+
 import { formatPlanAmount } from "../data/client-order-data";
 import { invoiceDownloadHref, invoiceHref } from "../components/commerce/invoice-links";
 
@@ -23,9 +24,9 @@ export function DomainCart({domain, amount, status, order, invoice, invoiceId, r
   const price = amount && Number.isFinite(Number(amount)) ? formatPlanAmount(Number(amount), "NGN") : null;
   return <div id="sandbox-domain-purchase" className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(17rem,1fr)]">
     <div className="xl:col-span-2"><CheckoutSteps current={order||paymentVerified?"Payment":"Review order"}/></div>
-      <Panel className="min-w-0 overflow-hidden xl:col-start-1">
+      <CommercePanel className="min-w-0 overflow-hidden xl:col-start-1">
         <div className="flex flex-wrap items-start gap-4">
-          <span className="rounded-xl bg-blue-50 p-3 text-console-primary"><Globe2 aria-hidden="true" className="h-6 w-6"/></span>
+          <ProductIcon kind="domain"/>
           <div className="min-w-0 flex-1">
             <p className="text-sm text-console-muted">Domain registration</p>
             <h2 className="mt-1 break-all text-xl font-medium text-console-ink sm:text-2xl">{domain}</h2>
@@ -47,8 +48,8 @@ export function DomainCart({domain, amount, status, order, invoice, invoiceId, r
             <a href={invoiceDownloadHref(invoiceId)} className="inline-flex min-h-11 items-center">Download PDF</a>
           </div>}
         </div>
-      </Panel>
-    <Panel className="min-w-0 xl:sticky xl:top-24 xl:row-span-2">
+      </CommercePanel>
+    <CommercePanel className="min-w-0 xl:sticky xl:top-24 xl:row-span-2">
       <h2 className="text-lg font-medium">Order summary</h2>
       <dl className="mt-4 space-y-4 text-sm">
         <div className="flex items-start justify-between gap-3"><dt className="text-console-muted">Item</dt><dd className="min-w-0 break-all text-right">{domain}</dd></div>
@@ -57,18 +58,18 @@ export function DomainCart({domain, amount, status, order, invoice, invoiceId, r
       <p className="mt-3 flex items-center gap-2 text-xs text-console-muted"><ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true"/>Test checkout. No money will be charged.</p>
       <div className="mt-4 space-y-2">
         {actions.map((action, index) => <button key={action.action} type="button" disabled={busy} onClick={() => onAction(action.action)}
-          className={index === 0 ? "flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-console-primary px-3 text-sm font-medium text-white disabled:opacity-50" : "min-h-11 w-full rounded-lg border border-console-line px-3 text-sm font-medium text-console-primary disabled:opacity-50"}>
+          className={(index === 0 ? primary : secondary)+" w-full"}>
           {busy && index === 0 ? "Working…" : action.text}{!busy && index === 0 && <ArrowRight aria-hidden="true" className="h-4 w-4"/>}
         </button>)}
       </div>
       {error && <p role="alert" className="mt-3 text-sm text-rose-700">{error}</p>}
-    </Panel>
+    </CommercePanel>
     <div className="min-w-0 space-y-2 xl:col-start-1">
-      <Panel className="flex flex-wrap items-center gap-4">
+      <CommercePanel className="flex flex-wrap items-center gap-4">
         <Server aria-hidden="true" className="h-5 w-5 text-console-primary"/>
         <div className="min-w-0 flex-1"><h3 className="text-sm font-medium">Add web hosting</h3><p className="mt-1 text-xs text-console-muted">Optional. Browse plans for this domain.</p></div>
         <Link href={`/client/order?forDomain=${encodeURIComponent(domain)}`} className="inline-flex min-h-11 items-center rounded-lg border border-console-line px-3 text-sm font-medium text-console-primary">Explore hosting</Link>
-      </Panel>
+      </CommercePanel>
       <Link href="/client/domains/register" className="inline-flex min-h-11 items-center text-sm font-medium text-console-primary">Choose a different domain</Link>
     </div>
   </div>;

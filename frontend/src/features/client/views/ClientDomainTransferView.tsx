@@ -4,7 +4,8 @@ import {useState,type FormEvent} from "react";
 import {ArrowLeft,ShieldCheck,ArrowRightLeft} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
-import {Panel} from "@/components/design-system/Panel";
+import {CommercePanel} from "@/components/shared-commerce/CommerceUI";
+import {DomainSearchField} from "@/components/shared-commerce/DomainCommerce";
 import {ActionLink} from "@/components/design-system/ActionLink";
 import {clientApi,type DomainTransferReadiness} from "@/lib/api/endpoints";
 
@@ -46,27 +47,14 @@ export function ClientDomainTransferView(){
       <div className="space-y-5">
         <Link href="/client/domains" className="inline-flex items-center gap-2 text-sm font-medium text-console-primary">
           <ArrowLeft className="h-4 w-4" aria-hidden="true"/>My Domains</Link>
-        <Panel>
+        <CommercePanel>
           <h2 className="flex items-center gap-2 text-lg font-medium text-console-ink">
             <ArrowRightLeft className="h-5 w-5 text-console-primary" aria-hidden="true"/>Domain transfer preflight</h2>
           <p className="mt-2 text-sm text-console-muted">
             Enter your domain name. We won't request your private authorization code
             until a verified transfer service is available.
           </p>
-          <form onSubmit={check} className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
-            <label className="min-w-0">
-              <span className="mb-2 block text-sm font-medium text-console-ink">Domain name</span>
-              <input type="text" name="domain" value={input}
-                autoComplete="off" spellCheck={false} maxLength={253}
-                onChange={e=>{setInput(e.target.value);setError("");setStatus(null);}}
-                placeholder="yourdomain.com" required
-                className="h-12 w-full min-w-0 rounded-xl border border-console-line bg-white px-4 text-sm text-console-ink focus:border-console-primary focus:outline-none focus:ring-2 focus:ring-console-primary"/>
-            </label>
-            <button type="submit" disabled={busy}
-              className="min-h-12 self-end rounded-xl bg-console-primary px-5 py-3 text-sm font-medium text-white disabled:opacity-50">
-              {busy?"Checking…":"Check transfer"}
-            </button>
-          </form>
+          <div className="mt-5"><DomainSearchField value={input} onChange={value=>{if(!busy){setInput(value);setError("");setStatus(null)}}} busy={busy} onSubmit={check} placeholder="Find your domain…" label="Domain to transfer" submitLabel="Check transfer readiness"/></div>
           {error?<p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>:null}
           {status?<div role="status" className="mt-5 rounded-xl border border-console-line bg-slate-50 p-5">
             <h3 className="break-all text-base font-medium text-console-ink">{status.domain}</h3>
@@ -85,8 +73,8 @@ export function ClientDomainTransferView(){
               Contact our team about transfer
             </ActionLink>
           </div>:null}
-        </Panel>
-        <Panel>
+        </CommercePanel>
+        <CommercePanel>
           <h2 className="flex items-center gap-2 text-lg font-medium text-console-ink">
             <ShieldCheck className="h-5 w-5 text-console-primary" aria-hidden="true"/>Before a domain transfer</h2>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-6 text-console-muted">
@@ -100,7 +88,7 @@ export function ClientDomainTransferView(){
             Do not share your EPP code in chat or support tickets. An encrypted, one-time
             transfer submission will be provided only after registrar integration passes acceptance.
           </p>
-        </Panel>
+        </CommercePanel>
       </div>
     </DashboardPage>
   </DashboardShell>;

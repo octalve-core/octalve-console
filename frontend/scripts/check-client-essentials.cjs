@@ -42,13 +42,11 @@ ensure("features/client/components/ClientDomainSearch.tsx",[
  "credentials:\"omit\"","cache:\"no-store\"","next.signal.aborted","setResult(data)","Panel","SectionHeading"
 ]);
 ensure("features/client/components/domain-search/DomainSearchResult.tsx",[
- "value.registrar_connected&&value.availability===\"available\"",
- "Availability not yet verified","StatusBadge","No domain has been reserved"
+ "value.registrar_connected===true&&value.availability===\"available\"",
+ "DomainResultCard","verified&&priced&&value.test_checkout_enabled","No domain has been reserved"
 ]);
-ensure("features/client/components/domain-search/DomainSearchForm.tsx",[
- 'htmlFor="client-domain-search"','className="grid min-w-0 gap-3 sm:grid-cols-3',
- 'className="flex h-14 min-h-14 w-full min-w-0 items-center sm:col-span-2'
-]);
+ensure("features/client/components/domain-search/DomainSearchForm.tsx",["DomainSearchField","onSubmit={onSubmit}"]);
+ensure("components/shared-commerce/DomainCommerce.tsx",["htmlFor={id}","flex min-w-0 items-center gap-2","h-11 min-w-0 flex-1","Unverified","text-white"]);
 const initial=read("features/client/hooks/useClientSummary.ts");
 if(!initial.includes("Promise.allSettled")||!initial.includes("walletBalance")||
  !initial.includes('status:"loading"')||!initial.includes('status:"ready"')){

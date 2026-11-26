@@ -19,8 +19,8 @@ for(const word of ["fetch(","axios(","localStorage","sessionStorage","authApi.",
 }
 const cases=[
  ["features/client/views/ClientOrderView.tsx",[
-  'WorkspaceGrid variant="commerceColumns"',"loadPublishedPlans()","defaultCycle(chosen)",
-  "categorySlug","setPlanId","onSelect={selectPlan}","HostingOrderSummary"
+  "loadPublishedPlans()","defaultCycle(chosen)",
+  "categorySlug","setPlanId","selectedCycle={cycleKey}","HostingPlanCards"
  ]],
  ["features/client/checkout/ServiceCheckout.tsx",[
   'WorkspaceGrid variant="commerceColumns"','ServiceDomainChoice',
@@ -41,7 +41,7 @@ const cases=[
  ["features/client/components/commerce/HostingPlanCards.tsx",[
   'WorkspaceGrid variant="planCards" as="section" ariaLabel="Available published service plans"',
   "defaultCycle(plan)","formatPlanAmount(pricing.price,plan.currency)",
-  "aria-pressed={selected}","onClick={()=>onSelect(plan)}","plan.features"
+  "AddToCartButton","plan.canOrder","plan.features"
  ]],
  ["features/admin/components/AdminEditorFields.tsx",[
   'WorkspaceGrid variant="editorFields"',"TextField","SelectField","TextAreaField",

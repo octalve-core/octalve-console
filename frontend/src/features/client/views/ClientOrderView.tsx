@@ -5,10 +5,10 @@ import {useSearchParams} from "next/navigation";
 import Link from "next/link";
 import { DashboardPage } from "@/components/layout/DashboardPage";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
+
 import { loadPublishedPlans, defaultCycle, type ClientOrderPlan } from "../data/client-order-data";
 import {HostingPlanCards} from "../components/commerce/HostingPlanCards";
-import {HostingOrderSummary} from "../components/commerce/HostingOrderSummary";
+
 
 export function ClientOrderView() {
   const searchParams=useSearchParams();
@@ -61,12 +61,6 @@ export function ClientOrderView() {
   }, [searchParams]);
 
   const visiblePlans = categorySlug ? plans.filter(p => p.categorySlug === categorySlug) : plans;
-  const selected = visiblePlans.find(p => p.id === planId);
-  function selectPlan(plan: ClientOrderPlan) {
-    setPlanId(plan.id);
-    setCycleKey(defaultCycle(plan)?.key || "");
-    setError("");
-  }
 
   return <DashboardShell role="client" title="Order service" description="Choose an available service plan.">
     <DashboardPage eyebrow="Order service" title="Choose a service plan"
@@ -80,12 +74,8 @@ export function ClientOrderView() {
           No plans in this category are available to order yet.
           <a href="/client/order" className="ml-2 font-medium text-console-primary underline">Browse plans</a>
         </div> : null}
-      {visiblePlans.length > 0 && <WorkspaceGrid variant="commerceColumns">
-        <div className="min-w-0 lg:col-span-2">
-          <HostingPlanCards plans={visiblePlans} selectedId={planId} onSelect={selectPlan}/>
-        </div>
-        {visiblePlans.some(plan=>plan.canOrder)&&<HostingOrderSummary plan={selected} cycleKey={cycleKey} onCycleChange={setCycleKey} forDomain={searchParams.get("forDomain") ?? ""}/>}
-      </WorkspaceGrid>}
+      {plans.length>0&&<div role="group" aria-label="Service categories" className="my-5 flex flex-wrap gap-2"><button type="button" aria-pressed={!categorySlug} onClick={()=>setCategorySlug("")} className={"min-h-11 rounded-xl px-4 text-sm "+(!categorySlug?"bg-[#0064E0] text-white":"bg-slate-100 text-slate-600")}>All packages</button>{[...new Map(plans.filter(p=>p.categorySlug).map(p=>[p.categorySlug,p.categoryName||p.categorySlug]))].map(([slug,name])=><button key={slug} type="button" aria-pressed={categorySlug===slug} onClick={()=>setCategorySlug(slug)} className={"min-h-11 rounded-xl px-4 text-sm "+(categorySlug===slug?"bg-[#0064E0] text-white":"bg-slate-100 text-slate-600")}>{name}</button>)}</div>}
+      {visiblePlans.length>0&&<HostingPlanCards plans={visiblePlans} selectedId={planId} selectedCycle={cycleKey} forDomain={searchParams.get("forDomain")??""}/>} 
     </DashboardPage>
   </DashboardShell>;
 }
