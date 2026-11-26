@@ -59,11 +59,17 @@ async function handle(request:NextRequest){
       body,cache:"no-store",redirect:"manual",signal:AbortSignal.timeout(18000)});
     if(r.status===404)return reply(404,"Unified shopping unavailable.");
     if(r.status===401||r.status===403)return reply(409,"Reopen your Console session.");
-    if(!r.ok)return reply(r.status===400?400:r.status===429?429:503,"Shopping request could not be completed.");
+    if(r.status===400){
+      const v=await r.json().catch(()=>null);
+      const known=["domain_unavailable","domain_lookup_unconfirmed","domain_price_unavailable"];
+      if(v&&known.includes(v.code)&&typeof v.domain==="string"&&v.domain.length<=253&&/^[a-z0-9.-]+$/.test(v.domain))return NextResponse.json({code:v.code,domain:v.domain},{status:400,headers:HEADERS});
+      return reply(400,"Shopping request could not be completed.");
+    }
+    if(!r.ok)return reply(r.status===429?429:503,"Shopping request could not be completed.");
     const value=await r.json();
     if(!value||!Array.isArray(value.lines))return reply(502,"Invalid shopping response.");
     // Forward only the approved cart snapshot; no account profile or credentials.
-    return NextResponse.json({lines:value.lines,subtotal:value.subtotal??null,currency:value.currency??null,domains:Array.isArray(value.domains)?value.domains:[],scope},{headers:HEADERS});
+    return NextResponse.json({lines:value.lines,subtotal:value.subtotal??null,currency:value.currency??null,domains:Array.isArray(value.domains)?value.domains:[],checkout_issue:typeof value.checkout_issue==="string"?value.checkout_issue:null,scope},{headers:HEADERS});
   }catch{return reply(503,"Shopping unavailable.");}
 }
 export const GET=handle;

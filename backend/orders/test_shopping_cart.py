@@ -219,3 +219,25 @@ class ShoppingCartTests(TestCase):
         self.assertEqual(failed.status_code, 400, failed.data)
         self.assertEqual(Cart.objects.get(client__isnull=True).items, [self.item])
         self.assertFalse(Cart.objects.filter(client=self.owner).exists())
+
+    def test_domain_specific_failures_and_checkout_limit(self):
+        with patch("orders.shopping_cart.public_availability", return_value="unavailable"):
+            result = self.public.post(self.guest, self.item, format="json", HTTP_ORIGIN=STOREFRONT)
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.data["code"], "domain_unavailable")
+        self.assertEqual(result.data["domain"], "example.com")
+        self.assertFalse(Cart.objects.exists())
+        with patch("orders.shopping_cart.public_availability", return_value="unverified"):
+            result = self.public.post(self.guest, self.item, format="json", HTTP_ORIGIN=STOREFRONT)
+        self.assertEqual(result.data["code"], "domain_lookup_unconfirmed")
+        self.console.force_authenticate(user=self.owner)
+        selections = [{"kind": "domain", "domain": f"test-{i}.com"} for i in range(6)]
+        with patch("orders.shopping_cart.public_availability", return_value="available"):
+            result = self.console.post(self.account, {"selections": selections}, format="json")
+        self.assertEqual(result.status_code, 200)
+        self.assertIn("up to 5 domains", result.data["checkout_issue"])
+        cleaned = self.console.delete(self.account, {"ids": ["domain:test-0.com", "domain:test-1.com"]}, format="json")
+        self.assertEqual(cleaned.status_code, 200)
+        self.assertIsNone(cleaned.data["checkout_issue"])
+        self.assertEqual(len(cleaned.data["lines"]), 4)
+        self.assertEqual(cleaned.data["subtotal"], "48000.00")

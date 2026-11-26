@@ -1,4 +1,5 @@
 import {authApi} from "@/lib/api/endpoints";
+import {privateQueryGeneration} from "@/lib/api/private-query-cache";
 
 export type CartSelection = {kind:"domain";domain:string} | {kind:"service";plan:string;cycle:string;revision:number;domain?:string};
 export const cartHref = "/client/order/checkout?view=cart";
@@ -42,15 +43,48 @@ function read(key:string):CartSelection[]{
 
 const accountEndpoint="/api/cloud/orders/shopping/account";
 
-export type AccountSnapshot={lines:{id:string;selection:CartSelection;ready:boolean;kind?:string;name?:string;currency?:string;amount?:string;renewal?:string;period?:string}[];subtotal:string|null;currency:string|null;domains?:string[]};
+export type AccountSnapshot={lines:{id:string;selection:CartSelection;ready:boolean;issue?:string;kind?:string;name?:string;currency?:string;amount?:string;renewal?:string;period?:string}[];subtotal:string|null;currency:string|null;domains?:string[];checkout_issue?:string|null};
 
-export async function accountCartSnapshot(method:"GET"|"POST"|"DELETE"|"PATCH"="GET",data?:unknown):Promise<AccountSnapshot|null>{
+type CartMethod="GET"|"POST"|"DELETE"|"PATCH";
+let pendingRead:{generation:number;promise:Promise<AccountSnapshot|null>}|null=null;
+export function accountCartSnapshot(method:CartMethod="GET",data?:unknown):Promise<AccountSnapshot|null>{
+  const generation=privateQueryGeneration();
+  if(method!=="GET")pendingRead=null;
+  if(method==="GET"&&pendingRead?.generation===generation)return pendingRead.promise;
+  const promise=fetchAccountCart(method,data).then(snapshot=>{
+    if(generation!==privateQueryGeneration())throw Error("Account changed. Reopen your cart.");
+    return snapshot;
+  });
+  if(method==="GET"){
+    pendingRead={generation,promise};
+    void promise.finally(()=>{if(pendingRead?.promise===promise)pendingRead=null;}).catch(()=>{});
+  }
+  return promise;
+}
+export function confirmedCartEvent(event:Event):AccountSnapshot|undefined{
+  const detail=(event as CustomEvent<{generation:number;snapshot:AccountSnapshot}>).detail;
+  return detail?.generation===privateQueryGeneration()?detail.snapshot:undefined;
+}
+function announce(snapshot:AccountSnapshot,added=false){
+  pendingRead=null;
+  const detail={generation:privateQueryGeneration(),snapshot};
+  window.dispatchEvent(new CustomEvent(cartChangedEvent,{detail}));
+  if(added)window.dispatchEvent(new CustomEvent(cartAddedEvent,{detail}));
+}
+async function fetchAccountCart(method:CartMethod,data?:unknown):Promise<AccountSnapshot|null>{
   const result=await fetch(accountEndpoint,{
     method,cache:"no-store",credentials:"same-origin",signal:AbortSignal.timeout(15000),
     ...(data?{headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}:{}),
   });
   if(result.status===404)return null;
-  if(!result.ok)throw Error("Your cart could not be updated.");
+  if(!result.ok){
+    const body=await result.json().catch(()=>null);
+    const domain=typeof body?.domain==="string"&&domainPattern.test(body.domain)?body.domain:"This domain";
+    if(body?.code==="domain_unavailable")throw Error(domain+" is already registered or otherwise unavailable. Choose another name.");
+    if(body?.code==="domain_lookup_unconfirmed")throw Error("Availability for "+domain+" could not be confirmed. Please retry.");
+    if(body?.code==="domain_price_unavailable")throw Error("Published pricing for "+domain+" is unavailable.");
+    throw Error("Your cart could not be updated. Please retry.");
+  }
   const body=await result.json() as AccountSnapshot;
   if(!Array.isArray(body.lines))throw Error("Invalid cart response.");
   const selections=body.lines.map(line=>line.selection);
@@ -60,16 +94,17 @@ export async function accountCartSnapshot(method:"GET"|"POST"|"DELETE"|"PATCH"="
 
 async function accountRequest(method:"GET"|"POST"|"DELETE",data?:unknown):Promise<CartSelection[]|null>{const body=await accountCartSnapshot(method,data);return body?.lines.map(line=>line.selection)??null;}
 
-const activeImports=new Map<string,Promise<CartSelection[]|null>>();
+const activeImports=new Map<string,Promise<AccountSnapshot|null>>();
 
-async function importGuestAndLocal(key:string):Promise<CartSelection[]|null>{
-  const account=await accountRequest("GET");
+async function importGuestAndLocal(key:string):Promise<AccountSnapshot|null>{
+  let account=await accountCartSnapshot();
   if(!account)return null;
   const local=read(key);
   if(local.length){
     if(await accountCartKey()!==key)throw Error("Account changed. Reopen the cart.");
-    const imported=await accountRequest("POST",{selections:local});
-    if(imported===null||!local.every(item=>imported.some(saved=>cartSelectionId(saved)===cartSelectionId(item))))throw Error("Your saved cart has not been confirmed.");
+    const imported=await accountCartSnapshot("POST",{selections:local});
+    if(imported===null||!local.every(item=>imported.lines.some(saved=>cartSelectionId(saved.selection)===cartSelectionId(item))))throw Error("Your saved cart has not been confirmed.");
+    account=imported;
     sessionStorage.removeItem(key);
   }
   const grantResponse=await fetch("/api/cloud/orders/shopping/grant",{
@@ -83,23 +118,38 @@ async function importGuestAndLocal(key:string):Promise<CartSelection[]|null>{
     method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({grant:payload.grant}),
     signal:AbortSignal.timeout(8000),
   });
-  if(!claim.ok)throw Error("Your guest cart could not be merged.");
-  return accountRequest("GET");
+  if(!claim.ok)throw Error("Your guest cart could not be merged. Your selections are preserved.");
+  const claimed=await claim.json() as AccountSnapshot;
+  // A no-guest claim is {lines:[]}; it must not erase the account snapshot.
+  if(Array.isArray(claimed.lines)&&"subtotal" in claimed){
+    if(!claimed.lines.every(line=>valid(line.selection)))throw Error("Invalid cart handoff.");
+    return claimed;
+  }
+  return account;
 }
 
-export async function readCart(email?: string){
+export async function recoverAccountCart(email?:string){
+  const generation=privateQueryGeneration();
   const key=await accountCartKey(email);
-  if(location.pathname==="/client/order/checkout"&&new URLSearchParams(location.search).get("view")==="cart"){
-    let pending=activeImports.get(key);
-    if(!pending){
-      pending=importGuestAndLocal(key).finally(()=>{activeImports.delete(key);});
-      activeImports.set(key,pending);
-    }
-    const merged=await pending;
-    if(await accountCartKey()!==key)throw Error("Account changed. Reopen the cart.");
-    return merged??read(key);
+  const scopedKey=generation+":"+key;
+  let pending=activeImports.get(scopedKey);
+  if(!pending){
+    pending=importGuestAndLocal(key).finally(()=>{activeImports.delete(scopedKey);});
+    activeImports.set(scopedKey,pending);
   }
-  return (await accountRequest("GET"))??read(key);
+  const snapshot=await pending;
+  if(generation!==privateQueryGeneration()||await accountCartKey()!==key)throw Error("Account changed. Reopen the cart.");
+  if(snapshot)announce(snapshot);
+  return {snapshot,selections:snapshot?.lines.map(line=>line.selection)??read(key)};
+}
+
+export async function readCart(email?: string,claimGuest=true){
+  if(claimGuest&&location.pathname==="/client/order/checkout"&&new URLSearchParams(location.search).get("view")==="cart"){
+    return (await recoverAccountCart(email)).selections;
+  }
+  const remote=await accountRequest("GET");
+  if(remote!==null)return remote;
+  return read(await accountCartKey(email));
 }
 
 function write(key: string, items: CartSelection[]) {
@@ -110,18 +160,25 @@ function write(key: string, items: CartSelection[]) {
 export async function addToCart(item:CartSelection){
   if (!valid(item)) throw new Error("Choose a current offer before adding it.");
   const key=await accountCartKey();
-  const remote=await accountRequest("POST",{selections:[item]});
-  if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));window.dispatchEvent(new Event(cartAddedEvent));return;}
+  const remote=await accountCartSnapshot("POST",{selections:[item]});
+  if(remote!==null){announce(remote,true);return;}
   const rest=read(key).filter(saved=>cartSelectionId(saved)!==cartSelectionId(item));
   if(rest.length>=20) throw new Error("The cart has reached its item limit.");
   write(key, [...rest, item]);
   window.dispatchEvent(new Event(cartAddedEvent));
 }
 
+export async function removePurchasedItems(ids:string[]){
+  const remote=await accountCartSnapshot("DELETE",{ids});
+  if(!remote)throw Error("Purchased selections could not be removed. Your invoice is preserved.");
+  announce(remote);
+  return remote;
+}
+
 export async function removeFromCart(id:string){
   const key=await accountCartKey();
-  const remote=await accountRequest("DELETE",{id});
-  if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));return remote;}
+  const remote=await accountCartSnapshot("DELETE",{id});
+  if(remote!==null){announce(remote);return remote.lines.map(line=>line.selection);}
   const rest=read(key).filter(saved=>cartSelectionId(saved)!==id);
   write(key, rest);
   return rest;
@@ -140,8 +197,8 @@ export async function addDomainBundle(names:string[]){
   return {kind:"domain" as const,domain:name};
  }));
  if(await accountCartKey()!==key)throw Error("Account changed. Please retry.");
- const remote=await accountRequest("POST",{selections:results});
- if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));window.dispatchEvent(new Event(cartAddedEvent));return;}
+ const remote=await accountCartSnapshot("POST",{selections:results});
+ if(remote!==null){announce(remote,true);return;}
  const merged=new Map(read(key).map(item=>[cartSelectionId(item),item]));
  for(const item of results)merged.set(cartSelectionId(item),item);
  if(merged.size>20)throw Error("Your cart can contain up to 20 items.");

@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from billing.contact import billing_contact_snapshot
 from billing.models import Invoice, InvoiceItem
 from orders.models import Order, OrderItem
+from orders.shopping_cart import MAX_CHECKOUT_DOMAINS
 from orders.serializers import CreateOrderSerializer
 from payments.domain_pilot_scope import (
     CART, PILOT, pilot_gateway_allowed, selected_domain_test_account_allowed, selected_domain_test_allowed,
@@ -38,10 +39,16 @@ def selections(user, data, *, public_test=False):
     domains = data.get("domains")
     services = data.get("services", [])
     allowed = public_domain_payment_test_allowed if public_test else selected_domain_test_allowed
-    if (not isinstance(domains, list) or not (0 if public_test else 1) <= len(domains) <= 5
-            or not all(allowed(user, name) for name in domains)
-            or len(set(domains)) != len(domains)):
-        raise ValidationError("Choose up to five distinct eligible domains.")
+    if not isinstance(domains, list) or not all(isinstance(name, str) for name in domains):
+        raise ValidationError("Choose valid domain names.")
+    if len(domains) > MAX_CHECKOUT_DOMAINS:
+        raise ValidationError(f"Test checkout supports up to {MAX_CHECKOUT_DOMAINS} domains per order. Return to your cart and remove {len(domains) - MAX_CHECKOUT_DOMAINS} domain(s).")
+    if not public_test and not domains:
+        raise ValidationError("The registrar sandbox requires a domain.")
+    if len(set(domains)) != len(domains):
+        raise ValidationError("Remove duplicate domain names from your cart.")
+    if not all(allowed(user, name) for name in domains):
+        raise ValidationError("One or more domains are not eligible for this test checkout. Only eligible .com registrations are supported.")
     if not isinstance(services, list) or not 1 <= len(domains) + len(services) <= 20:
         raise ValidationError("The cart can contain up to 20 items.")
     fields = {"plan_id", "offer_revision", "cycle_key", "domain_name", "quantity"}

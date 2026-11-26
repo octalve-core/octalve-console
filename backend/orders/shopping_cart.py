@@ -33,6 +33,7 @@ GUEST_TTL = timedelta(hours=24)
 CONSOLE = "https://console.cloud.octalve.com"
 STOREFRONT = "https://cloud.octalve.com"
 MAX_ITEMS = 20
+MAX_CHECKOUT_DOMAINS = 5
 SALT = "octalve-shopping-claim-v1"
 TOKEN = re.compile(r"[A-Za-z0-9_-]{43}")
 
@@ -120,8 +121,17 @@ def domain_price(domain):
 def priced_line(item, *, verify_domain=False):
     if item["kind"] == "domain":
         price = domain_price(item["domain"])
-        if not price or (verify_domain and public_availability(price, item["domain"]) != "available"):
-            raise ValidationError("Domain availability or pricing could not be confirmed.")
+        if not price:
+            raise ValidationError({"code": "domain_price_unavailable", "domain": item["domain"],
+                                   "detail": "Published pricing is unavailable for this domain."})
+        if verify_domain:
+            availability = public_availability(price, item["domain"])
+            if availability == "unavailable":
+                raise ValidationError({"code": "domain_unavailable", "domain": item["domain"],
+                                       "detail": "This domain is already registered or otherwise unavailable."})
+            if availability != "available":
+                raise ValidationError({"code": "domain_lookup_unconfirmed", "domain": item["domain"],
+                                       "detail": "The registrar could not confirm availability. Please retry."})
         return {
             "kind": "domain", "name": item["domain"], "currency": "NGN", "amount": str(price.register_price),
             "renewal": str(price.renewal_price), "period": "1 year",
@@ -134,6 +144,15 @@ def priced_line(item, *, verify_domain=False):
             "amount": str(entry["unit_price"]), "setup_fee": str(cycle.setup_fee), "period": cycle.label}
 
 
+def checkout_issue(items):
+    domains = [item["domain"] for item in items if item["kind"] == "domain"]
+    if len(domains) > MAX_CHECKOUT_DOMAINS:
+        return f"Test checkout supports up to {MAX_CHECKOUT_DOMAINS} domains per order. Remove {len(domains) - MAX_CHECKOUT_DOMAINS} domain(s) to continue."
+    if any(not name.endswith(".com") for name in domains):
+        return "Test checkout currently supports .com registrations only. Remove other domain extensions to continue."
+    return None
+
+
 def snapshot(cart):
     lines = []
     for item in cart.items if cart else []:
@@ -142,14 +161,17 @@ def snapshot(cart):
             with transaction.atomic():
                 line.update(priced_line(item))
             line["ready"] = True
-        except ValidationError:
+        except ValidationError as exc:
             line["ready"] = False
+            line["issue"] = ("Published domain pricing is unavailable." if item["kind"] == "domain"
+                             else "This service offer or configuration is no longer valid.")
         lines.append(line)
     currencies = {line.get("currency") for line in lines if line["ready"]}
     currency = next(iter(currencies)) if len(currencies) == 1 and all(line["ready"] for line in lines) else None
     subtotal = str(sum((Decimal(line["amount"]) for line in lines), Decimal("0.00"))) if currency else None
     domains = list(owned_domains(cart.client_id).order_by("domain_name").values_list("domain_name", flat=True)[:100]) if cart and cart.client_id else []
-    return {"lines": lines, "subtotal": subtotal, "currency": currency, "domains": domains}
+    return {"lines": lines, "subtotal": subtotal, "currency": currency, "domains": domains,
+            "checkout_issue": checkout_issue(cart.items if cart else [])}
 
 
 def owned_domains(owner):
@@ -391,9 +413,11 @@ def account_operation(request, method, data, *, verify_session=False):
             if item["kind"] == "domain":
                 priced_line(item, verify_domain=True)
     else:
-        data = data
-        if not isinstance(data, dict) or set(data) != {"id"} or not isinstance(data["id"], str) or len(data["id"]) > 310:
+        if not isinstance(data, dict):
             raise ValidationError("Choose a valid cart item.")
+        ids = [data["id"]] if set(data) == {"id"} else data.get("ids") if set(data) == {"ids"} else None
+        if not isinstance(ids, list) or not 1 <= len(ids) <= MAX_ITEMS or any(not isinstance(i, str) or not 1 <= len(i) <= 310 for i in ids):
+            raise ValidationError("Choose valid cart items.")
     with transaction.atomic():
         if verify_session:
             verify_shopping_session(request)
@@ -405,7 +429,8 @@ def account_operation(request, method, data, *, verify_session=False):
                     priced_line(item)
                 selections[selection_id(item)] = item
         else:
-            selections.pop(data["id"], None)
+            for line_id in ids:
+                selections.pop(line_id, None)
         if len(selections) > MAX_ITEMS:
             raise ValidationError("Your cart can contain up to 20 items.")
         cart.items = list(selections.values())
