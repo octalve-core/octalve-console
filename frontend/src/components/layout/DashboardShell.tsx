@@ -2,7 +2,7 @@
 import {useCallback,useState,type ReactNode} from "react";
 import {usePathname,useRouter} from "next/navigation";
 import {useAuth} from "@/context/AuthContext";
-import {ClientCartButton, ClientCartBar, useClientCartCount} from "@/features/client/checkout/ClientCartShortcuts";
+import {ClientCartButton, useClientCartCount} from "@/features/client/checkout/ClientCartShortcuts";
 import {DashboardHeader} from "@/components/layout/DashboardHeader";
 import {ConsoleThemeSync} from "@/features/shell/components/ConsoleThemeSync";
 import {DashboardSidebar} from "@/components/layout/DashboardSidebar";
@@ -20,7 +20,6 @@ export function DashboardShell({role,title,description,actions,children}:Props){
  const cartCount=useClientCartCount(role==="client" && user?.role==="client" ? user.email : undefined);
  const {locale}=useLocale(),m=messages(locale);
  const [sidebarOpen,setSidebarOpen]=useState(false),[loggingOut,setLoggingOut]=useState(false);
- const showCartBar=role==="client" && cartCount>0 && !sidebarOpen && pathname!=="/client/order/checkout" && pathname!=="/client/order/processing";
  const closeSidebar=useCallback(()=>setSidebarOpen(false),[]);
  async function handleLogout(){
   if(loggingOut)return;
@@ -44,10 +43,8 @@ export function DashboardShell({role,title,description,actions,children}:Props){
     <span className="sr-only">{role} {title} {description??""}</span>
     {actions?<div className="mb-4 flex flex-wrap justify-end gap-2">{actions}</div>:null}
     {children}
-    {showCartBar && <div aria-hidden="true" className="h-20"/>}
    </main>
   </div>
-  {showCartBar && <ClientCartBar count={cartCount}/>}
   <ConsoleMobileBottomNav role={role} pathname={pathname} onMore={()=>setSidebarOpen(true)}/>
  </div>;
 }

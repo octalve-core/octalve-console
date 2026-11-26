@@ -3,8 +3,8 @@ import {useCallback,useEffect,useState} from "react";
 import Link from "next/link";
 import {CreditCard,FileText,Loader2,ShieldCheck,AlertCircle} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
-import {DashboardPage} from "@/components/layout/DashboardPage";
-import {CommercePanel,CheckoutStepper,primary} from "@/components/shared-commerce/CommerceUI";
+import {useRouter} from "next/navigation";
+import {CommercePanel,CommerceCheckoutFrame,primary} from "@/components/shared-commerce/CommerceUI";
 import {ActionLink} from "@/components/design-system/ActionLink";
 import {StatusBadge} from "@/components/design-system/StatusBadge";
 import {GooglePayReviewButton} from "../components/commerce/GooglePayReviewButton";
@@ -16,6 +16,7 @@ const doneStates=["paid","void","cancelled","refunded"];
 const allowedHosts=new Set(["checkout.paystack.com","checkout.flutterwave.com"]);
 
 export function ClientProcessingView(){
+  const router=useRouter();
   const [invoiceId,setInvoiceId]=useState<number|null>(null);
   const [invoice,setInvoice]=useState<InvoiceState|null>(null);
   const [options,setOptions]=useState<CheckoutOptions|null>(null);
@@ -88,9 +89,8 @@ export function ClientProcessingView(){
   const paid=invoice?.status==="paid";
   const offered=options?.enabled&&invoice?.currency===options.currency&&invoice?.status==="unpaid"&&invoice.payment_action_allowed;
   return <DashboardShell role="client" title="Order status" description="Track your invoice and secure payment.">
-    <DashboardPage eyebrow="Checkout · Order status" title="Your order progress"
-      description="Your order status updates automatically while this page is open.">
-      <CommercePanel className="mx-auto max-w-3xl p-6 sm:p-9"><div className="mb-6"><CheckoutStepper stage={paid?5:4}/></div>
+    <CommerceCheckoutFrame stage={paid?5:4} title={paid?"Payment confirmed":"Complete your payment"} back={()=>router.push("/client/orders")} backLabel="Back to orders">
+      <CommercePanel className="p-6 sm:p-9">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0064E0]">
             {paid?<ShieldCheck/>:<FileText/>}
@@ -139,6 +139,6 @@ export function ClientProcessingView(){
           <ActionLink href="/client/support/new" variant="outline">Contact support</ActionLink>
         </div>
       </CommercePanel>
-    </DashboardPage>
+    </CommerceCheckoutFrame>
   </DashboardShell>;
 }
