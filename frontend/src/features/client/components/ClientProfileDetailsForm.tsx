@@ -1,3 +1,5 @@
+import {UserRound} from "lucide-react";
+import {ConsoleIconTile} from "@/components/design-system/ConsoleIconTile";
 
 import type {FormEvent} from "react";
 import {Panel} from "@/components/design-system/Panel";
@@ -25,7 +27,7 @@ export function ClientProfileDetailsForm({profile,draft,name,email,saving,onChan
 }){
  const content=<>
   <div className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3.5">
-   <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-100 text-sm font-medium text-console-primary">{(profile?.full_name||name||"U").trim().charAt(0).toUpperCase()||"U"}</span>
+   <ConsoleIconTile icon={UserRound} initial={(profile?.full_name||name||"U").trim().charAt(0)||"U"} tone="blue" className="rounded-full bg-blue-100 text-console-primary"/>
    <div className="min-w-0">
     <h2 className="break-words text-sm font-medium text-console-ink">{profile?.full_name||name||"Your details"}</h2>
     <p className="break-all text-xs text-console-muted">{profile?.email||email||"Email unavailable"}</p>
