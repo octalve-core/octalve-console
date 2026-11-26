@@ -81,6 +81,7 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     title,
     subtitle,
     meta,
+    paymentReference: resource==="orders"||resource==="invoices"?readClientString(record,["payment_reference"],""):undefined,
     amount: amount && /^[A-Z]{3}$/.test(currency) ? displayMoney(amount,currency,"en") : amount,
     status,
     date,

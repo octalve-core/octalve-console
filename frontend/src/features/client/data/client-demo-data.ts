@@ -12,6 +12,7 @@ export type ClientRecord = {
   title: string;
   subtitle: string;
   meta: string;
+  paymentReference?: string;
   status: string;
   amount?: string;
   date?: string;
