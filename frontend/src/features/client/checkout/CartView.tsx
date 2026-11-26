@@ -8,7 +8,7 @@ import {CartReview,CommercePanel} from "@/components/shared-commerce/CommerceUI"
 import type {CartActions,CartLine,CartView as View} from "@/components/shared-commerce/types";
 import {ClientDomainSearch} from "../components/ClientDomainSearch";
 import {formatPlanAmount,loadSellablePlans,type ClientOrderPlan} from "../data/client-order-data";
-import {accountCartSnapshot,cartSelectionId,readCart,removeFromCart,cartChangedEvent,type CartSelection,type AccountSnapshot} from "./cart-selections";
+import {accountCartSnapshot,confirmedCartEvent,cartSelectionId,readCart,removeFromCart,cartChangedEvent,type CartSelection,type AccountSnapshot} from "./cart-selections";
 import {searchCartDomains,sharedCartLines} from "./shared-cart-adapter";
 
 function AccountCartView({identity}:{identity:string}){
@@ -16,13 +16,13 @@ function AccountCartView({identity}:{identity:string}){
  const [items,setItems]=useState<CartSelection[]|null>(null),[snapshot,setSnapshot]=useState<AccountSnapshot|null>(null),[plans,setPlans]=useState<ClientOrderPlan[]>([]);
  const [error,setError]=useState(""),[busy,setBusy]=useState(false);
  const epoch=useRef(0),writing=useRef(false),mounted=useRef(true);
- async function refresh(){
+ async function refresh(claimGuest=false){
   if(writing.current)return;
   const current=++epoch.current;
-  try{const selection=await readCart();const remote=await accountCartSnapshot();if(mounted.current&&epoch.current===current){setItems(remote?.lines.map(l=>l.selection)??selection);setSnapshot(remote);setError("");}}
+  try{const selection=claimGuest?await readCart(undefined,true):null;const remote=await accountCartSnapshot();if(mounted.current&&epoch.current===current){setItems(remote?.lines.map(l=>l.selection)??selection??await readCart(undefined,false));setSnapshot(remote);setError("");}}
   catch{if(mounted.current&&epoch.current===current){setError("Your cart couldn’t be refreshed. Try again.");}}
  }
- useEffect(()=>{mounted.current=true;void refresh();void loadSellablePlans().then(p=>{if(mounted.current)setPlans(p)}).catch(()=>{});const reload=()=>{if(document.visibilityState==="visible")void refresh()};window.addEventListener(cartChangedEvent,reload);window.addEventListener("focus",reload);window.addEventListener("pageshow",reload);return()=>{mounted.current=false;epoch.current++;window.removeEventListener(cartChangedEvent,reload);window.removeEventListener("focus",reload);window.removeEventListener("pageshow",reload);};},[identity]);
+ useEffect(()=>{mounted.current=true;void refresh(true);router.prefetch("/client/order/checkout?view=combined-review");void loadSellablePlans().then(p=>{if(mounted.current)setPlans(p)}).catch(()=>{});const reload=(event:Event)=>{if(document.visibilityState!=="visible")return;const next=confirmedCartEvent(event);if(next){epoch.current++;setSnapshot(next);setItems(next.lines.map(l=>l.selection));setError("");}else void refresh()};window.addEventListener(cartChangedEvent,reload);window.addEventListener("focus",reload);window.addEventListener("pageshow",reload);return()=>{mounted.current=false;epoch.current++;window.removeEventListener(cartChangedEvent,reload);window.removeEventListener("focus",reload);window.removeEventListener("pageshow",reload);};},[identity]);
  async function mutate(id:string,domain?:string,register=false){
   if(writing.current)throw Error("Cart update in progress.");
   writing.current=true;epoch.current++;setBusy(true);setError("");
@@ -39,6 +39,6 @@ function AccountCartView({identity}:{identity:string}){
  });
  const cart:View={lines,subtotal:snapshot?.subtotal&&snapshot.currency?formatPlanAmount(Number(snapshot.subtotal),snapshot.currency):"Price not confirmed",tax:"Calculated at review",total:"Confirmed at review",busy:busy||items===null&&!error,error:error||snapshot?.checkout_issue||(!snapshot&&items!==null?"Your saved selections are preserved. Reconnect to the account cart to confirm prices.":""),checkoutAllowed:!!next&&!!snapshot&&!snapshot.checkout_issue&&!error&&snapshot.lines.every(l=>l.ready)&&!!snapshot.currency};
  const actions:CartActions={remove:id=>{void mutate(id).catch(()=>{});},configure:(id,domain)=>mutate(id,domain),domainPicker:snapshot?{search:searchCartDomains,addAndConfigure:(id,domain)=>mutate(id,domain,true)}:undefined,review:()=>{},checkout:()=>{if(next&&cart.checkoutAllowed)router.push(next)},continueShopping:()=>router.push("/client/order")};
- return <CartReview cart={cart} actions={actions}><CommercePanel><details><summary className="cursor-pointer text-sm font-medium text-[#0064E0]">Search for another domain</summary><div className="mt-4"><ClientDomainSearch onAdded={()=>void refresh()}/></div></details></CommercePanel><Link href="/client/profile" className="inline-flex min-h-11 items-center text-sm text-[#0064E0]">Review billing details</Link></CartReview>;
+ return <CartReview cart={cart} actions={actions}><CommercePanel><details><summary className="cursor-pointer text-sm font-medium text-[#0064E0]">Search for another domain</summary><div className="mt-4"><ClientDomainSearch onAdded={()=>{}}/></div></details></CommercePanel><Link href="/client/profile" className="inline-flex min-h-11 items-center text-sm text-[#0064E0]">Review billing details</Link></CartReview>;
 }
 export function CartView(){const {user,isLoading}=useAuth();return <DashboardShell role="client" title="Cart" description="Review your items.">{isLoading?<p role="status">Loading cart…</p>:user?.role==="client"?<AccountCartView key={user.id} identity={user.id}/>:<p role="status">Sign in to view your cart.</p>}</DashboardShell>;}
