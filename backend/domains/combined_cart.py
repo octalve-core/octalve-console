@@ -1,5 +1,5 @@
-from django.utils import timezone
 """Combined Test Mode orders. Each domain has its own submission reservation."""
+from django.utils import timezone
 from decimal import Decimal
 from uuid import UUID
 

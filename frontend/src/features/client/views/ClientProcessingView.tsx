@@ -4,14 +4,14 @@ import Link from "next/link";
 import {CreditCard,FileText,Loader2,ShieldCheck,AlertCircle} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {useRouter} from "next/navigation";
-import {CommercePanel,CommerceCheckoutFrame,primary} from "@/components/shared-commerce/CommerceUI";
+import {CommercePanel,CommerceCheckoutFrame,VerifiedPaymentReceipt,primary,secondary} from "@/components/shared-commerce/CommerceUI";
 import {ActionLink} from "@/components/design-system/ActionLink";
 import {StatusBadge} from "@/components/design-system/StatusBadge";
 import {GooglePayReviewButton} from "../components/commerce/GooglePayReviewButton";
 import {clientApi,type CheckoutOptions} from "@/lib/api/endpoints";
 import {invoiceDownloadHref,invoiceHref} from "../components/commerce/invoice-links";
 
-type InvoiceState={id:number;invoice_number?:string;status:string;currency:string;total:string;amount_due:string;payment_action_allowed?:boolean};
+type InvoiceState={id:number;invoice_number?:string;status:string;currency:string;total:string;amount_due:string;payment_action_allowed?:boolean;order_number?:string;payment_details?:{reference:string;gateway:string;verified_at?:string;test:boolean}|null};
 const doneStates=["paid","void","cancelled","refunded"];
 const allowedHosts=new Set(["checkout.paystack.com","checkout.flutterwave.com"]);
 
@@ -90,7 +90,7 @@ export function ClientProcessingView(){
   const offered=options?.enabled&&invoice?.currency===options.currency&&invoice?.status==="unpaid"&&invoice.payment_action_allowed;
   return <DashboardShell role="client" title="Order status" description="Track your invoice and secure payment.">
     <CommerceCheckoutFrame stage={paid?5:4} title={paid?"Payment confirmed":"Complete your payment"} back={()=>router.push("/client/orders")} backLabel="Back to orders">
-      <CommercePanel className="p-6 sm:p-9">
+      {paid&&invoice?.payment_details&&!invoice.payment_details.test?<VerifiedPaymentReceipt amount={new Intl.NumberFormat("en-NG",{style:"currency",currency:invoice.currency}).format(Number(invoice.total))} reference={invoice.payment_details.reference} order={invoice.order_number||"—"} invoice={invoice.invoice_number||"—"} method={invoice.payment_details.gateway==="paystack"?"Paystack":invoice.payment_details.gateway} paidAt={invoice.payment_details.verified_at?new Date(invoice.payment_details.verified_at).toLocaleString("en-NG"):undefined} test={false} actions={<><Link href="/client" className={primary}>Go to dashboard</Link><a href={invoiceDownloadHref(invoice.id)} className={secondary}>Download receipt</a></>}><p className="text-sm text-slate-600">Your payment is recorded. Track service activation in your account.</p></VerifiedPaymentReceipt>:<CommercePanel className="p-6 sm:p-9">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0064E0]">
             {paid?<ShieldCheck/>:<FileText/>}
@@ -138,7 +138,7 @@ export function ClientProcessingView(){
           <ActionLink href="/client/orders" variant="outline">View orders</ActionLink>
           <ActionLink href="/client/support/new" variant="outline">Contact support</ActionLink>
         </div>
-      </CommercePanel>
+      </CommercePanel>}
     </CommerceCheckoutFrame>
   </DashboardShell>;
 }

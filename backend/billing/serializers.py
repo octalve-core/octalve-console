@@ -38,6 +38,12 @@ class InvoiceSerializer(serializers.ModelSerializer):
     payment_resume = serializers.SerializerMethodField()
     test_checkout_status = serializers.SerializerMethodField()
     payment_reference = serializers.SerializerMethodField()
+    payment_details = serializers.SerializerMethodField()
+    order_number = serializers.CharField(source="order.order_number", read_only=True, default=None)
+
+    def get_payment_details(self, obj):
+        from .payment_reference import verified_payment_details
+        return verified_payment_details(obj)
 
     def get_payment_reference(self, obj):
         from .payment_reference import verified_payment_details
@@ -49,7 +55,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
             'id', 'invoice_number', 'order', 'client', 'client_name', 'client_email',
             'status', 'status_display', 'currency', 'subtotal', 'discount_total',
             'tax_total', 'total', 'amount_paid', 'amount_due', 'issue_date',
-            'due_date', 'paid_at', 'notes', 'items', 'is_overdue', 'created_at', 'payment_action_allowed', 'payment_resume', 'test_checkout_status', 'payment_reference'
+            'due_date', 'paid_at', 'notes', 'items', 'is_overdue', 'created_at', 'payment_action_allowed', 'payment_resume', 'test_checkout_status', 'payment_reference', 'payment_details', 'order_number'
         ]
         read_only_fields = ['invoice_number', 'amount_paid', 'amount_due', 'created_at']
     
