@@ -107,3 +107,7 @@ requires("features/client/checkout/CombinedCartCheckout.tsx",["VerifiedPaymentRe
 requires("features/client/components/commerce/BillingRecordDirectory.tsx",["Payment reference","r.paymentReference"]);
 
 requires("features/client/checkout/CombinedCartCheckout.tsx",["action:\"pay\"","CheckoutConsent","PaymentGatewayChoices","Preparing secure payment"]);
+
+requires("features/client/checkout/CartView.tsx",["CartDomainSearchPanel","draftCartAmounts"]);
+requires("features/client/checkout/ClientCartShortcuts.tsx",["draftCartAmounts"]);
+requires("features/client/checkout/CheckoutBillingDetails.tsx",["<ClientProfileDetailsForm embedded"]);
