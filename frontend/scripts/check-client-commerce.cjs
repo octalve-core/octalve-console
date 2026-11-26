@@ -18,12 +18,12 @@ requires("features/client/checkout/ServiceCheckout.tsx",[
  "clientApi.quoteOrder(checkoutPayload(stableKey))","clientApi.createOrder(checkoutPayload())",
  "result.currency!==selected?.currency","setConfirmation(result);setStage(\"completed\")",
  "result.invoice.status!==\"unpaid\"","stage===\"completed\"",
- "CheckoutProgress","CheckoutQuoteSummary","ServiceDomainChoice"
+ "CommerceCheckoutFrame","CheckoutQuoteSummary","ServiceDomainChoice"
 ]);
 requires("features/client/checkout/ui/ServiceDomainChoice.tsx",['choice==="new"',"ClientDomainSearch","onDomainChange"]);
 requires("app/client/order/checkout/page.tsx",['product === "domain"',"<DomainCheckout","<ServiceCheckout"]);
 requires("features/client/checkout/DomainCheckout.tsx",["DomainSandboxPurchase","checkoutPage"]);
-requires("features/client/checkout/DomainCart.tsx",["Order summary","Registration date","Expiry date","Explore hosting"]);
+requires("features/client/checkout/DomainCart.tsx",["CheckoutSummary","Registration date","Expiry date","Explore hosting","CommerceCheckoutFrame"]);
 requires("features/client/components/commerce/HostingPlanCards.tsx",["PublishedPackageCard","StatusBadge","AddToCartButton","plan.canOrder","Billing period"]);
 requires("features/client/components/commerce/HostingOrderSummary.tsx",["defaultCycle","formatPlanAmount","onCycleChange","AddToCartButton"]);
 requires("features/client/checkout/CartView.tsx",["readCart","removeFromCart","cartCheckoutHref"]);
@@ -86,3 +86,5 @@ console.log("PASS: Batch 4 commerce and payment authority protected; typed Tailw
 requires("features/client/views/ClientDomainTransferView.tsx",["DomainSearchField","clientApi.domainTransferReadiness(domain)","checkout_enabled!==false"]);
 requires("features/client/components/domain-search/DomainSearchResult.tsx",["DomainResultCard","value.test_checkout_enabled","verified&&priced"]);
 requires("features/client/components/DomainSandboxPurchase.tsx",['url.origin!=="https://checkout.paystack.com"']);
+
+for(const file of ["DomainCart","ServiceCheckout","ServiceCartCheckout","CombinedCartCheckout"]){const source=read("features/client/checkout/"+file+".tsx");if(!source.includes("CommerceCheckoutFrame")||source.includes("<DashboardPage")||source.includes("<WorkspaceGrid"))throw Error(file+": legacy checkout layout returned");}
