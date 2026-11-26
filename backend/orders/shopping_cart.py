@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from accounts.account_self_service import reserve_email_attempt
-from domains.models import TLDPricing
+from domains.models import Domain, TLDPricing
 from domains.public_registrar import public_availability
 from domains.registrar_quote import HOSTNAME
 
@@ -145,10 +145,59 @@ def snapshot(cart):
     currencies = {line.get("currency") for line in lines if line["ready"]}
     currency = next(iter(currencies)) if len(currencies) == 1 and all(line["ready"] for line in lines) else None
     subtotal = str(sum((Decimal(line["amount"]) for line in lines), Decimal("0.00"))) if currency else None
-    return {"lines": lines, "subtotal": subtotal, "currency": currency}
+    domains = list(owned_domains(cart.client_id).order_by("domain_name").values_list("domain_name", flat=True)[:100]) if cart and cart.client_id else []
+    return {"lines": lines, "subtotal": subtotal, "currency": currency, "domains": domains}
 
 
-@api_view(["GET", "POST", "DELETE"])
+def owned_domains(owner):
+    return Domain.objects.filter(client_id=owner, is_active=True, status__in=["active", "dns_only"])
+
+
+def configuration(data):
+    if not isinstance(data, dict) or set(data) != {"id", "domain", "register"}:
+        raise ValidationError("Choose a valid domain configuration.")
+    line_id, domain, register = data["id"], data["domain"], data["register"]
+    if not isinstance(line_id, str) or len(line_id) > 310 or type(register) is not bool:
+        raise ValidationError("Choose a valid service.")
+    if domain != "" or register:
+        exact_selection({"kind": "domain", "domain": domain})
+    return line_id, domain, register
+
+
+def configure_selection(cart, change):
+    if cart is None:
+        raise ValidationError("The cart is empty.")
+    line_id, domain, register = change
+    selections = {selection_id(item): item for item in cart.items}
+    current = selections.get(line_id)
+    if current is None and line_id.startswith("service:"):
+        parts = line_id.split(":")
+        if len(parts) in (3, 4):
+            target = ":".join(parts[:3] + ([domain] if domain else []))
+            if target in selections and (not register or "domain:" + domain in selections):
+                return
+    if not current or current["kind"] != "service":
+        raise ValidationError("This service has changed. Refresh your cart.")
+    configured = exact_selection({**current, "domain": domain})
+    new_id = selection_id(configured)
+    if new_id != line_id and new_id in selections:
+        raise ValidationError("This service is already configured for that domain.")
+    domain_item = {"kind": "domain", "domain": domain}
+    domain_id = selection_id(domain_item)
+    if domain and domain_id not in selections:
+        if register:
+            priced_line(domain_item)
+            selections[domain_id] = domain_item
+        elif not cart.client_id or not owned_domains(cart.client_id).filter(domain_name=domain).exists():
+            raise ValidationError("Choose a domain from your cart or account.")
+    priced_line(configured)
+    cart.items = [configured if key == line_id else item for key, item in selections.items()]
+    if len(cart.items) > MAX_ITEMS:
+        raise ValidationError("Your cart can contain up to 20 items.")
+    cart.save(update_fields=["items", "updated_at"])
+
+
+@api_view(["GET", "POST", "DELETE", "PATCH"])
 @authentication_classes([])
 @permission_classes([AllowAny])
 @throttle_classes([ShoppingThrottle])
@@ -158,6 +207,16 @@ def guest_shopping(request):
         return response(snapshot(guest_cart(request)))
     assert_payload_size(request)
     data = request.data
+    if request.method == "PATCH":
+        change = configuration(data)
+        if change[2]:
+            if not reserve_email_attempt("shopping-guest-write", "global", 500, 86400):
+                raise Throttled(detail="Cart updates are temporarily limited.")
+            priced_line({"kind": "domain", "domain": change[1]}, verify_domain=True)
+        with transaction.atomic():
+            cart = guest_cart(request, lock=True)
+            configure_selection(cart, change)
+        return response(snapshot(cart))
     if request.method == "POST":
         if isinstance(data, dict) and set(data) == {"bundle"}:
             names = data["bundle"]
@@ -262,7 +321,7 @@ def account_cart(owner):
     return cart
 
 
-@api_view(["GET", "POST", "DELETE"])
+@api_view(["GET", "POST", "DELETE", "PATCH"])
 @permission_classes([IsAuthenticated])
 def account_shopping(request):
     if not settings.CLOUD_UNIFIED_SHOPPING_ENABLED:
@@ -273,6 +332,16 @@ def account_shopping(request):
     if request.method == "GET":
         return response(snapshot(Cart.objects.filter(session_key=key, client=request.user).first()))
     assert_payload_size(request)
+    if request.method == "PATCH":
+        change = configuration(request.data)
+        if cart := Cart.objects.filter(session_key=key, client=request.user).first():
+            if change[2]:
+                priced_line({"kind": "domain", "domain": change[1]}, verify_domain=True)
+            with transaction.atomic():
+                cart = account_cart(request.user.pk)
+                configure_selection(cart, change)
+            return response(snapshot(cart))
+        raise ValidationError("The cart is empty.")
     if request.method == "POST":
         data = request.data
         if not isinstance(data, dict) or set(data) != {"selections"} or not isinstance(data["selections"], list) or not 1 <= len(data["selections"]) <= MAX_ITEMS:
