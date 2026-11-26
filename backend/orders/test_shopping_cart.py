@@ -184,3 +184,38 @@ class ShoppingCartTests(TestCase):
         refresh = RefreshToken.for_user(self.owner)
         self.console.credentials(HTTP_AUTHORIZATION="Bearer " + str(refresh.access_token))
         self.assertEqual(self.console.get("/api/orders/shopping/storefront-account/", HTTP_X_OCTALVE_SHOPPING_SESSION=str(refresh)).status_code, 404)
+
+    def test_real_registration_login_claim_and_logout_cart_lifecycle(self):
+        bridge = "/api/orders/shopping/storefront-account/"
+        password = "SyntheticCartFixture-2026!"
+        self.assertEqual(self.add().status_code, 200)
+        registered = self.console.post("/api/auth/register/", {
+            "email": "unified-registration@example.invalid", "username": "unified_registration",
+            "full_name": "Synthetic Shopping", "password": password, "re_password": password,
+        }, format="json")
+        self.assertEqual(registered.status_code, 201, registered.data)
+        self.console.credentials(HTTP_AUTHORIZATION="Bearer " + registered.data["access"])
+        grant = self.console.post(self.grant, {}, format="json").data["grant"]
+        claimed = self.public.post(self.claim, {"grant": grant}, format="json", HTTP_ORIGIN=CONSOLE)
+        self.assertEqual(claimed.status_code, 200, claimed.data)
+        proof = {"HTTP_X_OCTALVE_SHOPPING_SESSION": registered.data["refresh"]}
+        self.assertEqual(self.console.get(bridge, **proof).data["lines"][0]["selection"], self.item)
+        self.assertEqual(self.console.post("/api/auth/logout/", {"refresh": registered.data["refresh"]}, format="json").status_code, 200)
+        self.assertEqual(self.console.get(bridge, **proof).status_code, 403)
+        self.console.credentials()
+        login = self.console.post("/api/auth/jwt/create/", {"email":"unified-registration@example.invalid","password":password}, format="json")
+        self.assertEqual(login.status_code, 200, login.data)
+        self.console.credentials(HTTP_AUTHORIZATION="Bearer " + login.data["access"])
+        new_proof = {"HTTP_X_OCTALVE_SHOPPING_SESSION":login.data["refresh"]}
+        self.assertEqual(self.console.get(bridge, **new_proof).data["lines"][0]["selection"], self.item)
+        self.assertEqual(self.console.get(bridge, **proof).status_code, 403)
+
+    def test_failed_merge_preserves_guest_selection(self):
+        self.assertEqual(self.add().status_code, 200)
+        self.console.force_authenticate(user=self.owner)
+        grant = self.console.post(self.grant, {}, format="json").data["grant"]
+        TLDPricing.objects.filter(tld=".com").update(status="inactive")
+        failed = self.public.post(self.claim, {"grant":grant}, format="json", HTTP_ORIGIN=CONSOLE)
+        self.assertEqual(failed.status_code, 400, failed.data)
+        self.assertEqual(Cart.objects.get(client__isnull=True).items, [self.item])
+        self.assertFalse(Cart.objects.filter(client=self.owner).exists())

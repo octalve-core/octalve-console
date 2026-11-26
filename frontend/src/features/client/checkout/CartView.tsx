@@ -1,103 +1,48 @@
 "use client";
-
 import Link from "next/link";
-import {ArrowLeft, ArrowRight} from "lucide-react";
-import {useEffect, useState} from "react";
+import {useEffect,useRef,useState} from "react";
+import {useRouter} from "next/navigation";
 import {DashboardShell} from "@/components/layout/DashboardShell";
-import {DashboardPage} from "@/components/layout/DashboardPage";
-import {Panel} from "@/components/design-system/Panel";
-import {CartLine} from "./ui/CartLine";
-import {CheckoutColumns,CheckoutSteps,CheckoutSummary} from "./ui/CheckoutSections";
-import {authApi, type AccountProfile} from "@/lib/api/endpoints";
+import {useAuth} from "@/context/AuthContext";
+import {CartReview,CommercePanel} from "@/components/shared-commerce/CommerceUI";
+import type {CartActions,CartLine,CartView as View} from "@/components/shared-commerce/types";
 import {ClientDomainSearch} from "../components/ClientDomainSearch";
-import {formatPlanAmount, loadSellablePlans, type ClientOrderPlan} from "../data/client-order-data";
-import {cartCheckoutHref, cartSelectionId, readCart, removeFromCart, type CartSelection} from "./cart-selections";
+import {formatPlanAmount,loadSellablePlans,type ClientOrderPlan} from "../data/client-order-data";
+import {accountCartSnapshot,cartCheckoutHref,cartSelectionId,readCart,removeFromCart,cartChangedEvent,type CartSelection,type AccountSnapshot} from "./cart-selections";
+import {searchCartDomains,sharedCartLines} from "./shared-cart-adapter";
 
-const linkStyle = "inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-console-primary hover:bg-blue-50";
-
-export function CartView() {
-  const [items, setItems] = useState<CartSelection[] | null>(null);
-  const [plans, setPlans] = useState<ClientOrderPlan[]>([]);
-  const [profile, setProfile] = useState<AccountProfile | null>(null);
-  const [error, setError] = useState("");
-  const [removing, setRemoving] = useState(false);
-
-  function refresh() {
-    return readCart().then(setItems).catch(() => setError("Your cart couldn’t be loaded. Try refreshing the page."));
-  }
-
-  useEffect(() => {
-    void refresh();
-    void loadSellablePlans().then(setPlans).catch(() => {});
-    void authApi.profile().then(setProfile).catch(() => {});
-  }, []);
-
-  async function remove(id: string) {
-    setRemoving(true);
-    setError("");
-    try { setItems(await removeFromCart(id)); }
-    catch { setError("Couldn’t remove this item. Try again."); }
-    finally { setRemoving(false); }
-  }
-
-  const single = items?.length === 1 ? items[0] : undefined;
-  const singlePlan = single?.kind === "service" ? plans.find(plan => plan.id === single.plan) : undefined;
-  const canCheckout = single && (single.kind === "domain" || (
-    singlePlan?.revision === single.revision && singlePlan.cycles.some(cycle => cycle.key === single.cycle)
-  ));
-  const serviceBasket = !!items && items.length > 1 && items.every(item => item.kind === "service");
-  const lines = items?.map(item => {
-    const plan = item.kind === "service"
-      ? plans.find(value => value.id === item.plan && value.revision === item.revision)
-      : undefined;
-    const cycle = item.kind === "service" ? plan?.cycles.find(value => value.key === item.cycle) : undefined;
-    const price = plan && cycle ? {amount: cycle.price + cycle.setupFee, currency: plan.currency} : undefined;
-    return {item, plan, cycle, price};
-  });
-  const currency = lines?.[0]?.price?.currency;
-  const estimate = currency && lines?.every(line=>line.price?.currency===currency)
-    ? formatPlanAmount(lines.reduce((sum,line)=>sum+(line.price?.amount??0),0),currency)
-    : undefined;
-  const address = [profile?.address, profile?.city, profile?.state, profile?.country, profile?.postal_code].filter(Boolean).join(", ");
-
-  return <DashboardShell role="client" title="Cart" description="Review your items.">
-    <DashboardPage eyebrow="Purchases" title="Shopping cart">
-      <Link href="/client/domains/register" className={linkStyle}><ArrowLeft size={16} aria-hidden="true"/> Continue shopping</Link>
-      {error && <p role="alert" className="my-3 text-sm text-rose-700">{error}</p>}
-      <CheckoutSteps current="Cart"/>
-      <CheckoutColumns summary={<CheckoutSummary title="Order summary">
-          <p className="text-sm text-console-muted">{items?.length ?? 0} {(items?.length ?? 0) === 1 ? "item" : "items"}</p>
-          {estimate&&<div className="flex flex-wrap justify-between gap-2 text-sm">
-            <span className="text-console-muted">Estimated total</span><strong className="tabular-nums">{estimate}</strong>
-          </div>}
-          <div className="border-t border-console-line pt-4">
-            <h3 className="text-sm font-medium">Billing address</h3>
-            <p className="mt-1 text-sm text-console-muted">{address || "No address saved"}</p>
-            <Link className={linkStyle} href="/client/profile">{address ? "Edit billing address" : "Add billing address"}</Link>
-          </div>
-          {canCheckout && <Link href={cartCheckoutHref(single)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-console-primary px-4 text-sm font-medium text-white">
-            Review order <ArrowRight size={16} aria-hidden="true"/>
-          </Link>}
-          {serviceBasket && <Link href="/client/order/checkout?view=service-review" className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-console-primary px-4 text-sm font-medium text-white">Review order <ArrowRight size={16} aria-hidden="true"/></Link>}
-          {!serviceBasket && (items?.length ?? 0) > 1 && <Link href="/client/order/checkout?view=combined-review" className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-console-primary px-4 text-sm font-medium text-white">Review order <ArrowRight size={16} aria-hidden="true"/></Link>}
-        </CheckoutSummary>}>
-          {items === null && !error && <p role="status" className="text-sm text-console-muted">Loading cart…</p>}
-          {items?.length === 0 && <Panel>Your cart is empty.</Panel>}
-          {lines?.map(({item,plan,cycle,price}) => {
-            const id = cartSelectionId(item);
-            const name = item.kind === "domain" ? item.domain : plan?.name ?? "Service plan";
-            return <CartLine key={id} name={name} domain={item.domain} registration={item.kind === "domain"}
-              detail={item.kind === "domain" ? "Domain registration · 1 year" : cycle?.label ?? "Check plan availability"}
-              price={price ? formatPlanAmount(price.amount,price.currency) : undefined}
-              busy={removing} onRemove={() => void remove(id)}/>;
-          })}
-          <Panel>
-            <details>
-              <summary className="cursor-pointer rounded text-sm font-medium text-console-primary focus-visible:ring-2 focus-visible:ring-console-primary">Search for another domain</summary>
-              <div className="mt-4"><ClientDomainSearch onAdded={() => void refresh()}/></div>
-            </details>
-          </Panel>
-      </CheckoutColumns>
-    </DashboardPage>
-  </DashboardShell>;
+function AccountCartView({identity}:{identity:string}){
+ const router=useRouter();
+ const [items,setItems]=useState<CartSelection[]|null>(null),[snapshot,setSnapshot]=useState<AccountSnapshot|null>(null),[plans,setPlans]=useState<ClientOrderPlan[]>([]);
+ const [error,setError]=useState(""),[busy,setBusy]=useState(false);
+ const epoch=useRef(0),writing=useRef(false),mounted=useRef(true);
+ async function refresh(){
+  if(writing.current)return;
+  const current=++epoch.current;
+  try{const selection=await readCart();const remote=await accountCartSnapshot();if(mounted.current&&epoch.current===current){setItems(remote?.lines.map(l=>l.selection)??selection);setSnapshot(remote);setError("");}}
+  catch{if(mounted.current&&epoch.current===current){setItems(null);setSnapshot(null);setError("Your cart couldn’t be loaded. Try refreshing.");}}
+ }
+ useEffect(()=>{mounted.current=true;void refresh();void loadSellablePlans().then(p=>{if(mounted.current)setPlans(p)}).catch(()=>{});const reload=()=>{if(document.visibilityState==="visible")void refresh()};window.addEventListener(cartChangedEvent,reload);window.addEventListener("focus",reload);window.addEventListener("pageshow",reload);return()=>{mounted.current=false;epoch.current++;window.removeEventListener(cartChangedEvent,reload);window.removeEventListener("focus",reload);window.removeEventListener("pageshow",reload);};},[identity]);
+ async function mutate(id:string,domain?:string,register=false){
+  if(writing.current)throw Error("Cart update in progress.");
+  writing.current=true;epoch.current++;setBusy(true);setError("");
+  try{if(domain===undefined){await removeFromCart(id);}else{const remote=await accountCartSnapshot("PATCH",{id,domain,register});if(!remote)throw Error("Domain configuration is unavailable.");}
+   const remote=await accountCartSnapshot();const selection=remote?.lines.map(l=>l.selection)??await readCart();
+   if(mounted.current){setSnapshot(remote);setItems(selection);}
+  }catch{if(mounted.current)setError("Couldn’t confirm the cart update. Refresh and retry.");throw Error("Cart update could not be confirmed.")}
+  finally{writing.current=false;if(mounted.current)setBusy(false);}
+ }
+ const single=items?.length===1?items[0]:undefined;
+ const singlePlan=single?.kind==="service"?plans.find(p=>p.id===single.plan):undefined;
+ const canSingle=single&&(single.kind==="domain"||(singlePlan?.revision===single.revision&&singlePlan.cycles.some(c=>c.key===single.cycle)));
+ const next=canSingle?cartCheckoutHref(single):items&&items.length>1?(items.every(i=>i.kind==="service")?"/client/order/checkout?view=service-review":"/client/order/checkout?view=combined-review"):null;
+ const lines:CartLine[]=snapshot?sharedCartLines(snapshot):(items??[]).map(item=>{
+  const plan=item.kind==="service"?plans.find(p=>p.id===item.plan&&p.revision===item.revision):undefined;
+  const cycle=item.kind==="service"?plan?.cycles.find(c=>c.key===item.cycle):undefined;
+  return {id:cartSelectionId(item),kind:item.kind==="domain"?"domain":"hosting",name:item.kind==="domain"?item.domain:plan?.name??"Service plan",description:"",period:item.kind==="domain"?"1 year":cycle?.label??"Check availability",priceLabel:plan&&cycle?formatPlanAmount(cycle.price+cycle.setupFee,plan.currency)+" estimated":"Priced at review",domain:item.domain};
+ });
+ const cart:View={lines,subtotal:snapshot?.subtotal&&snapshot.currency?formatPlanAmount(Number(snapshot.subtotal),snapshot.currency):"Confirmed at review",tax:"Calculated at review",total:"Confirmed at review",busy:busy||items===null&&!error,error,checkoutAllowed:!!next&&(!snapshot||snapshot.lines.every(l=>l.ready)&&!!snapshot.currency)};
+ const actions:CartActions={remove:id=>{void mutate(id).catch(()=>{});},configure:(id,domain)=>mutate(id,domain),domainPicker:snapshot?{search:searchCartDomains,addAndConfigure:(id,domain)=>mutate(id,domain,true)}:undefined,review:()=>{},checkout:()=>{if(next&&cart.checkoutAllowed)router.push(next)},continueShopping:()=>router.push("/client/order")};
+ return <CartReview cart={cart} actions={actions}><CommercePanel><details><summary className="cursor-pointer text-sm font-medium text-[#0064E0]">Search for another domain</summary><div className="mt-4"><ClientDomainSearch onAdded={()=>void refresh()}/></div></details></CommercePanel><Link href="/client/profile" className="inline-flex min-h-11 items-center text-sm text-[#0064E0]">Review billing details</Link></CartReview>;
 }
+export function CartView(){const {user,isLoading}=useAuth();return <DashboardShell role="client" title="Cart" description="Review your items.">{isLoading?<p role="status">Loading cart…</p>:user?.role==="client"?<AccountCartView key={user.id} identity={user.id}/>:<p role="status">Sign in to view your cart.</p>}</DashboardShell>;}

@@ -3,6 +3,7 @@ import {authApi} from "@/lib/api/endpoints";
 export type CartSelection = {kind:"domain";domain:string} | {kind:"service";plan:string;cycle:string;revision:number;domain?:string};
 export const cartHref = "/client/order/checkout?view=cart";
 export const cartChangedEvent = "octalve:cart-changed";
+export const cartAddedEvent = "octalve:cart-added";
 
 const domainPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
@@ -41,9 +42,9 @@ function read(key:string):CartSelection[]{
 
 const accountEndpoint="/api/cloud/orders/shopping/account";
 
-type AccountSnapshot={lines:{selection:unknown}[]};
+export type AccountSnapshot={lines:{id:string;selection:CartSelection;ready:boolean;kind?:string;name?:string;currency?:string;amount?:string;renewal?:string;period?:string}[];subtotal:string|null;currency:string|null;domains?:string[]};
 
-async function accountRequest(method:"GET"|"POST"|"DELETE",data?:unknown):Promise<CartSelection[]|null>{
+export async function accountCartSnapshot(method:"GET"|"POST"|"DELETE"|"PATCH"="GET",data?:unknown):Promise<AccountSnapshot|null>{
   const result=await fetch(accountEndpoint,{
     method,cache:"no-store",credentials:"same-origin",signal:AbortSignal.timeout(15000),
     ...(data?{headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}:{}),
@@ -54,8 +55,10 @@ async function accountRequest(method:"GET"|"POST"|"DELETE",data?:unknown):Promis
   if(!Array.isArray(body.lines))throw Error("Invalid cart response.");
   const selections=body.lines.map(line=>line.selection);
   if(!selections.every(valid))throw Error("Invalid cart selection.");
-  return selections;
+  return body;
 }
+
+async function accountRequest(method:"GET"|"POST"|"DELETE",data?:unknown):Promise<CartSelection[]|null>{const body=await accountCartSnapshot(method,data);return body?.lines.map(line=>line.selection)??null;}
 
 const activeImports=new Map<string,Promise<CartSelection[]|null>>();
 
@@ -107,7 +110,7 @@ export async function addToCart(item:CartSelection){
   if (!valid(item)) throw new Error("Choose a current offer before adding it.");
   const key=await accountCartKey();
   const remote=await accountRequest("POST",{selections:[item]});
-  if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));return;}
+  if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));window.dispatchEvent(new Event(cartAddedEvent));return;}
   const rest=read(key).filter(saved=>cartSelectionId(saved)!==cartSelectionId(item));
   if(rest.length>=20) throw new Error("The cart has reached its item limit.");
   write(key, [...rest, item]);

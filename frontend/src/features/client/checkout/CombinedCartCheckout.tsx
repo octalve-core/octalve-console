@@ -5,6 +5,7 @@ import Link from "next/link";
 import {ArrowLeft} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
+import {OrderConfirmation,CheckoutPayment} from "@/components/shared-commerce/CommerceUI";
 import {Panel} from "@/components/design-system/Panel";
 import {CheckoutColumns,CheckoutSteps,CheckoutSummary} from "./ui/CheckoutSections";
 import {authApi, type AccountProfile} from "@/lib/api/endpoints";
@@ -155,7 +156,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
       <CheckoutSteps current={purchase ? "Payment" : "Review order"}/>
       {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-4 text-sm text-rose-700">{error}</p>}
       {!purchase && !quote && !error && <p role="status">Checking current prices and availability…</p>}
-      {purchase ? <Panel className="space-y-4">
+      {purchase ? <OrderConfirmation reference={purchase.order} title={purchase.payment_verified?"Test payment confirmed":"Order recorded — payment pending"}>
         <h2 className="text-lg font-medium">{purchase.order}</h2>
         <Link href={`/client/invoices/${purchase.invoice_id}`} className="text-sm font-medium text-console-primary">View invoice {purchase.invoice}</Link>
         <p className="text-sm">{formatPlanAmount(Number(purchase.total), purchase.currency)}</p>
@@ -173,7 +174,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
               <button type="button" disabled={busy} className="min-h-11 rounded-lg border border-console-line px-3 text-sm font-medium text-console-primary disabled:opacity-50" onClick={() => void run("reconcile", domain.id)}>Check registration</button>}
           </li>)}
         </ul>
-      </Panel> : quote && <CheckoutColumns summary={<CheckoutSummary title="Invoice summary">
+      </OrderConfirmation> : quote && <CheckoutColumns summary={<CheckoutSummary title="Invoice summary">
           <p className="text-2xl font-medium tabular-nums">{formatPlanAmount(Number(quote.total),quote.currency)}</p>
           <div className="border-t border-console-line pt-4"><h3 className="text-sm font-medium">Billing address</h3>
             <p className="mt-1 text-sm text-console-muted">{address || "No address saved"}</p>

@@ -1,0 +1,10 @@
+{
+  "source": "octalve-core/octalve-cloud",
+  "revision": "b5ad352116528ebacc299047555986b004e8caa9",
+  "files": {
+    "CommerceUI.tsx": "7bee0264bf08de2b50f4f2563823914d2ad19702",
+    "DomainPicker.tsx": "2f2f58a424f0579b1d2533b926d2f822381bb4f7",
+    "domain-picker-model.ts": "d00c0dc003ccc9c4cb85dfdea3046a259c1e1bff",
+    "types.ts": "85c584c0c0bd554c73195edd6bb74b98723a10a0"
+  }
+}

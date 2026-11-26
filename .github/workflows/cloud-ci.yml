@@ -95,6 +95,8 @@ jobs:
         run: node frontend/scripts/check-batch-a-invoice-report-ui.cjs
       - name: Report financial count parser truthfulness (Batch A)
         run: node --experimental-strip-types --test frontend/scripts/test-batch-a-report-presentation.mjs
+      - name: Verify pinned shared commerce design source
+        run: node frontend/scripts/sync-shared-commerce.cjs --check
       - name: TypeScript
         run: pnpm typecheck:frontend
       - name: Next.js build
