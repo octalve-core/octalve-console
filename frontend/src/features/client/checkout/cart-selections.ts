@@ -114,6 +114,7 @@ export async function addToCart(item:CartSelection){
   const rest=read(key).filter(saved=>cartSelectionId(saved)!==cartSelectionId(item));
   if(rest.length>=20) throw new Error("The cart has reached its item limit.");
   write(key, [...rest, item]);
+  window.dispatchEvent(new Event(cartAddedEvent));
 }
 
 export async function removeFromCart(id:string){
@@ -139,9 +140,10 @@ export async function addDomainBundle(names:string[]){
  }));
  if(await accountCartKey()!==key)throw Error("Account changed. Please retry.");
  const remote=await accountRequest("POST",{selections:results});
- if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));return;}
+ if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));window.dispatchEvent(new Event(cartAddedEvent));return;}
  const merged=new Map(read(key).map(item=>[cartSelectionId(item),item]));
  for(const item of results)merged.set(cartSelectionId(item),item);
  if(merged.size>20)throw Error("Your cart can contain up to 20 items.");
  write(key,[...merged.values()]);
+ window.dispatchEvent(new Event(cartAddedEvent));
 }

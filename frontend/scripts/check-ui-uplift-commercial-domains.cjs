@@ -23,7 +23,7 @@ const cases=[
   "categorySlug","setPlanId","selectedCycle={cycleKey}","HostingPlanCards"
  ]],
  ["features/client/checkout/ServiceCheckout.tsx",[
-  'WorkspaceGrid variant="commerceColumns"','ServiceDomainChoice',
+  'CheckoutColumns summary=','ServiceDomainChoice',
   "authApi","clientApi","placeOrder","setDomainChoice(value)","setQuote(null)",
   "agreed","CheckoutQuoteSummary","stage!==\"completed\"","stage===\"completed\""
  ]],

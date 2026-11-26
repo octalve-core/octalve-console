@@ -1,16 +1,14 @@
 "use client";
 
-import {useEffect,useMemo,useState,type FormEvent} from "react";
+import {useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
+import {useRouter} from "next/navigation";
 import {ArrowLeft,ArrowRight,Loader2,ShieldCheck} from "lucide-react";
-import {OrderConfirmation,CommercePanel} from "@/components/shared-commerce/CommerceUI";
+import {OrderConfirmation,CommercePanel,CommerceCheckoutFrame,CheckoutColumns,primary} from "@/components/shared-commerce/CommerceUI";
 import {Panel} from "@/components/design-system/Panel";
-import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {ServiceDomainChoice,type DomainChoice} from "./ui/ServiceDomainChoice";
-import {CheckoutProgress} from "../components/commerce/CheckoutProgress";
 import {CheckoutQuoteSummary} from "../components/commerce/CheckoutQuoteSummary";
 import {DashboardShell} from "@/components/layout/DashboardShell";
-import {DashboardPage} from "@/components/layout/DashboardPage";
 import {authApi,clientApi,type AccountProfile,type CheckoutQuote} from "@/lib/api/endpoints";
 import {loadSellablePlans,formatPlanAmount,type ClientOrderPlan} from "../data/client-order-data";
 import {cartSelectionId, removeFromCart} from "./cart-selections";
@@ -19,9 +17,11 @@ type Stage="domain"|"review"|"completed";
 type Confirmation={id?:number;order_number?:string;total?:string;currency?:string;
   invoice?:{id:number;invoice_number:string;status:string;amount_due:string}};
 const domainPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/;
-const actionClass="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-console-primary px-5 py-3 text-sm font-medium text-white transition hover:bg-console-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto";
+const actionClass=primary+" w-full sm:w-auto";
 
 export function ServiceCheckout(){
+  const router=useRouter();
+  const submitting=useRef(false);
   const [plans,setPlans]=useState<ClientOrderPlan[]>([]);
   const [account,setAccount]=useState<AccountProfile|null>(null);
   const [planId,setPlanId]=useState("");
@@ -118,7 +118,8 @@ export function ServiceCheckout(){
 
   async function placeOrder(e:FormEvent<HTMLFormElement>){
     e.preventDefault();
-    if(!quote||!agreed||working||!canReview||confirmation)return;
+    if(!quote||!agreed||working||!canReview||confirmation||submitting.current)return;
+    submitting.current=true;
     setWorking(true);setError("");
     try{
       const result=await clientApi.createOrder(checkoutPayload()) as unknown as Confirmation;
@@ -134,19 +135,16 @@ export function ServiceCheckout(){
         setError("Order status changed. Please review its invoice before attempting payment.");
       }
     }catch{setError("We couldn't confirm your order. Check Orders before retrying; the checkout reference is unchanged.");}
-    finally{setWorking(false);}
+    finally{submitting.current=false;setWorking(false);}
   }
-  const currentStep=stage==="domain"?1:stage==="review"?2:3;
+  const currentStep=stage==="domain"?1:stage==="review"?3:4;
   return <DashboardShell role="client" title="Checkout" description="Configure your service and review your purchase.">
-    <DashboardPage eyebrow="Checkout" title={selected ? `Set up ${selected.product}` : "Set up your service"}
-      description="Choose a domain, then review your order.">
-      <Link href="/client/order/checkout?view=cart" className="mb-3 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-console-primary"><ArrowLeft size={16} aria-hidden="true"/> Back to cart</Link>
-      <CheckoutProgress currentStep={currentStep as 0|1|2|3}/>
+    <CommerceCheckoutFrame stage={currentStep} title={stage==="completed"?"Your invoice is ready":stage==="review"?"Review your order":selected?`Set up ${selected.product}`:"Set up your service"} back={()=>router.push("/client/order/checkout?view=cart")}>
       {error?<p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
       {loading?<p role="status" className="rounded-2xl bg-white p-6 text-sm text-slate-600">Preparing your selected plan…</p>:null}
       {!loading&&(!selected||!cycle)?<Link href="/client/order" className="font-medium text-[#0064E0]">Back to service plans</Link>:null}
-      {selected&&cycle&&stage!=="completed"?<WorkspaceGrid variant="commerceColumns">
-        <CommercePanel className="min-w-0 lg:col-span-2">
+      {selected&&cycle&&stage!=="completed"?<CheckoutColumns summary={<CheckoutQuoteSummary plan={selected} cycleKey={cycleKey} quote={quote} coupon={coupon} stage={stage} onCouponChange={value=>{setCoupon(value);setQuote(null);}} onChangeRequest={()=>{setStage("domain");setQuote(null);setAgreed(false);}}/>}>
+        <CommercePanel className="min-w-0">
           {stage==="domain"?<>
             <ServiceDomainChoice choice={domainChoice} domain={domain} invalid={!!normalizedDomain&&!validDomain}
               onChoice={value=>{setDomainChoice(value);setQuote(null);setError("");}}
@@ -203,10 +201,7 @@ export function ServiceCheckout(){
             </div>
           </form>}
         </CommercePanel>
-        <CheckoutQuoteSummary plan={selected} cycleKey={cycleKey} quote={quote}
-          coupon={coupon} stage={stage} onCouponChange={value=>{setCoupon(value);setQuote(null);}}
-          onChangeRequest={()=>{setStage("domain");setQuote(null);setAgreed(false);}}/>
-      </WorkspaceGrid>:null}
+      </CheckoutColumns>:null}
       {stage==="completed"&&confirmation?<OrderConfirmation reference={confirmation.order_number??confirmation.invoice?.invoice_number??""} title="Your order is recorded">
         <p className="mt-3 text-sm leading-7 text-slate-600">Order {confirmation.order_number} is linked to invoice {confirmation.invoice?.invoice_number}.
           Payment is not yet confirmed and hosting has not been activated.</p>
@@ -216,6 +211,6 @@ export function ServiceCheckout(){
           <Link href="/client/orders" className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium">My orders</Link>
         </div>
       </OrderConfirmation>:null}
-    </DashboardPage>
+    </CommerceCheckoutFrame>
   </DashboardShell>;
 }

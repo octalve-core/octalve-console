@@ -2,12 +2,11 @@
 
 import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
-import {ArrowLeft} from "lucide-react";
+import {useRouter} from "next/navigation";
 import {DashboardShell} from "@/components/layout/DashboardShell";
-import {DashboardPage} from "@/components/layout/DashboardPage";
-import {OrderConfirmation,CheckoutPayment} from "@/components/shared-commerce/CommerceUI";
-import {Panel} from "@/components/design-system/Panel";
-import {CheckoutColumns,CheckoutSteps,CheckoutSummary} from "./ui/CheckoutSections";
+import {CommerceCheckoutFrame,CommercePanel,primary,OrderConfirmation,CheckoutPayment} from "@/components/shared-commerce/CommerceUI";
+
+import {CheckoutColumns,CheckoutSummary} from "./ui/CheckoutSections";
 import {authApi, type AccountProfile} from "@/lib/api/endpoints";
 import {formatPlanAmount} from "../data/client-order-data";
 import {cartSelectionId, readCart, removeFromCart, type CartSelection} from "./cart-selections";
@@ -17,7 +16,7 @@ type Purchase = {invoice_id:number; invoice:string; order:string; total:string; 
   payment_verified:boolean; payment_started:boolean; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
 
 const reviewHref = "/client/order/checkout?view=combined-review";
-const actionStyle = "inline-flex min-h-12 items-center justify-center rounded-xl bg-console-primary px-5 text-sm font-medium text-white disabled:opacity-50";
+const actionStyle = primary;
 const statuses: Record<string,string> = {
   awaiting_payment:"Awaiting test payment", registration_uncertain:"Registration unconfirmed",
   registration_rejected:"Registration declined", registration_action_required:"Action required",
@@ -39,6 +38,7 @@ async function request<T>(invoice?: number, body?: Record<string,unknown>) {
 }
 
 export function CombinedCartCheckout({invoice}: {invoice?:number}) {
+  const router=useRouter();
   const [quote, setQuote] = useState<Quote>();
   const [items, setItems] = useState<CartSelection[]>([]);
   const [account, setAccount] = useState<AccountProfile>();
@@ -139,7 +139,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
       if (action === "checkout" && purchase) {
         const {checkout_url} = await request<{checkout_url:string}>(purchase.invoice_id, {action});
         const url = new URL(checkout_url);
-        if (url.origin !== "https://checkout.paystack.com" || url.username || url.password) throw Error("Payment link could not be verified.");
+        if (url.origin !== "https://checkout.paystack.com" || url.username || url.password || url.hash) throw Error("Payment link could not be verified.");
         window.location.assign(url);
       }
       if (action === "reconcile" && purchase && line) {
@@ -151,9 +151,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
 
   const address = [account?.address, account?.city, account?.state, account?.country, account?.postal_code].filter(Boolean).join(", ");
   return <DashboardShell role="client" title="Checkout" description="Review your products and payment.">
-    <DashboardPage eyebrow="Checkout" title={purchase?.payment_verified ? "Test payment confirmed" : purchase ? "Order payment" : "Review your order"} description={purchase ? "View your invoice and payment status." : "Review your items and billing address."}>
-      <Link href="/client/order/checkout?view=cart" className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-console-primary"><ArrowLeft size={16} aria-hidden="true"/> Back to cart</Link>
-      <CheckoutSteps current={purchase ? "Payment" : "Review order"}/>
+    <CommerceCheckoutFrame stage={purchase?.payment_verified?5:purchase?4:3} title={purchase?.payment_verified?"Test payment confirmed":purchase?"Complete your payment":"Review your order"} back={()=>router.push("/client/order/checkout?view=cart")}>
       {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-4 text-sm text-rose-700">{error}</p>}
       {!purchase && !quote && !error && <p role="status">Checking current prices and availability…</p>}
       {purchase ? <OrderConfirmation reference={purchase.order} title={purchase.payment_verified?"Test payment confirmed":"Order recorded — payment pending"}>
@@ -183,7 +181,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
           <p className="text-xs text-console-muted">Test checkout. No money will be charged.</p>
           <button type="button" disabled={busy} className={actionStyle + " w-full"} onClick={() => void run("accept")}>{busy ? "Creating invoice…" : "Continue to payment"}</button>
         </CheckoutSummary>}>
-        <Panel>
+        <CommercePanel>
           <h2 className="text-lg font-medium">Your items</h2>
           <ul className="mt-3 divide-y divide-console-line">
             {quote.lines.map((line,index) => <li key={index} className="flex flex-wrap justify-between gap-3 py-4 text-sm">
@@ -191,8 +189,8 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
               <p>{formatPlanAmount(Number(line.amount),quote.currency)}</p>
             </li>)}
           </ul>
-        </Panel>
+        </CommercePanel>
       </CheckoutColumns>}
-    </DashboardPage>
+    </CommerceCheckoutFrame>
   </DashboardShell>;
 }
