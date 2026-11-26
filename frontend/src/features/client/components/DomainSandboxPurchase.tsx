@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {useRouter} from "next/navigation";
+import {CommerceCheckoutFrame,CommercePanel} from "@/components/shared-commerce/CommerceUI";
 import { DomainCart } from "../checkout/DomainCart";
 import { removeFromCart } from "../checkout/cart-selections";
 
@@ -31,6 +33,8 @@ const labels = {
 export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = false }: {
   admin?: boolean; domain?: string; checkoutPage?: boolean;
 }) {
+  const router=useRouter();
+  const submitting=useRef(false);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
@@ -58,6 +62,8 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
   }, [requestUrl]);
 
   async function submit(action: string) {
+    if(submitting.current)return;
+    submitting.current=true;
     setBusy(true);
     setError("");
     try {
@@ -85,22 +91,19 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
     } catch {
       setError("The connection was interrupted. Refresh to check the current status.");
     } finally {
+      submitting.current=false;
       setBusy(false);
     }
   }
 
-  if (!overview) return checkoutPage ? (
-    <section className="rounded-xl border border-console-line bg-white p-5 text-sm" role="status">
-      {loading ? "Loading domain checkout…" : "Checkout is currently unavailable for this domain or account."}
-    </section>
-  ) : null;
+  if (!overview) return checkoutPage ? <CommerceCheckoutFrame stage={3} title="Review your order" back={()=>router.push("/client/order/checkout?view=cart")}><CommercePanel><p role="status">{loading ? "Loading domain checkout…" : "Checkout is currently unavailable for this domain or account."}</p></CommercePanel></CommerceCheckoutFrame> : null;
   const purchase = overview.purchase;
   const awaitingPayment = purchase?.state === "awaiting_payment";
   const canCheckout = awaitingPayment && ["available", "resume"].includes(purchase.checkout_state);
   const terminal = purchase && ["registered", "registration_rejected"].includes(purchase.state);
   const buttons = !purchase
     ? [
-        ...(quote ? [{ action: "accept", text: "Accept quote" }] : []),
+        ...(quote ? [{ action: "accept", text: "Create invoice" }] : []),
         { action: "quote", text: quote ? "Get a fresh quote" : "Check availability and price" },
       ]
     : [
@@ -118,7 +121,7 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
   if (checkoutPage) return <DomainCart domain={overview.domain} amount={purchase?.amount ?? quote?.amount}
     status={purchase ? labels[purchase.state] : undefined} order={purchase?.order} invoice={purchase?.invoice}
     invoiceId={purchase?.invoice_id}
-    registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={!!purchase && !awaitingPayment}
+    registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={!!purchase && ["registered","registration_uncertain","registration_rejected","registration_action_required","registration_pending"].includes(purchase.state)}
     actions={buttons} busy={busy} error={error} onAction={action => void submit(action)}/>;
 
   return (

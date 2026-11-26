@@ -1,8 +1,8 @@
 {
   "source": "octalve-core/octalve-cloud",
-  "revision": "d0738725770676465ae44dd75055f96cdb348541",
+  "revision": "76b9d72cfef7ee1a4bbb1a94edd188ab0f28eea2",
   "files": {
-    "CommerceUI.tsx": "7bee0264bf08de2b50f4f2563823914d2ad19702",
+    "CommerceUI.tsx": "2568fb36f94181e50f2dad6d5b3b837e358f3efa",
     "DomainPicker.tsx": "e53ca0ad5ee947890867eda7a589e35c29c76af8",
     "domain-picker-model.ts": "d00c0dc003ccc9c4cb85dfdea3046a259c1e1bff",
     "types.ts": "85c584c0c0bd554c73195edd6bb74b98723a10a0",
