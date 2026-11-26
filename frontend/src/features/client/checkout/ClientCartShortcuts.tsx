@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import {ArrowRight, ShoppingCart} from "lucide-react";
-import {useEffect, useState} from "react";
-import {cartChangedEvent, cartHref, readCart} from "./cart-selections";
+import {useEffect, useRef, useState} from "react";
+import {useRouter} from "next/navigation";
+import {useAuth} from "@/context/AuthContext";
+import {CartDrawer,CartTrigger} from "@/components/shared-commerce/CommerceUI";
+import type {CartView,CartActions} from "@/components/shared-commerce/types";
+import {sharedCartLines} from "./shared-cart-adapter";
+import {formatPlanAmount} from "../data/client-order-data";
+import {accountCartSnapshot,cartAddedEvent,cartChangedEvent,cartHref,readCart,removeFromCart,type AccountSnapshot} from "./cart-selections";
 
 export function useClientCartCount(email: string | undefined) {
   const [cart, setCart] = useState<{email:string; count:number}>();
@@ -32,7 +38,7 @@ export function useClientCartCount(email: string | undefined) {
   return cart && cart.email === email ? cart.count : 0;
 }
 
-export function ClientCartButton({count}: {count:number}) {
+function LegacyCartButton({count}: {count:number}) {
   const label = count === 0 ? "Shopping cart" : `Shopping cart, ${count} ${count === 1 ? "item" : "items"}`;
   return <Link href={cartHref} aria-label={label} title={label}
     className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-console-primary">
@@ -40,6 +46,27 @@ export function ClientCartButton({count}: {count:number}) {
     {count > 0 && <span className="absolute right-0.5 top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-medium leading-none text-white" aria-hidden="true">{count}</span>}
   </Link>;
 }
+
+function SharedAccountCartButton({count,identity}:{count:number;identity:string}){
+ const router=useRouter();
+ const [snapshot,setSnapshot]=useState<AccountSnapshot|null>(null),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const epoch=useRef(0),writing=useRef(false),active=useRef(true),opener=useRef<HTMLElement|null>(null);
+ async function refresh(reveal=false){
+  if(writing.current)return;
+  const id=++epoch.current;
+  try{const next=await accountCartSnapshot();if(!active.current||id!==epoch.current)return;setSnapshot(next);if(!next)setOpen(false);else if(reveal){opener.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setOpen(true);}}
+  catch{if(active.current&&id===epoch.current){setSnapshot(null);setOpen(false);}}
+ }
+ useEffect(()=>{active.current=true;void refresh();const changed=()=>void refresh();const added=()=>void refresh(true);const focus=()=>{if(document.visibilityState==="visible")void refresh();else{epoch.current++;setSnapshot(null);setOpen(false);}};window.addEventListener(cartChangedEvent,changed);window.addEventListener(cartAddedEvent,added);window.addEventListener("focus",focus);document.addEventListener("visibilitychange",focus);return()=>{active.current=false;epoch.current++;window.removeEventListener(cartChangedEvent,changed);window.removeEventListener(cartAddedEvent,added);window.removeEventListener("focus",focus);document.removeEventListener("visibilitychange",focus)}},[identity]);
+ function close(){setOpen(false);requestAnimationFrame(()=>opener.current?.focus());}
+ async function remove(id:string){if(writing.current)return;writing.current=true;const e=++epoch.current;setBusy(true);setError("");try{await removeFromCart(id);const next=await accountCartSnapshot();if(active.current&&e===epoch.current)setSnapshot(next);}catch{if(active.current&&e===epoch.current)setError("Could not confirm the cart update.");}finally{writing.current=false;if(active.current){setBusy(false);if(e!==epoch.current)void refresh();}}}
+ if(!snapshot)return <LegacyCartButton count={count}/>;
+ const cart:CartView={lines:sharedCartLines(snapshot),subtotal:snapshot.subtotal&&snapshot.currency?formatPlanAmount(Number(snapshot.subtotal),snapshot.currency):"Confirmed at review",tax:"Calculated at review",total:"Confirmed at review",checkoutAllowed:!!snapshot.currency&&snapshot.lines.every(l=>l.ready),busy,error};
+ const go=()=>{close();router.push(cartHref)};
+ const actions:CartActions={remove:id=>{void remove(id);},configure:async()=>{throw Error("Configure your services in the full cart.")},review:go,checkout:go,continueShopping:close};
+ return <><CartTrigger count={snapshot.lines.length} onOpen={()=>{opener.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setOpen(true)}}/><CartDrawer open={open} close={close} cart={cart} actions={actions}/></>;
+}
+export function ClientCartButton({count}:{count:number}){const {user}=useAuth();return user?.role==="client"?<SharedAccountCartButton key={user.id} identity={user.id} count={count}/>:<LegacyCartButton count={count}/>;}
 
 export function ClientCartBar({count}: {count:number}) {
   return <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 px-3 lg:bottom-5 lg:left-64 lg:px-6">

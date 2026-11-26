@@ -3,6 +3,7 @@ import {authApi} from "@/lib/api/endpoints";
 export type CartSelection = {kind:"domain";domain:string} | {kind:"service";plan:string;cycle:string;revision:number;domain?:string};
 export const cartHref = "/client/order/checkout?view=cart";
 export const cartChangedEvent = "octalve:cart-changed";
+export const cartAddedEvent = "octalve:cart-added";
 
 const domainPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
@@ -109,7 +110,7 @@ export async function addToCart(item:CartSelection){
   if (!valid(item)) throw new Error("Choose a current offer before adding it.");
   const key=await accountCartKey();
   const remote=await accountRequest("POST",{selections:[item]});
-  if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));return;}
+  if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));window.dispatchEvent(new Event(cartAddedEvent));return;}
   const rest=read(key).filter(saved=>cartSelectionId(saved)!==cartSelectionId(item));
   if(rest.length>=20) throw new Error("The cart has reached its item limit.");
   write(key, [...rest, item]);
