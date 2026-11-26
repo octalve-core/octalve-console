@@ -300,12 +300,10 @@ def claim_guest(request):
         selections = {selection_id(item): item for item in account.items}
         for item in guest.items:
             key = selection_id(item)
-            if key not in selections and len(selections) < MAX_ITEMS:
-                try:
-                    with transaction.atomic():
-                        priced_line(item)
-                except ValidationError:
-                    continue
+            if key not in selections:
+                if len(selections) >= MAX_ITEMS:
+                    raise ValidationError("Your combined cart exceeds 20 items. Remove items before merging.")
+                priced_line(item)
                 selections[key] = item
         account.items = list(selections.values())
         account.save(update_fields=["items", "updated_at"])
