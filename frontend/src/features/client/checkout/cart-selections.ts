@@ -42,7 +42,7 @@ function read(key:string):CartSelection[]{
 
 const accountEndpoint="/api/cloud/orders/shopping/account";
 
-export type AccountSnapshot={lines:{id:string;selection:CartSelection;ready:boolean;kind?:string;name?:string;currency?:string;amount?:string;renewal?:string;period?:string}[];subtotal:string|null;currency:string|null;domains?:string[]};
+export type AccountSnapshot={lines:{id:string;selection:CartSelection;ready:boolean;kind?:string;name?:string;currency?:string;amount?:string;renewal?:string;period?:string}[];subtotal:string|null;currency:string|null;domains?:string[];checkout_issue?:string|null};
 
 export async function accountCartSnapshot(method:"GET"|"POST"|"DELETE"|"PATCH"="GET",data?:unknown):Promise<AccountSnapshot|null>{
   const result=await fetch(accountEndpoint,{
@@ -50,7 +50,14 @@ export async function accountCartSnapshot(method:"GET"|"POST"|"DELETE"|"PATCH"="
     ...(data?{headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}:{}),
   });
   if(result.status===404)return null;
-  if(!result.ok)throw Error("Your cart could not be updated.");
+  if(!result.ok){
+    const body=await result.json().catch(()=>null);
+    const domain=typeof body?.domain==="string"&&domainPattern.test(body.domain)?body.domain:"This domain";
+    if(body?.code==="domain_unavailable")throw Error(domain+" is already registered or otherwise unavailable. Choose another name.");
+    if(body?.code==="domain_lookup_unconfirmed")throw Error("Availability for "+domain+" could not be confirmed. Please retry.");
+    if(body?.code==="domain_price_unavailable")throw Error("Published pricing for "+domain+" is unavailable.");
+    throw Error("Your cart could not be updated. Please retry.");
+  }
   const body=await result.json() as AccountSnapshot;
   if(!Array.isArray(body.lines))throw Error("Invalid cart response.");
   const selections=body.lines.map(line=>line.selection);
