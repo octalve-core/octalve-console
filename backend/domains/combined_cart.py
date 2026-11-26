@@ -90,6 +90,50 @@ def existing_domain_order(user, names):
     ).filter(Q(order__metadata__has_key=PILOT) | Q(order__metadata__has_key=CART)).exists()
 
 
+def gateway_choices(user, public_test, require_domain):
+    # This checkout currently has exactly one qualified provider contract.
+    ready = not pilot_readiness(user.pk, public_payment_test=public_test, require_domain=require_domain)
+    return [{"code": "paystack", "enabled": ready, "test": True},
+            *({"code": code, "enabled": False} for code in ("flutterwave", "monnify", "google_pay"))]
+
+
+def start_cart_payment(user, invoice):
+    order = invoice.order
+    public_test = order.metadata[CART].get("public_payment_test") is True
+    if public_test:
+        retry = spend_durable_attempt("domains:public_payment_test", "global", 100, 3600)
+        if retry:
+            raise Throttled(wait=retry)
+        if pilot_readiness(user.pk, public_payment_test=True, require_domain=bool(order.metadata[CART]["domains"])):
+            raise ValidationError("Test payment is temporarily unavailable. Your invoice is preserved.")
+    else:
+        if pilot_readiness(user.pk):
+            raise ValidationError("Domain test checkout is currently unavailable.")
+        for line in order.items.filter(item_type="domain"):
+            registrar(line.config[CART])
+    intent, _ = reserve_hosted_checkout(invoice.pk, "paystack")
+    return intent.authorization_url
+
+
+def require_payment_consent(data):
+    if data.get("consent") is not True:
+        raise ValidationError("Accept the terms of service and acknowledge the privacy policy to continue.")
+    if data.get("gateway") != "paystack":
+        raise ValidationError("This payment method is not available.")
+
+
+def payment_response(user, invoice):
+    # Invoice issuance has already committed. Return its identity even if gateway initialization fails.
+    result = cart_result(invoice.order, invoice)
+    if result["payment_verified"]:
+        return result
+    try:
+        result["checkout_url"] = start_cart_payment(user, invoice)
+    except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError, ValidationError, Throttled):
+        result["checkout_error"] = "Payment could not start. Your invoice is saved. Check the existing payment or retry."
+    return result
+
+
 def quote_cart(user, data):
     public_test = public_payment_test_account_allowed(user)
     names, services = selections(user, data, public_test=public_test)
@@ -104,6 +148,7 @@ def quote_cart(user, data):
         items = services_for(services)
         lines = lines_for(domains, items)
     return {"lines": lines, "total": str(basket_total(lines)), "currency": "NGN", "public_payment_test": public_test,
+            "gateway_options": gateway_choices(user, public_test, bool(names)),
             "quote": signing.dumps({"client": user.pk, "domains": domains,
                                     "services": services, "lines": lines, "public_payment_test": public_test}, salt=SALT)}
 
@@ -309,6 +354,12 @@ def combined_cart(request):
             return Response(quote_cart(user, data), headers=headers)
         if action == "accept":
             return Response(accept_cart(user, data), headers=headers)
+        if action == "pay":
+            require_payment_consent(data)
+            if not request.query_params.get("invoice"):
+                accepted = accept_cart(user, data)
+                invoice = Invoice.objects.select_related("order").get(pk=accepted["invoice_id"], client=user, order__client=user)
+                return Response(payment_response(user, invoice), headers=headers)
         invoice_id = request.query_params.get("invoice", "")
         if not invoice_id.isascii() or not invoice_id.isdecimal() or len(invoice_id) > 18:
             raise NotFound()
@@ -321,21 +372,14 @@ def combined_cart(request):
         if not (public_payment_test_account_allowed(user) if public_test else selected_domain_test_account_allowed(user)):
             raise NotFound()
         if request.method == "GET":
-            return Response(cart_result(order, invoice), headers=headers)
+            result = cart_result(order, invoice)
+            if not result["payment_verified"]:
+                result["gateway_options"] = gateway_choices(user, public_test, bool(order.metadata[CART]["domains"]))
+            return Response(result, headers=headers)
+        if action == "pay":
+            return Response(payment_response(user, invoice), headers=headers)
         if action == "checkout":
-            if public_test:
-                retry = spend_durable_attempt("domains:public_payment_test", "global", 100, 3600)
-                if retry:
-                    raise Throttled(wait=retry)
-                if pilot_readiness(user.pk, public_payment_test=True, require_domain=bool(order.metadata[CART]["domains"])):
-                    raise ValidationError("Test payment is temporarily unavailable. Your invoice is preserved.")
-            else:
-                if pilot_readiness(user.pk):
-                    raise ValidationError("Domain test checkout is currently unavailable.")
-                for line in order.items.filter(item_type="domain"):
-                    registrar(line.config[CART])
-            intent, _ = reserve_hosted_checkout(invoice.pk, "paystack")
-            return Response({"checkout_url": intent.authorization_url}, headers=headers)
+            return Response({"checkout_url": start_cart_payment(user, invoice)}, headers=headers)
         if action == "advance":
             advance_cart(order, invoice)
             order.refresh_from_db()

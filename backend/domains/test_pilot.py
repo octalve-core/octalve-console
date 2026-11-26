@@ -415,6 +415,9 @@ class DomainPilotTests(TestCase):
                 self.assertEqual(quote.status_code, 200, quote.data)
                 self.assertEqual(Decimal(quote.data["total"]), amount)
                 payload = {"action": "accept", "quote": quote.data["quote"], "checkout_id": str(uuid4())}
+                self.assertEqual(api.post(path, {**payload, "action": "pay", "gateway": "paystack"}, format="json").status_code, 400)
+                self.assertEqual(api.post(path, {**payload, "action": "pay", "gateway": "flutterwave", "consent": True}, format="json").status_code, 400)
+                self.assertFalse(customer.orders.filter(metadata__combined_domain_test_cart__checkout_id=payload["checkout_id"]).exists())
                 created = api.post(path, payload, format="json")
                 self.assertEqual(created.status_code, 200, created.data)
                 self.assertEqual(api.post(path, payload, format="json").data["invoice_id"], created.data["invoice_id"])
@@ -435,6 +438,12 @@ class DomainPilotTests(TestCase):
                          "authorization_url": "https://checkout.paystack.com/test_12345"}})
                 with patch.object(PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789"):
                     intent, _ = reserve_hosted_checkout(invoice.pk, "paystack", poster=send)
+                with patch("domains.combined_cart.start_cart_payment", return_value=intent.authorization_url) as start:
+                    paid = api.post(path, {**payload, "action": "pay", "gateway": "paystack", "consent": True}, format="json")
+                    self.assertEqual(paid.status_code, 200, paid.data)
+                    self.assertEqual(paid.data["invoice_id"], invoice.pk)
+                    self.assertEqual(paid.data["checkout_url"], intent.authorization_url)
+                    start.assert_called_once()
                 status_path = f"{path}?invoice={invoice.pk}"
                 proof = ConfirmedGatewayPayment("paystack", intent.reference, "NGN", amount, str(invoice.pk))
                 self.assertFalse(api.post(status_path, {"action": "advance"}, format="json").data["payment_verified"])
