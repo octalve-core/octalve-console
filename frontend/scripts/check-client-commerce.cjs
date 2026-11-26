@@ -95,3 +95,5 @@ if(read("features/client/checkout/CombinedCartCheckout.tsx").includes("./ui/Chec
 requires("features/client/checkout/cart-selections.ts",["privateQueryGeneration","pendingRead","confirmedCartEvent","new CustomEvent(cartChangedEvent","removePurchasedItems"]);
 requires("features/client/checkout/ClientCartShortcuts.tsx",["CommerceNotice","confirmedCartEvent","router.prefetch"]);
 requires("features/client/components/ClientDomainSearch.tsx",["Try another name","void lookup(name)","AbortSignal.timeout(15000)"]);
+
+requires("features/client/checkout/cart-selections.ts",["recoverAccountCart","scopedKey","subtotal","return account;"]);

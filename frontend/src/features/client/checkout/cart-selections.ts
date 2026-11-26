@@ -94,16 +94,17 @@ async function fetchAccountCart(method:CartMethod,data?:unknown):Promise<Account
 
 async function accountRequest(method:"GET"|"POST"|"DELETE",data?:unknown):Promise<CartSelection[]|null>{const body=await accountCartSnapshot(method,data);return body?.lines.map(line=>line.selection)??null;}
 
-const activeImports=new Map<string,Promise<CartSelection[]|null>>();
+const activeImports=new Map<string,Promise<AccountSnapshot|null>>();
 
-async function importGuestAndLocal(key:string):Promise<CartSelection[]|null>{
-  const account=await accountRequest("GET");
+async function importGuestAndLocal(key:string):Promise<AccountSnapshot|null>{
+  let account=await accountCartSnapshot();
   if(!account)return null;
   const local=read(key);
   if(local.length){
     if(await accountCartKey()!==key)throw Error("Account changed. Reopen the cart.");
-    const imported=await accountRequest("POST",{selections:local});
-    if(imported===null||!local.every(item=>imported.some(saved=>cartSelectionId(saved)===cartSelectionId(item))))throw Error("Your saved cart has not been confirmed.");
+    const imported=await accountCartSnapshot("POST",{selections:local});
+    if(imported===null||!local.every(item=>imported.lines.some(saved=>cartSelectionId(saved.selection)===cartSelectionId(item))))throw Error("Your saved cart has not been confirmed.");
+    account=imported;
     sessionStorage.removeItem(key);
   }
   const grantResponse=await fetch("/api/cloud/orders/shopping/grant",{
@@ -117,25 +118,38 @@ async function importGuestAndLocal(key:string):Promise<CartSelection[]|null>{
     method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({grant:payload.grant}),
     signal:AbortSignal.timeout(8000),
   });
-  if(!claim.ok)throw Error("Your guest cart could not be merged.");
-  const claimed=await claim.json();
-  if(Array.isArray(claimed.lines)&&claimed.lines.length)return claimed.lines.map((line:AccountSnapshot["lines"][number])=>line.selection);
-  return accountRequest("GET");
+  if(!claim.ok)throw Error("Your guest cart could not be merged. Your selections are preserved.");
+  const claimed=await claim.json() as AccountSnapshot;
+  // A no-guest claim is {lines:[]}; it must not erase the account snapshot.
+  if(Array.isArray(claimed.lines)&&"subtotal" in claimed){
+    if(!claimed.lines.every(line=>valid(line.selection)))throw Error("Invalid cart handoff.");
+    return claimed;
+  }
+  return account;
+}
+
+export async function recoverAccountCart(email?:string){
+  const generation=privateQueryGeneration();
+  const key=await accountCartKey(email);
+  const scopedKey=generation+":"+key;
+  let pending=activeImports.get(scopedKey);
+  if(!pending){
+    pending=importGuestAndLocal(key).finally(()=>{activeImports.delete(scopedKey);});
+    activeImports.set(scopedKey,pending);
+  }
+  const snapshot=await pending;
+  if(generation!==privateQueryGeneration()||await accountCartKey()!==key)throw Error("Account changed. Reopen the cart.");
+  if(snapshot)announce(snapshot);
+  return {snapshot,selections:snapshot?.lines.map(line=>line.selection)??read(key)};
 }
 
 export async function readCart(email?: string,claimGuest=true){
-  const key=await accountCartKey(email);
   if(claimGuest&&location.pathname==="/client/order/checkout"&&new URLSearchParams(location.search).get("view")==="cart"){
-    let pending=activeImports.get(key);
-    if(!pending){
-      pending=importGuestAndLocal(key).finally(()=>{activeImports.delete(key);});
-      activeImports.set(key,pending);
-    }
-    const merged=await pending;
-    if(await accountCartKey()!==key)throw Error("Account changed. Reopen the cart.");
-    return merged??read(key);
+    return (await recoverAccountCart(email)).selections;
   }
-  return (await accountRequest("GET"))??read(key);
+  const remote=await accountRequest("GET");
+  if(remote!==null)return remote;
+  return read(await accountCartKey(email));
 }
 
 function write(key: string, items: CartSelection[]) {
