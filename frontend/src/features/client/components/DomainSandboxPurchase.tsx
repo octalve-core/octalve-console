@@ -19,7 +19,7 @@ type Purchase = {
   registered_at?: string | null;
   expires_at?: string | null;
 };
-type Overview = { domain: string; purchase: Purchase | null; public_payment_test?: boolean; readiness_issues?: string[] | null };
+type Overview = { domain: string; purchase: Purchase | null; public_payment_test?: boolean; readiness_issues?: string[] | null; payment_test_readiness_issues?: string[] | null };
 type Quote = { quote: string; amount: string };
 const labels = {
   awaiting_payment: "Awaiting test payment",
@@ -138,6 +138,7 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
           <p>Console preflight passed. Confirm the Test Mode webhook URL in Paystack.</p>
         )
       )}
+      {admin && overview.payment_test_readiness_issues && <div><h3 className="font-medium">Public payment-only preflight</h3>{overview.payment_test_readiness_issues.length?<ul className="list-disc pl-5">{overview.payment_test_readiness_issues.map(issue=><li key={issue}>{issue}</li>)}</ul>:<p>Payment-only preflight passed.</p>}</div>}
       {purchase && (
         <div role="status" className="space-y-1">
           <p>{labels[purchase.state]}</p>

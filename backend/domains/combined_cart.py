@@ -20,6 +20,7 @@ from payments.domain_pilot_scope import (
     public_payment_test_account_allowed, public_domain_payment_test_allowed,
 )
 from payments.hosted_checkout import CheckoutRefused, reserve_hosted_checkout
+from django.db import DatabaseError
 from payments.models import PaymentIntent, WebhookEvent
 from providers.cloudflare_int01 import CloudflareINT01Denied
 from providers.connection_models import IntegrationCredentialVersion
@@ -62,11 +63,11 @@ def services_for(services):
 
 def lines_for(domains, services):
     return [
-        {"name": line["domain"], "amount": line["amount"], "kind": "domain"}
+        {"name": line["domain"], "amount": line["amount"], "kind": "domain", "period": "1 year"}
         for line in domains
     ] + [
         {"name": item["description"], "amount": str(item["unit_price"] * item["quantity"]),
-         "kind": item["item_type"], "domain": item.get("domain_name", "")}
+         "kind": item["item_type"], "domain": item.get("domain_name", ""), "period": item["billing_cycle"].label}
         for item in services
     ]
 
@@ -94,7 +95,7 @@ def quote_cart(user, data):
     with transaction.atomic():
         items = services_for(services)
         lines = lines_for(domains, items)
-    return {"lines": lines, "total": str(basket_total(lines)), "currency": "NGN",
+    return {"lines": lines, "total": str(basket_total(lines)), "currency": "NGN", "public_payment_test": public_test,
             "quote": signing.dumps({"client": user.pk, "domains": domains,
                                     "services": services, "lines": lines, "public_payment_test": public_test}, salt=SALT)}
 
@@ -108,6 +109,9 @@ def accept_cart(user, data):
     type(user).objects.select_for_update().get(pk=user.pk)
     existing = Order.objects.filter(client=user, metadata__combined_domain_test_cart__checkout_id=key).first()
     if existing:
+        existing_public = existing.metadata[CART].get("public_payment_test") is True
+        if not (public_payment_test_account_allowed(user) if existing_public else selected_domain_test_account_allowed(user)):
+            raise NotFound()
         return cart_result(existing)
     try:
         snapshot = signing.loads(data.get("quote", ""), salt=SALT, max_age=300)
@@ -158,6 +162,8 @@ def accept_cart(user, data):
                                  domain_name=item.get("domain_name", ""), unit_price=item["unit_price"],
                                  quantity=item["quantity"], cycle_key=cycle.cycle_key, months=cycle.months)
     invoice = Invoice.create_from_order(order, test_marker=CART)
+    if invoice.total != total or sum((line.subtotal for line in invoice.items.all()), Decimal("0.00")) != total:
+        raise ValidationError("The invoice amount does not match the accepted quotation.")
     return cart_result(order, invoice)
 
 
@@ -167,7 +173,7 @@ def cart_result(order, invoice=None):
             "total": str(invoice.total), "currency": invoice.currency,
             "payment_verified": invoice.status == "void" and order.status == "needs_review" and bool(order.metadata[CART].get("payment_reference")),
             "public_payment_test": order.metadata[CART].get("public_payment_test") is True,
-            "lines": [{"name": line.description, "amount": str(line.subtotal), "kind": line.item_type, "domain": line.domain_name} for line in order.items.all()],
+            "lines": [{"name": line.description, "amount": str(line.subtotal), "kind": line.item_type, "domain": line.domain_name, "period": line.cycle_key} for line in order.items.all()],
             "payment_started": invoice.payment_intents.exists(),
             "domains": [{"id": line.pk, "name": line.domain_name,
                          "state": "test_payment_verified" if order.metadata[CART].get("public_payment_test") is True and invoice.status == "void" and order.metadata[CART].get("payment_reference") else line.config[CART]["state"],
@@ -324,6 +330,6 @@ def combined_cart(request):
         if action == "reconcile" and type(data.get("line_id")) is int:
             reconcile_line(order, data["line_id"])
             return Response(cart_result(order), headers=headers)
-    except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist):
+    except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError):
         raise ValidationError("The test provider could not confirm this step. Check the existing order before retrying.") from None
     raise ValidationError("This cart action is unavailable.")

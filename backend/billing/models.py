@@ -174,8 +174,7 @@ class Invoice(models.Model):
         )
         
         from settings_registry.mail_authority import queue_invoice_issued
-        if not test_marker:
-            queue_invoice_issued(invoice)
+        queue_invoice_issued(invoice)
         return invoice
     
     def mark_paid(self, transaction=None):
