@@ -4,7 +4,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import OrderViewSet, CouponViewSet, CartViewSet
 
-from .shopping_cart import account_shopping, claim_grant, claim_guest, guest_shopping
+from .shopping_cart import account_shopping, claim_grant, claim_guest, guest_shopping, storefront_account_shopping
 
 router = DefaultRouter()
 router.register(r'orders', OrderViewSet, basename='order')
@@ -15,6 +15,7 @@ urlpatterns = [
     path("shopping/guest/", guest_shopping, name="guest-shopping"),
     path("shopping/grant/", claim_grant, name="shopping-grant"),
     path("shopping/claim/", claim_guest, name="claim-shopping"),
+    path("shopping/storefront-account/", storefront_account_shopping, name="storefront-account-shopping"),
     path("shopping/account/", account_shopping, name="account-shopping"),
     path('', include(router.urls)),
 ]

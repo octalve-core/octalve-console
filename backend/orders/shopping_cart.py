@@ -15,7 +15,10 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.exceptions import NotFound, PermissionDenied, Throttled, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.settings import api_settings
 
 from accounts.account_self_service import reserve_email_attempt
 from domains.models import Domain, TLDPricing
@@ -324,26 +327,65 @@ def account_cart(owner):
 @api_view(["GET", "POST", "DELETE", "PATCH"])
 @permission_classes([IsAuthenticated])
 def account_shopping(request):
+    return account_operation(request, request.method, request.data)
+
+
+class AccountBridgeThrottle(UserRateThrottle):
+    scope = "shopping_account_bridge"
+    rate = "60/min"
+
+
+def verify_shopping_session(request):
+    """Require both a valid access identity and its current, unrevoked refresh proof.
+    The refresh proof is forwarded server-to-server by the Console BFF only.
+    It is never returned to the storefront or stored as a shopping credential.
+    """
+    if getattr(request.user, "role", None) != "client" or not request.user.is_active:
+        raise PermissionDenied()
+    proof = request.headers.get("X-Octalve-Shopping-Session", "")
+    if not isinstance(proof, str) or not 20 <= len(proof) <= 8192:
+        raise PermissionDenied("Shopping session unavailable.")
+    try:
+        refresh = RefreshToken(proof)
+        if str(refresh.get(api_settings.USER_ID_CLAIM)) != str(request.user.pk):
+            raise PermissionDenied("Shopping session unavailable.")
+    except TokenError:
+        raise PermissionDenied("Shopping session unavailable.") from None
+    return refresh
+
+
+@api_view(["GET", "POST", "DELETE", "PATCH"])
+@permission_classes([IsAuthenticated])
+@throttle_classes([AccountBridgeThrottle])
+def storefront_account_shopping(request):
+    if not settings.CLOUD_UNIFIED_SHOPPING_ENABLED:
+        raise NotFound()
+    verify_shopping_session(request)
+    return account_operation(request, request.method, request.data, verify_session=True)
+
+
+def account_operation(request, method, data, *, verify_session=False):
     if not settings.CLOUD_UNIFIED_SHOPPING_ENABLED:
         raise NotFound()
     if getattr(request.user, "role", None) != "client":
         raise PermissionDenied()
     key = digest("shopa_", str(request.user.pk))
-    if request.method == "GET":
+    if method == "GET":
         return response(snapshot(Cart.objects.filter(session_key=key, client=request.user).first()))
     assert_payload_size(request)
-    if request.method == "PATCH":
-        change = configuration(request.data)
+    if method == "PATCH":
+        change = configuration(data)
         if cart := Cart.objects.filter(session_key=key, client=request.user).first():
             if change[2]:
                 priced_line({"kind": "domain", "domain": change[1]}, verify_domain=True)
             with transaction.atomic():
+                if verify_session:
+                    verify_shopping_session(request)
                 cart = account_cart(request.user.pk)
                 configure_selection(cart, change)
             return response(snapshot(cart))
         raise ValidationError("The cart is empty.")
-    if request.method == "POST":
-        data = request.data
+    if method == "POST":
         if not isinstance(data, dict) or set(data) != {"selections"} or not isinstance(data["selections"], list) or not 1 <= len(data["selections"]) <= MAX_ITEMS:
             raise ValidationError("Choose a valid cart selection.")
         incoming = [exact_selection(item) for item in data["selections"]]
@@ -351,13 +393,15 @@ def account_shopping(request):
             if item["kind"] == "domain":
                 priced_line(item, verify_domain=True)
     else:
-        data = request.data
+        data = data
         if not isinstance(data, dict) or set(data) != {"id"} or not isinstance(data["id"], str) or len(data["id"]) > 310:
             raise ValidationError("Choose a valid cart item.")
     with transaction.atomic():
+        if verify_session:
+            verify_shopping_session(request)
         cart = account_cart(request.user.pk)
         selections = {selection_id(item): item for item in cart.items}
-        if request.method == "POST":
+        if method == "POST":
             for item in incoming:
                 if item["kind"] == "service":
                     priced_line(item)
