@@ -43,7 +43,7 @@ function read(key:string):CartSelection[]{
 
 const accountEndpoint="/api/cloud/orders/shopping/account";
 
-export type AccountSnapshot={lines:{id:string;selection:CartSelection;ready:boolean;kind?:string;name?:string;currency?:string;amount?:string;renewal?:string;period?:string}[];subtotal:string|null;currency:string|null;domains?:string[];checkout_issue?:string|null};
+export type AccountSnapshot={lines:{id:string;selection:CartSelection;ready:boolean;issue?:string;kind?:string;name?:string;currency?:string;amount?:string;renewal?:string;period?:string}[];subtotal:string|null;currency:string|null;domains?:string[];checkout_issue?:string|null};
 
 type CartMethod="GET"|"POST"|"DELETE"|"PATCH";
 let pendingRead:{generation:number;promise:Promise<AccountSnapshot|null>}|null=null;

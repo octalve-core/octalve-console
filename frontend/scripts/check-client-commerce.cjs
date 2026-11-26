@@ -91,3 +91,7 @@ for(const file of ["DomainCart","ServiceCheckout","ServiceCartCheckout","Combine
 
 requires("features/client/checkout/CombinedCartCheckout.tsx",["accountCartSnapshot","CartItem","CheckoutSummary","CheckoutPayment","OrderConfirmation","readOnly","public_payment_test"]);
 if(read("features/client/checkout/CombinedCartCheckout.tsx").includes("./ui/CheckoutSections"))throw Error("Combined cart returned to a separate checkout summary");
+
+requires("features/client/checkout/cart-selections.ts",["privateQueryGeneration","pendingRead","confirmedCartEvent","new CustomEvent(cartChangedEvent","removePurchasedItems"]);
+requires("features/client/checkout/ClientCartShortcuts.tsx",["CommerceNotice","confirmedCartEvent","router.prefetch"]);
+requires("features/client/components/ClientDomainSearch.tsx",["Try another name","void lookup(name)","AbortSignal.timeout(15000)"]);

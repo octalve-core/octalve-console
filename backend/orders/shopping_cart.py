@@ -161,8 +161,10 @@ def snapshot(cart):
             with transaction.atomic():
                 line.update(priced_line(item))
             line["ready"] = True
-        except ValidationError:
+        except ValidationError as exc:
             line["ready"] = False
+            line["issue"] = ("Published domain pricing is unavailable." if item["kind"] == "domain"
+                             else "This service offer or configuration is no longer valid.")
         lines.append(line)
     currencies = {line.get("currency") for line in lines if line["ready"]}
     currency = next(iter(currencies)) if len(currencies) == 1 and all(line["ready"] for line in lines) else None

@@ -5,7 +5,7 @@ import {formatPlanAmount} from "../data/client-order-data";
 const kinds:ProductKind[]=["domain","hosting","vps","email","ssl"];
 export function sharedCartLines(snapshot:AccountSnapshot):CartLine[]{
  const domains=[...new Set([...(snapshot.domains??[]),...snapshot.lines.flatMap(l=>l.ready&&l.selection.kind==="domain"?[l.selection.domain]:[])])];
- return snapshot.lines.map(l=>({id:l.id,kind:l.kind&&kinds.includes(l.kind as ProductKind)?l.kind as ProductKind:l.selection.kind==="domain"?"domain":"hosting",name:l.name??l.selection.domain??"Service selection",description:"",period:l.period??"Check availability",priceLabel:l.amount&&l.currency?formatPlanAmount(Number(l.amount),l.currency):"Price unavailable",renewalLabel:l.renewal&&l.currency?formatPlanAmount(Number(l.renewal),l.currency)+" renewal":undefined,domain:l.selection.domain,domainOptions:l.ready&&l.selection.kind==="service"?domains:undefined}));
+ return snapshot.lines.map(l=>({id:l.id,kind:l.kind&&kinds.includes(l.kind as ProductKind)?l.kind as ProductKind:l.selection.kind==="domain"?"domain":"hosting",name:l.name??l.selection.domain??"Service selection",description:"",period:!l.ready?(l.issue??"Review this selection"):l.period??"Check availability",priceLabel:l.amount&&l.currency?formatPlanAmount(Number(l.amount),l.currency):"Price unavailable",renewalLabel:l.renewal&&l.currency?formatPlanAmount(Number(l.renewal),l.currency)+" renewal":undefined,domain:l.selection.domain,domainOptions:l.ready&&l.selection.kind==="service"?domains:undefined}));
 }
 export const searchCartDomains:DomainPickerActions["search"]=async(query,extension,signal)=>{
  const name=query.trim().toLowerCase();
