@@ -11,10 +11,10 @@ export function SelectField({label,options,placeholder,hint,error,id,className,
  const autoId=useId(),controlId=id??autoId,hintId=controlId+"-hint",errorId=controlId+"-error";
  const description=[describedBy,hint?hintId:undefined,error?errorId:undefined].filter(Boolean).join(" ")||undefined;
  return <div className="min-w-0">
-  <label htmlFor={controlId} className="mb-2 block text-sm font-medium text-console-ink">{label}</label>
+  <label htmlFor={controlId} className="mb-1.5 block text-xs font-medium text-console-ink">{label}</label>
   <div className="relative min-w-0">
    <select {...props} id={controlId} aria-invalid={Boolean(error)||undefined} aria-describedby={description}
-    className={cn("block h-12 min-h-12 w-full min-w-0 appearance-none rounded-xl border bg-white px-4 pr-10 text-base text-console-ink outline-none transition focus:border-console-primary focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50",error?"border-rose-400":"border-slate-300",className)}>
+    className={cn("block h-12 min-h-12 w-full min-w-0 appearance-none rounded-xl border bg-white px-3.5 pr-10 text-sm text-console-ink outline-none transition focus:border-console-primary focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50",error?"border-rose-400":"border-console-line",className)}>
     {placeholder?<option value="">{placeholder}</option>:null}
     {options.map(option=><option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
    </select>

@@ -4,6 +4,10 @@ import {CheckCircle2,RotateCcw,Save,ShieldCheck} from "lucide-react";
 import {api,ApiError} from "@/lib/api/client";
 import {ActionButton} from "@/components/design-system/ActionButton";
 import {Panel} from "@/components/design-system/Panel";
+import {TextField} from "@/components/design-system/TextField";
+import {SelectField} from "@/components/design-system/SelectField";
+import {TextAreaField} from "@/components/design-system/TextAreaField";
+import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 type Field={key:string;label:string;kind:string;value:string;effect:string};
 type Snapshot={section:string;revision:string;fields:Field[];editable:boolean;changed?:string[];audit_ids?:number[]};
 const sections=["general","theme","invoices","mail"] as const;
@@ -47,26 +51,22 @@ export function ConsolePolicyEditor({section}:{section:string}){
   {error?<p role="alert" className="mb-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</p>:null}
   {saved?<p role="status" className="mb-3 flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800"><CheckCircle2 className="h-4 w-4" aria-hidden="true"/>{saved}</p>:null}
   {snapshot?<form onSubmit={e=>{e.preventDefault();void save();}} className="space-y-5">
-   <div className="grid min-w-0 gap-4 md:grid-cols-2">
+   <WorkspaceGrid variant="editorFields">
     {snapshot.fields.map(field=>{
      const choices=field.kind.startsWith("select:")?field.kind.slice(7).split(","):null;
      return <div key={field.key} className={field.kind==="footer"?"min-w-0 md:col-span-2":"min-w-0"}>
-      <label htmlFor={"setting-"+field.key} className="mb-2 block text-sm font-medium text-console-ink">{field.label}</label>
-      {choices?<select id={"setting-"+field.key} name={field.key} value={draft[field.key]??""}
+      {choices?<SelectField id={"setting-"+field.key} name={field.key} label={field.label} value={draft[field.key]??""}
          onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={saving}
-         className="min-h-11 w-full rounded-xl border border-console-line bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-console-primary">
-         {choices.map(v=><option key={v} value={v}>{v==="template_01"?"Invoice Template 01":v}</option>)}</select>:
-        field.kind==="footer"?<textarea id={"setting-"+field.key} name={field.key} rows={3} maxLength={500} value={draft[field.key]??""}
-          onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={saving}
-          className="w-full rounded-xl border border-console-line bg-white p-3 text-sm focus-visible:outline-2 focus-visible:outline-console-primary"/>:
-        <input id={"setting-"+field.key} name={field.key} type={field.kind==="email"?"email":field.kind==="days"?"number":"text"} min={field.kind==="days"?1:undefined} max={field.kind==="days"?30:undefined}
-          maxLength={100} value={draft[field.key]??""} onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={saving}
-          className="min-h-11 w-full rounded-xl border border-console-line bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-console-primary"/>}
+         options={choices.map(v=>({value:v,label:v==="template_01"?"Invoice Template 01":v}))}/>:
+        field.kind==="footer"?<TextAreaField id={"setting-"+field.key} name={field.key} label={field.label} rows={3} maxLength={500} value={draft[field.key]??""}
+          onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={saving}/>:
+        <TextField id={"setting-"+field.key} name={field.key} label={field.label} type={field.kind==="email"?"email":field.kind==="days"?"number":"text"} min={field.kind==="days"?1:undefined} max={field.kind==="days"?30:undefined}
+          maxLength={100} value={draft[field.key]??""} onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={saving}/>}
       {field.effect==="draft_only"||field.effect==="pilot_only"||field.effect==="preview_only"?
        <p className="mt-1 text-xs leading-5 text-console-muted">{field.effect==="draft_only"?"Saved policy; automatic execution is not enabled.":field.effect==="pilot_only"?"Available for approved multilingual rollout only.":"Preview choice; it does not change issued documents."}</p>:null}
      </div>;
     })}
-   </div>
+   </WorkspaceGrid>
    {section==="theme"?<div aria-label="Colour preview" className="rounded-xl border border-console-line p-5"
      style={{background:draft.canvas_color,color:"#071425"}}>
      <span className="text-sm font-medium">Appearance preview</span>
