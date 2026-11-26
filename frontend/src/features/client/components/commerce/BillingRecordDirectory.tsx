@@ -9,7 +9,7 @@ import {serviceDate} from "../../utils/service-contract";
 export type BillingResource="orders"|"invoices";
 const cols:DirectoryColumn[]=[
  {key:"item",label:"Purchase",render:r=>r.title},
- {key:"reference",label:"Reference",render:r=>r.reference||"—"},
+ {key:"reference",label:"Payment reference",render:r=>r.reference||"—"},
  {key:"total",label:"Amount",render:r=>r.amount||"—"},
  {key:"date",label:"Order / due date",render:r=>r.date||"—"},
 ];
@@ -22,14 +22,14 @@ export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescrip
   const date=resource==="invoices"?r.dueDate:r.createdDate||r.date;
   return {
    id:r.id,title:r.title,subtitle:r.subtitle,
-   reference:r.meta!=="—"?r.meta:r.id,
+   reference:r.paymentReference||"—",
    amount:r.amount,status:r.status,date:date?serviceDate(date):undefined,
    secondaryDate:resource==="invoices"&&r.issuedDate?serviceDate(r.issuedDate):undefined,
    secondaryDateLabel:resource==="invoices"?"Issued":undefined,dateLabel:resource==="invoices"?"Due":"Ordered",
    dateISO:date&&/^\d{4}-\d{2}-\d{2}/.test(date)?date.slice(0,10):undefined,
    href:r.actionHref,
    icon:<Icon aria-hidden="true" className="h-5 w-5"/>,
-   searchTerms:[r.id,r.meta,r.subtitle]
+   searchTerms:[r.id,r.meta,r.subtitle,r.paymentReference||""]
   };
  }),[records,Icon,resource]);
  const linkedInvoice = (id:string) => records.find(record=>record.id===id)?.invoiceDocuments?.[0];

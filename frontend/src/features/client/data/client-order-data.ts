@@ -4,7 +4,7 @@ export type OrderCycle = {
   key: string; label: string; price: number; setupFee: number; isDefault: boolean;
 };
 export type ClientOrderPlan = {
-  id: string; slug: string; productSlug: string; name: string; product: string; description: string;
+  id: string; slug: string; productSlug: string; name: string; product: string; productType?: string; description: string;
   currency: string; features: string[]; popular: boolean; cycles: OrderCycle[]; revision: number | null;
   categorySlug: string; categoryName: string; canOrder: boolean;
 };
@@ -27,7 +27,7 @@ export async function loadPublishedPlans(): Promise<ClientOrderPlan[]> {
   return (raw as ApiPlan[]).filter(p =>
     p.status === "active" && p.is_public && Number.isSafeInteger(p.published_revision) && Number(p.published_revision)>0
   ).map(p => ({
-    id: String(p.id), slug: p.slug || "", productSlug: p.product_slug || "", name: p.name, product: p.product_name || "Hosting",
+    id: String(p.id), slug: p.slug || "", productSlug: p.product_slug || "", name: p.name, product: p.product_name || "Hosting", productType:p.product_type,
     canOrder: ["shared_hosting", "wordpress_hosting", "vps"].includes(p.product_type),
     categorySlug: p.category_slug || "", categoryName: p.category_name || "",
     description: p.description || "", currency: p.currency,

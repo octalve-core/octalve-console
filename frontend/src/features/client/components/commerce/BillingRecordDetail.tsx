@@ -32,7 +32,7 @@ export function BillingRecordDetail({record,resource,actions}:{
    </div>
    <dl className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-4">
     {[
-     {key:"Reference",value:record.meta!=="—"?record.meta:record.id,icon:FileText},
+     {key:"Payment reference",value:record.paymentReference||"—",icon:FileText},
      {key:"Status",value:formatStatus(record.status),icon:ShieldCheck},
      {key:resource==="orders"?"Ordered":"Due date",value:serviceDate(record.date||null),icon:CalendarDays},
      ...(resource==="invoices"?[{key:"Issued",value:serviceDate(record.issuedDate||null),icon:CalendarDays},
