@@ -1,0 +1,100 @@
+from unittest.mock import patch
+
+from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.test import TestCase, override_settings
+from rest_framework.test import APIClient
+
+from domains.models import TLDPricing
+from orders.models import Cart
+from orders.shopping_cart import COOKIE, CONSOLE, STOREFRONT
+
+
+@override_settings(CLOUD_UNIFIED_SHOPPING_ENABLED=True)
+class ShoppingCartTests(TestCase):
+    guest = "/api/orders/shopping/guest/"
+    grant = "/api/orders/shopping/grant/"
+    claim = "/api/orders/shopping/claim/"
+    account = "/api/orders/shopping/account/"
+
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.public = APIClient()
+        self.console = APIClient()
+        self.owner = get_user_model().objects.create_user(
+            email="cart-owner@example.test", username="cartowner", role="client",
+        )
+        TLDPricing.objects.create(tld=".com", register_price=12000, renewal_price=14000, transfer_price=11000)
+        self.item = {"kind": "domain", "domain": "example.com"}
+
+    def add(self, **options):
+        with patch("orders.shopping_cart.public_availability", return_value="available"):
+            return self.public.post(self.guest, self.item, format="json", HTTP_ORIGIN=STOREFRONT, **options)
+
+    def test_guest_cookie_server_price_and_idempotent_selection(self):
+        first = self.add()
+        self.assertEqual(first.status_code, 200)
+        cookie = first.cookies[COOKIE]
+        self.assertTrue(cookie["secure"])
+        self.assertTrue(cookie["httponly"])
+        self.assertEqual(cookie["samesite"], "Strict")
+        self.assertEqual(cookie["domain"], "")
+        self.assertNotIn(cookie.value, Cart.objects.get().session_key)
+        self.assertEqual(first.data["subtotal"], "12000.00")
+        self.assertEqual(len(self.add().data["lines"]), 1)
+        self.assertEqual(len(self.public.get(self.guest, HTTP_ORIGIN=STOREFRONT).data["lines"]), 1)
+        self.assertEqual(APIClient().get(self.guest, HTTP_ORIGIN=STOREFRONT).data["lines"], [])
+
+    def test_privacy_csrf_invalid_prices_and_unauthorized_account(self):
+        denied = self.public.post(self.guest, self.item, format="json", HTTP_ORIGIN=STOREFRONT + ".example")
+        self.assertEqual(denied.status_code, 403)
+        invalid = self.public.post(self.guest, {**self.item, "price": 1}, format="json", HTTP_ORIGIN=STOREFRONT)
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(self.console.get(self.account).status_code, 401)
+        self.assertEqual(self.console.post(self.grant, {}, format="json").status_code, 401)
+        self.assertFalse(Cart.objects.exists())
+
+    def test_claim_is_console_only_preserves_account_and_invalidates_guest(self):
+        self.console.force_authenticate(user=self.owner)
+        with patch("orders.shopping_cart.public_availability", return_value="available"):
+            existing = self.console.post(self.account, {"selections": [{"kind": "domain", "domain": "prior.com"}]}, format="json")
+        self.assertEqual(existing.status_code, 200)
+        self.assertEqual(self.add().status_code, 200)
+        token = self.public.cookies[COOKIE].value
+        grant = self.console.post(self.grant, {}, format="json").data["grant"]
+        self.assertEqual(self.public.post(self.claim, {"grant": grant}, format="json", HTTP_ORIGIN=STOREFRONT).status_code, 403)
+        self.assertEqual(self.public.post(self.claim, {"grant": "bad"}, format="json", HTTP_ORIGIN=CONSOLE).status_code, 403)
+        claimed = self.public.post(self.claim, {"grant": grant}, format="json", HTTP_ORIGIN=CONSOLE)
+        self.assertEqual(claimed.status_code, 200)
+        self.assertEqual(len(claimed.data["lines"]), 2)
+        self.public.cookies[COOKIE] = token
+        self.assertEqual(self.public.get(self.guest, HTTP_ORIGIN=STOREFRONT).data["lines"], [])
+        self.assertEqual(len(self.console.get(self.account).data["lines"]), 2)
+
+    @override_settings(CLOUD_UNIFIED_SHOPPING_ENABLED=False)
+    def test_disabled_routes_preserve_live_purchase_path(self):
+        self.assertEqual(self.public.get(self.guest, HTTP_ORIGIN=STOREFRONT).status_code, 404)
+        self.assertFalse(Cart.objects.exists())
+
+    def test_expired_guest_and_failed_bundle_do_not_create_selections(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        self.assertEqual(self.add().status_code, 200)
+        Cart.objects.update(created_at=timezone.now() - timedelta(hours=25))
+        self.assertEqual(self.public.get(self.guest, HTTP_ORIGIN=STOREFRONT).data["lines"], [])
+        with patch("orders.shopping_cart.public_availability", side_effect=["available", "unavailable"]):
+            result = self.public.post(
+                self.guest, {"bundle": ["one.com", "two.com"]}, format="json", HTTP_ORIGIN=STOREFRONT
+            )
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(Cart.objects.count(), 1)
+
+    def test_legacy_guest_cannot_read_cart_owned_by_account(self):
+        session = self.public.session
+        Cart.objects.create(client=self.owner, session_key=session.session_key, items=[])
+        answer = self.public.get("/api/orders/cart/get_cart/")
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(Cart.objects.filter(client=self.owner).count(), 1)
+        self.assertEqual(Cart.objects.filter(client__isnull=True).count(), 1)

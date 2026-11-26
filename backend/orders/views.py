@@ -389,13 +389,16 @@ class CartViewSet(viewsets.GenericViewSet):
             session_key = request.session.session_key
         
         if request.user.is_authenticated:
-            cart, created = Cart.objects.get_or_create(
+            cart, created = Cart.objects.exclude(session_key__startswith="shopa_").get_or_create(
                 client=request.user,
                 defaults={'session_key': session_key}
             )
         else:
+            if Cart.objects.filter(session_key=session_key, client__isnull=False).exists():
+                request.session.cycle_key()
+                session_key = request.session.session_key
             cart, created = Cart.objects.get_or_create(
-                session_key=session_key,
+                session_key=session_key, client__isnull=True,
                 defaults={'client': None}
             )
         

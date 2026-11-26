@@ -1,0 +1,28 @@
+# Unified shopping integration qualification
+
+Baselines: Console `f595b4beb6859faa7d6a0d5ee52356f47f4b26ec`; storefront `858d41637158e83b267a8c4fc92bd2836696b416`.
+
+| Reuse | Integration |
+| --- | --- |
+| Django `orders.Cart` model and existing unique session key | Guest rows use an opaque host-only shopping credential; account rows use a separate derived key and verified ownership. |
+| Published catalogue, registrar route and checkout serializer | Browser submits selections only. The server resolves prices and revisions and verifies availability on domain addition. Existing order and payment controllers still price and validate at checkout. |
+| Approved native drawer, cart rows and review | One storefront provider holds live response data above route changes. Existing service cards and legacy Console links remain available when the API gate is off. |
+| Console session BFF and checkout routes | Console exchanges its authenticated short-lived claim grant with the API over the API's host-only guest cookie. An atomic merge preserves existing server selections, consumes the grant and deletes the guest row. |
+
+## Contract
+
+All routes are under `/api/orders/shopping/`. The unified flag defaults off. Prices are indicative until canonical order review. No taxes or totals due are made up on the storefront.
+
+- `guest/`: exact storefront Origin. GET reads the current guest snapshot. POST adds `{kind:"domain",domain}`, `{kind:"service",plan,cycle,revision,domain?}` or `{bundle:[domain,...]}` (up to four). DELETE removes `{id}`. The anonymous cookie is Secure, HttpOnly and same-site, expires in 24 hours, and contains no Console credential.
+- `account/`: authenticated Client via Console BFF. GET reads; POST adds `{selections:[...]}`; DELETE removes `{id}`.
+- `grant/`: authenticated Client POST via BFF for a one-use claim grant valid for 45 seconds.
+- `claim/`: exact Console Origin POST `{grant}` with the guest cookie. Merges eligible selections, allowing existing account selections to take precedence, and consumes the guest state.
+- Cart responses include `{lines,subtotal,currency}`, with server-priced `{id,selection,kind,name,ready,currency,amount,period,renewal?,setup_fee?}` lines. An invalidated line remains visible for removal. A subtotal is available for ready same-currency lines only. An empty claim can return `{lines:[]}`.
+
+## Release boundary
+
+No new schema, cart table, payment configuration or migration is required. The production flag `CLOUD_UNIFIED_SHOPPING_ENABLED` must remain off until the cross-origin journey qualifies. Public-to-Console claim is implemented. Account cart readback from the public site still needs a revocable shopping-only credential tied to the Console session lifecycle, including logout and account switching. Existing local draft import is only attempted on the authenticated Console cart entry point when the server is enabled.
+
+The approved presentation remains in the storefront `CommerceUI.tsx` and `types.ts`. Console retains its existing production presentation and checkout controllers. A versioned shared UI distribution and Console rollout remain open. Production purchase tests, multi-year pricing, publication revisions, and registrar and supplier activation remain gated.
+
+[OWASP session handling](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) and [CSRF prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html).

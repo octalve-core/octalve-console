@@ -39,7 +39,64 @@ function read(key:string):CartSelection[]{
   } catch {return [];}
 }
 
-export async function readCart(email?: string){return read(await accountCartKey(email));}
+const accountEndpoint="/api/cloud/orders/shopping/account";
+
+type AccountSnapshot={lines:{selection:unknown}[]};
+
+async function accountRequest(method:"GET"|"POST"|"DELETE",data?:unknown):Promise<CartSelection[]|null>{
+  const result=await fetch(accountEndpoint,{
+    method,cache:"no-store",credentials:"same-origin",signal:AbortSignal.timeout(15000),
+    ...(data?{headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}:{}),
+  });
+  if(result.status===404)return null;
+  if(!result.ok)throw Error("Your cart could not be updated.");
+  const body=await result.json() as AccountSnapshot;
+  if(!Array.isArray(body.lines))throw Error("Invalid cart response.");
+  const selections=body.lines.map(line=>line.selection);
+  if(!selections.every(valid))throw Error("Invalid cart selection.");
+  return selections;
+}
+
+const activeImports=new Map<string,Promise<CartSelection[]|null>>();
+
+async function importGuestAndLocal(key:string):Promise<CartSelection[]|null>{
+  const account=await accountRequest("GET");
+  if(!account)return null;
+  const local=read(key);
+  if(local.length){
+    if(await accountCartKey()!==key)throw Error("Account changed. Reopen the cart.");
+    await accountRequest("POST",{selections:local});
+    sessionStorage.removeItem(key);
+  }
+  const grantResponse=await fetch("/api/cloud/orders/shopping/grant",{
+    method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:"{}",signal:AbortSignal.timeout(8000),
+  });
+  if(!grantResponse.ok)throw Error("Your guest cart could not be checked.");
+  const payload=await grantResponse.json() as {grant?:unknown};
+  if(typeof payload.grant!=="string"||payload.grant.length>300)throw Error("Invalid cart handoff.");
+  if(await accountCartKey()!==key)throw Error("Account changed. Reopen the cart.");
+  const claim=await fetch("https://api.cloud.octalve.com/api/orders/shopping/claim/",{
+    method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({grant:payload.grant}),
+    signal:AbortSignal.timeout(8000),
+  });
+  if(!claim.ok)throw Error("Your guest cart could not be merged.");
+  return accountRequest("GET");
+}
+
+export async function readCart(email?: string){
+  const key=await accountCartKey(email);
+  if(location.pathname==="/client/order/checkout"&&new URLSearchParams(location.search).get("view")==="cart"){
+    let pending=activeImports.get(key);
+    if(!pending){
+      pending=importGuestAndLocal(key).finally(()=>{activeImports.delete(key);});
+      activeImports.set(key,pending);
+    }
+    const merged=await pending;
+    if(await accountCartKey()!==key)throw Error("Account changed. Reopen the cart.");
+    return merged??read(key);
+  }
+  return (await accountRequest("GET"))??read(key);
+}
 
 function write(key: string, items: CartSelection[]) {
   sessionStorage.setItem(key, JSON.stringify(items));
@@ -49,6 +106,8 @@ function write(key: string, items: CartSelection[]) {
 export async function addToCart(item:CartSelection){
   if (!valid(item)) throw new Error("Choose a current offer before adding it.");
   const key=await accountCartKey();
+  const remote=await accountRequest("POST",{selections:[item]});
+  if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));return;}
   const rest=read(key).filter(saved=>cartSelectionId(saved)!==cartSelectionId(item));
   if(rest.length>=20) throw new Error("The cart has reached its item limit.");
   write(key, [...rest, item]);
@@ -56,6 +115,8 @@ export async function addToCart(item:CartSelection){
 
 export async function removeFromCart(id:string){
   const key=await accountCartKey();
+  const remote=await accountRequest("DELETE",{id});
+  if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));return remote;}
   const rest=read(key).filter(saved=>cartSelectionId(saved)!==id);
   write(key, rest);
   return rest;
@@ -74,6 +135,8 @@ export async function addDomainBundle(names:string[]){
   return {kind:"domain" as const,domain:name};
  }));
  if(await accountCartKey()!==key)throw Error("Account changed. Please retry.");
+ const remote=await accountRequest("POST",{selections:results});
+ if(remote!==null){window.dispatchEvent(new Event(cartChangedEvent));return;}
  const merged=new Map(read(key).map(item=>[cartSelectionId(item),item]));
  for(const item of results)merged.set(cartSelectionId(item),item);
  if(merged.size>20)throw Error("Your cart can contain up to 20 items.");
