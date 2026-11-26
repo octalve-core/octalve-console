@@ -10,7 +10,7 @@ export function TextField({label,hint,error,startIcon,id,className,"aria-describ
  const description=[describedBy,hint?hintId:undefined,error?errorId:undefined].filter(Boolean).join(" ")||undefined;
  return <div className="min-w-0">
   <label htmlFor={controlId} className="mb-1.5 block text-xs font-medium text-console-ink">{label}</label>
-  <div className={cn("flex h-11 min-h-11 w-full min-w-0 items-center gap-2.5 rounded-xl border bg-white px-3.5 transition focus-within:border-console-primary focus-within:ring-2 focus-within:ring-blue-100",
+  <div className={cn("flex h-12 min-h-12 w-full min-w-0 items-center gap-2.5 rounded-xl border bg-white px-3.5 transition focus-within:border-console-primary focus-within:ring-2 focus-within:ring-blue-100",
    error?"border-rose-400":"border-console-line")}>
    {startIcon?<span aria-hidden="true" className="flex shrink-0 items-center text-slate-500">{startIcon}</span>:null}
    <input {...props} id={controlId} aria-invalid={Boolean(error)||undefined} aria-describedby={description}
