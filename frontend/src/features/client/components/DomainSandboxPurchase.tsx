@@ -19,10 +19,11 @@ type Purchase = {
   registered_at?: string | null;
   expires_at?: string | null;
 };
-type Overview = { domain: string; purchase: Purchase | null; readiness_issues?: string[] | null };
+type Overview = { domain: string; purchase: Purchase | null; public_payment_test?: boolean; readiness_issues?: string[] | null; payment_test_readiness_issues?: string[] | null };
 type Quote = { quote: string; amount: string };
 const labels = {
   awaiting_payment: "Awaiting test payment",
+  test_payment_verified: "Paystack test payment verified. No domain registration or real charge was made.",
   registration_uncertain: "Test payment verified. Registrar response unconfirmed.",
   registration_rejected: "Test payment verified. Registrar rejected the registration.",
   registration_action_required: "Test payment verified. Registration needs review.",
@@ -100,7 +101,7 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
   const purchase = overview.purchase;
   const awaitingPayment = purchase?.state === "awaiting_payment";
   const canCheckout = awaitingPayment && ["available", "resume"].includes(purchase.checkout_state);
-  const terminal = purchase && ["registered", "registration_rejected"].includes(purchase.state);
+  const terminal = purchase && ["registered", "registration_rejected", "test_payment_verified"].includes(purchase.state);
   const buttons = !purchase
     ? [
         ...(quote ? [{ action: "accept", text: "Create invoice" }] : []),
@@ -121,8 +122,8 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
   if (checkoutPage) return <DomainCart domain={overview.domain} amount={purchase?.amount ?? quote?.amount}
     status={purchase ? labels[purchase.state] : undefined} order={purchase?.order} invoice={purchase?.invoice}
     invoiceId={purchase?.invoice_id}
-    registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={!!purchase && ["registered","registration_uncertain","registration_rejected","registration_action_required","registration_pending"].includes(purchase.state)}
-    actions={buttons} busy={busy} error={error} onAction={action => void submit(action)}/>;
+    registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={!!purchase && ["registered","registration_uncertain","registration_rejected","registration_action_required","registration_pending","test_payment_verified"].includes(purchase.state)}
+    publicPaymentTest={overview.public_payment_test===true} actions={buttons} busy={busy} error={error} onAction={action => void submit(action)}/>;
 
   return (
     <section id="sandbox-domain-purchase" className="space-y-3 rounded-xl border border-console-line bg-white p-4 text-sm">
@@ -137,6 +138,7 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
           <p>Console preflight passed. Confirm the Test Mode webhook URL in Paystack.</p>
         )
       )}
+      {admin && overview.payment_test_readiness_issues && <div><h3 className="font-medium">Public payment-only preflight</h3>{overview.payment_test_readiness_issues.length?<ul className="list-disc pl-5">{overview.payment_test_readiness_issues.map(issue=><li key={issue}>{issue}</li>)}</ul>:<p>Payment-only preflight passed.</p>}</div>}
       {purchase && (
         <div role="status" className="space-y-1">
           <p>{labels[purchase.state]}</p>

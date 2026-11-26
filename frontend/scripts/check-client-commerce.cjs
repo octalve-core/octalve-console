@@ -26,7 +26,7 @@ requires("features/client/checkout/DomainCheckout.tsx",["DomainSandboxPurchase",
 requires("features/client/checkout/DomainCart.tsx",["CheckoutSummary","Registration date","Expiry date","Explore hosting","CommerceCheckoutFrame"]);
 requires("features/client/components/commerce/HostingPlanCards.tsx",["PublishedPackageCard","StatusBadge","AddToCartButton","plan.canOrder","Billing period"]);
 requires("features/client/components/commerce/HostingOrderSummary.tsx",["defaultCycle","formatPlanAmount","onCycleChange","AddToCartButton"]);
-requires("features/client/checkout/CartView.tsx",["readCart","removeFromCart","cartCheckoutHref"]);
+requires("features/client/checkout/CartView.tsx",["readCart","removeFromCart","view=combined-review","!!snapshot"]);
 requires("features/client/components/commerce/CheckoutQuoteSummary.tsx",[
  "quote?Number(quote.total):cycle.price+cycle.setupFee","Number(quote.discount_total)","onChangeRequest",
  "final prices on the server"
@@ -88,3 +88,6 @@ requires("features/client/components/domain-search/DomainSearchResult.tsx",["Dom
 requires("features/client/components/DomainSandboxPurchase.tsx",['url.origin!=="https://checkout.paystack.com"']);
 
 for(const file of ["DomainCart","ServiceCheckout","ServiceCartCheckout","CombinedCartCheckout"]){const source=read("features/client/checkout/"+file+".tsx");if(!source.includes("CommerceCheckoutFrame")||source.includes("<DashboardPage")||source.includes("<WorkspaceGrid"))throw Error(file+": legacy checkout layout returned");}
+
+requires("features/client/checkout/CombinedCartCheckout.tsx",["accountCartSnapshot","CartItem","CheckoutSummary","CheckoutPayment","OrderConfirmation","readOnly","public_payment_test"]);
+if(read("features/client/checkout/CombinedCartCheckout.tsx").includes("./ui/CheckoutSections"))throw Error("Combined cart returned to a separate checkout summary");

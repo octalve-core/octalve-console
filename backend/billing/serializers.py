@@ -63,7 +63,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
                     and obj.client_id == obj.order.client_id and obj.order.status == "needs_review")
 
     def get_payment_resume(self, obj):
-        from payments.domain_pilot_scope import CART, PILOT, is_pilot_invoice, pilot_configuration, selected_domain_test_allowed
+        from payments.domain_pilot_scope import CART, PILOT, is_pilot_invoice, pilot_configuration, selected_domain_test_allowed, public_domain_payment_test_allowed
 
         if (obj.status != "unpaid" or obj.collectible_amount <= 0 or not obj.order_id
                 or obj.order.client_id != obj.client_id or obj.order.status != "pending_payment"):
@@ -75,7 +75,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
             if not isinstance(snapshot, dict) or snapshot.get("state") != "awaiting_payment":
                 return None
             domain = snapshot.get("domain")
-            if snapshot.get("selected_domain") is True and selected_domain_test_allowed(obj.client, domain):
+            if snapshot.get("selected_domain") is True and (public_domain_payment_test_allowed(obj.client, domain) if snapshot.get("public_payment_test") is True else selected_domain_test_allowed(obj.client, domain)):
                 return {"kind": "domain", "domain": domain}
             if snapshot.get("selected_domain") is not True and pilot_configuration() == (obj.client_id, domain):
                 return {"kind": "legacy_domain"}

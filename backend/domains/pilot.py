@@ -22,7 +22,7 @@ from accounts.security_throttle import _spend as spend_durable_attempt
 from billing.contact import billing_contact_snapshot
 from billing.models import Invoice, InvoiceItem
 from orders.models import Order, OrderItem
-from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_gateway_allowed, pilot_test_gateway, selected_domain_test_allowed
+from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_gateway_allowed, pilot_test_gateway, selected_domain_test_allowed, public_domain_payment_test_allowed
 from payments.hosted_checkout import CheckoutRefused, _return_url, reserve_hosted_checkout
 from payments.models import PaymentGateway, PaymentIntent, WebhookEvent
 from payments.readback import PaymentReadbackRejected, verify_gateway_intent
@@ -131,30 +131,36 @@ def _selected_rate(name, *, lock=False):
     return {"registration": {"1": str(card.register_price)}, "revision": route["revision"], "route": route}
 
 
-def quote_domain(account, name, *, selected=False):
+def quote_domain(account, name, *, selected=False, public_payment_test=False):
     card = TLDPricing.objects.filter(tld=".com").first()
     rate = _selected_rate(name) if selected else rate_card_draft(card) if card else None
     if not rate or Decimal(rate["registration"]["1"]) <= 0:
         raise ValidationError("Set a positive one-year .com rate first.")
     if selected:
-        live = query_published_registrar(rate["route"], name)
-        if not live or live.get("registrable") is not True:
-            raise ValidationError("The live registrar did not confirm this name is available.")
-    supplier, binding = registrar()
-    availability = supplier.check(name)
-    if not availability["registrable"]:
-        raise ValidationError("The domain is unavailable in the registrar sandbox.")
+        if not public_payment_test:
+            live = query_published_registrar(rate["route"], name)
+            if not live or live.get("registrable") is not True:
+                raise ValidationError("The live registrar did not confirm this name is available.")
+    binding = None
+    availability = None
+    if not public_payment_test:
+        supplier, binding = registrar()
+        availability = supplier.check(name)
+        if not availability["registrable"]:
+            raise ValidationError("The domain is unavailable in the registrar sandbox.")
     snapshot = {"client": account, "domain": name, "amount": rate["registration"]["1"],
                 "price_revision": rate["revision"],
                 "registrar": binding, "supplier_quote": availability}
     if selected:
         snapshot.update(selected_domain=True, live_route=rate["route"])
+    if public_payment_test:
+        snapshot["public_payment_test"] = True
     return {"quote": signing.dumps(snapshot, salt=QUOTE_SALT), "domain": name,
             "amount": snapshot["amount"], "currency": "NGN", "years": 1}
 
 
 @transaction.atomic
-def accept_quote(user, name, token, *, selected=False):
+def accept_quote(user, name, token, *, selected=False, public_payment_test=False):
     # The account lock serializes pilot creation, including a double-submit.
     type(user).objects.select_for_update().get(pk=user.pk)
     existing = pilot_order(user.pk, name)
@@ -169,7 +175,8 @@ def accept_quote(user, name, token, *, selected=False):
     except signing.BadSignature:
         raise ValidationError("This quote expired. Request a fresh quote.") from None
     if ((snapshot["client"], snapshot["domain"]) != (user.pk, name)
-            or bool(snapshot.get("selected_domain")) != selected):
+            or bool(snapshot.get("selected_domain")) != selected
+            or bool(snapshot.get("public_payment_test")) != public_payment_test):
         raise ValidationError("This quote does not match the pilot account.")
     card = TLDPricing.objects.select_for_update().filter(tld=".com").first()
     rate = _selected_rate(name, lock=True) if selected else rate_card_draft(card) if card else None
@@ -177,9 +184,16 @@ def accept_quote(user, name, token, *, selected=False):
             or rate["revision"] != snapshot["price_revision"]
             or (selected and rate["route"] != snapshot.get("live_route"))):
         raise ValidationError("The price changed. Request a fresh quote.")
-    registrar(snapshot)
+    if public_payment_test:
+        if not public_domain_payment_test_allowed(user, name):
+            raise NotFound()
+        # Bound public trial records; serialized by the account lock above.
+        if Order.objects.filter(client=user, metadata__sandbox_domain_purchase__public_payment_test=True).count() + Order.objects.filter(client=user, metadata__combined_domain_test_cart__public_payment_test=True).count() >= 3:
+            raise ValidationError("Your public payment test limit has been reached.")
+    else:
+        registrar(snapshot)
     amount = Decimal(snapshot["amount"])
-    label = f"Sandbox only: {name} registration (1 year)"
+    label = (f"Payment test only: {name} (1 year)" if public_payment_test else f"Sandbox only: {name} registration (1 year)")
     contact = billing_contact_snapshot(user)
     order = Order.objects.create(client=user, status="pending_payment", subtotal=amount,
                                  total=amount, notes=label,
@@ -198,22 +212,23 @@ def accept_quote(user, name, token, *, selected=False):
     return order
 
 
-def pilot_readiness(account):
+def pilot_readiness(account, *, public_payment_test=False, require_domain=True):
     issues = []
     if not get_user_model().objects.filter(
             pk=account, role="client", is_active=True, email_verified_at__isnull=False).exists():
         issues.append("The configured client account must be active and email verified.")
-    if not TLDPricing.objects.filter(tld=".com", register_price__gt=0).exists():
+    if require_domain and not TLDPricing.objects.filter(tld=".com", register_price__gt=0).exists():
         issues.append("Save a positive one-year .com registration rate.")
-    try:
-        registrar()
-    except (CloudflareINT01Denied, VaultUnavailable, ValidationError,
-            IntegrationCredentialVersion.DoesNotExist, DjangoValidationError, KeyError, ValueError):
-        issues.append("Verify the configured Cloudflare Registrar Sandbox connection and vault.")
-    try:
-        registrant_contact()
-    except ValidationError:
-        issues.append("Configure the sandbox registrant contact on the API.")
+    if not public_payment_test:
+        try:
+            registrar()
+        except (CloudflareINT01Denied, VaultUnavailable, ValidationError,
+                IntegrationCredentialVersion.DoesNotExist, DjangoValidationError, KeyError, ValueError):
+            issues.append("Verify the configured Cloudflare Registrar Sandbox connection and vault.")
+        try:
+            registrant_contact()
+        except ValidationError:
+            issues.append("Configure the sandbox registrant contact on the API.")
     gateway = PaymentGateway.objects.filter(code="paystack").first()
     if not gateway or not pilot_test_gateway(gateway) or not gateway.get_secret_key():
         issues.append("Bind a currently verified Paystack Test Mode connection.")
@@ -286,6 +301,9 @@ def inspect_payment(order):
 
 def reconcile(order):
     snapshot = order.metadata[PILOT]
+    public_test = snapshot.get("public_payment_test") is True
+    if snapshot["state"] == "test_payment_verified":
+        return
     if snapshot["state"] == "registered":
         if not snapshot.get("registration", {}).get("registered_at"):
             supplier, _ = registrar(snapshot)
@@ -299,15 +317,19 @@ def reconcile(order):
         return
     if snapshot["state"] == "registration_rejected":
         return
-    supplier, _ = registrar(snapshot)
+    supplier = None
+    if not public_test:
+        supplier, _ = registrar(snapshot)
     if snapshot["state"] != "awaiting_payment":
+        if public_test:
+            raise ValidationError("Unexpected public test state.")
         if recover_locally_blocked_submission(order, supplier):
             return
         reconcile_registration(order, supplier)
         return
 
     intent, proof = inspect_payment(order)
-    contact = registrant_contact()
+    contact = None if public_test else registrant_contact()
     with transaction.atomic():
         locked = Order.objects.select_for_update().get(pk=order.pk)
         if locked.metadata[PILOT]["state"] != "awaiting_payment":
@@ -323,15 +345,16 @@ def reconcile(order):
                 or locked.status != "pending_payment"):
             raise ValidationError("The pilot payment changed during verification.")
         # Reserve before the POST. A crash at any point now requires readback only.
-        locked.metadata[PILOT].update(state="registration_uncertain", payment_reference=proof.reference,
-                                     payment_remote_id=proof.remote_id, sandbox_submission_reserved=True)
+        locked.metadata[PILOT].update(state="test_payment_verified" if public_test else "registration_uncertain", payment_reference=proof.reference,
+                                     payment_remote_id=proof.remote_id, sandbox_submission_reserved=not public_test)
         locked.status = "needs_review"
         locked.save(update_fields=["metadata", "status", "updated_at"])
         payment.status = "completed"
         payment.save(update_fields=["status"])
         invoice.status = "void"
         invoice.save(update_fields=["status", "updated_at"])
-    submit_reserved_registration(locked, supplier, contact)
+    if not public_test:
+        submit_reserved_registration(locked, supplier, contact)
 
 
 def submit_reserved_registration(order, supplier, contact):
@@ -381,9 +404,12 @@ def domain_pilot(request):
     user = request.user
     selected_name = request.query_params.get("domain")
     selected = selected_name is not None
+    public_test = False
     if selected:
         name = selected_name.strip().lower()
-        scope = (user.pk, name) if selected_domain_test_allowed(user, name) else None
+        private_allowed = selected_domain_test_allowed(user, name)
+        public_test = not private_allowed and public_domain_payment_test_allowed(user, name)
+        scope = (user.pk, name) if private_allowed or public_test else None
     if not scope or not user.is_active:
         raise NotFound()
     account, name = scope
@@ -392,23 +418,32 @@ def domain_pilot(request):
     if not is_client and not (is_admin and request.method == "GET"):
         raise NotFound()
     order = pilot_order(account, name)
+    if order and bool(order.metadata[PILOT].get("public_payment_test")) != public_test:
+        raise NotFound()
     headers = {"Cache-Control": "private, no-store"}
     if request.method == "GET":
         return Response({"domain": name, "purchase": result(order) if order else None,
-                         "readiness_issues": pilot_readiness(account) if is_admin else None}, headers=headers)
+                         "public_payment_test": public_test,
+                         "readiness_issues": pilot_readiness(account) if is_admin else None,
+                         "payment_test_readiness_issues": pilot_readiness(account, public_payment_test=True) if is_admin else None}, headers=headers)
     if not isinstance(request.data, dict):
         raise ValidationError("Supply a purchase action.")
     action = request.data.get("action")
     try:
+        if public_test and action in ("quote", "checkout"):
+            retry = spend_durable_attempt("domains:public_payment_test", "global", 100, 3600)
+            if retry:
+                raise Throttled(wait=retry)
         if action == "quote" and not order:
-            if pilot_readiness(account):
+            if (pilot_readiness(account, public_payment_test=True) if public_test else pilot_readiness(account)):
                 raise ValidationError("The test setup is incomplete. Check the Admin domain pricing preflight.")
-            return Response(quote_domain(account, name, selected=selected), headers=headers)
+            return Response(quote_domain(account, name, selected=selected, public_payment_test=public_test), headers=headers)
         if action == "accept" and isinstance(request.data.get("quote"), str):
-            return Response(result(accept_quote(user, name, request.data["quote"], selected=selected)), headers=headers)
+            return Response(result(accept_quote(user, name, request.data["quote"], selected=selected, public_payment_test=public_test)), headers=headers)
         if action == "checkout" and order and order.metadata[PILOT]["state"] == "awaiting_payment":
-            registrant_contact()
-            registrar(order.metadata[PILOT])
+            if not public_test:
+                registrant_contact()
+                registrar(order.metadata[PILOT])
             intent, _ = reserve_hosted_checkout(order.invoices.get().pk, "paystack")
             return Response({"checkout_url": intent.authorization_url}, headers=headers)
         if action == "reconcile" and order:
