@@ -157,3 +157,30 @@ class ShoppingCartTests(TestCase):
             self.assertEqual(applied.status_code, 200)
             self.assertEqual(applied.data["domains"], ["mine.com"])
             self.assertEqual([line["id"] for line in applied.data["lines"]], ["service:1:1mo:mine.com"])
+
+    def test_storefront_bridge_requires_current_refresh_and_matching_client(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        bridge = "/api/orders/shopping/storefront-account/"
+        refresh = RefreshToken.for_user(self.owner)
+        self.console.credentials(HTTP_AUTHORIZATION="Bearer " + str(refresh.access_token))
+        self.assertEqual(self.console.get(bridge).status_code, 403)
+        proof = {"HTTP_X_OCTALVE_SHOPPING_SESSION": str(refresh)}
+        self.assertEqual(self.console.get(bridge, **proof).status_code, 200)
+        with patch("orders.shopping_cart.public_availability", return_value="available"):
+            added = self.console.post(bridge, {"selections": [self.item]}, format="json", **proof)
+        self.assertEqual(added.status_code, 200)
+        self.assertEqual(added.data["lines"][0]["selection"], self.item)
+        other = get_user_model().objects.create_user(email="bridge-other@example.test", username="bridgeother", role="client")
+        other_refresh = RefreshToken.for_user(other)
+        self.assertEqual(self.console.get(bridge, HTTP_X_OCTALVE_SHOPPING_SESSION=str(other_refresh)).status_code, 403)
+        refresh.blacklist()
+        self.assertEqual(self.console.get(bridge, **proof).status_code, 403)
+        self.assertEqual(self.console.delete(bridge, {"id":"domain:example.com"}, format="json", **proof).status_code, 403)
+        self.assertEqual(Cart.objects.get(client=self.owner).items, [self.item])
+
+    @override_settings(CLOUD_UNIFIED_SHOPPING_ENABLED=False)
+    def test_storefront_bridge_gate_stays_closed(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(self.owner)
+        self.console.credentials(HTTP_AUTHORIZATION="Bearer " + str(refresh.access_token))
+        self.assertEqual(self.console.get("/api/orders/shopping/storefront-account/", HTTP_X_OCTALVE_SHOPPING_SESSION=str(refresh)).status_code, 404)
