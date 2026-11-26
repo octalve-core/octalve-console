@@ -1,6 +1,6 @@
 {
   "source": "octalve-core/octalve-cloud",
-  "revision": "f297a81eb9395756b6391030db4e98f068ed2f22",
+  "revision": "d0738725770676465ae44dd75055f96cdb348541",
   "files": {
     "CommerceUI.tsx": "7bee0264bf08de2b50f4f2563823914d2ad19702",
     "DomainPicker.tsx": "e53ca0ad5ee947890867eda7a589e35c29c76af8",
