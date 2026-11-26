@@ -100,3 +100,8 @@ requires("features/client/checkout/cart-selections.ts",["recoverAccountCart","sc
 
 requires("features/client/checkout/cart-selections.ts",["pendingWrite","mutationVersion","configureCartItem","version!==mutationVersion"]);
 requires("features/client/checkout/ClientCartShortcuts.tsx",["<CartTrigger count={null}","count={snapshot?.lines.length??draft?.length??count}"]);
+
+requires("features/client/checkout/CheckoutBillingDetails.tsx",["authApi.saveProfile","ClientProfileDetailsForm","Your account email cannot be changed here"]);
+requires("features/client/checkout/CartView.tsx",["<ClientDomainSearch discovery","CommerceRecommendations","Billing period","CheckoutBillingDetails"]);
+requires("features/client/checkout/CombinedCartCheckout.tsx",["VerifiedPaymentReceipt","Download test invoice","payment_reference","CheckoutBillingDetails"]);
+requires("features/client/components/commerce/BillingRecordDirectory.tsx",["Payment reference","r.paymentReference"]);
