@@ -411,9 +411,11 @@ def account_operation(request, method, data, *, verify_session=False):
             if item["kind"] == "domain":
                 priced_line(item, verify_domain=True)
     else:
-        data = data
-        if not isinstance(data, dict) or set(data) != {"id"} or not isinstance(data["id"], str) or len(data["id"]) > 310:
+        if not isinstance(data, dict):
             raise ValidationError("Choose a valid cart item.")
+        ids = [data["id"]] if set(data) == {"id"} else data.get("ids") if set(data) == {"ids"} else None
+        if not isinstance(ids, list) or not 1 <= len(ids) <= MAX_ITEMS or any(not isinstance(i, str) or not 1 <= len(i) <= 310 for i in ids):
+            raise ValidationError("Choose valid cart items.")
     with transaction.atomic():
         if verify_session:
             verify_shopping_session(request)
@@ -425,7 +427,8 @@ def account_operation(request, method, data, *, verify_session=False):
                     priced_line(item)
                 selections[selection_id(item)] = item
         else:
-            selections.pop(data["id"], None)
+            for line_id in ids:
+                selections.pop(line_id, None)
         if len(selections) > MAX_ITEMS:
             raise ValidationError("Your cart can contain up to 20 items.")
         cart.items = list(selections.values())

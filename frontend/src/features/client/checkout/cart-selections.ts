@@ -125,6 +125,13 @@ export async function addToCart(item:CartSelection){
   window.dispatchEvent(new Event(cartAddedEvent));
 }
 
+export async function removePurchasedItems(ids:string[]){
+  const remote=await accountCartSnapshot("DELETE",{ids});
+  if(!remote)throw Error("Purchased selections could not be removed. Your invoice is preserved.");
+  window.dispatchEvent(new Event(cartChangedEvent));
+  return remote;
+}
+
 export async function removeFromCart(id:string){
   const key=await accountCartKey();
   const remote=await accountRequest("DELETE",{id});

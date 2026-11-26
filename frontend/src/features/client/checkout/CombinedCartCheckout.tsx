@@ -9,7 +9,7 @@ import {CommerceCheckoutFrame,CommercePanel,primary,secondary,OrderConfirmation,
 import type {CartLine,CartView} from "@/components/shared-commerce/types";
 import {authApi, type AccountProfile} from "@/lib/api/endpoints";
 import {formatPlanAmount} from "../data/client-order-data";
-import {cartSelectionId, accountCartSnapshot, removeFromCart, type CartSelection} from "./cart-selections";
+import {cartSelectionId, accountCartSnapshot, removePurchasedItems, type CartSelection} from "./cart-selections";
 
 type PricedLine={name:string; amount:string; kind:string; domain?:string; period?:string};
 type Quote = {quote:string; total:string; currency:string; lines:PricedLine[]; public_payment_test?:boolean};
@@ -62,6 +62,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
       }
       const [snapshot, profile] = await Promise.all([accountCartSnapshot(), authApi.profile()]);
       if(!snapshot||!snapshot.lines.every(line=>line.ready)||!snapshot.currency)throw Error("Your account cart must be priced before checkout. Return to your cart.");
+      if(snapshot.checkout_issue)throw Error(snapshot.checkout_issue);
       const selections=snapshot.lines.map(line=>line.selection);
       const domains = selections.flatMap(item => item.kind === "domain" ? [item.domain] : []);
       const services = selections.flatMap(item => item.kind === "service" ? [{
@@ -138,7 +139,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
         const result = await request<Purchase>(undefined, {action, quote:quote.quote, checkout_id:checkoutId});
         setPurchase(result);
         window.history.replaceState(null, "", `${reviewHref}&invoice=${result.invoice_id}`);
-        for (const item of items) await removeFromCart(cartSelectionId(item)).catch(() => {});
+        try{await removePurchasedItems(items.map(cartSelectionId));}catch{setError("Your invoice was created, but cart cleanup could not be confirmed. You can still pay this invoice.");}
         sessionStorage.removeItem("octalve-combined-cart-review");
       }
       if (action === "checkout" && purchase) {
@@ -162,7 +163,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   return <DashboardShell role="client" title="Checkout" description="Review your products and payment.">
     <CommerceCheckoutFrame stage={purchase?.payment_verified?5:purchase?4:3} title={purchase?.payment_verified?"Test payment confirmed":purchase?"Complete your payment":"Review your order"} back={()=>router.push("/client/order/checkout?view=cart")}>
       <CartFeedback cart={cart}/>
-      {!record&&error&&<button className={secondary} onClick={()=>{setError("");setReload(n=>n+1)}}>Retry quotation</button>}
+      {!record&&error&&<div className="flex flex-wrap gap-2"><button className={secondary} onClick={()=>router.push("/client/order/checkout?view=cart")}>Edit shopping cart</button><button className={secondary} onClick={()=>{setError("");setReload(n=>n+1)}}>Retry quotation</button></div>}
       {record&&<CheckoutColumns summary={<CheckoutSummary cart={cart}>
         {!purchase&&<button type="button" disabled={busy} className={primary+" w-full"} onClick={()=>void run("accept")}>{busy?"Creating invoice…":"Create invoice"}</button>}
         {purchase&&!purchase.payment_verified&&!waiting&&<button type="button" disabled={busy} className={primary+" w-full"} onClick={()=>void run("checkout")}>{purchase.payment_started?"Resume test payment":"Continue to test payment"}</button>}
