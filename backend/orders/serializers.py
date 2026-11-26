@@ -48,6 +48,12 @@ class OrderSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.full_name', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     invoice_documents = serializers.SerializerMethodField()
+    payment_reference = serializers.SerializerMethodField()
+
+    def get_payment_reference(self, obj):
+        from billing.payment_reference import verified_payment_details
+        refs = [(verified_payment_details(invoice) or {}).get("reference") for invoice in obj.invoices.all() if invoice.client_id == obj.client_id]
+        return ", ".join(dict.fromkeys(ref for ref in refs if ref)) or None
 
     def get_invoice_documents(self, obj):
         from billing.serializers import InvoiceSerializer
@@ -64,7 +70,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'status', 'status_display', 'source', 'currency', 'subtotal',
             'discount_total', 'tax_total', 'total', 'coupon_code',
             'coupon_discount', 'notes', 'created_at', 'paid_at',
-            'provisioned_at', 'items', 'invoice_documents'
+            'provisioned_at', 'items', 'invoice_documents', 'payment_reference'
         ]
         read_only_fields = ['order_number', 'created_at', 'paid_at', 'provisioned_at']
 

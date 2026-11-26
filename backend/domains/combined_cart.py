@@ -1,3 +1,4 @@
+from django.utils import timezone
 """Combined Test Mode orders. Each domain has its own submission reservation."""
 from decimal import Decimal
 from uuid import UUID
@@ -176,7 +177,11 @@ def accept_cart(user, data):
 
 def cart_result(order, invoice=None):
     invoice = invoice or order.invoices.get()
+    from billing.payment_reference import verified_payment_details
+    evidence = verified_payment_details(invoice) or {}
     return {"invoice_id": invoice.pk, "invoice": invoice.invoice_number, "order": order.order_number,
+            "payment_reference": evidence.get("reference"), "payment_gateway": evidence.get("gateway"),
+            "verified_at": evidence.get("verified_at"),
             "total": str(invoice.total), "currency": invoice.currency,
             "payment_verified": invoice.status == "void" and order.status == "needs_review" and bool(order.metadata[CART].get("payment_reference")),
             "public_payment_test": order.metadata[CART].get("public_payment_test") is True,
@@ -208,6 +213,7 @@ def confirm_payment(order):
                 or invoice.total != proof.amount or locked.total != proof.amount or invoice.currency != proof.currency):
             raise ValidationError("The payment changed during verification.")
         locked.metadata[CART]["payment_reference"] = proof.reference
+        locked.metadata[CART]["payment_verified_at"] = timezone.now().isoformat()
         locked.status = "needs_review"
         locked.save(update_fields=["metadata", "status", "updated_at"])
         payment.status = "completed"
