@@ -146,10 +146,10 @@ class PublicKnowledgeArticles(APIView):
                 "summary": article.summary, "category": article.category,
                 "body_markdown": article.body_markdown,
                 "updated_at": article.updated_at.isoformat(),
-            }, headers={"Cache-Control": "public, max-age=60"})
+            }, headers={"Cache-Control": "no-store"})
         rows = qs.order_by("category", "title")[:150]
         return Response({"articles": [
             {"slug": a.slug, "title": a.title, "summary": a.summary,
              "category": a.category, "updated_at": a.updated_at.isoformat()}
             for a in rows
-        ]}, headers={"Cache-Control": "public, max-age=60"})
+        ]}, headers={"Cache-Control": "no-store"})

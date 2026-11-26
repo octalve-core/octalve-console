@@ -30,15 +30,23 @@ class CheckoutRefused(ValueError):
     pass
 
 
+PAYMENT_RETURN_PATHS = frozenset({
+    "/client/payments/return", "/client/payments/return/",
+    "/client/order/processing", "/client/order/processing/",
+    "/client/order/checkout", "/client/order/checkout/",
+})
+
+
 def _return_url():
     raw = getattr(settings, "CLOUD_PAYMENT_RETURN_URL", "")
     if not isinstance(raw, str) or not raw or len(raw) > 240:
         raise CheckoutRefused("Approved payment return URL is missing.")
     try:
         parsed = urlsplit(raw)
-        if (parsed.scheme != "https" or parsed.hostname is None
+        if (parsed.scheme != "https" or parsed.netloc != "console.cloud.octalve.com"
                 or parsed.username or parsed.password or parsed.port not in (None, 443)
-                or parsed.query or parsed.fragment or not parsed.path.startswith("/")):
+                or parsed.query or parsed.fragment or parsed.path not in PAYMENT_RETURN_PATHS
+                or any(ord(char) < 33 or ord(char) == 127 for char in raw)):
             raise CheckoutRefused("Approved payment return URL is invalid.")
     except ValueError:
         raise CheckoutRefused("Approved payment return URL is invalid.") from None

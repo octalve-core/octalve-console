@@ -1,5 +1,7 @@
-from django.test import TestCase
-from unittest.mock import patch
+from django.core.cache import cache
+from django.test import TestCase, override_settings
+from unittest.mock import MagicMock, patch
+from providers.web_risk import ENDPOINT, WebRiskUnavailable, lookup
 from rest_framework.test import APIClient
 from catalog.models import ProductCategory, Product, Plan, PlanBillingCycle, PublishedCatalogOffer
 from domains.models import TLDPricing
@@ -104,4 +106,61 @@ class PublicStorefrontTests(TestCase):
         self.assertEqual(self.api.get("/api/storefront/articles/").data["articles"],[])
         a.visibility="client";a.save()
         self.assertEqual(len(self.api.get("/api/storefront/articles/").data["articles"]),1)
-        self.assertEqual(self.api.get("/api/storefront/articles/dns-tips/").status_code,200)
+        detail = self.api.get("/api/storefront/articles/dns-tips/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail["Cache-Control"], "no-store")
+        a.status = "draft"
+        a.save()
+        self.assertEqual(self.api.get("/api/storefront/articles/dns-tips/").status_code, 404)
+
+    def test_public_status_does_not_infer_health_from_liveness(self):
+        response = self.api.get("/api/storefront/status/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "unknown", "monitoring_available": False})
+        self.assertEqual(response["Cache-Control"], "no-store")
+
+
+class PublicWebRiskTests(TestCase):
+    endpoint = "/api/storefront/tools/web-risk/"
+    target = "https://example.com/path?x=1"
+    key = "fixture_only_key_12345"
+
+    def setUp(self):
+        self.api = APIClient()
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    @override_settings(CLOUD_PUBLIC_WEB_RISK_ENABLED=False)
+    def test_default_disabled_and_invalid_target_rejected(self):
+        with patch("catalog.public_security.lookup") as provider:
+            self.assertEqual(self.api.post(self.endpoint, {"url": self.target}, format="json").status_code, 503)
+            for url in ("http://127.0.0.1/", "https://private.internal/", "https://example.com:443/"):
+                self.assertEqual(self.api.post(self.endpoint, {"url": url}, format="json").status_code, 400)
+        provider.assert_not_called()
+
+    def test_contract_and_global_budget(self):
+        with patch("catalog.public_security.configured_key", return_value=self.key), patch(
+            "catalog.public_security.reserve_email_attempt", side_effect=[False, True]
+        ) as budget, patch("catalog.public_security.lookup", return_value=[]) as provider:
+            self.assertEqual(self.api.post(self.endpoint, {"url": self.target}, format="json").status_code, 429)
+            provider.assert_not_called()
+            result = self.api.post(self.endpoint, {"url": self.target}, format="json")
+        self.assertEqual(result.data, {
+            "url": self.target, "provider": "google-web-risk", "status": "not-listed", "threats": [],
+        })
+        self.assertEqual(result["Cache-Control"], "no-store")
+        budget.assert_called_with("public-web-risk-provider", "global", 100, 86400)
+
+    def test_transport_is_fixed_and_fails_closed(self):
+        with patch("providers.web_risk.requests.Session") as factory:
+            session = factory.return_value.__enter__.return_value
+            response = MagicMock(status_code=200)
+            session.get.return_value.__enter__.return_value = response
+            response.raw.read.return_value = b'{"threat":{"threatTypes":["MALWARE"]}}'
+            self.assertEqual(lookup(self.key, self.target), ["MALWARE"])
+            self.assertEqual(session.get.call_args.args, (ENDPOINT,))
+            self.assertEqual(session.get.call_args.kwargs["params"]["uri"], self.target)
+            self.assertFalse(session.get.call_args.kwargs["allow_redirects"])
+            response.raw.read.return_value = b'{"error":{"message":"provider failure"}}'
+            with self.assertRaises(WebRiskUnavailable):
+                lookup(self.key, self.target)

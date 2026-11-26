@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
@@ -194,10 +194,12 @@ function sanitizeRedirectValue(value: string) {
 
   if (!rawValue) return "";
   if (!rawValue.startsWith("/")) return "";
-  if (rawValue.startsWith("//")) return "";
+  if (rawValue.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(rawValue)) return "";
 
   try {
-    const url = new URL(rawValue, "https://console.octalve.cloud");
+    const consoleOrigin = "https://console.cloud.octalve.com";
+    const url = new URL(rawValue, consoleOrigin);
+    if (url.origin !== consoleOrigin || url.pathname.startsWith("//")) return "";
 
     for (const key of Array.from(url.searchParams.keys())) {
       if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) {
