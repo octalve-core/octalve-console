@@ -67,7 +67,7 @@ export function ServiceCartCheckout() {
 
   const address = [profile?.address, profile?.city, profile?.state, profile?.country, profile?.postal_code].filter(Boolean).join(", ");
   return <DashboardShell role="client" title="Checkout" description="Review your order and invoice.">
-    <CommerceCheckoutFrame stage={confirmation?4:3} title={confirmation?"Your invoice is ready":"Review your order"} back={()=>router.push("/client/order/checkout?view=cart")}>
+    <CommerceCheckoutFrame stage={confirmation?2:1} title={confirmation?"Your invoice is ready":"Review your order"} back={()=>router.push("/client/order/checkout?view=cart")}>
       {error && <p role="alert" className="mb-4 text-sm text-rose-700">{error}</p>}
       {!draft && !error && <p role="status">Checking current prices…</p>}
       {confirmation ? <OrderConfirmation reference={confirmation.invoice_number} title="Invoice created">

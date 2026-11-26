@@ -137,7 +137,7 @@ export function ServiceCheckout(){
     }catch{setError("We couldn't confirm your order. Check Orders before retrying; the checkout reference is unchanged.");}
     finally{submitting.current=false;setWorking(false);}
   }
-  const currentStep=stage==="domain"?1:stage==="review"?3:4;
+  const currentStep=stage==="completed"?2:1;
   return <DashboardShell role="client" title="Checkout" description="Configure your service and review your purchase.">
     <CommerceCheckoutFrame stage={currentStep} title={stage==="completed"?"Your invoice is ready":stage==="review"?"Review your order":selected?`Set up ${selected.product}`:"Set up your service"} back={()=>router.push("/client/order/checkout?view=cart")}>
       {error?<p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}

@@ -20,7 +20,7 @@ export function DomainCart({domain,amount,status,order,invoice,invoiceId,registe
  const router=useRouter();
  const price=amount&&Number.isFinite(Number(amount))&&Number(amount)>0?formatPlanAmount(Number(amount),"NGN"):null;
  const cart:CartView={lines:[{id:"domain:"+domain,kind:"domain",name:domain,description:"",period:"1 year",priceLabel:price??"Pending quote"}],subtotal:price??"Pending quote",tax:price?"Included in quoted total":"Pending quote",total:price??"Pending quote",busy,error,checkoutAllowed:false};
- const stage=paymentVerified?5:order?4:3;
+ const stage=paymentVerified?3:order?2:1;
  return <CommerceCheckoutFrame stage={stage} title={paymentVerified?"Test payment confirmed":order?"Complete your payment":"Review your order"} back={()=>router.push("/client/order/checkout?view=cart")}>
   <CheckoutColumns summary={<CheckoutSummary cart={cart}>
    <p className="flex items-start gap-2 text-xs text-slate-600"><ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true"/>Test checkout. No money will be charged.</p>

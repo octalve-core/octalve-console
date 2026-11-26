@@ -89,7 +89,7 @@ export function ClientProcessingView(){
   const paid=invoice?.status==="paid";
   const offered=options?.enabled&&invoice?.currency===options.currency&&invoice?.status==="unpaid"&&invoice.payment_action_allowed;
   return <DashboardShell role="client" title="Order status" description="Track your invoice and secure payment.">
-    <CommerceCheckoutFrame stage={paid?5:4} title={paid?"Payment confirmed":"Complete your payment"} back={()=>router.push("/client/orders")} backLabel="Back to orders">
+    <CommerceCheckoutFrame stage={paid?3:2} title={paid?"Payment confirmed":"Complete your payment"} back={()=>router.push("/client/orders")} backLabel="Back to orders">
       {paid&&invoice?.payment_details&&!invoice.payment_details.test?<VerifiedPaymentReceipt amount={new Intl.NumberFormat("en-NG",{style:"currency",currency:invoice.currency}).format(Number(invoice.total))} reference={invoice.payment_details.reference} order={invoice.order_number||"—"} invoice={invoice.invoice_number||"—"} method={invoice.payment_details.gateway==="paystack"?"Paystack":invoice.payment_details.gateway} paidAt={invoice.payment_details.verified_at?new Date(invoice.payment_details.verified_at).toLocaleString("en-NG"):undefined} test={false} actions={<><Link href="/client" className={primary}>Go to dashboard</Link><a href={invoiceDownloadHref(invoice.id)} className={secondary}>Download receipt</a></>}><p className="text-sm text-slate-600">Your payment is recorded. Track service activation in your account.</p></VerifiedPaymentReceipt>:<CommercePanel className="p-6 sm:p-9">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0064E0]">
