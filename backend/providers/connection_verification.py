@@ -21,6 +21,7 @@ from .connection_views import VaultMutationThrottle, connection_database_qualifi
 from .connection_vault import VaultUnavailable,unseal_version
 from .cloudflare_int01 import CloudflareINT01, FixedCloudflareTransport, CloudflareINT01Denied
 from audit.models import AuditLog
+from .public_google import PublicGoogleUnavailable, page_speed, verify_gemini
 from .web_risk import WebRiskUnavailable, lookup as web_risk_lookup
 
 class ProviderReadbackFailed(ValueError):
@@ -130,6 +131,11 @@ def verify_connection(request,connection_id):
             connector=CloudflareINT01(row.public_settings["account_id"],
                 FixedCloudflareTransport(secrets["api_token"]))
             proof=connector.sandbox_readback()
+        elif row.adapter_key=="google-gemini":
+            proof = verify_gemini(secrets["api_key"])
+        elif row.adapter_key=="google-pagespeed":
+            page_speed(secrets["api_key"], "https://example.com/", "mobile")
+            proof = {"performance_api": "reachable"}
         elif row.adapter_key=="google-web-risk":
             web_risk_lookup(secrets["api_key"], "https://example.com/")
             proof = {"lookup_api": "reachable"}
@@ -137,7 +143,7 @@ def verify_connection(request,connection_id):
             proof=brevo_readback(secrets["api_key"])
         else:
             proof=paystack_readback(secrets["secret_key"],row.environment)
-    except (CloudflareINT01Denied,ProviderReadbackFailed,WebRiskUnavailable,VaultUnavailable,
+    except (CloudflareINT01Denied,ProviderReadbackFailed,WebRiskUnavailable,PublicGoogleUnavailable,VaultUnavailable,
             IntegrationCredentialVersion.DoesNotExist,KeyError,DatabaseError):
         return Response({"verified":False,"detail":"Credential readback failed or could not be certified."},
             status=503,headers={"Cache-Control":"private, no-store"})

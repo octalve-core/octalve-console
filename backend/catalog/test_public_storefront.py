@@ -1,5 +1,10 @@
+from time import monotonic
+
+
+from catalog.public_site_inspection import inspect_redirects, public_addresses, validate_address
+from providers.public_google import GEMINI_URL, PublicGoogleUnavailable, generate_json, page_speed
 from django.core.cache import cache
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from unittest.mock import MagicMock, patch
 from providers.web_risk import ENDPOINT, WebRiskUnavailable, lookup
 from rest_framework.test import APIClient
@@ -164,3 +169,130 @@ class PublicWebRiskTests(TestCase):
             response.raw.read.return_value = b'{"error":{"message":"provider failure"}}'
             with self.assertRaises(WebRiskUnavailable):
                 lookup(self.key, self.target)
+
+
+class Phase2ToolTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.client = APIClient()
+
+    def tool(self, name, payload):
+        return self.client.post(f"/api/storefront/tools/{name}/", payload, format="json")
+
+    def test_domain_ideas_match_storefront_and_do_not_return_availability(self):
+        with patch("catalog.public_google_tools.provider_key", return_value="test"), patch(
+            "catalog.public_google_tools.generate_json", return_value={"ideas": ["bright", "bright", "bad.example"]}
+        ) as generate:
+            answer = self.tool("domain-ideas", {"business": "Flowers", "extension": ".com.ng", "count": 100})
+        self.assertEqual(answer.data, {"ideas": ["bright.com.ng"]})
+        self.assertEqual(generate.call_args.args[2]["count"], 30)
+        self.assertEqual(answer["Cache-Control"], "no-store")
+
+    @override_settings(CLOUD_PUBLIC_GEMINI_ENABLED=False, CLOUD_PUBLIC_PAGESPEED_ENABLED=False)
+    def test_default_disabled_before_any_vendor_call(self):
+        with patch("providers.public_google.requests.Session") as transport:
+            self.assertEqual(self.tool("domain-ideas", {"business": "Flowers", "extension": ".com", "count": 1}).status_code, 503)
+            self.assertEqual(self.tool("pagespeed", {"url": "https://example.com/", "strategy": "mobile"}).status_code, 503)
+        transport.assert_not_called()
+
+    def test_document_draft_keeps_contact_address_out_of_model_prompt(self):
+        payload = {"kind": "cookie", "business": "Flowers", "website": "https://example.com/",
+                   "email": "contact@example.com", "country": "Nigeria"}
+        with patch("catalog.public_google_tools.provider_key", return_value="test"), patch(
+            "catalog.public_google_tools.generate_json", return_value={"text": "[Confirm actual policy details] " * 5}
+        ) as generate:
+            answer = self.tool("document-draft", payload)
+        self.assertTrue(answer.data["draft"])
+        self.assertTrue(answer.data["text"].startswith("Draft for review."))
+        self.assertNotIn("email", generate.call_args.args[2])
+
+    def test_invented_catalogue_ids_and_private_urls_are_refused(self):
+        plans = [{"id": 1, "name": "Starter", "product_type": "hosting"}]
+        with patch("catalog.public_google_tools.published_plans", return_value=plans), patch(
+            "catalog.public_google_tools.provider_key", return_value="test"
+        ), patch("catalog.public_google_tools.generate_json", return_value={"ids": [2]}):
+            self.assertEqual(self.tool("recommendations", {"need": "Hosting"}).status_code, 503)
+        for url in ("https://localhost/", "https://127.0.0.1/", "https://example.com:444/"):
+            with self.subTest(url=url):
+                self.assertEqual(self.tool("ssl", {"url": url}).status_code, 400)
+
+    def test_provider_rejects_truncated_completion_and_invalid_score(self):
+        with patch("providers.public_google._request", return_value={"candidates": [{"finishReason": "MAX_TOKENS"}]}) as request:
+            with self.assertRaises(PublicGoogleUnavailable):
+                generate_json("test", "instruction", {}, tokens=128)
+        self.assertEqual(request.call_args.args[0], GEMINI_URL + ":generateContent")
+        with patch("providers.public_google._request", return_value={"lighthouseResult": {
+            "requestedUrl": "https://example.com/", "categories": {"performance": {"score": 2}},
+        }}):
+            with self.assertRaises(PublicGoogleUnavailable):
+                page_speed("test", "https://example.com/", "mobile")
+
+
+
+    @override_settings(DEBUG=False, CLOUD_PUBLIC_GEMINI_ENABLED=True, CLOUD_PROVIDER_CUSTODY_VERIFIED=True,
+                       CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED=True, CLOUD_PUBLIC_GEMINI_CREDENTIAL_VERSION=3,
+                       CLOUD_PUBLIC_GEMINI_CONNECTION_ID="ecb6f906-2f6b-46d6-94e3-2c1b0139e258")
+    def test_key_is_current_live_and_not_read_when_budget_exhausted(self):
+        from rest_framework.exceptions import Throttled
+        from catalog.public_google_tools import provider_key
+
+        with patch("catalog.public_google_tools.connection_database_qualified", return_value=True), patch(
+            "catalog.public_google_tools.IntegrationConnection.objects.get"
+        ) as connection, patch("catalog.public_google_tools.verify_chain"), patch(
+            "catalog.public_google_tools.IntegrationCredentialVersion.objects.get"
+        ) as version, patch("catalog.public_google_tools.reserve_email_attempt", return_value=False) as reserve, patch(
+            "catalog.public_google_tools.unseal_version"
+        ) as decrypt:
+            with self.assertRaises(Throttled):
+                provider_key("gemini")
+            self.assertEqual(connection.call_args.kwargs["current_version"], 3)
+            self.assertEqual(connection.call_args.kwargs["environment"], "live")
+            self.assertEqual(connection.call_args.kwargs["adapter_key"], "google-gemini")
+            self.assertTrue(version.call_args.kwargs["revoked_at__isnull"])
+            reserve.assert_called_once_with("public-google-gemini", "global", 60, 86400)
+            decrypt.assert_not_called()
+
+class InspectionNegativeTests(SimpleTestCase):
+    def test_mixed_dns_records_are_rejected_even_with_a_public_record(self):
+        with patch("catalog.public_site_inspection.requests.Session") as factory:
+            response = MagicMock(status_code=200)
+            factory.return_value.__enter__.return_value.get.return_value.__enter__.return_value = response
+            response.raw.read.return_value = b'{"Status":0,"Answer":[{"type":1,"data":"8.8.8.8"},{"type":1,"data":"10.0.0.1"}]}'
+            with self.assertRaises(PublicGoogleUnavailable):
+                public_addresses("example.com", monotonic() + 2)
+
+    def test_non_public_and_transition_addresses_are_refused(self):
+        for address in ("10.1.2.3", "127.0.0.1", "169.254.169.254", "100.64.0.1",
+                        "::1", "::ffff:8.8.8.8", "64:ff9b::808:808", "2002:808:808::1"):
+            with self.subTest(address=address), self.assertRaises(PublicGoogleUnavailable):
+                validate_address(address)
+
+    def test_each_redirect_is_revalidated_and_https_cannot_downgrade(self):
+        for destination in ("https://private.internal/", "http://example.net/", "https://example.net:444/"):
+            with patch("catalog.public_site_inspection.head", return_value=(302, destination)) as request:
+                with self.assertRaises(PublicGoogleUnavailable):
+                    inspect_redirects("https://example.com/", monotonic() + 2)
+            request.assert_called_once()
+
+
+class IndependentStatusTests(SimpleTestCase):
+    @override_settings(CLOUD_INDEPENDENT_STATUS_SUBDOMAIN="octalve", CLOUD_INDEPENDENT_STATUS_PAGE_ID="octalve123")
+    def test_mismatched_page_is_unknown_and_events_are_minimal(self):
+        from octalve_backend.public_status import extract_status, UNKNOWN
+
+        packet = {
+            "page": {"id": "octalve123"},
+            "components": [{"status": "degraded_performance"}],
+            "status": {"indicator": "minor"},
+            "incidents": [{
+                "id": "event123", "name": "Slow responses", "status": "monitoring",
+                "updated_at": "2026-11-26T09:00:00Z", "internal": "private-data",
+            }],
+            "scheduled_maintenances": [],
+        }
+        self.assertEqual(extract_status(packet, "otherpage"), UNKNOWN)
+        report = extract_status(packet, "octalve123")
+        self.assertEqual(report["status"], "degraded")
+        self.assertEqual(report["events"][0]["id"], "event123")
+        self.assertNotIn("private-data", str(report))

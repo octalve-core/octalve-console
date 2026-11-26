@@ -62,6 +62,20 @@ SCHEMAS = {
         "ports": (),
         "guide": "https://paystack.com/docs/v2/developer-tools/integration/api-keys",
     },
+    "google-gemini": {
+        "name": "Google Gemini",
+        "fields": {},
+        "secrets": ("api_key",),
+        "ports": (),
+        "guide": "https://ai.google.dev/gemini-api/docs/api-key",
+    },
+    "google-pagespeed": {
+        "name": "Google PageSpeed Insights",
+        "fields": {},
+        "secrets": ("api_key",),
+        "ports": (),
+        "guide": "https://developers.google.com/speed/docs/insights/v5/get-started",
+    },
     "google-web-risk": {
         "name": "Google Web Risk",
         "fields": {},
@@ -114,7 +128,7 @@ for key, name, fields, secrets, ports, guide in (
 ):
     SCHEMAS[key] = {"name": name, "fields": fields, "secrets": secrets, "ports": ports, "guide": guide}
 
-READBACK_ADAPTERS = frozenset({"cloudflare-dns", "cloudflare-registrar", "brevo", "paystack", "google-web-risk"})
+READBACK_ADAPTERS = frozenset({"cloudflare-dns", "cloudflare-registrar", "brevo", "paystack", "google-web-risk", "google-gemini", "google-pagespeed"})
 
 
 def public_catalog():

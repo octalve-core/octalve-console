@@ -2,6 +2,8 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
+from .public_status import status_report
+
 
 @require_GET
 def health(request):
@@ -12,6 +14,6 @@ def health(request):
 def public_service_status(request):
     """Application liveness is not evidence of wider service availability."""
     return JsonResponse(
-        {"status": "unknown", "monitoring_available": False},
+        status_report(),
         headers={"Cache-Control": "no-store"},
     )
