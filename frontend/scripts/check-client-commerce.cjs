@@ -105,3 +105,5 @@ requires("features/client/checkout/CheckoutBillingDetails.tsx",["authApi.savePro
 requires("features/client/checkout/CartView.tsx",["<ClientDomainSearch discovery","CommerceRecommendations","Billing period","CheckoutBillingDetails"]);
 requires("features/client/checkout/CombinedCartCheckout.tsx",["VerifiedPaymentReceipt","Download test invoice","payment_reference","CheckoutBillingDetails"]);
 requires("features/client/components/commerce/BillingRecordDirectory.tsx",["Payment reference","r.paymentReference"]);
+
+requires("features/client/checkout/CombinedCartCheckout.tsx",["action:\"pay\"","CheckoutConsent","PaymentGatewayChoices","Preparing secure payment"]);

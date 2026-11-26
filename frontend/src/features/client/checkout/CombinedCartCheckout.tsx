@@ -4,9 +4,9 @@ import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {DashboardShell} from "@/components/layout/DashboardShell";
-import {CommerceCheckoutFrame,CommercePanel,primary,secondary,OrderConfirmation,VerifiedPaymentReceipt,CheckoutPayment,CheckoutColumns,CheckoutSummary,CartItem,CartFeedback} from "@/components/shared-commerce/CommerceUI";
+import {CommerceCheckoutFrame,CommercePanel,primary,secondary,OrderConfirmation,VerifiedPaymentReceipt,CheckoutPayment,CheckoutColumns,CheckoutSummary,CartItem,CartFeedback,PaymentGatewayChoices,CheckoutConsent} from "@/components/shared-commerce/CommerceUI";
 
-import type {CartLine,CartView} from "@/components/shared-commerce/types";
+import type {CartLine,CartView,GatewayCode,GatewayOption} from "@/components/shared-commerce/types";
 import {authApi, type AccountProfile} from "@/lib/api/endpoints";
 import {formatPlanAmount} from "../data/client-order-data";
 import {CheckoutBillingDetails} from "./CheckoutBillingDetails";
@@ -15,9 +15,9 @@ import {sharedCartLines} from "./shared-cart-adapter";
 import {cartSelectionId, accountCartSnapshot, removePurchasedItems, type AccountSnapshot, type CartSelection} from "./cart-selections";
 
 type PricedLine={name:string; amount:string; kind:string; domain?:string; period?:string};
-type Quote = {quote:string; total:string; currency:string; lines:PricedLine[]; public_payment_test?:boolean};
+type Quote = {quote:string; total:string; currency:string; lines:PricedLine[]; public_payment_test?:boolean;gateway_options?:GatewayOption[]};
 type Purchase = {invoice_id:number; invoice:string; order:string; total:string; currency:string;
-  payment_verified:boolean; payment_reference?:string|null; payment_gateway?:string|null; verified_at?:string|null; payment_started:boolean; public_payment_test?:boolean; lines:PricedLine[]; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
+  payment_verified:boolean; payment_reference?:string|null; payment_gateway?:string|null; verified_at?:string|null; payment_started:boolean; gateway_options?:GatewayOption[];checkout_url?:string;checkout_error?:string; public_payment_test?:boolean; lines:PricedLine[]; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
 
 const reviewHref = "/client/order/checkout?view=combined-review";
 const actionStyle = primary;
@@ -50,6 +50,8 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   const [checkoutId, setCheckoutId] = useState("");
   const [purchase, setPurchase] = useState<Purchase>();
   const [error, setError] = useState("");
+  const [gateway,setGateway]=useState<GatewayCode|null>(null);
+  const [consent,setConsent]=useState(false);
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [statusRefresh, setStatusRefresh] = useState(0);
@@ -61,7 +63,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
     async function load() {
       if (invoice) {
         const current = await request<Purchase>(invoice);
-        if (active) setPurchase(current);
+        if (active) {setPurchase(current);setGateway(current.gateway_options?.find(g=>g.enabled)?.code??null);}
         return;
       }
       const [snapshot, profile] = await Promise.all([accountCartSnapshot(), authApi.profile()]);
@@ -85,6 +87,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
         setItems(selections);
         setAccount(profile);
         setQuote(result);
+        setGateway(result.gateway_options?.find(g=>g.enabled)?.code??null);
       }
     }
     void load().catch(reason => { if (active) setError(reason instanceof Error ? reason.message : "Checkout could not load."); });
@@ -114,7 +117,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
       try {
         const next = await request<Purchase>(statusInvoice, {action:"advance"});
         if (active) {
-          setPurchase(next);
+          setPurchase(old=>({...next,gateway_options:next.gateway_options??old?.gateway_options}));
           setError("");
           if (next.payment_verified && (next.public_payment_test||!next.domains.some(domain => domain.state === "awaiting_payment"))) {setWaiting(false);return;}
         }
@@ -134,24 +137,29 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
     };
   }, [needsAdvance, statusInvoice, statusRefresh]);
 
-  async function run(action: "accept" | "checkout" | "reconcile", line?: number) {
+  async function run(action: "pay" | "reconcile", line?: number) {
     if (inFlight.current) return;
+    if(action==="pay"&&(!consent||!gateway))return;
     inFlight.current = true;
     setBusy(true);
     setError("");
     try {
-      if (action === "accept" && quote && checkoutId) {
-        const result = await request<Purchase>(undefined, {action, quote:quote.quote, checkout_id:checkoutId});
-        setPurchase(result);
-        window.history.replaceState(null, "", `${reviewHref}&invoice=${result.invoice_id}`);
-        try{await removePurchasedItems(items.map(cartSelectionId));}catch{setError("Your invoice was created, but cart cleanup could not be confirmed. You can still pay this invoice.");}
-        sessionStorage.removeItem("octalve-combined-cart-review");
-      }
-      if (action === "checkout" && purchase) {
-        const {checkout_url} = await request<{checkout_url:string}>(purchase.invoice_id, {action});
-        const url = new URL(checkout_url);
-        if (url.origin !== "https://checkout.paystack.com" || url.username || url.password || url.hash) throw Error("Payment link could not be verified.");
-        window.location.assign(url);
+      if(action==="pay"){
+        if(!purchase&&(!quote||!checkoutId))return;
+        const result=await request<Purchase>(purchase?.invoice_id,{action:"pay",gateway,consent,
+          ...(!purchase?{quote:quote!.quote,checkout_id:checkoutId}:{})});
+        setPurchase({...result,gateway_options:result.gateway_options??purchase?.gateway_options??quote?.gateway_options});
+        if(!purchase){
+          window.history.replaceState(null,"",`${reviewHref}&invoice=${result.invoice_id}`);
+          try{await removePurchasedItems(items.map(cartSelectionId));}catch{/* The accepted invoice remains the payment authority. */}
+          sessionStorage.removeItem("octalve-combined-cart-review");
+        }
+        if(result.payment_verified)return;
+        if(result.checkout_error){setError(result.checkout_error);return;}
+        if(!result.checkout_url)throw Error("Payment link is unavailable. Your invoice is saved.");
+        const url=new URL(result.checkout_url);
+        if(url.origin!=="https://checkout.paystack.com"||url.username||url.password||url.hash||url.search)throw Error("Payment link could not be verified.");
+        window.location.assign(url.href);
       }
       if (action === "reconcile" && purchase && line) {
         setPurchase(await request<Purchase>(purchase.invoice_id, {action, line_id:line}));
@@ -162,25 +170,27 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
 
   const address = [account?.address, account?.city, account?.state, account?.country, account?.postal_code].filter(Boolean).join(", ");
   const record=purchase??quote;
+  const options=record?.gateway_options??[];
+  const canPay=consent&&!!gateway&&options.some(g=>g.code===gateway&&g.enabled)&&!busy;
   const lines:CartLine[]=(record?.lines??[]).map((line,index)=>({id:String(index),kind:line.kind==="domain"?"domain":line.kind==="vps"?"vps":"hosting",name:line.kind==="domain"?(line.domain||line.name):line.name,description:"",period:line.period??(line.kind==="domain"?"1 year":"Selected billing cycle"),priceLabel:formatPlanAmount(Number(line.amount),record!.currency),domain:line.domain}));
   const total=record?formatPlanAmount(Number(record.total),record.currency):"Awaiting quote";
   const cart:CartView={lines,subtotal:total,tax:record?formatPlanAmount(0,record.currency):"—",total,busy:busy||(!record&&!error),error,checkoutAllowed:!!quote&&!purchase};
   return <DashboardShell role="client" title="Checkout" description="Review your products and payment.">
-    <CommerceCheckoutFrame stage={purchase?.payment_verified?5:purchase?4:3} title={purchase?.payment_verified?"Payment confirmation":purchase?"Complete your payment":"Review your order"} back={()=>router.push("/client/order/checkout?view=cart")}>
+    <CommerceCheckoutFrame stage={purchase?.payment_verified?3:purchase?2:1} title={purchase?.payment_verified?"Payment confirmation":purchase?"Complete your payment":"Checkout"} back={()=>router.push("/client/order/checkout?view=cart")}>
       <CartFeedback cart={cart}/>
       {!record&&draft&&<CheckoutColumns summary={<CheckoutSummary cart={{...cart,lines:sharedCartLines(draft),subtotal:draft.subtotal&&draft.currency?formatPlanAmount(Number(draft.subtotal),draft.currency):"Awaiting quote"}}><p role="status" className="text-sm text-slate-600">Confirming your order total and eligibility.</p></CheckoutSummary>}>{sharedCartLines(draft).map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}</CheckoutColumns>}
       {!record&&error&&<div className="flex flex-wrap gap-2"><button className={secondary} onClick={()=>router.push("/client/order/checkout?view=cart")}>Edit shopping cart</button><button className={secondary} onClick={()=>{setError("");setReload(n=>n+1)}}>Retry quotation</button></div>}
       {purchase?.payment_verified&&<VerifiedPaymentReceipt amount={total} reference={purchase.payment_reference} order={purchase.order} invoice={purchase.invoice} method={purchase.payment_gateway==="paystack"?"Paystack":purchase.payment_gateway} paidAt={purchase.verified_at?new Date(purchase.verified_at).toLocaleString("en-NG"):undefined} test actions={<><Link href="/client" className={primary}>Go to dashboard</Link><a href={invoiceDownloadHref(purchase.invoice_id)} className={secondary}>Download test invoice</a></>}><p className="text-sm text-slate-600">{purchase.public_payment_test?"No domain registration or service activation has occurred.":"Test registration status is shown below."}</p>{lines.map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}{!purchase.public_payment_test&&purchase.domains.map(domain=><div key={domain.id} className="mt-3 rounded-xl border p-3 text-sm"><p>{domain.name}</p><p>{statuses[domain.state]??domain.state}</p>{!["awaiting_payment","registered","registration_rejected"].includes(domain.state)&&<button type="button" className={secondary} onClick={()=>void run("reconcile",domain.id)} disabled={busy}>Check registration</button>}</div>)}</VerifiedPaymentReceipt>}
       {record&&!purchase?.payment_verified&&<CheckoutColumns summary={<CheckoutSummary cart={cart}>
-        {!purchase&&<button type="button" disabled={busy} className={primary+" w-full"} onClick={()=>void run("accept")}>{busy?"Creating invoice…":"Create invoice"}</button>}
-        {purchase&&!purchase.payment_verified&&!waiting&&<button type="button" disabled={busy} className={primary+" w-full"} onClick={()=>void run("checkout")}>{purchase.payment_started?"Resume test payment":"Continue to test payment"}</button>}
+        <PaymentGatewayChoices options={options} selected={gateway} onChange={setGateway}/>
+        {!waiting&&<><CheckoutConsent checked={consent} onChange={setConsent} disabled={busy}/><button type="button" disabled={!canPay} className={primary+" w-full"} onClick={()=>void run("pay")}>{busy?"Preparing secure payment…":purchase?.payment_started?"Resume payment":"Pay now"}</button></>}
         {purchase&&<Link href={`/client/invoices/${purchase.invoice_id}`} className={secondary+" w-full"}>View invoice {purchase.invoice}</Link>}
         {needsAdvance&&!waiting&&<button className={secondary+" w-full"} onClick={()=>setStatusRefresh(n=>n+1)}>Check payment status</button>}
         <p className="text-xs text-slate-600">Test Mode only. No real money will be charged.</p>
       </CheckoutSummary>}>
         {lines.map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}
         {!purchase&&<CheckoutBillingDetails initial={account} onSaved={setAccount}/>}
-        {purchase&&!purchase.payment_verified&&<CheckoutPayment><p className="mt-3 text-sm text-slate-600">{waiting?"Checking your test payment…":"Paystack Test Mode — use test payment details only."}</p><p className="mt-2 text-sm text-slate-600">Order {purchase.order} · {purchase.invoice}</p></CheckoutPayment>}
+        {purchase&&!purchase.payment_verified&&<CheckoutPayment><p className="mt-3 text-sm text-slate-600">{waiting?"Checking your test payment…":"Complete your secure test payment using Paystack."}</p><p className="mt-2 text-sm text-slate-600">Order {purchase.order} · {purchase.invoice}</p></CheckoutPayment>}
         {purchase&&!purchase.public_payment_test&&purchase.domains.map(domain=><CommercePanel key={domain.id}><p className="break-all font-medium">{domain.name}</p><p className="text-sm text-slate-600">{statuses[domain.state]??domain.state}</p>{purchase.payment_verified&&!["awaiting_payment","registered","registration_rejected"].includes(domain.state)&&<button type="button" className={secondary+" mt-3"} disabled={busy} onClick={()=>void run("reconcile",domain.id)}>Check registration</button>}</CommercePanel>)}
       </CheckoutColumns>}
     </CommerceCheckoutFrame>
