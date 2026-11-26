@@ -8,7 +8,7 @@ import {CartReview,CommercePanel} from "@/components/shared-commerce/CommerceUI"
 import type {CartActions,CartLine,CartView as View} from "@/components/shared-commerce/types";
 import {ClientDomainSearch} from "../components/ClientDomainSearch";
 import {formatPlanAmount,loadSellablePlans,type ClientOrderPlan} from "../data/client-order-data";
-import {accountCartSnapshot,cartCheckoutHref,cartSelectionId,readCart,removeFromCart,cartChangedEvent,type CartSelection,type AccountSnapshot} from "./cart-selections";
+import {accountCartSnapshot,cartSelectionId,readCart,removeFromCart,cartChangedEvent,type CartSelection,type AccountSnapshot} from "./cart-selections";
 import {searchCartDomains,sharedCartLines} from "./shared-cart-adapter";
 
 function AccountCartView({identity}:{identity:string}){
@@ -32,16 +32,13 @@ function AccountCartView({identity}:{identity:string}){
   }catch{if(mounted.current)setError("Couldn’t confirm the cart update. Refresh and retry.");throw Error("Cart update could not be confirmed.")}
   finally{writing.current=false;if(mounted.current)setBusy(false);}
  }
- const single=items?.length===1?items[0]:undefined;
- const singlePlan=single?.kind==="service"?plans.find(p=>p.id===single.plan):undefined;
- const canSingle=single&&(single.kind==="domain"||(singlePlan?.revision===single.revision&&singlePlan.cycles.some(c=>c.key===single.cycle)));
  const next=items?.length?"/client/order/checkout?view=combined-review":null;
  const lines:CartLine[]=snapshot?sharedCartLines(snapshot):(items??[]).map(item=>{
   const plan=item.kind==="service"?plans.find(p=>p.id===item.plan&&p.revision===item.revision):undefined;
   const cycle=item.kind==="service"?plan?.cycles.find(c=>c.key===item.cycle):undefined;
-  return {id:cartSelectionId(item),kind:item.kind==="domain"?"domain":"hosting",name:item.kind==="domain"?item.domain:plan?.name??"Service plan",description:"",period:item.kind==="domain"?"1 year":cycle?.label??"Check availability",priceLabel:plan&&cycle?formatPlanAmount(cycle.price+cycle.setupFee,plan.currency)+" estimated":"Priced at review",domain:item.domain};
+  return {id:cartSelectionId(item),kind:item.kind==="domain"?"domain":"hosting",name:item.kind==="domain"?item.domain:plan?.name??"Service plan",description:"",period:item.kind==="domain"?"1 year":cycle?.label??"Check availability",priceLabel:plan&&cycle?formatPlanAmount(cycle.price+cycle.setupFee,plan.currency)+" estimated":"Price not confirmed",domain:item.domain};
  });
- const cart:View={lines,subtotal:snapshot?.subtotal&&snapshot.currency?formatPlanAmount(Number(snapshot.subtotal),snapshot.currency):"Confirmed at review",tax:"Calculated at review",total:"Confirmed at review",busy:busy||items===null&&!error,error:error||(!snapshot&&items!==null?"Your saved selections are preserved. Reconnect to the account cart to confirm prices.":""),checkoutAllowed:!!next&&!!snapshot&&snapshot.lines.every(l=>l.ready)&&!!snapshot.currency};
+ const cart:View={lines,subtotal:snapshot?.subtotal&&snapshot.currency?formatPlanAmount(Number(snapshot.subtotal),snapshot.currency):"Price not confirmed",tax:"Calculated at review",total:"Confirmed at review",busy:busy||items===null&&!error,error:error||(!snapshot&&items!==null?"Your saved selections are preserved. Reconnect to the account cart to confirm prices.":""),checkoutAllowed:!!next&&!!snapshot&&snapshot.lines.every(l=>l.ready)&&!!snapshot.currency};
  const actions:CartActions={remove:id=>{void mutate(id).catch(()=>{});},configure:(id,domain)=>mutate(id,domain),domainPicker:snapshot?{search:searchCartDomains,addAndConfigure:(id,domain)=>mutate(id,domain,true)}:undefined,review:()=>{},checkout:()=>{if(next&&cart.checkoutAllowed)router.push(next)},continueShopping:()=>router.push("/client/order")};
  return <CartReview cart={cart} actions={actions}><CommercePanel><details><summary className="cursor-pointer text-sm font-medium text-[#0064E0]">Search for another domain</summary><div className="mt-4"><ClientDomainSearch onAdded={()=>void refresh()}/></div></details></CommercePanel><Link href="/client/profile" className="inline-flex min-h-11 items-center text-sm text-[#0064E0]">Review billing details</Link></CartReview>;
 }

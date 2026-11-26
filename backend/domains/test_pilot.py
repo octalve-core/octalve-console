@@ -381,3 +381,85 @@ class DomainPilotTests(TestCase):
         customer.email_verified_at = None
         customer.save(update_fields=["email_verified_at"])
         self.assertEqual(api.get(path).status_code, 404)
+
+    @override_settings(CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED=True, CLOUD_HOSTED_CHECKOUT_ENABLED=True,
+                       CLOUD_PAYMENT_RETURN_URL="https://console.cloud.octalve.com/client/order/processing")
+    def test_unified_public_cart_domain_and_service_payment_only(self):
+        from uuid import uuid4
+        from billing.models import Invoice
+        from catalog.models import Plan, PlanBillingCycle, Product, ProductCategory
+        from catalog.test_published_fixture import attach_test_published_offer
+        from payments.domain_pilot_scope import CART
+        category = ProductCategory.objects.create(name="Unified Hosting")
+        product = Product.objects.create(category=category, name="Hosting", product_type="shared_hosting",
+                                         status="active", is_public=True)
+        plan = Plan.objects.create(product=product, name="Starter", status="active", is_public=True, currency="NGN")
+        cycle = PlanBillingCycle.objects.create(plan=plan, cycle_key="1mo", months=1, is_active=True,
+                                               price=Decimal("3000.00"), setup_fee=Decimal("500.00"))
+        attach_test_published_offer(plan, cycle)
+        TLDPricing.objects.filter(tld=".com").update(metadata={"published_registrar": {
+            "connection_id": "fixture", "credential_version": 1, "revision": 2}})
+        customer = get_user_model().objects.create_user(username="unified", email="unified@example.test",
+            role="client", email_verified_at=timezone.now())
+        api = APIClient()
+        api.force_authenticate(customer)
+        path = "/api/domains/combined-cart/"
+        service = {"plan_id": plan.pk, "offer_revision": 1, "cycle_key": "1mo", "quantity": 1}
+        with patch("domains.combined_cart.registrar") as supplier, patch("domains.pilot.registrar") as single_supplier, patch("domains.pilot.spend_durable_attempt", return_value=0):
+            for domains, services, amount in [
+                (["a-test.com"], [], Decimal("12500.00")),
+                (["b-test.com", "c-test.com"], [service], Decimal("28500.00")),
+                ([], [service], Decimal("3500.00")),
+            ]:
+                quote = api.post(path, {"action": "quote", "domains": domains, "services": services}, format="json")
+                self.assertEqual(quote.status_code, 200, quote.data)
+                self.assertEqual(Decimal(quote.data["total"]), amount)
+                payload = {"action": "accept", "quote": quote.data["quote"], "checkout_id": str(uuid4())}
+                created = api.post(path, payload, format="json")
+                self.assertEqual(created.status_code, 200, created.data)
+                self.assertEqual(api.post(path, payload, format="json").data["invoice_id"], created.data["invoice_id"])
+                invoice = Invoice.objects.get(pk=created.data["invoice_id"])
+                self.assertEqual(invoice.total, amount)
+                self.assertEqual(sum(item.subtotal for item in invoice.items.all()), amount)
+                self.assertTrue(invoice.order.metadata[CART]["public_payment_test"])
+                self.assertTrue(gateway_can_read(self.gateway, invoice))
+                self.gateway.test_mode = False
+                self.assertFalse(gateway_can_read(self.gateway, invoice))
+                self.gateway.test_mode = True
+                def send(_url, **kwargs):
+                    body = kwargs["json"]
+                    self.assertEqual(body["amount"], str(int(amount * 100)))
+                    self.assertIn("view=combined-review", body["callback_url"])
+                    return reply({"status": True, "data": {"reference": body["reference"],
+                         "authorization_url": "https://checkout.paystack.com/test_12345"}})
+                with patch.object(PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789"):
+                    intent, _ = reserve_hosted_checkout(invoice.pk, "paystack", poster=send)
+                status_path = f"{path}?invoice={invoice.pk}"
+                proof = ConfirmedGatewayPayment("paystack", intent.reference, "NGN", amount, str(invoice.pk))
+                self.assertFalse(api.post(status_path, {"action": "advance"}, format="json").data["payment_verified"])
+                WebhookEvent.objects.create(gateway=self.gateway, is_verified=True, event_type="charge.success",
+                    event_id=f"unified-test-{invoice.pk}", payload={"reference": intent.reference,
+                    "remote_id": str(invoice.pk), "intent_id": intent.pk})
+                with patch("domains.pilot.verify_gateway_intent", return_value=proof):
+                    result = api.post(status_path, {"action": "advance"}, format="json")
+                self.assertEqual(result.status_code, 200, result.data)
+                self.assertTrue(result.data["payment_verified"])
+                self.assertTrue(all(d["state"] == "test_payment_verified" for d in result.data["domains"]))
+                invoice.refresh_from_db()
+                self.assertEqual(invoice.status, "void")
+                self.assertEqual(invoice.amount_paid, 0)
+                self.assertFalse(Transaction.objects.exists())
+                api.force_authenticate(self.owner)
+                self.assertEqual(api.get(status_path).status_code, 404)
+                api.force_authenticate(customer)
+            fourth = api.post(path, {"action": "quote", "domains": [], "services": [service]}, format="json")
+            # Per-account mutation throttle may trigger before the fourth order; either is a safe denial.
+            if fourth.status_code == 200:
+                denied = api.post(path, {"action": "accept", "quote": fourth.data["quote"],
+                    "checkout_id": str(uuid4())}, format="json")
+                self.assertIn(denied.status_code, (400, 429))
+            else:
+                self.assertIn(fourth.status_code, (400, 429))
+            supplier.assert_not_called()
+            single_supplier.assert_not_called()
+        self.assertEqual(customer.orders.count(), 3)
