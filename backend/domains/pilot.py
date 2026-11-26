@@ -137,9 +137,10 @@ def quote_domain(account, name, *, selected=False, public_payment_test=False):
     if not rate or Decimal(rate["registration"]["1"]) <= 0:
         raise ValidationError("Set a positive one-year .com rate first.")
     if selected:
-        live = query_published_registrar(rate["route"], name)
-        if not live or live.get("registrable") is not True:
-            raise ValidationError("The live registrar did not confirm this name is available.")
+        if not public_payment_test:
+            live = query_published_registrar(rate["route"], name)
+            if not live or live.get("registrable") is not True:
+                raise ValidationError("The live registrar did not confirm this name is available.")
     binding = None
     availability = None
     if not public_payment_test:
@@ -187,7 +188,7 @@ def accept_quote(user, name, token, *, selected=False, public_payment_test=False
         if not public_domain_payment_test_allowed(user, name):
             raise NotFound()
         # Bound public trial records; serialized by the account lock above.
-        if Order.objects.filter(client=user, metadata__sandbox_domain_purchase__public_payment_test=True).count() >= 3:
+        if Order.objects.filter(client=user, metadata__sandbox_domain_purchase__public_payment_test=True).count() + Order.objects.filter(client=user, metadata__combined_domain_test_cart__public_payment_test=True).count() >= 3:
             raise ValidationError("Your public payment test limit has been reached.")
     else:
         registrar(snapshot)
@@ -211,12 +212,12 @@ def accept_quote(user, name, token, *, selected=False, public_payment_test=False
     return order
 
 
-def pilot_readiness(account, *, public_payment_test=False):
+def pilot_readiness(account, *, public_payment_test=False, require_domain=True):
     issues = []
     if not get_user_model().objects.filter(
             pk=account, role="client", is_active=True, email_verified_at__isnull=False).exists():
         issues.append("The configured client account must be active and email verified.")
-    if not TLDPricing.objects.filter(tld=".com", register_price__gt=0).exists():
+    if require_domain and not TLDPricing.objects.filter(tld=".com", register_price__gt=0).exists():
         issues.append("Save a positive one-year .com registration rate.")
     if not public_payment_test:
         try:
@@ -423,7 +424,8 @@ def domain_pilot(request):
     if request.method == "GET":
         return Response({"domain": name, "purchase": result(order) if order else None,
                          "public_payment_test": public_test,
-                         "readiness_issues": pilot_readiness(account) if is_admin else None}, headers=headers)
+                         "readiness_issues": pilot_readiness(account) if is_admin else None,
+                         "payment_test_readiness_issues": pilot_readiness(account, public_payment_test=True) if is_admin else None}, headers=headers)
     if not isinstance(request.data, dict):
         raise ValidationError("Supply a purchase action.")
     action = request.data.get("action")

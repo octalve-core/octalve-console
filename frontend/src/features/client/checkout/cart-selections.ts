@@ -68,7 +68,8 @@ async function importGuestAndLocal(key:string):Promise<CartSelection[]|null>{
   const local=read(key);
   if(local.length){
     if(await accountCartKey()!==key)throw Error("Account changed. Reopen the cart.");
-    await accountRequest("POST",{selections:local});
+    const imported=await accountRequest("POST",{selections:local});
+    if(imported===null||!local.every(item=>imported.some(saved=>cartSelectionId(saved)===cartSelectionId(item))))throw Error("Your saved cart has not been confirmed.");
     sessionStorage.removeItem(key);
   }
   const grantResponse=await fetch("/api/cloud/orders/shopping/grant",{

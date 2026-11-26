@@ -6,7 +6,8 @@ from django.core import signing
 from django.db import transaction
 from django.db.models import Q
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, ValidationError, Throttled
+from accounts.security_throttle import _spend as spend_durable_attempt
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -16,6 +17,7 @@ from orders.models import Order, OrderItem
 from orders.serializers import CreateOrderSerializer
 from payments.domain_pilot_scope import (
     CART, PILOT, pilot_gateway_allowed, selected_domain_test_account_allowed, selected_domain_test_allowed,
+    public_payment_test_account_allowed, public_domain_payment_test_allowed,
 )
 from payments.hosted_checkout import CheckoutRefused, reserve_hosted_checkout
 from payments.models import PaymentIntent, WebhookEvent
@@ -31,14 +33,15 @@ from .pilot import (
 SALT = "octalve.combined-domain-test-cart.v1"
 
 
-def selections(user, data):
+def selections(user, data, *, public_test=False):
     domains = data.get("domains")
     services = data.get("services", [])
-    if (not isinstance(domains, list) or not 1 <= len(domains) <= 5
-            or not all(selected_domain_test_allowed(user, name) for name in domains)
+    allowed = public_domain_payment_test_allowed if public_test else selected_domain_test_allowed
+    if (not isinstance(domains, list) or not (0 if public_test else 1) <= len(domains) <= 5
+            or not all(allowed(user, name) for name in domains)
             or len(set(domains)) != len(domains)):
         raise ValidationError("Choose up to five distinct eligible domains.")
-    if not isinstance(services, list) or len(domains) + len(services) > 20:
+    if not isinstance(services, list) or not 1 <= len(domains) + len(services) <= 20:
         raise ValidationError("The cart can contain up to 20 items.")
     fields = {"plan_id", "offer_revision", "cycle_key", "domain_name", "quantity"}
     if any(not isinstance(item, dict) or set(item) - fields for item in services):
@@ -79,20 +82,21 @@ def existing_domain_order(user, names):
 
 
 def quote_cart(user, data):
-    names, services = selections(user, data)
-    if existing_domain_order(user, names):
+    public_test = public_payment_test_account_allowed(user)
+    names, services = selections(user, data, public_test=public_test)
+    if not public_test and existing_domain_order(user, names):
         raise ValidationError("A domain already has an order. Resume it from your invoices.")
-    if pilot_readiness(user.pk):
+    if not public_test and pilot_readiness(user.pk):
         raise ValidationError("Domain test checkout is currently unavailable.")
     from .pilot import QUOTE_SALT
-    domains = [signing.loads(quote_domain(user.pk, name, selected=True)["quote"], salt=QUOTE_SALT)
+    domains = [signing.loads(quote_domain(user.pk, name, selected=True, public_payment_test=True)["quote"] if public_test else quote_domain(user.pk, name, selected=True)["quote"], salt=QUOTE_SALT)
                for name in names]
     with transaction.atomic():
         items = services_for(services)
         lines = lines_for(domains, items)
     return {"lines": lines, "total": str(basket_total(lines)), "currency": "NGN",
             "quote": signing.dumps({"client": user.pk, "domains": domains,
-                                    "services": services, "lines": lines}, salt=SALT)}
+                                    "services": services, "lines": lines, "public_payment_test": public_test}, salt=SALT)}
 
 
 @transaction.atomic
@@ -111,10 +115,17 @@ def accept_cart(user, data):
         raise ValidationError("The cart quote expired. Review the current prices.") from None
     if snapshot["client"] != user.pk:
         raise NotFound()
+    public_test = snapshot.get("public_payment_test") is True
+    if public_test and not public_payment_test_account_allowed(user):
+        raise NotFound()
+    if not public_test and not selected_domain_test_account_allowed(user):
+        raise NotFound()
+    if public_test and Order.objects.filter(client=user, metadata__combined_domain_test_cart__public_payment_test=True).count() + Order.objects.filter(client=user, metadata__sandbox_domain_purchase__public_payment_test=True).count() >= 3:
+        raise ValidationError("Your public payment test limit has been reached.")
     domains = snapshot["domains"]
     names, services = selections(user, {"domains": [item["domain"] for item in domains],
-                                        "services": snapshot["services"]})
-    if existing_domain_order(user, names):
+                                        "services": snapshot["services"]}, public_test=public_test)
+    if not public_test and existing_domain_order(user, names):
         raise ValidationError("A domain already has an order. Resume it from your invoices.")
     for domain in domains:
         rate = _selected_rate(domain["domain"], lock=True)
@@ -122,7 +133,8 @@ def accept_cart(user, data):
                 or domain["price_revision"] != rate["revision"]
                 or domain["live_route"] != rate["route"]):
             raise ValidationError("Domain pricing changed. Review the current prices.")
-        registrar(domain)
+        if not public_test:
+            registrar(domain)
     items = services_for(services)
     lines = lines_for(domains, items)
     if lines != snapshot["lines"]:
@@ -130,8 +142,8 @@ def accept_cart(user, data):
     total = basket_total(lines)
     contact = billing_contact_snapshot(user)
     order = Order.objects.create(client=user, source="web", status="pending_payment", currency="NGN",
-                                 subtotal=total, total=total, notes="Test order",
-                                 metadata={CART: {"checkout_id": key, "domains": names},
+                                 subtotal=total, total=total, notes="Payment test only — no service activation" if public_test else "Test order",
+                                 metadata={CART: {"checkout_id": key, "domains": names, "public_payment_test": public_test},
                                            "billing_contact": contact})
     for domain in domains:
         OrderItem.objects.create(order=order, item_type="domain", product_id=0, plan_id=0,
@@ -153,10 +165,12 @@ def cart_result(order, invoice=None):
     invoice = invoice or order.invoices.get()
     return {"invoice_id": invoice.pk, "invoice": invoice.invoice_number, "order": order.order_number,
             "total": str(invoice.total), "currency": invoice.currency,
-            "payment_verified": invoice.status == "void" and order.status == "needs_review",
+            "payment_verified": invoice.status == "void" and order.status == "needs_review" and bool(order.metadata[CART].get("payment_reference")),
+            "public_payment_test": order.metadata[CART].get("public_payment_test") is True,
+            "lines": [{"name": line.description, "amount": str(line.subtotal), "kind": line.item_type, "domain": line.domain_name} for line in order.items.all()],
             "payment_started": invoice.payment_intents.exists(),
             "domains": [{"id": line.pk, "name": line.domain_name,
-                         "state": line.config[CART]["state"],
+                         "state": "test_payment_verified" if order.metadata[CART].get("public_payment_test") is True and invoice.status == "void" and order.metadata[CART].get("payment_reference") else line.config[CART]["state"],
                          "registered_at": line.config[CART].get("registration", {}).get("registered_at"),
                          "expires_at": line.config[CART].get("registration", {}).get("expires_at")}
                         for line in order.items.filter(item_type="domain")]}
@@ -190,6 +204,8 @@ def confirm_payment(order):
 
 
 def reconcile_line(order, line_id):
+    if order.metadata[CART].get("public_payment_test") is True:
+        raise ValidationError("Payment-only tests never submit registrations.")
     line = order.items.filter(pk=line_id, item_type="domain").first()
     if not line:
         raise NotFound()
@@ -246,6 +262,8 @@ def advance_cart(order, invoice):
                 payload__intent_id__in=list(invoice.payment_intents.values_list("pk", flat=True))).exists():
             confirm_payment(order)
         return
+    if order.metadata[CART].get("public_payment_test") is True:
+        return
     if order.status != "needs_review" or invoice.status != "void":
         return
     line = order.items.filter(item_type="domain", config__combined_domain_test_cart__state="awaiting_payment").order_by("pk").first()
@@ -258,13 +276,17 @@ def advance_cart(order, invoice):
 @throttle_classes([DomainPurchaseThrottle])
 def combined_cart(request):
     user = request.user
-    if not selected_domain_test_account_allowed(user):
+    if not (selected_domain_test_account_allowed(user) or public_payment_test_account_allowed(user)):
         raise NotFound()
     headers = {"Cache-Control": "private, no-store"}
     data = request.data
     action = data.get("action") if isinstance(data, dict) else None
     try:
         if action == "quote":
+            if public_payment_test_account_allowed(user):
+                retry = spend_durable_attempt("domains:public_payment_test", "global", 100, 3600)
+                if retry:
+                    raise Throttled(wait=retry)
             return Response(quote_cart(user, data), headers=headers)
         if action == "accept":
             return Response(accept_cart(user, data), headers=headers)
@@ -276,13 +298,23 @@ def combined_cart(request):
         if not invoice or invoice.metadata.get(CART) is not True:
             raise NotFound()
         order = invoice.order
+        public_test = order.metadata[CART].get("public_payment_test") is True
+        if not (public_payment_test_account_allowed(user) if public_test else selected_domain_test_account_allowed(user)):
+            raise NotFound()
         if request.method == "GET":
             return Response(cart_result(order, invoice), headers=headers)
         if action == "checkout":
-            if pilot_readiness(user.pk):
-                raise ValidationError("Domain test checkout is currently unavailable.")
-            for line in order.items.filter(item_type="domain"):
-                registrar(line.config[CART])
+            if public_test:
+                retry = spend_durable_attempt("domains:public_payment_test", "global", 100, 3600)
+                if retry:
+                    raise Throttled(wait=retry)
+                if pilot_readiness(user.pk, public_payment_test=True, require_domain=bool(order.metadata[CART]["domains"])):
+                    raise ValidationError("Test payment is temporarily unavailable. Your invoice is preserved.")
+            else:
+                if pilot_readiness(user.pk):
+                    raise ValidationError("Domain test checkout is currently unavailable.")
+                for line in order.items.filter(item_type="domain"):
+                    registrar(line.config[CART])
             intent, _ = reserve_hosted_checkout(invoice.pk, "paystack")
             return Response({"checkout_url": intent.authorization_url}, headers=headers)
         if action == "advance":
