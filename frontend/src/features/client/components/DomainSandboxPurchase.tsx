@@ -75,7 +75,7 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
         return;
       }
       if (action === "quote") setQuote(data);
-      else if (action === "checkout") window.location.assign(data.checkout_url);
+      else if (action === "checkout") {const url=new URL(data.checkout_url);if(url.origin!=="https://checkout.paystack.com"||url.username||url.password||url.hash)throw Error("Unapproved payment destination");window.location.assign(url.href);}
       else {
         setOverview((current) => current ? { ...current, purchase: data } : current);
         if (action === "accept" && domain && data.order && data.domain === domain) {

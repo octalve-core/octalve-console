@@ -46,7 +46,7 @@ requires("features/client/views/ClientProcessingView.tsx",[
  "clientApi.initializeHostedPayment(invoiceId,gateway)",
  'allowedHosts.has(target.hostname)',"target.protocol!==\"https:\"",
  'invoice.status!=="unpaid"',"doneStates.includes(status)","document.visibilityState!==\"visible\"",
- "Panel","StatusBadge"
+ "CommercePanel","StatusBadge"
 ]);
 requires("features/client/components/commerce/WalletBalanceCard.tsx",["useState(false)","aria-label={visible?\"Hide wallet balance\":\"Show wallet balance\"}"]);
 requires("features/client/views/ClientWalletView.tsx",[
@@ -82,3 +82,7 @@ if(process.argv.includes("--built")){
   if(!output.includes(token))throw Error("Missing commerce Tailwind token "+token);
 }
 console.log("PASS: Batch 4 commerce and payment authority protected; typed Tailwind presentation");
+
+requires("features/client/views/ClientDomainTransferView.tsx",["DomainSearchField","clientApi.domainTransferReadiness(domain)","checkout_enabled!==false"]);
+requires("features/client/components/domain-search/DomainSearchResult.tsx",["DomainResultCard","value.test_checkout_enabled","verified&&priced"]);
+requires("features/client/components/DomainSandboxPurchase.tsx",['url.origin!=="https://checkout.paystack.com"']);

@@ -4,7 +4,7 @@ import Link from "next/link";
 import {CreditCard,FileText,Loader2,ShieldCheck,AlertCircle} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
-import {Panel} from "@/components/design-system/Panel";
+import {CommercePanel,CheckoutStepper,primary} from "@/components/shared-commerce/CommerceUI";
 import {ActionLink} from "@/components/design-system/ActionLink";
 import {StatusBadge} from "@/components/design-system/StatusBadge";
 import {GooglePayReviewButton} from "../components/commerce/GooglePayReviewButton";
@@ -90,7 +90,7 @@ export function ClientProcessingView(){
   return <DashboardShell role="client" title="Order status" description="Track your invoice and secure payment.">
     <DashboardPage eyebrow="Checkout · Order status" title="Your order progress"
       description="Your order status updates automatically while this page is open.">
-      <Panel className="mx-auto max-w-3xl p-6 sm:p-9">
+      <CommercePanel className="mx-auto max-w-3xl p-6 sm:p-9"><div className="mb-6"><CheckoutStepper stage={paid?5:4}/></div>
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0064E0]">
             {paid?<ShieldCheck/>:<FileText/>}
@@ -122,7 +122,7 @@ export function ClientProcessingView(){
           <div className="flex flex-wrap gap-3">
             {options.gateways.filter((v):v is "paystack"|"flutterwave"=>v==="paystack"||v==="flutterwave").map(gateway=>
               <button type="button" key={gateway} disabled={paying} onClick={()=>{void beginPayment(gateway);}}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#0064E0] px-5 py-3 text-sm font-medium text-white disabled:opacity-50">
+                className={primary}>
                 <CreditCard className="h-4 w-4"/>{paying?"Connecting…":`Pay with ${gateway==="paystack"?"Paystack":"Flutterwave"}`}
               </button>)}
           </div>
@@ -138,7 +138,7 @@ export function ClientProcessingView(){
           <ActionLink href="/client/orders" variant="outline">View orders</ActionLink>
           <ActionLink href="/client/support/new" variant="outline">Contact support</ActionLink>
         </div>
-      </Panel>
+      </CommercePanel>
     </DashboardPage>
   </DashboardShell>;
 }

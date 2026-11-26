@@ -1,5 +1,5 @@
 import {Info,ShoppingCart} from "lucide-react";
-import {Panel} from "@/components/design-system/Panel";
+import {CommercePanel} from "@/components/shared-commerce/CommerceUI";
 import {formatPlanAmount,type ClientOrderPlan} from "../../data/client-order-data";
 import type {CheckoutQuote} from "@/lib/api/endpoints";
 
@@ -11,7 +11,7 @@ export function CheckoutQuoteSummary({plan,cycleKey,quote,coupon,stage,onCouponC
  if(!cycle)return null;
  const currency=quote?.currency??plan.currency;
  const amount=quote?Number(quote.total):cycle.price+cycle.setupFee;
- return <Panel className="h-fit lg:sticky lg:top-24">
+ return <CommercePanel className="h-fit lg:sticky lg:top-24">
   <h2 className="flex items-center gap-2 text-lg font-medium text-console-ink">
    <ShoppingCart aria-hidden="true" className="h-5 w-5 text-console-primary"/>Order summary
   </h2>
@@ -39,5 +39,5 @@ export function CheckoutQuoteSummary({plan,cycleKey,quote,coupon,stage,onCouponC
    <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0"/>
    We calculate final prices on the server. A domain registration is not included.
   </p>
- </Panel>;
+ </CommercePanel>;
 }
