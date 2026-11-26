@@ -13,12 +13,9 @@ const cols:DirectoryColumn[]=[
  {key:"total",label:"Amount",render:r=>r.amount||"—"},
  {key:"date",label:"Order / due date",render:r=>r.date||"—"},
 ];
-/** Customer purchase history: one shared accessible table, status/filter sheet, mobile cards and row actions. */
-export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescription}:{
- resource:BillingResource;records:readonly ClientRecord[];emptyTitle:string;emptyDescription:string;
-}){
+export function billingRecordRows(resource:BillingResource, records:readonly ClientRecord[]):DirectoryRow[]{
  const Icon=resource==="orders"?ShoppingCart:ReceiptText;
- const rows=useMemo<DirectoryRow[]>(()=>records.map(r=>{
+ return records.map(r=>{
   const date=resource==="invoices"?r.dueDate:r.createdDate||r.date;
   return {
    id:r.id,title:r.title,subtitle:r.subtitle,
@@ -31,7 +28,13 @@ export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescrip
    icon:<Icon aria-hidden="true" className="h-5 w-5"/>,
    searchTerms:[r.id,r.meta,r.subtitle,r.paymentReference||""]
   };
- }),[records,Icon,resource]);
+ });
+}
+/** Customer purchase history: one shared accessible table, status/filter sheet, mobile cards and row actions. */
+export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescription}:{
+ resource:BillingResource;records:readonly ClientRecord[];emptyTitle:string;emptyDescription:string;
+}){
+ const rows=useMemo(()=>billingRecordRows(resource,records),[records,resource]);
  const linkedInvoice = (id:string) => records.find(record=>record.id===id)?.invoiceDocuments?.[0];
  const paymentHref = (id:string) => {
   const record=records.find(item=>item.id===id);
