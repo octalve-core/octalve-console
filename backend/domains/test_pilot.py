@@ -415,6 +415,9 @@ class DomainPilotTests(TestCase):
                 self.assertEqual(quote.status_code, 200, quote.data)
                 self.assertEqual(Decimal(quote.data["total"]), amount)
                 payload = {"action": "accept", "quote": quote.data["quote"], "checkout_id": str(uuid4())}
+                self.assertEqual(api.post(path, {**payload, "action": "pay", "gateway": "paystack"}, format="json").status_code, 400)
+                self.assertEqual(api.post(path, {**payload, "action": "pay", "gateway": "flutterwave", "consent": True}, format="json").status_code, 400)
+                self.assertFalse(customer.orders.filter(metadata__combined_domain_test_cart__checkout_id=payload["checkout_id"]).exists())
                 created = api.post(path, payload, format="json")
                 self.assertEqual(created.status_code, 200, created.data)
                 self.assertEqual(api.post(path, payload, format="json").data["invoice_id"], created.data["invoice_id"])
@@ -435,6 +438,12 @@ class DomainPilotTests(TestCase):
                          "authorization_url": "https://checkout.paystack.com/test_12345"}})
                 with patch.object(PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789"):
                     intent, _ = reserve_hosted_checkout(invoice.pk, "paystack", poster=send)
+                with patch("domains.combined_cart.start_cart_payment", return_value=intent.authorization_url) as start:
+                    paid = api.post(path, {**payload, "action": "pay", "gateway": "paystack", "consent": True}, format="json")
+                    self.assertEqual(paid.status_code, 200, paid.data)
+                    self.assertEqual(paid.data["invoice_id"], invoice.pk)
+                    self.assertEqual(paid.data["checkout_url"], intent.authorization_url)
+                    start.assert_called_once()
                 status_path = f"{path}?invoice={invoice.pk}"
                 proof = ConfirmedGatewayPayment("paystack", intent.reference, "NGN", amount, str(invoice.pk))
                 self.assertFalse(api.post(status_path, {"action": "advance"}, format="json").data["payment_verified"])
@@ -472,3 +481,53 @@ class DomainPilotTests(TestCase):
             supplier.assert_not_called()
             single_supplier.assert_not_called()
         self.assertEqual(customer.orders.count(), 3)
+
+    @override_settings(CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED=True, CLOUD_HOSTED_CHECKOUT_ENABLED=True,
+                       CLOUD_PAYMENT_RETURN_URL="https://console.cloud.octalve.com/client/order/processing")
+    def test_pay_now_creates_one_invoice_and_reuses_confirmed_checkout(self):
+        from uuid import uuid4
+        from billing.models import Invoice
+        from payments.hosted_checkout import CheckoutRefused
+        TLDPricing.objects.filter(tld=".com").update(metadata={"published_registrar": {
+            "connection_id": "fixture", "credential_version": 1, "revision": 2}})
+        api = APIClient()
+        api.force_authenticate(self.owner)
+        path = "/api/domains/combined-cart/"
+        with patch("domains.combined_cart.pilot_readiness", return_value=[]), patch.object(
+                PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789"):
+            quote = api.post(path, {"action": "quote", "domains": ["one-click.com"], "services": []}, format="json")
+            self.assertEqual(quote.status_code, 200, quote.data)
+            self.assertEqual([x["code"] for x in quote.data["gateway_options"] if x["enabled"]], ["paystack"])
+            payload = {"action": "pay", "quote": quote.data["quote"], "checkout_id": str(uuid4()),
+                       "gateway": "paystack", "consent": True}
+            self.assertEqual(api.post(path, {**payload, "consent": False}, format="json").status_code, 400)
+            self.assertEqual(api.post(path, {**payload, "gateway": "monnify"}, format="json").status_code, 400)
+            self.assertFalse(self.owner.orders.exists())
+            # Simulate unavailable gateway before a remote POST. The accepted invoice must remain recoverable.
+            with patch("domains.combined_cart.start_cart_payment", side_effect=CheckoutRefused("fixture")):
+                failed = api.post(path, payload, format="json")
+            self.assertEqual(failed.status_code, 200, failed.data)
+            self.assertIn("checkout_error", failed.data)
+            self.assertEqual(self.owner.orders.count(), 1)
+            invoice_id = failed.data["invoice_id"]
+            def send(_url, **kwargs):
+                body = kwargs["json"]
+                self.assertEqual(body["amount"], "1250000")
+                return reply({"status": True, "data": {"reference": body["reference"],
+                    "authorization_url": "https://checkout.paystack.com/test_12345"}})
+            with patch("payments.hosted_checkout.requests.post", side_effect=send) as post:
+                first = api.post(path, payload, format="json")
+                second = api.post(path, payload, format="json")
+                resumed = api.post(f"{path}?invoice={invoice_id}", {"action": "pay", "gateway": "paystack", "consent": True}, format="json")
+                for response in (first, second, resumed):
+                    self.assertEqual(response.status_code, 200, response.data)
+                    self.assertEqual(response.data["invoice_id"], invoice_id)
+                    self.assertEqual(response.data["checkout_url"], "https://checkout.paystack.com/test_12345")
+                    self.assertTrue(response.data["payment_started"])
+                post.assert_called_once()
+            invoice = Invoice.objects.get(pk=invoice_id)
+            self.assertEqual(invoice.total, Decimal("12500.00"))
+            self.assertEqual(invoice.payment_intents.count(), 1)
+            self.assertEqual(self.owner.orders.count(), 1)
+            self.assertEqual(invoice.status, "unpaid")
+            self.assertFalse(Transaction.objects.exists())

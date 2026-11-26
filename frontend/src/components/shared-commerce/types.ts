@@ -10,4 +10,6 @@ export type DomainPickerActions={
  addAndConfigure:(lineId:string,domain:string)=>Promise<void>;
 };
 export type CartActions={remove:(id:string)=>void;configure:(id:string,domain:string)=>void|Promise<void>;domainPicker?:DomainPickerActions;review:()=>void;checkout:()=>void;continueShopping:()=>void;addHosting?:()=>void};
-export const steps=["Cart","Configuration","Account","Review","Payment","Confirmation"] as const;
+export const steps=["Cart","Checkout","Payment","Confirmation"] as const;
+export type GatewayCode="paystack"|"flutterwave"|"monnify"|"google_pay";
+export type GatewayOption={code:GatewayCode;enabled:boolean;test?:boolean};
