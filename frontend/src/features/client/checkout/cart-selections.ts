@@ -41,9 +41,9 @@ function read(key:string):CartSelection[]{
 
 const accountEndpoint="/api/cloud/orders/shopping/account";
 
-type AccountSnapshot={lines:{selection:unknown}[]};
+export type AccountSnapshot={lines:{id:string;selection:CartSelection;ready:boolean;kind?:string;name?:string;currency?:string;amount?:string;renewal?:string;period?:string}[];subtotal:string|null;currency:string|null;domains?:string[]};
 
-async function accountRequest(method:"GET"|"POST"|"DELETE",data?:unknown):Promise<CartSelection[]|null>{
+export async function accountCartSnapshot(method:"GET"|"POST"|"DELETE"|"PATCH"="GET",data?:unknown):Promise<AccountSnapshot|null>{
   const result=await fetch(accountEndpoint,{
     method,cache:"no-store",credentials:"same-origin",signal:AbortSignal.timeout(15000),
     ...(data?{headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}:{}),
@@ -54,8 +54,10 @@ async function accountRequest(method:"GET"|"POST"|"DELETE",data?:unknown):Promis
   if(!Array.isArray(body.lines))throw Error("Invalid cart response.");
   const selections=body.lines.map(line=>line.selection);
   if(!selections.every(valid))throw Error("Invalid cart selection.");
-  return selections;
+  return body;
 }
+
+async function accountRequest(method:"GET"|"POST"|"DELETE",data?:unknown):Promise<CartSelection[]|null>{const body=await accountCartSnapshot(method,data);return body?.lines.map(line=>line.selection)??null;}
 
 const activeImports=new Map<string,Promise<CartSelection[]|null>>();
 

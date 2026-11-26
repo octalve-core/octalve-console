@@ -6,6 +6,7 @@ import {ArrowLeft} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {CheckoutColumns,CheckoutSteps,CheckoutSummary} from "./ui/CheckoutSections";
+import {OrderConfirmation} from "@/components/shared-commerce/CommerceUI";
 import {Panel} from "@/components/design-system/Panel";
 import {authApi, clientApi, type AccountProfile, type CheckoutQuote} from "@/lib/api/endpoints";
 import {formatPlanAmount} from "../data/client-order-data";
@@ -71,10 +72,10 @@ export function ServiceCartCheckout() {
       <CheckoutSteps current={confirmation ? "Payment" : "Review order"}/>
       {error && <p role="alert" className="mb-4 text-sm text-rose-700">{error}</p>}
       {!draft && !error && <p role="status">Checking current prices…</p>}
-      {confirmation ? <Panel>
+      {confirmation ? <OrderConfirmation reference={confirmation.invoice_number} title="Invoice created">
         <p>Invoice {confirmation.invoice_number} is ready.</p>
         <Link className="mt-3 inline-flex min-h-11 items-center font-medium text-console-primary" href={`/client/invoices/${confirmation.id}`}>View invoice</Link>
-      </Panel> : draft && <CheckoutColumns summary={<CheckoutSummary title="Invoice summary">
+      </OrderConfirmation> : draft && <CheckoutColumns summary={<CheckoutSummary title="Invoice summary">
           <p className="text-2xl font-medium tabular-nums">{formatPlanAmount(Number(draft.quote.total), draft.quote.currency)}</p>
           <h3 className="mt-4 text-sm font-medium">Billing address</h3>
           <p className="mt-1 text-sm text-console-muted">{address || "No address saved"}</p>

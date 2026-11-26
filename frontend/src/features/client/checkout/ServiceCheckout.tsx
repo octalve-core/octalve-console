@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {ArrowLeft,ArrowRight,Loader2,ShieldCheck} from "lucide-react";
+import {OrderConfirmation} from "@/components/shared-commerce/CommerceUI";
 import {Panel} from "@/components/design-system/Panel";
 import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
 import {ServiceDomainChoice,type DomainChoice} from "./ui/ServiceDomainChoice";
@@ -206,9 +207,7 @@ export function ServiceCheckout(){
           coupon={coupon} stage={stage} onCouponChange={value=>{setCoupon(value);setQuote(null);}}
           onChangeRequest={()=>{setStage("domain");setQuote(null);setAgreed(false);}}/>
       </WorkspaceGrid>:null}
-      {stage==="completed"&&confirmation?<div role="status" className="mx-auto max-w-2xl rounded-2xl border border-[#D9E9FA] bg-white p-6 sm:p-9">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-[#0064E0]"><ShieldCheck/></div>
-        <h2 className="mt-5 text-2xl font-medium text-slate-950">Your order is recorded</h2>
+      {stage==="completed"&&confirmation?<OrderConfirmation reference={confirmation.order_number??confirmation.invoice?.invoice_number??""} title="Your order is recorded">
         <p className="mt-3 text-sm leading-7 text-slate-600">Order {confirmation.order_number} is linked to invoice {confirmation.invoice?.invoice_number}.
           Payment is not yet confirmed and hosting has not been activated.</p>
         <div className="mt-6 flex flex-wrap gap-3">
@@ -216,7 +215,7 @@ export function ServiceCheckout(){
             className={actionClass}>View payment and order status <ArrowRight className="h-4 w-4"/></Link>
           <Link href="/client/orders" className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium">My orders</Link>
         </div>
-      </div>:null}
+      </OrderConfirmation>:null}
     </DashboardPage>
   </DashboardShell>;
 }
