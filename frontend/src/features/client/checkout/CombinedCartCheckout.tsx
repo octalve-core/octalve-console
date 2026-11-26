@@ -4,18 +4,20 @@ import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {DashboardShell} from "@/components/layout/DashboardShell";
-import {CommerceCheckoutFrame,CommercePanel,primary,secondary,OrderConfirmation,CheckoutPayment,CheckoutColumns,CheckoutSummary,CartItem,CartFeedback} from "@/components/shared-commerce/CommerceUI";
+import {CommerceCheckoutFrame,CommercePanel,primary,secondary,OrderConfirmation,VerifiedPaymentReceipt,CheckoutPayment,CheckoutColumns,CheckoutSummary,CartItem,CartFeedback} from "@/components/shared-commerce/CommerceUI";
 
 import type {CartLine,CartView} from "@/components/shared-commerce/types";
 import {authApi, type AccountProfile} from "@/lib/api/endpoints";
 import {formatPlanAmount} from "../data/client-order-data";
+import {CheckoutBillingDetails} from "./CheckoutBillingDetails";
+import {invoiceDownloadHref} from "../components/commerce/invoice-links";
 import {sharedCartLines} from "./shared-cart-adapter";
 import {cartSelectionId, accountCartSnapshot, removePurchasedItems, type AccountSnapshot, type CartSelection} from "./cart-selections";
 
 type PricedLine={name:string; amount:string; kind:string; domain?:string; period?:string};
 type Quote = {quote:string; total:string; currency:string; lines:PricedLine[]; public_payment_test?:boolean};
 type Purchase = {invoice_id:number; invoice:string; order:string; total:string; currency:string;
-  payment_verified:boolean; payment_started:boolean; public_payment_test?:boolean; lines:PricedLine[]; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
+  payment_verified:boolean; payment_reference?:string|null; payment_gateway?:string|null; verified_at?:string|null; payment_started:boolean; public_payment_test?:boolean; lines:PricedLine[]; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
 
 const reviewHref = "/client/order/checkout?view=combined-review";
 const actionStyle = primary;
@@ -162,22 +164,22 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   const record=purchase??quote;
   const lines:CartLine[]=(record?.lines??[]).map((line,index)=>({id:String(index),kind:line.kind==="domain"?"domain":line.kind==="vps"?"vps":"hosting",name:line.kind==="domain"?(line.domain||line.name):line.name,description:"",period:line.period??(line.kind==="domain"?"1 year":"Selected billing cycle"),priceLabel:formatPlanAmount(Number(line.amount),record!.currency),domain:line.domain}));
   const total=record?formatPlanAmount(Number(record.total),record.currency):"Awaiting quote";
-  const cart:CartView={lines,subtotal:total,tax:record?"No tax charged in this test":"Awaiting quote",total,busy:busy||(!record&&!error),error,checkoutAllowed:!!quote&&!purchase};
+  const cart:CartView={lines,subtotal:total,tax:record?formatPlanAmount(0,record.currency):"—",total,busy:busy||(!record&&!error),error,checkoutAllowed:!!quote&&!purchase};
   return <DashboardShell role="client" title="Checkout" description="Review your products and payment.">
-    <CommerceCheckoutFrame stage={purchase?.payment_verified?5:purchase?4:3} title={purchase?.payment_verified?"Test payment confirmed":purchase?"Complete your payment":"Review your order"} back={()=>router.push("/client/order/checkout?view=cart")}>
+    <CommerceCheckoutFrame stage={purchase?.payment_verified?5:purchase?4:3} title={purchase?.payment_verified?"Payment confirmation":purchase?"Complete your payment":"Review your order"} back={()=>router.push("/client/order/checkout?view=cart")}>
       <CartFeedback cart={cart}/>
       {!record&&draft&&<CheckoutColumns summary={<CheckoutSummary cart={{...cart,lines:sharedCartLines(draft),subtotal:draft.subtotal&&draft.currency?formatPlanAmount(Number(draft.subtotal),draft.currency):"Awaiting quote"}}><p role="status" className="text-sm text-slate-600">Confirming your order total and eligibility.</p></CheckoutSummary>}>{sharedCartLines(draft).map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}</CheckoutColumns>}
       {!record&&error&&<div className="flex flex-wrap gap-2"><button className={secondary} onClick={()=>router.push("/client/order/checkout?view=cart")}>Edit shopping cart</button><button className={secondary} onClick={()=>{setError("");setReload(n=>n+1)}}>Retry quotation</button></div>}
-      {record&&<CheckoutColumns summary={<CheckoutSummary cart={cart}>
+      {purchase?.payment_verified&&<VerifiedPaymentReceipt amount={total} reference={purchase.payment_reference} order={purchase.order} invoice={purchase.invoice} method={purchase.payment_gateway} paidAt={purchase.verified_at?new Date(purchase.verified_at).toLocaleString("en-NG"):undefined} test actions={<><Link href="/client" className={primary}>Go to dashboard</Link><a href={invoiceDownloadHref(purchase.invoice_id)} className={secondary}>Download test invoice</a></>}><p className="text-sm text-slate-600">{purchase.public_payment_test?"No domain registration or service activation has occurred.":"Test registration status is shown below."}</p>{lines.map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}{!purchase.public_payment_test&&purchase.domains.map(domain=><div key={domain.id} className="mt-3 rounded-xl border p-3 text-sm"><p>{domain.name}</p><p>{statuses[domain.state]??domain.state}</p>{!["awaiting_payment","registered","registration_rejected"].includes(domain.state)&&<button type="button" className={secondary} onClick={()=>void run("reconcile",domain.id)} disabled={busy}>Check registration</button>}</div>)}</VerifiedPaymentReceipt>}
+      {record&&!purchase?.payment_verified&&<CheckoutColumns summary={<CheckoutSummary cart={cart}>
         {!purchase&&<button type="button" disabled={busy} className={primary+" w-full"} onClick={()=>void run("accept")}>{busy?"Creating invoice…":"Create invoice"}</button>}
         {purchase&&!purchase.payment_verified&&!waiting&&<button type="button" disabled={busy} className={primary+" w-full"} onClick={()=>void run("checkout")}>{purchase.payment_started?"Resume test payment":"Continue to test payment"}</button>}
         {purchase&&<Link href={`/client/invoices/${purchase.invoice_id}`} className={secondary+" w-full"}>View invoice {purchase.invoice}</Link>}
         {needsAdvance&&!waiting&&<button className={secondary+" w-full"} onClick={()=>setStatusRefresh(n=>n+1)}>Check payment status</button>}
         <p className="text-xs text-slate-600">Test Mode only. No real money will be charged.</p>
       </CheckoutSummary>}>
-        {purchase?.payment_verified&&<OrderConfirmation reference={purchase.order} title="Test payment verified"><p className="text-2xl font-medium tabular-nums">{total}</p><p className="text-sm text-slate-600">Invoice {purchase.invoice} · Test Mode</p><p className="text-sm text-slate-600">{purchase.public_payment_test?"No domain registration or service activation has occurred.": "Sandbox payment confirmed. Registration status is shown below."}</p><div className="flex flex-wrap gap-2"><Link href="/client" className={primary}>Account overview</Link><Link href="/client/order" className={secondary}>Continue shopping</Link></div></OrderConfirmation>}
         {lines.map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}
-        {!purchase&&<CommercePanel><h2 className="font-medium">Billing details</h2><p className="mt-2 text-sm text-slate-600">{address||"No address saved"}</p><Link href="/client/profile" className={secondary+" mt-3"}>Edit billing details</Link></CommercePanel>}
+        {!purchase&&<CheckoutBillingDetails initial={account} onSaved={setAccount}/>}
         {purchase&&!purchase.payment_verified&&<CheckoutPayment><p className="mt-3 text-sm text-slate-600">{waiting?"Checking your test payment…":"Paystack Test Mode — use test payment details only."}</p><p className="mt-2 text-sm text-slate-600">Order {purchase.order} · {purchase.invoice}</p></CheckoutPayment>}
         {purchase&&!purchase.public_payment_test&&purchase.domains.map(domain=><CommercePanel key={domain.id}><p className="break-all font-medium">{domain.name}</p><p className="text-sm text-slate-600">{statuses[domain.state]??domain.state}</p>{purchase.payment_verified&&!["awaiting_payment","registered","registration_rejected"].includes(domain.state)&&<button type="button" className={secondary+" mt-3"} disabled={busy} onClick={()=>void run("reconcile",domain.id)}>Check registration</button>}</CommercePanel>)}
       </CheckoutColumns>}

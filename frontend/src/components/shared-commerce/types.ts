@@ -9,5 +9,5 @@ export type DomainPickerActions={
  /** Send identifiers only; the backend must atomically add the domain and configure the line. Resolve only on acceptance. */
  addAndConfigure:(lineId:string,domain:string)=>Promise<void>;
 };
-export type CartActions={remove:(id:string)=>void;configure:(id:string,domain:string)=>void|Promise<void>;domainPicker?:DomainPickerActions;review:()=>void;checkout:()=>void;continueShopping:()=>void};
+export type CartActions={remove:(id:string)=>void;configure:(id:string,domain:string)=>void|Promise<void>;domainPicker?:DomainPickerActions;review:()=>void;checkout:()=>void;continueShopping:()=>void;addHosting?:()=>void};
 export const steps=["Cart","Configuration","Account","Review","Payment","Confirmation"] as const;
