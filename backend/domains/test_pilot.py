@@ -101,11 +101,11 @@ class DomainPilotTests(TestCase):
         def send(_url, **kwargs):
             body = kwargs["json"]
             self.assertEqual(body["callback_url"],
-                             "https://console.example.test/client/order/checkout?product=domain&domain=selected-by-customer.com")
+                             "https://console.cloud.octalve.com/client/order/checkout?product=domain&domain=selected-by-customer.com")
             return reply({"status": True, "data": {"reference": body["reference"],
                          "authorization_url": "https://checkout.paystack.com/test_12345"}})
 
-        with self.settings(CLOUD_HOSTED_CHECKOUT_ENABLED=True, CLOUD_PAYMENT_RETURN_URL="https://console.example.test/client/order/processing"), patch.object(
+        with self.settings(CLOUD_HOSTED_CHECKOUT_ENABLED=True, CLOUD_PAYMENT_RETURN_URL="https://console.cloud.octalve.com/client/order/processing"), patch.object(
             PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789",
         ):
             intent, created = reserve_hosted_checkout(invoice.pk, "paystack", poster=send)
@@ -238,11 +238,11 @@ class DomainPilotTests(TestCase):
             body = kwargs["json"]
             self.assertEqual(body["amount"], "2800000")
             self.assertEqual(body["callback_url"],
-                             f"https://console.example.test/client/order/checkout?view=combined-review&invoice={invoice.pk}")
+                             f"https://console.cloud.octalve.com/client/order/checkout?view=combined-review&invoice={invoice.pk}")
             return reply({"status": True, "data": {"reference": body["reference"],
                          "authorization_url": "https://checkout.paystack.com/test_12345"}})
 
-        with self.settings(CLOUD_HOSTED_CHECKOUT_ENABLED=True, CLOUD_PAYMENT_RETURN_URL="https://console.example.test/client/order/processing"), patch.object(
+        with self.settings(CLOUD_HOSTED_CHECKOUT_ENABLED=True, CLOUD_PAYMENT_RETURN_URL="https://console.cloud.octalve.com/client/order/processing"), patch.object(
                 PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789"):
             intent, _ = reserve_hosted_checkout(invoice.pk, "paystack", poster=send)
         proof = ConfirmedGatewayPayment("paystack", intent.reference, "NGN", invoice.total, "234")

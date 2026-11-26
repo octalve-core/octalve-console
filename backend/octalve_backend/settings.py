@@ -579,6 +579,9 @@ CLOUD_DNS01_EXTERNAL_CLAIMS_ENABLED = env.bool("CLOUD_DNS01_EXTERNAL_CLAIMS_ENAB
 CLOUD_PAYSTACK_TEST_BINDING_ENABLED = env.bool("CLOUD_PAYSTACK_TEST_BINDING_ENABLED", default=True)
 CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED = env.bool("CLOUD_PROVIDER_CONNECTION_WRITES_ENABLED", default=False)
 # Production Console-side encrypted storage (NOT supplier activation); fail closed.
+CLOUD_PUBLIC_WEB_RISK_ENABLED = env.bool("CLOUD_PUBLIC_WEB_RISK_ENABLED", default=False)
+CLOUD_PUBLIC_WEB_RISK_CONNECTION_ID = env("CLOUD_PUBLIC_WEB_RISK_CONNECTION_ID", default="")
+CLOUD_PUBLIC_WEB_RISK_CREDENTIAL_VERSION = env.int("CLOUD_PUBLIC_WEB_RISK_CREDENTIAL_VERSION", default=0)
 CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED = env.bool("CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED", default=False)
 # Operator attestation: external bootstrap key custody, offline recovery and access review.
 # Setting this alone proves nothing: cryptographic and DB gates are checked at runtime.

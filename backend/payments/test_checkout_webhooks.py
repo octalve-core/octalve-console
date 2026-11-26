@@ -12,7 +12,7 @@ from rest_framework.test import APIClient
 
 from billing.models import Invoice
 from orders.models import Order
-from payments.hosted_checkout import reserve_hosted_checkout, CheckoutRefused
+from payments.hosted_checkout import reserve_hosted_checkout, CheckoutRefused, _return_url
 from payments.webhook_inbox import accept_signed_event, WebhookRejected
 from payments.models import PaymentGateway, PaymentIntent, Transaction, WebhookEvent
 from services.models import Service
@@ -25,7 +25,7 @@ def reply(packet, *, status=200):
 
 
 @override_settings(CLOUD_HOSTED_CHECKOUT_ENABLED=True,
-                   CLOUD_PAYMENT_RETURN_URL="https://console.octalve.example/payments/return/")
+                   CLOUD_PAYMENT_RETURN_URL="https://console.cloud.octalve.com/client/payments/return/")
 class CheckoutAndWebhookTests(TestCase):
     def setUp(self):
         self.owner = get_user_model().objects.create_user(
@@ -68,7 +68,7 @@ class CheckoutAndWebhookTests(TestCase):
             self.assertEqual(kw["json"]["amount"], "350000")
             self.assertEqual(kw["json"]["currency"], "NGN")
             self.assertEqual(kw["json"]["callback_url"],
-                             "https://console.octalve.example/payments/return/")
+                             "https://console.cloud.octalve.com/client/payments/return/")
             self.assertTrue(kw["verify"])
             self.assertFalse(kw["allow_redirects"])
             self.assertTrue(kw["stream"])
@@ -314,3 +314,25 @@ class CheckoutAndWebhookTests(TestCase):
         self.assertEqual(self.invoice.status, "unpaid")
         self.assertFalse(Transaction.objects.exists())
         self.assertFalse(Service.objects.exists())
+
+
+class CanonicalPaymentReturnTests(TestCase):
+    def test_only_exact_console_origin_and_payment_routes_are_allowed(self):
+        paths = (
+            ("https://console.cloud.octalve.com/client/payments/return", True),
+            ("https://console.cloud.octalve.com/client/order/processing", True),
+            ("https://cloud.octalve.com/client/payments/return", False),
+            ("https://console.cloud.octalve.com.example.net/client/payments/return", False),
+            ("https://console.cloud.octalve.com@other.example/client/payments/return", False),
+            ("https://console.cloud.octalve.com:444/client/payments/return", False),
+            ("https://console.cloud.octalve.com/client/profile", False),
+            ("https://console.cloud.octalve.com/client/payments/return?next=/client", False),
+            ("http://console.cloud.octalve.com/client/payments/return", False),
+        )
+        for target, allowed in paths:
+            with self.subTest(target=target), self.settings(CLOUD_PAYMENT_RETURN_URL=target):
+                if allowed:
+                    self.assertEqual(_return_url(), target)
+                else:
+                    with self.assertRaises(CheckoutRefused):
+                        _return_url()

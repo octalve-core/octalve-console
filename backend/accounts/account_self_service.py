@@ -112,12 +112,8 @@ def email_transport_ready():
 
 
 def public_origin():
-    from urllib.parse import urlsplit
     origin = str(getattr(settings, "FRONTEND_URL", "")).rstrip("/")
-    parsed = urlsplit(origin)
-    if (parsed.scheme != "https" or not parsed.hostname or parsed.username
-            or parsed.password or parsed.query or parsed.fragment
-            or parsed.path not in ("", "/") or parsed.port not in (None, 443)):
+    if origin != "https://console.cloud.octalve.com":
         raise ValueError("Public account URL unavailable.")
     return origin
 

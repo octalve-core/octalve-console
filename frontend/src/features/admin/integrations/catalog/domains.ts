@@ -2,6 +2,19 @@ import type {Integration} from "./types";
 /** Vendor requirements; no credentials are accepted or transmitted here. */
 export const domains:readonly Integration[]=[
  {
+  slug: "google-web-risk",
+  name: "Google Web Risk",
+  category: "DNS & SSL",
+  summary: "Check URLs against Google's threat lists.",
+  documentation: "https://cloud.google.com/web-risk/docs/lookup-api",
+  guide: "Set up the Web Risk Lookup API",
+  requirements: [
+   {label: "API key", guidance: "Use a dedicated Google Cloud API key restricted to Web Risk.", sensitive: true}
+  ],
+  capabilities: ["Checks known threat listings for public URLs.", "Reports reputation only."],
+  stage: "Read-only"
+ },
+ {
   "slug": "resellerclub",
   "name": "ResellerClub",
   "category": "Domains",

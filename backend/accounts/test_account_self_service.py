@@ -340,3 +340,20 @@ class AdminStaffRosterReadbackTests(APITestCase):
         self.assertEqual(result.data["results"][0]["status"], "inactive")
         self.staff.refresh_from_db()
         self.assertFalse(self.staff.is_active)
+
+
+class CanonicalAccountOriginTests(APITestCase):
+    def test_account_email_destination_is_exact(self):
+        from accounts.account_self_service import public_origin
+
+        with self.settings(FRONTEND_URL="https://console.cloud.octalve.com/"):
+            self.assertEqual(public_origin(), "https://console.cloud.octalve.com")
+        for origin in (
+            "https://cloud.octalve.com",
+            "https://console.cloud.octalve.com.other.example",
+            "https://bad@console.cloud.octalve.com",
+            "https://console.cloud.octalve.com:443",
+        ):
+            with self.subTest(origin=origin), self.settings(FRONTEND_URL=origin):
+                with self.assertRaises(ValueError):
+                    public_origin()

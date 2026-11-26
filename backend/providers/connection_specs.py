@@ -62,6 +62,13 @@ SCHEMAS = {
         "ports": (),
         "guide": "https://paystack.com/docs/v2/developer-tools/integration/api-keys",
     },
+    "google-web-risk": {
+        "name": "Google Web Risk",
+        "fields": {},
+        "secrets": ("api_key",),
+        "ports": (),
+        "guide": "https://cloud.google.com/web-risk/docs/lookup-api",
+    },
     "brevo": {
         "name": "Brevo (transactional mail, primary)",
         "fields": {"sending_domain": "domain"},
@@ -107,7 +114,7 @@ for key, name, fields, secrets, ports, guide in (
 ):
     SCHEMAS[key] = {"name": name, "fields": fields, "secrets": secrets, "ports": ports, "guide": guide}
 
-READBACK_ADAPTERS = frozenset({"cloudflare-dns", "cloudflare-registrar", "brevo", "paystack"})
+READBACK_ADAPTERS = frozenset({"cloudflare-dns", "cloudflare-registrar", "brevo", "paystack", "google-web-risk"})
 
 
 def public_catalog():
