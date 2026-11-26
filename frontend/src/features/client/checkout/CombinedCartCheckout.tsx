@@ -9,7 +9,8 @@ import {CommerceCheckoutFrame,CommercePanel,primary,secondary,OrderConfirmation,
 import type {CartLine,CartView} from "@/components/shared-commerce/types";
 import {authApi, type AccountProfile} from "@/lib/api/endpoints";
 import {formatPlanAmount} from "../data/client-order-data";
-import {cartSelectionId, accountCartSnapshot, removePurchasedItems, type CartSelection} from "./cart-selections";
+import {sharedCartLines} from "./shared-cart-adapter";
+import {cartSelectionId, accountCartSnapshot, removePurchasedItems, type AccountSnapshot, type CartSelection} from "./cart-selections";
 
 type PricedLine={name:string; amount:string; kind:string; domain?:string; period?:string};
 type Quote = {quote:string; total:string; currency:string; lines:PricedLine[]; public_payment_test?:boolean};
@@ -27,10 +28,10 @@ const statuses: Record<string,string> = {
 async function request<T>(invoice?: number, body?: Record<string,unknown>) {
   const url = "/api/cloud/domains/combined-cart" + (invoice ? `?invoice=${invoice}` : "");
   const response = await fetch(url, {
-    cache:"no-store",
+    cache:"no-store",signal:AbortSignal.timeout(25000),
     ...(body ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)} : {}),
   });
-  const data = await response.json();
+  const data = await response.json().catch(()=>null);
   if (!response.ok) {
     const detail = typeof data?.detail === "string" ? data.detail : Array.isArray(data) && typeof data[0] === "string" ? data[0] : "";
     throw Error(detail || "We couldn’t confirm this checkout step. Check your invoice before retrying.");
@@ -40,6 +41,7 @@ async function request<T>(invoice?: number, body?: Record<string,unknown>) {
 
 export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   const router=useRouter();
+  const [draft,setDraft]=useState<AccountSnapshot>();
   const [quote, setQuote] = useState<Quote>();
   const [items, setItems] = useState<CartSelection[]>([]);
   const [account, setAccount] = useState<AccountProfile>();
@@ -63,6 +65,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
       const [snapshot, profile] = await Promise.all([accountCartSnapshot(), authApi.profile()]);
       if(!snapshot||!snapshot.lines.every(line=>line.ready)||!snapshot.currency)throw Error("Your account cart must be priced before checkout. Return to your cart.");
       if(snapshot.checkout_issue)throw Error(snapshot.checkout_issue);
+      if(active)setDraft(snapshot);
       const selections=snapshot.lines.map(line=>line.selection);
       const domains = selections.flatMap(item => item.kind === "domain" ? [item.domain] : []);
       const services = selections.flatMap(item => item.kind === "service" ? [{
@@ -163,6 +166,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   return <DashboardShell role="client" title="Checkout" description="Review your products and payment.">
     <CommerceCheckoutFrame stage={purchase?.payment_verified?5:purchase?4:3} title={purchase?.payment_verified?"Test payment confirmed":purchase?"Complete your payment":"Review your order"} back={()=>router.push("/client/order/checkout?view=cart")}>
       <CartFeedback cart={cart}/>
+      {!record&&draft&&<CheckoutColumns summary={<CheckoutSummary cart={{...cart,lines:sharedCartLines(draft),subtotal:draft.subtotal&&draft.currency?formatPlanAmount(Number(draft.subtotal),draft.currency):"Awaiting quote"}}><p role="status" className="text-sm text-slate-600">Confirming your order total and eligibility.</p></CheckoutSummary>}>{sharedCartLines(draft).map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}</CheckoutColumns>}
       {!record&&error&&<div className="flex flex-wrap gap-2"><button className={secondary} onClick={()=>router.push("/client/order/checkout?view=cart")}>Edit shopping cart</button><button className={secondary} onClick={()=>{setError("");setReload(n=>n+1)}}>Retry quotation</button></div>}
       {record&&<CheckoutColumns summary={<CheckoutSummary cart={cart}>
         {!purchase&&<button type="button" disabled={busy} className={primary+" w-full"} onClick={()=>void run("accept")}>{busy?"Creating invoice…":"Create invoice"}</button>}
@@ -171,7 +175,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
         {needsAdvance&&!waiting&&<button className={secondary+" w-full"} onClick={()=>setStatusRefresh(n=>n+1)}>Check payment status</button>}
         <p className="text-xs text-slate-600">Test Mode only. No real money will be charged.</p>
       </CheckoutSummary>}>
-        {purchase?.payment_verified&&<OrderConfirmation reference={purchase.order} title="Test payment verified"><p className="text-sm text-slate-600">{purchase.public_payment_test?"No domain registration or service activation has occurred.": "Sandbox payment confirmed. Registration status is shown below."}</p></OrderConfirmation>}
+        {purchase?.payment_verified&&<OrderConfirmation reference={purchase.order} title="Test payment verified"><p className="text-2xl font-medium tabular-nums">{total}</p><p className="text-sm text-slate-600">Invoice {purchase.invoice} · Test Mode</p><p className="text-sm text-slate-600">{purchase.public_payment_test?"No domain registration or service activation has occurred.": "Sandbox payment confirmed. Registration status is shown below."}</p><div className="flex flex-wrap gap-2"><Link href="/client" className={primary}>Account overview</Link><Link href="/client/order" className={secondary}>Continue shopping</Link></div></OrderConfirmation>}
         {lines.map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}
         {!purchase&&<CommercePanel><h2 className="font-medium">Billing details</h2><p className="mt-2 text-sm text-slate-600">{address||"No address saved"}</p><Link href="/client/profile" className={secondary+" mt-3"}>Edit billing details</Link></CommercePanel>}
         {purchase&&!purchase.payment_verified&&<CheckoutPayment><p className="mt-3 text-sm text-slate-600">{waiting?"Checking your test payment…":"Paystack Test Mode — use test payment details only."}</p><p className="mt-2 text-sm text-slate-600">Order {purchase.order} · {purchase.invoice}</p></CheckoutPayment>}

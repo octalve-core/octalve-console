@@ -19,7 +19,7 @@ function AccountCartView({identity}:{identity:string}){
  async function refresh(claimGuest=false){
   if(writing.current)return;
   const current=++epoch.current;
-  try{const selection=claimGuest?await readCart(undefined,true):null;const remote=await accountCartSnapshot();if(mounted.current&&epoch.current===current){setItems(remote?.lines.map(l=>l.selection)??selection??await readCart(undefined,false));setSnapshot(remote);setError("");}}
+  try{const selection=claimGuest?await readCart(undefined,true):null;const remote=await accountCartSnapshot();const displayed=remote?.lines.map(l=>l.selection)??selection??await readCart(undefined,false);if(mounted.current&&epoch.current===current){setItems(displayed);setSnapshot(remote);setError("");}}
   catch{if(mounted.current&&epoch.current===current){setError("Your cart couldn’t be refreshed. Try again.");}}
  }
  useEffect(()=>{mounted.current=true;void refresh(true);router.prefetch("/client/order/checkout?view=combined-review");void loadSellablePlans().then(p=>{if(mounted.current)setPlans(p)}).catch(()=>{});const reload=(event:Event)=>{if(document.visibilityState!=="visible")return;const next=confirmedCartEvent(event);if(next){epoch.current++;setSnapshot(next);setItems(next.lines.map(l=>l.selection));setError("");}else void refresh()};window.addEventListener(cartChangedEvent,reload);window.addEventListener("focus",reload);window.addEventListener("pageshow",reload);return()=>{mounted.current=false;epoch.current++;window.removeEventListener(cartChangedEvent,reload);window.removeEventListener("focus",reload);window.removeEventListener("pageshow",reload);};},[identity]);
