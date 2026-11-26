@@ -8,7 +8,7 @@ import {CartReview,CommercePanel} from "@/components/shared-commerce/CommerceUI"
 import type {CartActions,CartLine,CartView as View} from "@/components/shared-commerce/types";
 import {ClientDomainSearch} from "../components/ClientDomainSearch";
 import {formatPlanAmount,loadSellablePlans,type ClientOrderPlan} from "../data/client-order-data";
-import {accountCartSnapshot,recoverAccountCart,confirmedCartEvent,cartSelectionId,readCart,removeFromCart,cartChangedEvent,type CartSelection,type AccountSnapshot} from "./cart-selections";
+import {accountCartSnapshot,recoverAccountCart,confirmedCartEvent,cartSelectionId,readCart,configureCartItem,removeFromCart,cartChangedEvent,type CartSelection,type AccountSnapshot} from "./cart-selections";
 import {searchCartDomains,sharedCartLines} from "./shared-cart-adapter";
 
 function AccountCartView({identity,email}:{identity:string;email:string}){
@@ -26,7 +26,7 @@ function AccountCartView({identity,email}:{identity:string;email:string}){
  async function mutate(id:string,domain?:string,register=false){
   if(writing.current)throw Error("Cart update in progress.");
   writing.current=true;epoch.current++;setBusy(true);setError("");
-  try{let remote:AccountSnapshot|null;if(domain===undefined){await removeFromCart(id);remote=await accountCartSnapshot();}else{remote=await accountCartSnapshot("PATCH",{id,domain,register});if(!remote)throw Error("Domain configuration is unavailable.");}const selection=remote?.lines.map(l=>l.selection)??await readCart();
+  try{let remote:AccountSnapshot|null;if(domain===undefined){await removeFromCart(id);remote=await accountCartSnapshot();}else{remote=await configureCartItem(id,domain,register);}const selection=remote?.lines.map(l=>l.selection)??await readCart();
    if(mounted.current){setSnapshot(remote);setItems(selection);}
   }catch{if(mounted.current)setError("Couldn’t confirm the cart update. Refresh and retry.");throw Error("Cart update could not be confirmed.")}
   finally{writing.current=false;if(mounted.current)setBusy(false);}

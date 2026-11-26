@@ -97,3 +97,6 @@ requires("features/client/checkout/ClientCartShortcuts.tsx",["CommerceNotice","c
 requires("features/client/components/ClientDomainSearch.tsx",["Try another name","void lookup(name)","AbortSignal.timeout(15000)"]);
 
 requires("features/client/checkout/cart-selections.ts",["recoverAccountCart","scopedKey","subtotal","return account;"]);
+
+requires("features/client/checkout/cart-selections.ts",["pendingWrite","mutationVersion","configureCartItem","version!==mutationVersion"]);
+requires("features/client/checkout/ClientCartShortcuts.tsx",["<CartTrigger count={null}","count={snapshot?.lines.length??draft?.length??count}"]);

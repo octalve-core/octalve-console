@@ -35,10 +35,10 @@ export function useClientCartCount(email: string | undefined) {
     };
   }, [email]);
 
-  return cart && cart.email === email ? cart.count : 0;
+  return cart && cart.email === email ? cart.count : null;
 }
 
-function SharedAccountCartButton({count,identity}:{count:number;identity:string}){
+function SharedAccountCartButton({count,identity}:{count:number|null;identity:string}){
  const router=useRouter();
  const [notice,setNotice]=useState(false);
  const [snapshot,setSnapshot]=useState<AccountSnapshot|null>(null),[draft,setDraft]=useState<CartSelection[]|null>(null),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
@@ -57,7 +57,7 @@ function SharedAccountCartButton({count,identity}:{count:number;identity:string}
  useEffect(()=>{router.prefetch(cartHref);},[router]);
  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(false),5000);return()=>clearTimeout(timer)},[notice]);
  const actions:CartActions={remove:id=>{void remove(id);},configure:async()=>{throw Error("Configure your services in the full cart.")},review:go,checkout:go,continueShopping:close};
- return <>{notice&&!open&&<CommerceNotice message="Added to your cart" onDismiss={()=>setNotice(false)} onView={()=>{setNotice(false);setOpen(true)}}/>}<CartTrigger count={snapshot?.lines.length??draft?.length??(error?null:count)} onOpen={()=>{opener.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setOpen(true);void refresh()}}/><CartDrawer open={open} close={close} cart={cart} actions={actions}/></>;
+ return <>{notice&&!open&&<CommerceNotice message="Added to your cart" onDismiss={()=>setNotice(false)} onView={()=>{setNotice(false);setOpen(true)}}/>}<CartTrigger count={snapshot?.lines.length??draft?.length??count} onOpen={()=>{opener.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setOpen(true);void refresh()}}/><CartDrawer open={open} close={close} cart={cart} actions={actions}/></>;
 }
-export function ClientCartButton({count}:{count:number}){const {user}=useAuth();return user?.role==="client"?<SharedAccountCartButton key={user.id} identity={user.id} count={count}/>:null;}
+export function ClientCartButton({count}:{count:number|null}){const {user}=useAuth();const router=useRouter();return user?.role==="client"?<SharedAccountCartButton key={user.id} identity={user.id} count={count}/>:<CartTrigger count={null} onOpen={()=>router.push(cartHref)}/>;}
 

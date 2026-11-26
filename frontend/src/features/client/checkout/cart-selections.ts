@@ -47,18 +47,29 @@ export type AccountSnapshot={lines:{id:string;selection:CartSelection;ready:bool
 
 type CartMethod="GET"|"POST"|"DELETE"|"PATCH";
 let pendingRead:{generation:number;promise:Promise<AccountSnapshot|null>}|null=null;
+let pendingWrite:{generation:number;promise:Promise<AccountSnapshot|null>}|null=null;
+let mutationVersion=0;
 export function accountCartSnapshot(method:CartMethod="GET",data?:unknown):Promise<AccountSnapshot|null>{
   const generation=privateQueryGeneration();
-  if(method!=="GET")pendingRead=null;
-  if(method==="GET"&&pendingRead?.generation===generation)return pendingRead.promise;
-  const promise=fetchAccountCart(method,data).then(snapshot=>{
-    if(generation!==privateQueryGeneration())throw Error("Account changed. Reopen your cart.");
+  const check=()=>{if(generation!==privateQueryGeneration())throw Error("Account changed. Reopen your cart.");};
+  if(method!=="GET"){
+    mutationVersion++;pendingRead=null;
+    const previous=pendingWrite?.generation===generation?pendingWrite.promise:null;
+    const promise=(previous?previous.catch(()=>null):Promise.resolve(null)).then(()=>{check();return fetchAccountCart(method,data);}).then(snapshot=>{check();return snapshot;});
+    pendingWrite={generation,promise};
+    void promise.finally(()=>{if(pendingWrite?.promise===promise)pendingWrite=null;}).catch(()=>{});
+    return promise;
+  }
+  if(pendingWrite?.generation===generation)return pendingWrite.promise.then(snapshot=>{check();return snapshot;});
+  if(pendingRead?.generation===generation)return pendingRead.promise;
+  const version=mutationVersion;
+  const promise=fetchAccountCart("GET").then(snapshot=>{
+    check();
+    if(version!==mutationVersion)return accountCartSnapshot();
     return snapshot;
   });
-  if(method==="GET"){
-    pendingRead={generation,promise};
-    void promise.finally(()=>{if(pendingRead?.promise===promise)pendingRead=null;}).catch(()=>{});
-  }
+  pendingRead={generation,promise};
+  void promise.finally(()=>{if(pendingRead?.promise===promise)pendingRead=null;}).catch(()=>{});
   return promise;
 }
 export function confirmedCartEvent(event:Event):AccountSnapshot|undefined{
@@ -173,6 +184,13 @@ export async function removePurchasedItems(ids:string[]){
   if(!remote)throw Error("Purchased selections could not be removed. Your invoice is preserved.");
   announce(remote);
   return remote;
+}
+
+export async function configureCartItem(id:string,domain:string,register=false){
+  const snapshot=await accountCartSnapshot("PATCH",{id,domain,register});
+  if(!snapshot)throw Error("Domain configuration is unavailable.");
+  announce(snapshot);
+  return snapshot;
 }
 
 export async function removeFromCart(id:string){
