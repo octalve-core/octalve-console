@@ -38,6 +38,14 @@ def selected_domain_test_allowed(client, domain):
                 and domain.endswith(".com") and DOMAIN.fullmatch(domain))
 
 
+def public_domain_payment_test_allowed(client, domain):
+    return bool(
+        getattr(settings, "CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED", False)
+        and client.is_active and client.role == "client" and client.email_verified_at is not None
+        and isinstance(domain, str) and domain.endswith(".com") and DOMAIN.fullmatch(domain)
+    )
+
+
 def pilot_gateway_allowed(gateway, invoice):
     scope = pilot_configuration()
     if not is_pilot_invoice(invoice) or not invoice.order_id:
@@ -52,7 +60,10 @@ def pilot_gateway_allowed(gateway, invoice):
     snapshot = order.metadata.get(PILOT)
     if not isinstance(snapshot, dict):
         return False
-    allowed = (selected_domain_test_allowed(invoice.client, snapshot.get("domain"))
+    if snapshot.get("public_payment_test") is True:
+        allowed = public_domain_payment_test_allowed(invoice.client, snapshot.get("domain"))
+    else:
+        allowed = (selected_domain_test_allowed(invoice.client, snapshot.get("domain"))
                if snapshot.get("selected_domain") is True
                else (invoice.client_id, snapshot.get("domain")) == scope)
     return bool(allowed

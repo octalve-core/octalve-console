@@ -127,7 +127,7 @@ class PublicDomainLookup(APIView):
             "domain": domain, "availability": availability,
             "registrar_connected": availability != "unverified", "checkout_enabled": False,
             "test_checkout_enabled": (availability == "available" and domain.endswith(".com")
-                                      and settings.CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED),
+                                      and (settings.CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED or settings.CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED)),
             "tld": price.tld if price else None,
             "currency": "NGN" if price else None,
             "registration_price": str(price.register_price) if price else None,
