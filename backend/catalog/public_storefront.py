@@ -18,44 +18,48 @@ from domains.registrar_quote import HOSTNAME
 from knowledge_base.models import KnowledgeArticle
 
 
+def published_plans():
+    qs = Plan.objects.filter(
+        status="active", is_public=True, published_versions__isnull=False,
+        product__status="active", product__is_public=True,
+        product__category__is_active=True,
+    ).select_related("product").prefetch_related(
+        Prefetch("billing_cycles", queryset=PlanBillingCycle.objects.filter(is_active=True)),
+        Prefetch("features", queryset=PlanFeature.objects.all()),
+    ).distinct().order_by("sort_order", "pk")[:100]
+    plans = []
+    for plan in qs:
+        revision = plan.published_versions.order_by('-revision').values_list('revision', flat=True).first()
+        if not revision:
+            continue
+        cycles = [
+            {"key": c.cycle_key, "months": c.months, "label": c.label,
+             "total_price": str(c.price), "regular_price": str(c.regular_price) if c.regular_price else None,
+             "setup_fee": str(c.setup_fee), "is_default": c.is_default}
+            for c in plan.billing_cycles.all() if c.months and c.price > 0
+        ]
+        if not cycles:
+            continue
+        plans.append({
+            "id": plan.pk, "name": plan.name, "slug": plan.slug,
+            "product_slug": plan.product.slug, "published_revision": revision,
+            "description": plan.description or "",
+            "product_type": plan.product.product_type,
+            "product_name": plan.product.name, "currency": plan.currency,
+            "is_popular": plan.is_popular,
+            "features": [f"{f.label}: {f.value}" if f.value else f.label
+                         for f in plan.features.all()],
+            "billing_cycles": cycles,
+        })
+    return plans
+
+
 class PublicPublishedPlans(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request):
-        qs = Plan.objects.filter(
-            status="active", is_public=True, published_versions__isnull=False,
-            product__status="active", product__is_public=True,
-            product__category__is_active=True,
-        ).select_related("product").prefetch_related(
-            Prefetch("billing_cycles", queryset=PlanBillingCycle.objects.filter(is_active=True)),
-            Prefetch("features", queryset=PlanFeature.objects.all()),
-        ).distinct().order_by("sort_order", "pk")[:100]
-        plans = []
-        for plan in qs:
-            revision = plan.published_versions.order_by('-revision').values_list('revision', flat=True).first()
-            if not revision:
-                continue
-            cycles = [
-                {"key": c.cycle_key, "months": c.months, "label": c.label,
-                 "total_price": str(c.price), "regular_price": str(c.regular_price) if c.regular_price else None,
-                 "setup_fee": str(c.setup_fee), "is_default": c.is_default}
-                for c in plan.billing_cycles.all() if c.months and c.price > 0
-            ]
-            if not cycles:
-                continue
-            plans.append({
-                "id": plan.pk, "name": plan.name, "slug": plan.slug,
-                "product_slug": plan.product.slug, "published_revision": revision,
-                "description": plan.description or "",
-                "product_type": plan.product.product_type,
-                "product_name": plan.product.name, "currency": plan.currency,
-                "is_popular": plan.is_popular,
-                "features": [f"{f.label}: {f.value}" if f.value else f.label
-                             for f in plan.features.all()],
-                "billing_cycles": cycles,
-            })
-        return Response({"plans": plans}, headers={"Cache-Control": "public, max-age=60"})
+        return Response({"plans": published_plans()}, headers={"Cache-Control": "public, max-age=60"})
 
 
 class PublicPublishedCategories(APIView):

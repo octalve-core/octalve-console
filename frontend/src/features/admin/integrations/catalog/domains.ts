@@ -2,6 +2,28 @@ import type {Integration} from "./types";
 /** Vendor requirements; no credentials are accepted or transmitted here. */
 export const domains:readonly Integration[]=[
  {
+  slug: "google-gemini",
+  name: "Google Gemini",
+  category: "DNS & SSL",
+  summary: "Generate naming ideas, drafting outlines and catalogue suggestions.",
+  documentation: "https://ai.google.dev/gemini-api/docs/api-key",
+  guide: "Set up a dedicated Gemini API key",
+  requirements: [{label: "API key", guidance: "Use a dedicated key restricted to the Gemini API.", sensitive: true}],
+  capabilities: ["Separate provider quota and publication controls apply."],
+  stage: "Read-only"
+ },
+ {
+  slug: "google-pagespeed",
+  name: "Google PageSpeed Insights",
+  category: "DNS & SSL",
+  summary: "Request a Lighthouse performance score for a public page.",
+  documentation: "https://developers.google.com/speed/docs/insights/v5/get-started",
+  guide: "Enable the PageSpeed Insights API",
+  requirements: [{label: "API key", guidance: "Use a dedicated key restricted to PageSpeed Insights.", sensitive: true}],
+  capabilities: ["Measures performance for the selected device profile."],
+  stage: "Read-only"
+ },
+ {
   slug: "google-web-risk",
   name: "Google Web Risk",
   category: "DNS & SSL",
