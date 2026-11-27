@@ -312,6 +312,12 @@ def reconcile_line(order, line_id):
     contact = registrant_contact()
     confirm_payment(order)
     with transaction.atomic():
+        from .sandbox_fulfillment import _private_context, _payment_context, _processed_evidence
+        current = Order.objects.select_for_update().get(pk=order.pk)
+        context = _private_context(current)
+        evidence = _payment_context(current, *context) if context else None
+        if not evidence or current.status != "needs_review" or not _processed_evidence(*evidence, context[1]):
+            raise ValidationError("Processed private test payment evidence is required.")
         locked = order.items.select_for_update().get(pk=line.pk)
         state = locked.config[CART]["state"]
         if state in ("registered", "registration_rejected"):
