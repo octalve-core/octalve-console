@@ -19,7 +19,7 @@ type Tokens = { access?: unknown; refresh?: unknown; user?: unknown; passkey_ver
 const MAX_REQUEST_BODY = 10 * 1024 * 1024;
 const SECRET_QUERY_KEYS = new Set([
   "access", "refresh", "token", "password", "new_password",
-  "re_new_password", "api_key", "secret", "secret_key",
+  "re_new_password", "api_key", "secret", "secret_key", "passkey_continuation", "passkey_assertion", "passkey_challenge",
 ]);
 const API_ROOTS = new Set([
   "auth", "catalog", "orders", "billing", "providers", "payments",

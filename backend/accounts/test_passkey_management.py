@@ -68,3 +68,23 @@ class PasskeyManagementTests(APITestCase):
         client=get_user_model().objects.create_user(email="client03b@example.invalid",username="client03b",password="fixture")
         self.client.force_authenticate(user=client)
         self.assertEqual(self.client.get("/api/auth/passkeys/").status_code,403)
+
+    def test_cleanup_is_bounded_dry_run_and_retains_audit(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from .models import PrivilegedLoginChallenge, PrivilegedPasskeyGrant
+        now=timezone.now()
+        old=PrivilegedLoginChallenge.objects.create(user=self.user,challenge=b"old",expires_at=now-timedelta(days=8))
+        live=PrivilegedLoginChallenge.objects.create(user=self.user,challenge=b"live",expires_at=now+timedelta(minutes=2))
+        grant=PrivilegedPasskeyGrant.objects.create(user=self.user,digest="a"*64,approval_reference="fixture",expires_at=now-timedelta(days=8))
+        audit=AuditLog.objects.create(actor=self.user,action="settings_updated",entity_type="privileged_passkey",entity_name="fixture")
+        call_command("prune_privileged_passkey_ceremonies")
+        self.assertTrue(PrivilegedLoginChallenge.objects.filter(pk=old.pk).exists())
+        with self.assertRaises(CommandError):
+            call_command("prune_privileged_passkey_ceremonies",apply=True)
+        call_command("prune_privileged_passkey_ceremonies",apply=True,approval_reference="fixture")
+        self.assertFalse(PrivilegedLoginChallenge.objects.filter(pk=old.pk).exists())
+        self.assertFalse(PrivilegedPasskeyGrant.objects.filter(pk=grant.pk).exists())
+        self.assertTrue(PrivilegedLoginChallenge.objects.filter(pk=live.pk).exists())
+        self.assertTrue(PrivilegedPasskey.objects.filter(pk=self.key.pk).exists())
+        self.assertTrue(AuditLog.objects.filter(pk=audit.pk).exists())

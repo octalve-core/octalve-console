@@ -15,7 +15,7 @@ const ACCESS_TOKEN_KEY = "octalve_console_access_token";
 const REFRESH_TOKEN_KEY = "octalve_console_refresh_token";
 const SENSITIVE_QUERY_KEYS = new Set([
   "password", "new_password", "re_new_password", "re_password",
-  "token", "access", "refresh", "secret", "secret_key", "api_key",
+  "token", "access", "refresh", "secret", "secret_key", "api_key", "passkey_continuation", "passkey_assertion", "passkey_challenge",
 ]);
 
 function isBrowser() {
