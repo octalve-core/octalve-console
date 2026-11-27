@@ -139,6 +139,8 @@ def sandbox_domains(request):
                 intent_key__in=ids).order_by(F("error_message").asc(nulls_first=True),"pk")[:2]
             for event in candidates:
                 attempt_event(event.pk)
+            from .sandbox_fulfillment import advance_due_orders
+            advance_due_orders(owner=request.user)
     return Response({"mode":"sandbox","domains":listing(request.user)},headers={"Cache-Control":"private, no-store"})
 
 @api_view(["POST"])
