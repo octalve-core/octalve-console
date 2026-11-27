@@ -138,3 +138,26 @@ class SandboxLifecycleTests(TestCase):
         event.refresh_from_db()
         self.assertFalse(event.is_processed)
         self.assert_no_live_rows()
+
+    def test_rehearse_existing_processed_test_without_new_charge(self):
+        with self.settings(CLOUD_TEST_LIFECYCLE_ENABLED=False),patch.object(PaymentGateway,"get_secret_key",return_value=self.secret):
+            self.assertEqual(self.webhook().status_code,200)
+        from domains.combined_cart import confirm_payment
+        with self.settings(CLOUD_TEST_LIFECYCLE_ENABLED=False),patch.object(PaymentGateway,"get_secret_key",return_value=self.secret),patch("payments.readback.requests.get",return_value=reply(self.packet)):
+            confirm_payment(self.order)
+        self.order.refresh_from_db()
+        self.assertNotIn(KEY,self.order.metadata)
+        api=APIClient()
+        api.force_authenticate(self.admin)
+        path="/api/payments/admin/test-lifecycle/"
+        payload={"invoice":str(self.invoice.public_id),"action":"start_rehearsal","confirm":True}
+        with patch("payments.readback.requests.get") as readback,patch("payments.hosted_checkout.requests.post") as post:
+            first=api.post(path,payload,format="json")
+            self.assertEqual(first.status_code,200,first.data)
+            repeated=api.post(path,payload,format="json")
+            self.assertEqual(repeated.data,first.data)
+            readback.assert_not_called()
+            post.assert_not_called()
+        self.assertEqual(PaymentIntent.objects.count(),1)
+        self.assertEqual(Invoice.objects.count(),1)
+        self.assert_no_live_rows()

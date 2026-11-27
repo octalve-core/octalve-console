@@ -28,12 +28,12 @@ def enabled():
             and getattr(settings, "CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED", False) is True)
 
 
-def marker(invoice, order):
+def marker(invoice, order, *, rehearsal=False):
     if not enabled() or invoice.order_id != order.pk or invoice.client_id != order.client_id:
         return None
     for key in (CART, PILOT):
         state = order.metadata.get(key)
-        if invoice.metadata.get(key) is True and isinstance(state, dict) and state.get("public_payment_test") is True:
+        if invoice.metadata.get(key) is True and isinstance(state, dict) and (state.get("public_payment_test") is True or rehearsal):
             return key
     return None
 
@@ -50,9 +50,9 @@ def _identity(order, item, kind):
     return "TEST-" + str(uuid5(NAMESPACE_URL, f"octalve:{order.public_id}:{item}:{kind}")).upper()
 
 
-def record_confirmed_test(invoice, payment, order, proof, verified_at):
+def record_confirmed_test(invoice, payment, order, proof, verified_at, *, rehearsal=False):
     """Within verified test settlement transaction, create one isolated ledger."""
-    key = marker(invoice, order)
+    key = marker(invoice, order, rehearsal=rehearsal)
     if key is None:
         return
     if not transaction.get_connection().in_atomic_block:
@@ -82,7 +82,7 @@ def record_confirmed_test(invoice, payment, order, proof, verified_at):
                      "next_due": due.isoformat(), "months": item.months,
                      "amount": str(item.subtotal), "currency": invoice.currency,
                      "access": "simulation_only"})
-    order.metadata[KEY] = {"mode": "simulation",
+    order.metadata[KEY] = {"mode": "simulation", "rehearsal_only": rehearsal,
         "payment": {"status": "verified_test", "reference": proof.reference,
                     "remote_id": proof.remote_id, "amount": str(proof.amount),
                     "currency": proof.currency, "verified_at": verified_at.isoformat()},
@@ -100,8 +100,8 @@ def _locked_verified(invoice_id):
         raise ValidationError("Test invoice not found.")
     intents = list(invoice.payment_intents.select_for_update().filter(status="completed")[:2])
     order = Order.objects.select_for_update().get(pk=invoice.order_id)
-    key = marker(invoice, order)
     value = safe_snapshot(order)
+    key = marker(invoice, order, rehearsal=bool(order.metadata.get(KEY,{}).get("rehearsal_only")))
     if not key or not value or len(intents) != 1 or invoice.status != "void" or order.status != "needs_review":
         raise ValidationError("Verified test lifecycle is unavailable.")
     intent = intents[0]
@@ -145,6 +145,7 @@ def advance_renewals(invoice_id, *, at=None):
     if changed:
         remaining=[i["next_due"] for i in value["items"] if i["reference"] not in {r["service_reference"] for r in value["renewals"]}]
         value["next_due_at"]=min(remaining) if remaining else None
+        value["rehearsal_only"]=order.metadata[KEY].get("rehearsal_only") is True
         order.metadata[KEY] = value
         order.save(update_fields=["metadata", "updated_at"])
     return changed
@@ -161,6 +162,7 @@ def simulate_refund(invoice_id):
     for item in value["items"]:
         item["status"] = "simulated_cancelled"
     value["next_due_at"]=None
+    value["rehearsal_only"]=order.metadata[KEY].get("rehearsal_only") is True
     order.metadata[KEY] = value
     order.save(update_fields=["metadata", "updated_at"])
     return value
@@ -198,6 +200,47 @@ def consume_public_event(event_id):
         from domains.pilot import reconcile
         reconcile(intent.invoice.order)
     return "processed" if WebhookEvent.objects.filter(pk=event.pk, is_processed=True).exists() else "pending"
+
+@transaction.atomic
+def rehearse_verified_test(invoice_id):
+    """Explicit Super Admin rehearsal on already processed evidence only.
+
+    No historical repair, payment, supplier submission, or fabricated proof.
+    The prior independently verified identity and its processed inbox must
+    already agree; unprocessed historical events are never accepted here.
+    """
+    from payments.readback import ConfirmedGatewayPayment
+    invoice=Invoice.objects.select_for_update().get(pk=invoice_id)
+    if not invoice.order_id:
+        raise ValidationError("Test invoice is unavailable.")
+    intent, _ = payment_history(invoice,lock=True)
+    order=Order.objects.select_for_update().get(pk=invoice.order_id)
+    key=marker(invoice,order,rehearsal=True)
+    if (not key or not intent or intent.status!="completed" or invoice.status!="void"
+            or order.status!="needs_review" or not pilot_gateway_allowed(intent.gateway,invoice)):
+        raise ValidationError("Only a previously verified test invoice may be rehearsed.")
+    if safe_snapshot(order):
+        _,_,value=_locked_verified(invoice.pk)
+        return value
+    prior=order.metadata[key]
+    remote=prior.get("payment_remote_id")
+    verified=parse_datetime(prior.get("payment_verified_at") or "")
+    if (not isinstance(remote,str) or not remote.isascii() or not remote.isdecimal()
+            or not verified or timezone.is_naive(verified) or verified>timezone.now()
+            or prior.get("payment_reference")!=intent.reference):
+        raise ValidationError("Stored independent verification evidence is incomplete.")
+    events=list(WebhookEvent.objects.select_for_update().filter(
+        gateway_id=intent.gateway_id,is_verified=True,is_processed=True,
+        event_type="charge.success",payload__intent_id=intent.pk,
+        payload__reference=intent.reference,payload__remote_id=remote)[:2])
+    if len(events)!=1 or not events[0].processed_at:
+        raise ValidationError("A matching processed signed notification is required.")
+    proof=ConfirmedGatewayPayment("paystack",intent.reference,intent.currency,intent.amount,remote)
+    record_confirmed_test(invoice,intent,order,proof,verified,rehearsal=True)
+    order.save(update_fields=["metadata","updated_at"])
+    return safe_snapshot(order)
+
+
 
 def review_historical_events():
     """Metadata-only audit. Never invent missing provider evidence or repair rows."""

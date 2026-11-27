@@ -104,7 +104,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
             <AdminRecordDetailPanel record={record}
               actions={[...(resource==="providers"?[]:isAdminMutationDisabled(resource)?[]:[{href:editHref,label:"Edit record",variant:"primary" as const}]),
                 {href:editorConfig.listHref,label:"Back to records",variant:"outline"}]}/>
-            {resource==="invoices"?<AdminTestLifecyclePanel key={record.id} invoiceId={record.publicId??record.id} value={record.testLifecycle}/>:resource==="orders"?<TestLifecyclePanel value={record.testLifecycle}/>:null}
+            {resource==="invoices"?<AdminTestLifecyclePanel key={record.id} invoiceId={record.publicId??record.id} value={record.testLifecycle} verifiedTest={record.verifiedTest}/>:resource==="orders"?<TestLifecyclePanel value={record.testLifecycle}/>:null}
             {resource==="domains"?<div className="mt-4">
               <ActionLink variant="outline" href={`/admin/billing/domains/${encodeURIComponent(record.id)}/dns`}>
                 Review customer DNS access

@@ -15,7 +15,7 @@ from accounts.security_throttle import _spend
 from billing.models import Invoice
 from octalve_backend.resource_lookup import resource_lookup
 from .hosted_checkout import CheckoutRefused
-from .test_lifecycle import enabled, safe_snapshot, review_historical_events, run_due_work, advance_renewals, simulate_refund
+from .test_lifecycle import enabled, safe_snapshot, review_historical_events, run_due_work, advance_renewals, simulate_refund, rehearse_verified_test
 
 
 class TestLifecycleCronView(APIView):
@@ -53,13 +53,15 @@ class TestLifecycleAdminView(APIView):
         if wait:
             raise Throttled(wait=wait)
         action=request.data.get("action")
-        if action not in ("renewal_rehearsal","refund_rehearsal"):
+        if action not in ("start_rehearsal","renewal_rehearsal","refund_rehearsal"):
             raise ValidationError("Unsupported sandbox action.")
         invoice=get_object_or_404(Invoice.objects.select_related("order"),**resource_lookup(request.data["invoice"]))
-        if not invoice.order_id or not safe_snapshot(invoice.order):
+        if not invoice.order_id or (action!="start_rehearsal" and not safe_snapshot(invoice.order)):
             raise NotFound()
         try:
-            if action=="renewal_rehearsal":
+            if action=="start_rehearsal":
+                rehearse_verified_test(invoice.pk)
+            elif action=="renewal_rehearsal":
                 value=safe_snapshot(invoice.order)
                 due=max(parse_datetime(item["next_due"]) for item in value["items"])
                 advance_renewals(invoice.pk,at=due)

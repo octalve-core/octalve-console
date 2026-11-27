@@ -3,6 +3,7 @@ export type AdminRecord = {
   publicId?: string;
   publicReference?: string;
   testLifecycle?:unknown;
+  verifiedTest?:boolean;
   title: string;
   subtitle: string;
   meta: string;
