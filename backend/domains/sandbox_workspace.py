@@ -6,12 +6,9 @@ Domain, DNSRecord, Service, transaction, zone, or registrar mutation.
 import ipaddress
 import re
 from uuid import uuid4
-from datetime import timedelta
 from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from django.utils.dateparse import parse_datetime
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import NotFound, ValidationError, Throttled
@@ -22,9 +19,8 @@ from orders.models import Order, OrderItem
 from payments.models import WebhookEvent
 from payments.customer_test_evidence import test_payment_evidence
 from payments.domain_pilot_scope import CART, PILOT
-from payments.automatic_reconciliation import enabled, attempt_event, RETRY_PREFIX
+from payments.automatic_reconciliation import enabled, attempt_event
 from providers.cloudflare_int01 import DOMAIN
-from dateutil.relativedelta import relativedelta
 
 KEY="sandbox_dns_workspace_v1"
 MAX_RECORDS=100
@@ -131,7 +127,6 @@ def sandbox_domains(request):
         # call; at most two historical readbacks per five-minute interval.
         wait=_spend("sandbox:domain_sync",str(request.user.pk),1,300)
         if not wait:
-            cutoff=timezone.now()-timedelta(minutes=5)
             from payments.models import PaymentIntent
             ids=set(PaymentIntent.objects.filter(invoice__in=invoices(request.user),status="completed",
                 gateway__code="paystack",gateway__test_mode=True).values_list("pk",flat=True)[:100])
