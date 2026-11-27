@@ -284,6 +284,8 @@ def run_due_work():
     counters = {"processed":0,"held":0,"renewals":0}
     from payments.automatic_reconciliation import attempt_event, due_event_ids
     counters.update(historical_reconciled=0, historical_held=0)
+    from payments.bound_verification import refresh_bound_test_verification
+    counters["gateway_verification"] = refresh_bound_test_verification()
     # New payment and historical evidence have separate bounded retry lanes.
     # At most four payment readbacks per cron; normal webhooks reconcile immediately.
     for historical in (False, True):
