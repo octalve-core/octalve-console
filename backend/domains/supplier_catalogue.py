@@ -1,5 +1,5 @@
 """Supplier catalogue evidence, never a customer offer or write authority."""
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
@@ -18,14 +18,21 @@ def choose_candidate(candidates, *, years):
     Unqualified, stale, unsupported and cross-currency candidates cannot win.
     Never switch an already reserved registration to a different supplier.
     """
+    if type(years) is not int or years not in (1,2,5,10):
+        return None
     eligible = [c for c in candidates if c.get("credential_verified") is True
                 and c.get("contract_qualified") is True and c.get("available") is True
                 and years in c.get("terms", []) and c.get("environment") == "test"
                 and c.get("adapter") in ("cloudflare-registrar", "resellerclub")]
     if not eligible or len({c["currency"] for c in eligible}) != 1:
         return None
-    return min(eligible, key=lambda c: (Decimal(c["registration_cost"]) +
-                      (years - 1) * Decimal(c["renewal_cost"]), c["adapter"]))
+    try:
+        costs = [(Decimal(c["registration_cost"]), Decimal(c["renewal_cost"]), c) for c in eligible]
+        if any(not a.is_finite() or not b.is_finite() or a <= 0 or b <= 0 for a,b,_ in costs):
+            return None
+        return min(costs, key=lambda item: (item[0] + (years-1)*item[1], item[2]["adapter"]))[2]
+    except (InvalidOperation, KeyError, TypeError, ValueError):
+        return None
 
 def import_cloudflare_catalogue(domain, actor):
     domain = require_domain(domain)
