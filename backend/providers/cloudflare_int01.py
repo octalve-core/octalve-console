@@ -380,10 +380,12 @@ class CloudflareINT01:
         if extension not in ("com", "net"):
             raise CloudflareINT01Denied()
         data = _require_result(self.transport("GET", self._path("extensions/" + extension)))
-        if not isinstance(data, dict) or data.get("metadata") != {"name": extension, "tld": extension}:
+        if (not isinstance(data, dict) or not isinstance(data.get("metadata"), dict)
+                or data["metadata"].get("name") != extension or data["metadata"].get("tld") != extension):
             raise CloudflareINT01Denied()
         schema = data.get("registration_schema")
-        field = schema.get("properties", {}).get("years") if isinstance(schema, dict) else None
+        properties = schema.get("properties") if isinstance(schema, dict) else None
+        field = properties.get("years") if isinstance(properties, dict) else None
         if not isinstance(field, dict):
             return []
         allowed = field.get("enum")
