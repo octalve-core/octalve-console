@@ -135,9 +135,19 @@ class SandboxLifecycleTests(TestCase):
         event.is_processed=False
         event.save(update_fields=["is_processed"])
         self.assertEqual(review_historical_events()[0]["classification"],"matching_stored_evidence_requires_audit")
-        self.assertEqual(run_due_work()["processed"],0)
+        from audit.models import AuditLog
+        with patch.object(PaymentGateway,"get_secret_key",return_value=self.secret),patch(
+                "payments.readback.requests.get",return_value=reply(self.packet)) as get:
+            result=run_due_work()
+            self.assertEqual(result["processed"],0)
+            self.assertEqual(result["historical_reconciled"],1)
+            self.assertEqual(run_due_work()["historical_reconciled"],0)
+            get.assert_called_once()
         event.refresh_from_db()
-        self.assertFalse(event.is_processed)
+        self.assertTrue(event.is_processed)
+        self.assertTrue(AuditLog.objects.filter(entity_type="HistoricalTestPayment",actor__isnull=True,
+            entity_id=str(event.pk),details__source="automatic_server_reconciliation",
+            details__fulfillment_authorized=False).exists())
         self.assert_no_live_rows()
 
     def test_rehearse_existing_processed_test_without_new_charge(self):
@@ -211,4 +221,90 @@ class SandboxLifecycleTests(TestCase):
                 reconcile_historical_test(event.pk,self.admin)
         event.refresh_from_db()
         self.assertFalse(event.is_processed)
+        self.assert_no_live_rows()
+
+
+    def test_historical_webhook_reconciles_without_admin_or_supplier(self):
+        from audit.models import AuditLog
+        self.confirmed()
+        event=WebhookEvent.objects.get()
+        event.is_processed=False
+        event.processed_at=None
+        event.save(update_fields=["is_processed","processed_at"])
+        self.order.metadata[CART].pop("payment_remote_id")
+        self.order.save(update_fields=["metadata"])
+        before=self.order.metadata.copy()
+        with patch.object(PaymentGateway,"get_secret_key",return_value=self.secret),patch(
+                "payments.readback.requests.get",return_value=reply(self.packet)) as get,patch(
+                "domains.pilot.registrar") as registrar:
+            self.assertEqual(self.webhook().status_code,200)
+            self.assertEqual(self.webhook().status_code,200)
+            get.assert_called_once()
+            registrar.assert_not_called()
+        self.order.refresh_from_db()
+        event.refresh_from_db()
+        self.assertTrue(event.is_processed)
+        self.assertEqual(self.order.metadata,before)
+        self.assertEqual(AuditLog.objects.filter(entity_type="HistoricalTestPayment",
+            entity_id=str(event.pk),actor__isnull=True).count(),1)
+        self.assert_no_live_rows()
+
+    def test_historical_retry_fails_closed_then_recovers_automatically(self):
+        from payments.automatic_reconciliation import RETRY_PREFIX
+        self.confirmed()
+        event=WebhookEvent.objects.get()
+        event.is_processed=False
+        event.processed_at=None
+        event.save(update_fields=["is_processed","processed_at"])
+        packet={"status":True,"data":{**self.packet["data"],"id":99999}}
+        with patch.object(PaymentGateway,"get_secret_key",return_value=self.secret),patch(
+                "payments.readback.requests.get",return_value=reply(packet)):
+            self.assertEqual(self.webhook().status_code,503)
+        event.refresh_from_db()
+        self.assertFalse(event.is_processed)
+        self.assertTrue(event.error_message.startswith(RETRY_PREFIX))
+        with patch.object(PaymentGateway,"get_secret_key",return_value=self.secret),patch(
+                "payments.readback.requests.get",return_value=reply(self.packet)):
+            self.assertEqual(run_due_work()["historical_reconciled"],1)
+        event.refresh_from_db()
+        self.assertTrue(event.is_processed)
+        self.assertIsNone(event.error_message)
+        self.assert_no_live_rows()
+
+    def test_conflicting_signed_remote_ids_block_new_settlement(self):
+        # Store the original signed inbox without running payment consumer.
+        with self.settings(CLOUD_TEST_LIFECYCLE_ENABLED=False),patch.object(
+                PaymentGateway,"get_secret_key",return_value=self.secret):
+            self.assertEqual(self.webhook().status_code,200)
+        WebhookEvent.objects.create(gateway=self.gateway,is_verified=True,
+            event_type="charge.success",event_id="conflicting-test-remote-id",
+            payload={"intent_id":self.intent.pk,"reference":self.intent.reference,"remote_id":"99999"})
+        with patch.object(PaymentGateway,"get_secret_key",return_value=self.secret),patch(
+                "payments.readback.requests.get",return_value=reply(self.packet)):
+            self.assertEqual(self.webhook().status_code,503)
+        self.invoice.refresh_from_db()
+        self.intent.refresh_from_db()
+        self.assertEqual(self.invoice.status,"unpaid")
+        self.assertEqual(self.intent.status,"pending")
+        self.assertFalse(WebhookEvent.objects.filter(is_processed=True).exists())
+        self.assert_no_live_rows()
+
+    @override_settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=True)
+    def test_private_cart_payment_does_not_call_registrar(self):
+        self.order.metadata[CART]["public_payment_test"]=False
+        self.order.save(update_fields=["metadata"])
+        with patch.dict("os.environ",{"CLOUD_DOMAIN_PILOT_CLIENT_ID":str(self.owner.pk)}),patch.object(
+                PaymentGateway,"get_secret_key",return_value=self.secret),patch(
+                "payments.readback.requests.get",return_value=reply(self.packet)) as get,patch(
+                "domains.pilot.registrar") as registrar:
+            self.assertEqual(self.webhook().status_code,200)
+            get.assert_called_once()
+            registrar.assert_not_called()
+        self.invoice.refresh_from_db()
+        self.intent.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status,"void")
+        self.assertEqual(self.intent.status,"completed")
+        self.assertNotIn(KEY,self.order.metadata)
+        self.assertTrue(WebhookEvent.objects.get().is_processed)
         self.assert_no_live_rows()
