@@ -77,3 +77,45 @@ test("authenticated email readiness GET is allowlisted without opening other aut
     "https://api.cloud.octalve.com/api/auth/email/verification/status/",
   );
 });
+
+
+test("BFF refuses password-only success for an explicit passkey exchange", async () => {
+  const route = fs.readFileSync(path.join(__dirname, "../src/app/api/cloud/[...path]/route.ts"), "utf8");
+  const compiledRoute = ts.transpileModule(route, {
+    compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022},
+  }).outputText;
+  let cookies = 0;
+  let calls = 0;
+  let payload = {access:"synthetic-access", refresh:"synthetic-refresh"};
+  const next = {json: (body, options) => ({body, status:options.status, headers:options.headers})};
+  const session = {SESSION_ACCESS_COOKIE:"access", SESSION_REFRESH_COOKIE:"refresh",
+    clearSessionCookies(){}, resolveCloudApiBase:()=>"https://api.cloud.octalve.com/api",
+    sameOriginRequest:()=>true, signedClientIpHeaders:()=>({}), setSessionCookies(){cookies++;}};
+  const mod = {exports:{}};
+  const vm = require("node:vm");
+  vm.runInNewContext(compiledRoute, {exports:mod.exports, require:name=>{
+    if(name==="next/server")return {NextResponse:next};
+    if(name==="@/lib/api/cloud-path")return {canonicalCloudDjangoPath,cloudUpstreamUrl};
+    if(name==="@/lib/api/server-session")return session;
+    throw Error(name);
+  }, Headers, AbortSignal, TextDecoder, fetch:async url=>{
+    calls++;
+    return {ok:true,status:200,json:async()=>url.endsWith("/users/me/")?{id:1,role:"admin"}:payload};
+  }});
+  const request = () => {
+    const bytes = new TextEncoder().encode(JSON.stringify({email:"fixture@example.invalid",password:"fixture",passkey_qualification:true}));
+    return {method:"POST",nextUrl:new URL("https://console.cloud.octalve.com/api/cloud/auth/jwt/create"),
+      cookies:{get:()=>undefined},headers:new Headers({"content-type":"application/json"}),
+      arrayBuffer:async()=>bytes.buffer};
+  };
+  const context={params:Promise.resolve({path:["auth","jwt","create"]})};
+  let result=await mod.exports.POST(request(),context);
+  assert.equal(result.status,502);
+  assert.equal(cookies,0);
+  assert.equal(calls,1,"unverified response must not reach identity exchange");
+  payload={...payload,passkey_verified:true};
+  result=await mod.exports.POST(request(),context);
+  assert.equal(result.status,200);
+  assert.equal(cookies,1);
+  assert.equal(result.body.user.id,1);
+});

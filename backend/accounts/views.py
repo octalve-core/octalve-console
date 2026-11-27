@@ -39,6 +39,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from .serializers import CustomUserCreateSerializer, CustomerListSerializer, CustomerDetailSerializer, CustomerCreateSerializer, CustomerUpdateSerializer
+from audit.models import AuditLog
 from .privileged_mfa import (ASSURANCE, begin_login, has_passkey_assurance,
     passkey_login_allowed, privileged_mfa_required, verify_login)
 from .session_tokens import (REFRESH_ID, SESSION_ID, ConsoleRefreshToken,
@@ -294,6 +295,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             refresh = self.get_token(user)
             if credential is not None:
                 refresh[ASSURANCE] = credential
+                AuditLog.objects.create(
+                    actor=user, action="login", entity_type="privileged_passkey",
+                    entity_id=str(user.pk), entity_name="Privileged passkey sign-in",
+                    details={"credential_record_id": credential},
+                )
 
         self.context['user'] = user          # view needs this for login()
 

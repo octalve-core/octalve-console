@@ -71,7 +71,8 @@ class ConsoleTokenRefreshSerializer(TokenRefreshSerializer):
         with transaction.atomic():
             session_id = presented.get(SESSION_ID)
             user_id = presented.get(api_settings.USER_ID_CLAIM)
-            user = get_user_model().objects.filter(pk=user_id).first()
+            # Same lock order as recovery: account, then session/token records.
+            user = get_user_model().objects.select_for_update().filter(pk=user_id).first()
             if user:
                 require_passkey_policy(user, presented)
             session = require_session(session_id, user_id, lock=True) if session_id else None
