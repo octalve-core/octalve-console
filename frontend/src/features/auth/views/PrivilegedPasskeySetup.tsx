@@ -4,7 +4,7 @@ import Link from "next/link";
 import {useRef,useState,type FormEvent} from "react";
 import {enrollPrivilegedPasskey} from "@/lib/api/privileged-passkey";
 
-export default function PasskeySetupPage(){
+export function PrivilegedPasskeySetup(){
   const busyRef=useRef(false);
   const [busy,setBusy]=useState(false);
   const [enrolled,setEnrolled]=useState(false);

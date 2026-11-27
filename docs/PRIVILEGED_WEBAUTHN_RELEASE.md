@@ -8,7 +8,7 @@ The Console origin is https://console.cloud.octalve.com and the relying party ID
 
 A deployment operator with an independently approved identity and change reference uses the Django management command `issue_privileged_passkey_grant` with `--account-id`, `--approval-reference`, and `--confirm-independent-approval`. Use `--recovery` only for an approved lost-credential recovery. Approval is an operational control and the command records its reference. It cannot verify the external approval workflow.
 
-Deliver the 15-minute setup code over the approved private channel. The operator visits `/login/passkey-setup` on the canonical Console and provides the code and their current account password to complete the browser ceremony. Store no codes in tickets, chat, CI logs or database plaintext. A new grant invalidates unused earlier grants. Recovery changes old credentials and token revocation only after a valid replacement credential is registered. Issue a separate normal grant for each backup authenticator.
+Deliver the 15-minute setup code over the approved private channel. The operator visits `/login?passkey=setup` on the canonical Console and provides the code and their current account password to complete the browser ceremony. Store no codes in tickets, chat, CI logs or database plaintext. A new grant invalidates unused earlier grants. Recovery changes old credentials and token revocation only after a valid replacement credential is registered. Issue a separate normal grant for each backup authenticator.
 
 ## Production activation gate
 
