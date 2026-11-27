@@ -202,6 +202,8 @@ def accept_quote(user, name, token, *, selected=False, public_payment_test=False
         if Order.objects.filter(client=user, metadata__sandbox_domain_purchase__public_payment_test=True).count() + Order.objects.filter(client=user, metadata__combined_domain_test_cart__public_payment_test=True).count() >= 3:
             raise ValidationError("Your public payment test limit has been reached.")
     else:
+        from .sandbox_fulfillment import assert_private_domain_unclaimed
+        assert_private_domain_unclaimed([name])
         registrar(snapshot)
     amount = Decimal(snapshot["amount"])
     label = (f"Payment test only: {name} (1 year)" if public_payment_test else f"Sandbox only: {name} registration (1 year)")
@@ -367,6 +369,9 @@ def reconcile(order):
                 or locked.status != "pending_payment"):
             raise ValidationError("The pilot payment changed during verification.")
         verified_at = consume_matching_test_event(payment, proof)
+        if not public_test:
+            from .sandbox_fulfillment import assert_private_domain_unclaimed
+            assert_private_domain_unclaimed([snapshot["domain"]], order_id=locked.pk)
         # Reserve before the POST. A crash at any point now requires readback only.
         locked.metadata[PILOT].update(state="test_payment_verified" if public_test else "registration_uncertain", payment_reference=proof.reference,
                                      payment_remote_id=proof.remote_id, payment_verified_at=verified_at.isoformat(), sandbox_submission_reserved=not public_test)
