@@ -343,7 +343,8 @@ def inspect_payment(order):
     return intent, proof
 
 
-def reconcile(order):
+def reconcile(order, *, payment_only=False):
+    order.refresh_from_db(fields=["metadata", "status"])
     snapshot = order.metadata[PILOT]
     public_test = snapshot.get("public_payment_test") is True
     if snapshot["state"] == "test_payment_verified":
@@ -361,8 +362,13 @@ def reconcile(order):
         return
     if snapshot["state"] == "registration_rejected":
         return
+    if payment_only and snapshot["state"] != "awaiting_payment":
+        return
+    if not public_test and snapshot.get("payment_only_pending_submission") is True:
+        submit_deferred_registration(order)
+        return
     supplier = None
-    if not public_test:
+    if not public_test and not payment_only:
         supplier, _ = registrar(snapshot)
     if snapshot["state"] != "awaiting_payment":
         if public_test:
@@ -373,8 +379,8 @@ def reconcile(order):
         return
 
     intent, proof = inspect_payment(order)
-    contact = None if public_test else registrant_contact()
-    if not public_test and snapshot.get("years", 1) != 1:
+    contact = None if public_test or payment_only else registrant_contact()
+    if not public_test and not payment_only and snapshot.get("years", 1) != 1:
         fresh = supplier.check(snapshot["domain"])
         if (fresh != snapshot.get("supplier_quote") or not fresh.get("registrable")
                 or snapshot["years"] not in supplier.supported_registration_terms(snapshot["domain"].rsplit(".",1)[1])):
@@ -402,12 +408,15 @@ def reconcile(order):
                 or locked.status != "pending_payment"):
             raise ValidationError("The pilot payment changed during verification.")
         verified_at = consume_matching_test_event(payment, proof)
-        if not public_test:
+        if not public_test and not payment_only:
             from .sandbox_fulfillment import assert_private_domain_unclaimed
             assert_private_domain_unclaimed([snapshot["domain"]], order_id=locked.pk)
         # Reserve before the POST. A crash at any point now requires readback only.
-        locked.metadata[PILOT].update(state="test_payment_verified" if public_test else "registration_uncertain", payment_reference=proof.reference,
-                                     payment_remote_id=proof.remote_id, payment_verified_at=verified_at.isoformat(), sandbox_submission_reserved=not public_test)
+        locked.metadata[PILOT].update(state="test_payment_verified" if public_test else "registration_pending" if payment_only else "registration_uncertain", payment_reference=proof.reference,
+                                     payment_remote_id=proof.remote_id, payment_verified_at=verified_at.isoformat(),
+                                     sandbox_submission_reserved=not public_test and not payment_only)
+        if not public_test and payment_only:
+            locked.metadata[PILOT]["payment_only_pending_submission"] = True
         from payments.test_lifecycle import record_confirmed_test
         record_confirmed_test(invoice, payment, locked, proof, verified_at)
         locked.status = "needs_review"
@@ -416,8 +425,55 @@ def reconcile(order):
         payment.save(update_fields=["status"])
         invoice.status = "void"
         invoice.save(update_fields=["status", "updated_at"])
-    if not public_test:
+    if not public_test and not payment_only:
         submit_reserved_registration(locked, supplier, contact)
+
+
+def submit_deferred_registration(order):
+    """Resume a NEW verified payment, never replay a historical submission.
+
+    Called only from the existing owner-scoped purchase flow or the explicitly
+    pinned private registrar worker. No supplier work is part of payment reconciliation.
+    """
+    from .sandbox_fulfillment import _private_context, _payment_context, _processed_evidence, assert_private_domain_unclaimed
+    snapshot = order.metadata[PILOT]
+    if (snapshot.get("payment_only_pending_submission") is not True
+            or snapshot.get("sandbox_submission_reserved") is not False
+            or snapshot.get("state") != "registration_pending"):
+        return
+    context = _private_context(order)
+    evidence = _payment_context(order, *context) if context else None
+    if not evidence or not _processed_evidence(*evidence, snapshot):
+        raise ValidationError("Verified private test payment is required.")
+    invoice, intent = evidence
+    supplier, _ = registrar(snapshot)
+    contact = registrant_contact()
+    fresh = supplier.check(snapshot["domain"])
+    if fresh.get("registrable") is not True:
+        raise ValidationError("Supplier availability changed. Payment remains verified.")
+    if snapshot.get("years",1) != 1 and (fresh != snapshot.get("supplier_quote")
+            or snapshot["years"] not in supplier.supported_registration_terms(snapshot["domain"].rsplit(".",1)[1])):
+        raise ValidationError("Supplier price or term changed. Payment remains verified.")
+    with transaction.atomic():
+        invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
+        intent = PaymentIntent.objects.select_for_update().get(pk=intent.pk)
+        locked = Order.objects.select_for_update().get(pk=order.pk)
+        current = locked.metadata[PILOT]
+        if (current != snapshot or locked.status != "needs_review"
+                or invoice.order_id != locked.pk or invoice.client_id != locked.client_id
+                or intent.invoice_id != invoice.pk or intent.client_id != invoice.client_id
+                or intent.amount != invoice.total or intent.currency != invoice.currency
+                or locked.total != invoice.total or locked.currency != invoice.currency
+                or invoice.amount_paid != 0 or not pilot_gateway_allowed(intent.gateway, invoice)
+                or not _processed_evidence(invoice, intent, current)):
+            return
+        # The same claim guard used by the original pilot. Persist reservation
+        # before the network call; any ambiguous response is readback-only.
+        assert_private_domain_unclaimed([current["domain"]], order_id=locked.pk)
+        current.update(state="registration_uncertain", sandbox_submission_reserved=True)
+        current.pop("payment_only_pending_submission", None)
+        locked.save(update_fields=["metadata","updated_at"])
+    submit_reserved_registration(locked, supplier, contact)
 
 
 def submit_reserved_registration(order, supplier, contact):
