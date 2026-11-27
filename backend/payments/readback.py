@@ -70,6 +70,7 @@ def verify_gateway_intent(intent, *, getter=None, inspect_pilot=False):
             or invoice.client_id != intent.client_id or order.client_id != intent.client_id
             or invoice.currency != intent.currency or invoice.currency != order.currency
             or invoice.total <= 0 or invoice.amount_paid != 0
+            or order.total != invoice.total
             or _money(intent.amount) != _money(invoice.total)):
         raise PaymentReadbackRejected("Payment intent or financial ownership is ineligible.")
     ref = intent.reference
@@ -109,7 +110,7 @@ def verify_gateway_intent(intent, *, getter=None, inspect_pilot=False):
         if gateway.code == "paystack":
             if packet.get("status") is not True:
                 raise PaymentReadbackRejected("Paystack did not confirm settlement.")
-            if (data.get("domain") == "test") != bool(gateway.test_mode) or data.get("reference") != ref:
+            if data.get("domain") != ("test" if gateway.test_mode else "live") or data.get("reference") != ref:
                 raise PaymentReadbackRejected("Paystack verified another transaction.")
             # Paystack returns amounts in integer minor units (kobo for NGN).
             minor = data.get("amount")
@@ -135,7 +136,7 @@ def verify_gateway_intent(intent, *, getter=None, inspect_pilot=False):
         if (data.get("currency") != intent.currency
                 or amount != _money(intent.amount)
                 or (type(remote_id) is not int and not isinstance(remote_id, str))
-                or not str(remote_id).isdigit()):
+                or not str(remote_id).isascii() or not str(remote_id).isdigit() or len(str(remote_id)) > 35):
             raise PaymentReadbackRejected("Verified gateway identity, amount or currency mismatch.")
         return ConfirmedGatewayPayment(
             gateway.code, ref, intent.currency, amount, str(remote_id))

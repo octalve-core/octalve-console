@@ -26,6 +26,7 @@ from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_gatewa
 from payments.hosted_checkout import CheckoutRefused, _return_url, reserve_hosted_checkout
 from payments.models import PaymentGateway, PaymentIntent, WebhookEvent
 from payments.readback import PaymentReadbackRejected, verify_gateway_intent
+from payments.test_payment_evidence import consume_matching_test_event
 from providers.cloudflare_int01 import CloudflareINT01, CloudflareINT01Denied, FixedCloudflareTransport
 from providers.connection_audit import verify_chain
 from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion
@@ -331,22 +332,27 @@ def reconcile(order):
     intent, proof = inspect_payment(order)
     contact = None if public_test else registrant_contact()
     with transaction.atomic():
+        # Canonical lock order: invoice, intent, order, signed inbox event.
+        invoice = Invoice.objects.select_for_update().get(pk=intent.invoice_id)
+        payment = PaymentIntent.objects.select_for_update().get(pk=intent.pk)
         locked = Order.objects.select_for_update().get(pk=order.pk)
         if locked.metadata[PILOT]["state"] != "awaiting_payment":
             return
-        # Keep the lock order aligned with reserve_hosted_checkout.
-        invoice = Invoice.objects.select_for_update().get(pk=intent.invoice_id)
-        payment = PaymentIntent.objects.select_for_update().get(pk=intent.pk)
-        if (payment.status != intent.status or payment.reference != proof.reference
+        if (not pilot_gateway_allowed(payment.gateway, invoice) or invoice.order_id != locked.pk
+                or payment.invoice_id != invoice.pk or payment.client_id != invoice.client_id
+                or locked.client_id != invoice.client_id or locked.currency != invoice.currency
+                or locked.total != invoice.total
+                or payment.status != intent.status or payment.reference != proof.reference
                 or payment.amount != proof.amount or payment.currency != proof.currency
                 or payment.gateway_id != intent.gateway_id
                 or invoice.status != "unpaid" or invoice.amount_paid != 0
                 or invoice.total != proof.amount or invoice.currency != proof.currency
                 or locked.status != "pending_payment"):
             raise ValidationError("The pilot payment changed during verification.")
+        verified_at = consume_matching_test_event(payment, proof)
         # Reserve before the POST. A crash at any point now requires readback only.
         locked.metadata[PILOT].update(state="test_payment_verified" if public_test else "registration_uncertain", payment_reference=proof.reference,
-                                     payment_remote_id=proof.remote_id, sandbox_submission_reserved=not public_test)
+                                     payment_remote_id=proof.remote_id, payment_verified_at=verified_at.isoformat(), sandbox_submission_reserved=not public_test)
         locked.status = "needs_review"
         locked.save(update_fields=["metadata", "status", "updated_at"])
         payment.status = "completed"

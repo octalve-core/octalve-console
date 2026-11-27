@@ -266,6 +266,9 @@ class DomainPilotTests(TestCase):
             paid = api.post(status_url, {"action": "advance"}, format="json")
         self.assertEqual(paid.status_code, 200, paid.data)
         self.assertTrue(paid.data["payment_verified"])
+        event = WebhookEvent.objects.get(event_id="cart-test")
+        self.assertTrue(event.is_processed)
+        self.assertIsNotNone(event.processed_at)
         self.supplier.submit_cart_registration.assert_not_called()
         first_result = api.post(status_url, {"action": "advance"}, format="json")
         self.assertEqual(first_result.status_code, 200, first_result.data)
@@ -313,7 +316,7 @@ class DomainPilotTests(TestCase):
         with patch.object(PaymentGateway, "get_secret_key", return_value="sk_test_fixture_key"):
             self.assertEqual(verify_gateway_intent(
                 intent, getter=Mock(return_value=reply(packet)), inspect_pilot=True), "abandoned")
-            for change in ({"domain": "live"}, {"amount": 1250001}, {"reference": "another_ref"}):
+            for change in ({"domain": "live"}, {"domain": None}, {"domain": "unexpected"}, {"amount": 1250001}, {"reference": "another_ref"}):
                 altered = {**packet, "data": {**packet["data"], **change}}
                 with self.assertRaises(PaymentReadbackRejected):
                     verify_gateway_intent(intent, getter=Mock(return_value=reply(altered)), inspect_pilot=True)
@@ -371,6 +374,9 @@ class DomainPilotTests(TestCase):
             intent.refresh_from_db()
             self.assertEqual(invoice.status, "void")
             self.assertEqual(intent.status, "completed")
+            event = WebhookEvent.objects.get(event_id="public-trial")
+            self.assertTrue(event.is_processed)
+            self.assertIsNotNone(event.processed_at)
             self.assertFalse(Transaction.objects.exists())
             self.assertEqual(api.post(path, {"action": "reconcile"}, format="json").data["state"], "test_payment_verified")
         api.force_authenticate(self.owner)

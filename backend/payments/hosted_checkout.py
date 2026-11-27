@@ -198,9 +198,9 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None):
     link = _post_checkout(PaymentIntent.objects.select_related(
         "gateway", "invoice__client").get(pk=issued.pk), poster=poster)
     with transaction.atomic():
+        inv = Invoice.objects.select_for_update().get(pk=issued.invoice_id)
         locked = PaymentIntent.objects.select_for_update().get(pk=issued.pk)
-        inv = Invoice.objects.select_for_update().get(pk=locked.invoice_id)
-        if (locked.metadata.get("checkout_state") != "reserved"
+        if (locked.invoice_id != inv.pk or locked.metadata.get("checkout_state") != "reserved"
                 or locked.status != "processing" or locked.is_expired()
                 or inv.status != "unpaid" or inv.amount_paid != 0
                 or inv.total != locked.amount or inv.client_id != locked.client_id):
