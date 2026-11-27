@@ -2,7 +2,7 @@
 
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, UntypedToken
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -38,7 +38,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from .serializers import CustomUserCreateSerializer, CustomerListSerializer, CustomerDetailSerializer, CustomerCreateSerializer, CustomerUpdateSerializer
-from .session_tokens import REFRESH_ID, ConsoleRefreshToken, ConsoleTokenRefreshSerializer, revoke_legacy_access
+from .session_tokens import (REFRESH_ID, SESSION_ID, ConsoleRefreshToken,
+    ConsoleTokenRefreshSerializer, revoke_legacy_access, session_record)
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 import logging
 
 logger = logging.getLogger(__name__)
@@ -339,21 +341,34 @@ class CustomLogoutView(APIView):
             )
 
         try:
-            token = RefreshToken(refresh_token)
+            # A rotated-out refresh can still identify the same session at logout.
+            # Verify signature, expiry and explicit token type before using its claims.
+            access_session = request.auth.get(SESSION_ID) if request.auth else None
+            token = UntypedToken(refresh_token) if access_session else RefreshToken(refresh_token)
+            if token.get(api_settings.TOKEN_TYPE_CLAIM) != "refresh":
+                raise TokenError("Invalid refresh token.")
             if str(token.get(api_settings.USER_ID_CLAIM)) != str(request.user.pk):
                 return Response(
                     {'error': 'Refresh token does not belong to this account.'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
             bound_refresh = request.auth.get(REFRESH_ID) if request.auth else None
-            if bound_refresh and bound_refresh != token[api_settings.JTI_CLAIM]:
+            matching = (access_session == token.get(SESSION_ID) if access_session else
+                        not bound_refresh or bound_refresh == token[api_settings.JTI_CLAIM])
+            if not matching:
                 return Response(
                     {'error': 'Refresh token does not belong to this session.'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
             with transaction.atomic():
-                token.blacklist()
-                revoke_legacy_access(request.auth, request.user)
+                if access_session:
+                    session = session_record(access_session, request.user.pk, lock=True)
+                    if session is None:
+                        raise TokenError("Session unavailable.")
+                    BlacklistedToken.objects.get_or_create(token=session)
+                else:
+                    token.blacklist()
+                    revoke_legacy_access(request.auth, request.user)
         except TokenError:
             django_logout(request)
             return Response(

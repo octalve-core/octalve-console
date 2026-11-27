@@ -120,19 +120,34 @@ class CloudAccountApiTests(APITestCase):
         )
         self.assertEqual(invalid.status_code, status.HTTP_401_UNAUTHORIZED, invalid.data)
 
-    def test_rotated_access_is_bound_to_new_refresh(self):
+    def test_logout_with_rotated_out_refresh_revokes_the_entire_session(self):
         signup = self.register()
         rotated = self.client.post(
             '/api/auth/jwt/refresh/', {'refresh': signup.data['refresh']}, format='json'
         )
         self.assertEqual(rotated.status_code, status.HTTP_200_OK, rotated.data)
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + signup.data['access'])
-        self.assertEqual(self.client.get('/api/auth/me/').status_code, status.HTTP_401_UNAUTHORIZED)
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + rotated.data['access'])
         self.assertEqual(self.client.get('/api/auth/me/').status_code, status.HTTP_200_OK)
-        logout = self.client.post('/api/auth/logout/', {'refresh': rotated.data['refresh']}, format='json')
+        logout = self.client.post('/api/auth/logout/', {'refresh': signup.data['refresh']}, format='json')
         self.assertEqual(logout.status_code, status.HTTP_200_OK, logout.data)
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + rotated.data['access'])
         self.assertEqual(self.client.get('/api/auth/me/').status_code, status.HTTP_401_UNAUTHORIZED)
+        self.client.credentials()
+        retry = self.client.post('/api/auth/jwt/refresh/', {'refresh': rotated.data['refresh']}, format='json')
+        self.assertEqual(retry.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_does_not_revoke_another_session_for_the_same_account(self):
+        from accounts.session_tokens import ConsoleRefreshToken
+        signup = self.register()
+        user = get_user_model().objects.get(email=signup.data["user"]["email"])
+        independent = ConsoleRefreshToken.for_user(user)
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + signup.data['access'])
+        wrong_session = self.client.post('/api/auth/logout/', {'refresh': str(independent)}, format='json')
+        self.assertEqual(wrong_session.status_code, status.HTTP_403_FORBIDDEN, wrong_session.data)
+        logout = self.client.post('/api/auth/logout/', {'refresh': signup.data['refresh']}, format='json')
+        self.assertEqual(logout.status_code, status.HTTP_200_OK, logout.data)
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + str(independent.access_token))
+        self.assertEqual(self.client.get('/api/auth/me/').status_code, status.HTTP_200_OK)
 
     def test_missing_refresh_does_not_claim_successful_revocation(self):
         signup = self.register()
