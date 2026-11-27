@@ -277,12 +277,10 @@ def review_historical_events():
 
 
 def run_due_work():
-    """Bounded recurring work. No live settlement or supplier/mail transport."""
+    """Bounded recurring test reconciliation, simulations and scoped registrar work."""
     if not enabled():
         return {"disabled":True}
     from django.db import DatabaseError
-    from django.db.models import Q
-    from payments.readback import PaymentReadbackRejected
     counters = {"processed":0,"held":0,"renewals":0}
     from payments.automatic_reconciliation import attempt_event, due_event_ids
     counters.update(historical_reconciled=0, historical_held=0)
