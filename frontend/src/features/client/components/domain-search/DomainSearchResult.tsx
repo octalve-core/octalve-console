@@ -11,6 +11,6 @@ export function DomainSearchResult({value,onAdded}:{value:DomainLookup;onAdded?:
  <DomainResultCard name={value.domain} availability={verified?true:unavailable?false:null} price={priced?formatDomainPrice(value.registration_price!,value.currency)+"/yr":"Pricing unavailable"}
  renewal={value.renewal_price&&Number(value.renewal_price)>0&&value.currency? "Renews at "+formatDomainPrice(value.renewal_price,value.currency)+"/yr":undefined}
  action={<DomainSearchAction value={value} onAdded={onAdded}/>}
- notice={unavailable?"Choose another name or explore transfer.":undefined}/>
+ notice={unavailable?"Choose another name or explore transfer.":!verified?"No domain has been reserved":undefined}/>
  <p className="mt-2 text-xs text-slate-600">{value.message}</p></section>;
 }
