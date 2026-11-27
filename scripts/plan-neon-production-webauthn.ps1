@@ -17,11 +17,15 @@ Push-Location $root.Trim()
 $keys=@('DATABASE_URL','DJANGO_SECRET_KEY','OCTALVE_CLOUD_ENV','DEBUG','ALLOWED_HOSTS','FRONTEND_URL',
  'OCTALVE_WEBAUTHN_SOURCE_APPROVED','OCTALVE_WEBAUTHN_BACKUP_VERIFIED','OCTALVE_WEBAUTHN_RESTORE_VERIFIED',
  'OCTALVE_WEBAUTHN_BACKUP_FILE','OCTALVE_WEBAUTHN_BACKUP_SHA256','OCTALVE_WEBAUTHN_RESTORE_SHA256',
- 'OCTALVE_WEBAUTHN_RESTORE_AT','OCTALVE_WEBAUTHN_LEDGER_SHA256','CLOUD_PRIVILEGED_PASSKEY_ENROLLMENT_ENABLED','CLOUD_PRIVILEGED_WEBAUTHN_REQUIRED','PGHOST','PGPORT','PGDATABASE','PGUSER','PGPASSWORD','PGSSLMODE')
+ 'OCTALVE_WEBAUTHN_RESTORE_AT','OCTALVE_WEBAUTHN_LEDGER_SHA256','CLOUD_PRIVILEGED_PASSKEY_ENROLLMENT_ENABLED','CLOUD_PRIVILEGED_WEBAUTHN_REQUIRED','PGHOST','PGPORT','PGDATABASE','PGUSER','PGPASSWORD','PGSSLMODE','PGHOSTADDR','PGSERVICE','PGSERVICEFILE','PGOPTIONS','PGCHANNELBINDING','PGPASSFILE','PGSSLROOTCERT')
 $previous=@{}
 foreach($key in $keys){$previous[$key]=[Environment]::GetEnvironmentVariable($key,'Process')}
 $pgCtl=$null;$cluster=$null;$started=$false;$dbUrl=$null;$passFile=$null
 try{
+  # Prevent inherited libpq routing/session overrides from changing the verified target.
+  foreach($key in @('PGHOSTADDR','PGSERVICE','PGSERVICEFILE','PGOPTIONS','PGCHANNELBINDING','PGPASSFILE','PGSSLROOTCERT')){
+    [Environment]::SetEnvironmentVariable($key,$null,'Process')
+  }
   if((& git branch --show-current).Trim() -cne 'main'){throw 'Only reviewed main may migrate Production.'}
   $dirty=@(& git status --porcelain --untracked-files=all)
   if($LASTEXITCODE -ne 0){throw 'Could not verify local Git working tree.'}
@@ -77,7 +81,7 @@ try{
     & $python manage.py makemigrations --check --dry-run
     if($LASTEXITCODE -ne 0){throw 'Unexpected uncommitted migration change.'}
   } finally {Pop-Location}
-  Write-Host 'PREFLIGHT PASSED: exact Production database, original ledger and exactly two reviewed WebAuthn migrations.'
+  Write-Host 'PREFLIGHT completed. Review the exact Python result above; no schema writes occurred.'
   if(-not ($Apply -or $BackupOnly)){Write-Host 'No database changes were made.';return}
 
   # An explicit tool directory is optional. It lets the operator use the
@@ -147,14 +151,15 @@ try{
   if($parts.Count -ne 2){throw 'Invalid database user format.'}
   $env:PGUSER=[Uri]::UnescapeDataString($parts[0]);$env:PGPASSWORD=[Uri]::UnescapeDataString($parts[1])
   $env:PGHOST=$dbUri.Host;$env:PGPORT='5432';$env:PGDATABASE='neondb';$env:PGSSLMODE='require'
+  if($dbUri.Query -match '(?:^\?|&)channel_binding=require(?:&|$)'){$env:PGCHANNELBINDING='require'}
   if($dbUri.Query -match '(?:^\?|&)sslmode=verify-full(?:&|$)'){$env:PGSSLMODE='verify-full'}
   if((Read-Host 'Confirm workstation and backup volume are encrypted and access-restricted; type PROTECTED STORAGE') -cne 'PROTECTED STORAGE'){throw 'Protected backup storage not attested.'}
   $folder=Join-Path $env:LOCALAPPDATA 'OctalveCloud\ProtectedDatabaseBackups'
   New-Item -ItemType Directory -Force -Path $folder | Out-Null
-  $archive=Join-Path $folder ('pre-webauthn-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'.dump')
+  $archive=Join-Path $folder ('pre-webauthn-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[guid]::NewGuid().ToString('N')+'.dump')
   if(Test-Path $archive){throw 'Backup archive collision; never overwrite.'}
   $ledgerQuery=@'
-SELECT encode(sha256(convert_to(string_agg(app || ':' || name, chr(10) ORDER BY app COLLATE "C", name COLLATE "C"),'UTF8')),'hex') FROM public.django_migrations
+SELECT encode(sha256(convert_to(string_agg(app || ':' || name, chr(10) ORDER BY convert_to(app,'UTF8'), convert_to(name,'UTF8')),'UTF8')),'hex') FROM public.django_migrations
 '@
   $beforeLedger=(& $psql -X -v ON_ERROR_STOP=1 --tuples-only --no-align --quiet -c "$ledgerQuery" | Select-Object -Last 1)
   if($LASTEXITCODE -ne 0 -or $beforeLedger -notmatch '^[0-9a-f]{64}$'){throw 'Production ledger digest failed.'}
@@ -186,6 +191,7 @@ SELECT encode(sha256(convert_to(string_agg(app || ':' || name, chr(10) ORDER BY 
   if(Test-Path $passFile){Remove-Item -LiteralPath $passFile -Force}
   $passFile=$null
   if($initExit -ne 0){throw 'Temporary restore database initialization failed.'}
+  $env:PGCHANNELBINDING='prefer'
   $env:PGPASSWORD=$localPassword
   $localPassword=$null
   & $pgCtl -D "$cluster" -l (Join-Path $cluster 'restore-server.log') -o "-h 127.0.0.1 -p $port" -w start

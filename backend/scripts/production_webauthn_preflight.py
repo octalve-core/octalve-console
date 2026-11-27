@@ -32,7 +32,7 @@ def checked_url():
     raw = os.environ.get("DATABASE_URL", "")
     try:
         parsed = urlsplit(raw)
-        params = parse_qs(parsed.query)
+        params = parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True)
         permitted = (
             parsed.scheme in ("postgres", "postgresql")
             and parsed.hostname == EXPECTED_HOST
@@ -199,75 +199,6 @@ def _direct_connection(raw_url):
     return conn
 
 
-def _lock_release(conn):
-    """Do not conceal the original exception if Neon closed the session.
-
-    A terminated PostgreSQL session automatically loses all of its session
-    advisory locks. Attempt unlock only while the connection is usable.
-    """
-    if conn is None or conn.closed:
-        return
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT pg_advisory_unlock(hashtext(%s))", (LOCK,))
-            if cur.fetchone()[0] is not True:
-                print("WARNING: migration lock was no longer held by this session.",
-                      file=sys.stderr)
-    except Exception:
-        # A server-forced disconnect invalidates the connection and releases
-        # its advisory lock. Nothing may retry or mask a migration failure.
-        print("WARNING: migration session ended before lock cleanup; "
-              "verify the database ledger before any further action.",
-              file=sys.stderr)
-
-
-def _locked_fresh_session(raw_url, expected_ledger):
-    """Bounded, read-only reconnection BEFORE any schema command.
-
-    This is safe to retry once because no migration operation has started.
-    We never automatically retry after call_command('migrate') begins.
-    """
-    import psycopg
-    for attempt in range(2):
-        conn = None
-        locked = False
-        verified = False
-        try:
-            conn = _direct_connection(raw_url)
-            with conn.cursor() as cur:
-                cur.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (LOCK,))
-                locked = cur.fetchone()[0] is True
-            if not locked:
-                refuse("Another AUTH-02 release process holds the migration lock.")
-            state, ledger = database_state(conn)
-            if state != "before" or ledger != expected_ledger:
-                refuse("Migration state changed since preflight. No schema change was attempted.")
-            if validated_plan() != PLAN:
-                refuse("Migration plan changed since preflight. No schema change was attempted.")
-            # The advisory lock is session-scoped; a server restart while
-            # Django rechecked the plan would release it. Prove that this exact
-            # locked connection is still usable immediately before DDL.
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1")
-                if cur.fetchone() != (1,):
-                    refuse("Locked database session failed final health verification.")
-            verified = True
-            return conn
-        except (psycopg.OperationalError, psycopg.InterfaceError):
-            if attempt == 1:
-                raise
-            print("A Neon session ended during read-only release validation. "
-                  "Opening one fresh verified session before any schema write.",
-                  file=sys.stderr)
-        finally:
-            # On success, ownership transfers to the caller.
-            if conn is not None and not verified:
-                if locked:
-                    _lock_release(conn)
-                conn.close()
-    refuse("Could not verify a fresh Neon migration session.")
-
-
 def _readback_after_migration(raw_url):
     """Independent postflight queries only: never run the migration twice."""
     import psycopg
@@ -294,15 +225,34 @@ def _close_django_connections():
     connections.close_all()
 
 
-def _migrate_target_once():
-    """The sole schema operation, deliberately isolated for negative tests."""
-    from django.core.management import call_command
-    from django.db import transaction
-    # Both additive migrations are applied within one outer PostgreSQL transaction.
-    # A failed second migration must not leave a partially applied schema.
+def _migrate_target_once(expected_ledger):
+    """One exact atomic operation on the same TLS connection that owns the lock."""
+    from django.db import connection, transaction
+    from django.db.migrations.executor import MigrationExecutor
+    _close_django_connections()
     with transaction.atomic():
-        call_command("migrate", TARGET[0], TARGET[1],
-                     interactive=False, verbosity=1)
+        if connection.connection.pgconn.ssl_in_use is not True:
+            refuse("Django migration connection is not encrypted.")
+        with connection.cursor() as cur:
+            cur.execute("SELECT pg_try_advisory_xact_lock(hashtext(%s))", (LOCK,))
+            if cur.fetchone()[0] is not True:
+                refuse("Another WebAuthn release process holds the migration lock.")
+            cur.execute("SET LOCAL lock_timeout = '10s'")
+        state, ledger = database_state(connection)
+        if state != "before" or ledger != expected_ledger or validated_plan() != PLAN:
+            refuse("Migration state changed since preflight. No schema change attempted.")
+        executor = MigrationExecutor(connection)
+        targets = [TARGET]
+        plan = executor.migration_plan(targets)
+        if [(m.app_label, m.name, backwards) for m, backwards in plan] != PLAN:
+            refuse("Exact migration plan changed immediately before execution.")
+        # Use Django's normal migration executor/recorder, not raw SQL or fake.
+        # Avoid unrelated post_migrate application receivers in this schema-only release.
+        executor.migrate(targets, plan=plan)
+        verify_webauthn_postflight(connection, require_empty=True)
+        _, applied = database_state(connection)
+        if applied != expected_ledger | set(TARGETS):
+            refuse("Unexpected migration ledger change. Rolling back transaction.")
 
 
 def main():
@@ -349,29 +299,20 @@ def main():
     # again before opening any write-authorized database session.
     verify_backup_and_restore()
 
-    # Step 3: NEW, locked and independently revalidated connection after
-    # approval; one bounded retry is allowed only while still read-only.
-    conn = _locked_fresh_session(raw_url, ledger)
+    # Step 3: acquire transaction lock on the exact Django write connection.
+    # An ambiguous migration outcome is never retried.
     try:
-        # Django's migration executor uses its own connection. Force a fresh
-        # one after the human approval to avoid any earlier idle/closed session.
-        _close_django_connections()
-        try:
-            _migrate_target_once()
-        except Exception:
-            print("MIGRATION OUTCOME UNCERTAIN: no automatic retry. "
-                  "Independently inspect the exact ledger/schema and "
-                  "retain the verified backup.", file=sys.stderr)
-            raise
-
-        # Step 4: Query through a NEW independent TLS session; never rely on
-        # the lock-holder or attempt another schema operation during readback.
-        _readback_after_migration(raw_url)
-        print("AUTH-02 APPLY PASS: 66 migrations, 120 tables, three empty WebAuthn tables, constraints and indexes verified.")
-        print("NOTE: No feature flags changed; enrollment and enforcement remain separately gated.")
+        _migrate_target_once(ledger)
+    except Exception:
+        print("MIGRATION OUTCOME UNCERTAIN: no automatic retry. Independently inspect the exact ledger/schema and retain the verified backup.", file=sys.stderr)
+        raise
     finally:
-        _lock_release(conn)
-        conn.close()
+        _close_django_connections()
+
+    # Step 4: independent TLS readback; retry only reads.
+    _readback_after_migration(raw_url)
+    print("AUTH-02 APPLY PASS: 66 migrations, 120 tables, three empty WebAuthn tables, constraints and indexes verified.")
+    print("NOTE: No feature flags changed; enrollment and enforcement remain separately gated.")
 
 
 if __name__ == "__main__":

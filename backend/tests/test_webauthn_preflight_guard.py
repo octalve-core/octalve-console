@@ -62,3 +62,22 @@ class WebAuthnMigrationGuardTests(unittest.TestCase):
                 runner.main()
             prompt.assert_not_called()
             mutate.assert_not_called()
+
+    def test_no_write_without_exact_approval(self):
+        ledger = {("accounts","0003_auththrottlebucket")}
+        env = {"OCTALVE_CLOUD_ENV":"production","DEBUG":"false","DATABASE_URL":URL,
+               "OCTALVE_WEBAUTHN_SOURCE_APPROVED":"true","OCTALVE_WEBAUTHN_LEDGER_SHA256":runner.ledger_digest(ledger)}
+        with patch.dict(os.environ,env,clear=True), patch.object(sys,"argv",["runner","apply"]), patch.object(runner,"verify_backup_and_restore"), patch.object(runner,"_direct_connection",return_value=MagicMock()), patch.object(runner,"database_state",return_value=("before",ledger)), patch.object(runner,"validated_plan",return_value=runner.PLAN), patch.object(runner,"_close_django_connections"), patch("builtins.input",return_value="no"), patch.object(runner,"_migrate_target_once") as mutate:
+            with self.assertRaisesRegex(SystemExit,"approval phrase missing"):
+                runner.main()
+            mutate.assert_not_called()
+
+    def test_no_retry_after_ambiguous_write(self):
+        ledger = {("accounts","0003_auththrottlebucket")}
+        env = {"OCTALVE_CLOUD_ENV":"production","DEBUG":"false","DATABASE_URL":URL,
+               "OCTALVE_WEBAUTHN_SOURCE_APPROVED":"true","OCTALVE_WEBAUTHN_LEDGER_SHA256":runner.ledger_digest(ledger)}
+        with patch.dict(os.environ,env,clear=True), patch.object(sys,"argv",["runner","apply"]), patch.object(runner,"verify_backup_and_restore"), patch.object(runner,"_direct_connection",return_value=MagicMock()), patch.object(runner,"database_state",return_value=("before",ledger)), patch.object(runner,"validated_plan",return_value=runner.PLAN), patch.object(runner,"_close_django_connections"), patch("builtins.input",return_value="APPLY WEBAUTHN 0004 0005 TO OCTALVE PRODUCTION"), patch.object(runner,"_migrate_target_once",side_effect=RuntimeError("synthetic disconnect")) as mutate, patch.object(runner,"_readback_after_migration") as post:
+            with self.assertRaisesRegex(RuntimeError,"synthetic disconnect"):
+                runner.main()
+            mutate.assert_called_once_with(ledger)
+            post.assert_not_called()
