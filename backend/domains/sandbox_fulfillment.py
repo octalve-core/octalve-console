@@ -109,7 +109,11 @@ def _processed_evidence(invoice, intent, state):
         gateway_id=intent.gateway_id, is_verified=True, event_type="charge.success",
         payload__intent_id=intent.pk, payload__reference=intent.reference,
         payload__remote_id=remote)[:2])
-    return len(events) == 1 and events[0].is_processed and events[0].processed_at is not None
+    if len(events) != 1 or not events[0].is_processed or events[0].processed_at is None:
+        return False
+    from audit.models import AuditLog
+    return not AuditLog.objects.filter(entity_type="HistoricalTestPayment", entity_id=str(events[0].pk),
+                                      details__fulfillment_authorized=False).exists()
 
 def advance_approved_order():
     """One bounded operation per run, never retry an ambiguous supplier POST."""
