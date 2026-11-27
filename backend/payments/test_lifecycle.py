@@ -222,20 +222,13 @@ def rehearse_verified_test(invoice_id):
     if safe_snapshot(order):
         _,_,value=_locked_verified(invoice.pk)
         return value
-    prior=order.metadata[key]
-    remote=prior.get("payment_remote_id")
-    verified=parse_datetime(prior.get("payment_verified_at") or "")
-    if (not isinstance(remote,str) or not remote.isascii() or not remote.isdecimal()
-            or not verified or timezone.is_naive(verified) or verified>timezone.now()
-            or prior.get("payment_reference")!=intent.reference):
-        raise ValidationError("Stored independent verification evidence is incomplete.")
-    events=list(WebhookEvent.objects.select_for_update().filter(
-        gateway_id=intent.gateway_id,is_verified=True,is_processed=True,
-        event_type="charge.success",payload__intent_id=intent.pk,
-        payload__reference=intent.reference,payload__remote_id=remote)[:2])
-    if len(events)!=1 or not events[0].processed_at:
-        raise ValidationError("A matching processed signed notification is required.")
-    proof=ConfirmedGatewayPayment("paystack",intent.reference,intent.currency,intent.amount,remote)
+    from payments.customer_test_evidence import test_payment_evidence
+    invoice.order=order
+    evidence=test_payment_evidence(invoice)
+    if not evidence:
+        raise ValidationError("Independent payment verification is still pending.")
+    verified=evidence["verified_at"]
+    proof=ConfirmedGatewayPayment("paystack",intent.reference,intent.currency,intent.amount,evidence["remote_id"])
     record_confirmed_test(invoice,intent,order,proof,verified,rehearsal=True)
     order.save(update_fields=["metadata","updated_at"])
     return safe_snapshot(order)

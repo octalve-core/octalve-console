@@ -74,7 +74,7 @@ def registration_review(invoice, domain):
     if not invoice.order_id or invoice.status!="void" or invoice.client_id!=invoice.order.client_id:
         raise NotFound()
     order=invoice.order
-    if order.status!="needs_review" or (verified_payment_details(invoice) or {}).get("test") is not True:
+    if order.status!="needs_review":
         raise NotFound()
     marker=PILOT if invoice.metadata.get(PILOT) is True else CART if invoice.metadata.get(CART) is True else None
     state=order.metadata.get(marker)
@@ -119,6 +119,8 @@ def registration_review(invoice, domain):
                 details__independent_verification=True,details__remote_id=remote,
                 details__reference=intent.reference,details__fulfillment_authorized=False).exists():
             raise ValidationError("Fresh audited historical evidence is required.")
+    if (verified_payment_details(invoice) or {}).get("test") is not True:
+        raise ValidationError("Independent payment evidence is required.")
     adapter,_=registrar(snapshot)
     result=adapter.get_registration(name)
     if result.get("domain_name")!=name:

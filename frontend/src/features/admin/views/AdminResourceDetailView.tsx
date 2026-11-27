@@ -105,8 +105,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
             <AdminRecordDetailPanel record={record}
               actions={[...(resource==="providers"?[]:isAdminMutationDisabled(resource)?[]:[{href:editHref,label:"Edit record",variant:"primary" as const}]),
                 {href:editorConfig.listHref,label:"Back to records",variant:"outline"}]}/>
-            {resource==="invoices"?<AdminTestLifecyclePanel key={record.id} invoiceId={record.publicId??record.id} value={record.testLifecycle} verifiedTest={record.verifiedTest}/>:resource==="orders"?<TestLifecyclePanel value={record.testLifecycle}/>:null}
-            {resource==="invoices"&&record.verifiedTest?<RegistrarLaunchReview key={"registrar-"+record.id} invoiceId={record.publicId??record.id} initialDomain={record.testDomain??""}/>:null}
+            {resource==="invoices"?<details className="mt-4 rounded-xl border border-console-line bg-white p-4"><summary className="cursor-pointer text-sm font-medium">Test payment diagnostics</summary><p className="mt-2 text-sm text-console-muted">Reconciliation runs automatically. These tools are only for exceptional test cases.</p><AdminTestLifecyclePanel key={record.id} invoiceId={record.publicId??record.id} invoiceReference={record.title} value={record.testLifecycle} verifiedTest={record.verifiedTest}/>{record.verifiedTest?<RegistrarLaunchReview key={"registrar-"+record.id} invoiceId={record.publicId??record.id} initialDomain={record.testDomain??""}/>:null}</details>:resource==="orders"?<TestLifecyclePanel value={record.testLifecycle}/>:null}
             {resource==="domains"?<div className="mt-4">
               <ActionLink variant="outline" href={`/admin/billing/domains/${encodeURIComponent(record.id)}/dns`}>
                 Review customer DNS access
