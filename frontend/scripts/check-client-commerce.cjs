@@ -43,7 +43,7 @@ requires("features/client/components/commerce/BillingRecordDirectory.tsx",[
 ]);
 requires("features/client/views/ClientProcessingView.tsx",[
  "clientApi.checkoutOptions()","clientApi.invoice(String(id))",
- "clientApi.initializeHostedPayment(invoiceId,gateway)",
+ "clientApi.initializeHostedPayment(invoice.id,gateway)",
  'allowedHosts.has(target.hostname)',"target.protocol!==\"https:\"",
  'invoice.status!=="unpaid"',"doneStates.includes(status)","document.visibilityState!==\"visible\"",
  "CommercePanel","StatusBadge"
@@ -119,6 +119,6 @@ requires("features/client/checkout/CheckoutBillingDetails.tsx",["<ClientProfileD
 requires("features/client/checkout/CartView.tsx",["hostingPicker:{load:loadHostingOffers","revision:offer.revision,domain},true)"]);
 requires("features/client/checkout/cart-selections.ts",["requireConfirmed","The cart did not confirm the hosting selection"]);
 
-requires("features/client/views/ClientProcessingView.tsx",["checkout_context","CombinedCartCheckout invoice={invoiceId}","DomainCheckout invoiceId={invoiceId}","CheckoutColumns","CheckoutSummary","CartItem","PaymentGatewayChoices","CheckoutConsent","payment_attempt","payingRef"]);
+requires("features/client/views/ClientProcessingView.tsx",["checkout_context","CombinedCartCheckout invoice={invoice.id}","DomainCheckout invoiceId={invoice.id}","CheckoutColumns","CheckoutSummary","CartItem","PaymentGatewayChoices","CheckoutConsent","payment_attempt","payingRef"]);
 requires("features/client/components/commerce/invoice-links.ts",["invoiceCheckoutHref","view=invoice&invoice="]);
 requires("features/client/components/DomainSandboxPurchase.tsx",["data.purchase?.invoice_id===invoiceId","params.set(\"invoice\",String(invoiceId))"]);
