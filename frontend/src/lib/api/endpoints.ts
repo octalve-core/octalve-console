@@ -132,7 +132,7 @@ export type AdminRewardStatistics = {
   top_advocates_private:{client_id:number;points:number;events:number}[];
   public_leaderboard_enabled:boolean;
 };
-export type EditableAccountProfile = Omit<AccountProfile,"email"|"email_verified">;
+export type EditableAccountProfile = Omit<AccountProfile,"email"|"email_verified"|"public_id"|"public_reference">;
 
 type ListParams = {
   search?: string;
