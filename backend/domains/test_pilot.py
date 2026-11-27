@@ -96,6 +96,14 @@ class DomainPilotTests(TestCase):
         from billing.serializers import InvoiceSerializer
         invoice_data = InvoiceSerializer(invoice).data
         self.assertEqual(invoice_data["payment_resume"], {"kind": "domain", "domain": name})
+        self.assertEqual(invoice_data["checkout_context"], {"kind": "domain", "domain": name})
+        exact = f"{path}&invoice={invoice.pk}"
+        self.assertEqual(api.get(exact).data["purchase"]["invoice_id"], invoice.pk)
+        self.assertEqual(api.get(f"{path}&invoice={invoice.pk + 9999}").status_code, 404)
+        self.assertEqual(api.post(exact, {"action": "quote"}, format="json").status_code, 400)
+        self.assertEqual(api.post(exact, {"action": "accept", "quote": quote.data["quote"]}, format="json").status_code, 400)
+        self.assertEqual(order.invoices.count(), 1)
+
         self.assertFalse(invoice_data["payment_action_allowed"])
         self.assertTrue(gateway_can_read(self.gateway, invoice))
         def send(_url, **kwargs):
