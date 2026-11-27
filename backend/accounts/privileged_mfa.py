@@ -20,9 +20,18 @@ ORIGIN = "https://console.cloud.octalve.com"
 ASSURANCE = "console_webauthn_verified"
 
 
+def is_privileged_account(user):
+    return user.is_staff or user.is_superuser or user.role in {"admin", "staff"}
+
+
 def privileged_mfa_required(user):
-    return settings.CLOUD_PRIVILEGED_WEBAUTHN_REQUIRED and (
-        user.is_staff or user.is_superuser or user.role in {"admin", "staff"}
+    return settings.CLOUD_PRIVILEGED_WEBAUTHN_REQUIRED and is_privileged_account(user)
+
+
+def passkey_login_allowed(user):
+    # Enrollment-only mode permits an explicit, non-mandatory browser qualification.
+    return is_privileged_account(user) and (
+        settings.CLOUD_PRIVILEGED_PASSKEY_ENROLLMENT_ENABLED or privileged_mfa_required(user)
     )
 
 

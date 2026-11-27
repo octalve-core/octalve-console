@@ -61,6 +61,7 @@ export type AuthSession = {
 export type LoginPayload = {
   email: string;
   password: string;
+  passkey_qualification?: boolean;
 };
 
 export type SignupPayload = {

@@ -2,7 +2,7 @@
 
 from django.conf import settings
 from django.http import HttpResponseForbidden
-from rest_framework.authentication import SessionAuthentication
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.exceptions import PermissionDenied
 
 from .privileged_mfa import privileged_mfa_required
@@ -14,6 +14,16 @@ class ConsoleSessionAuthentication(SessionAuthentication):
         if user and user.is_authenticated and privileged_mfa_required(user):
             raise PermissionDenied("Use the passkey-protected Console sign-in.")
         return super().authenticate(request)
+
+
+class ConsoleBasicAuthentication(BasicAuthentication):
+    """Retain existing client compatibility without a privileged password bypass."""
+
+    def authenticate_credentials(self, userid, password, request=None):
+        user, auth = super().authenticate_credentials(userid, password, request)
+        if privileged_mfa_required(user):
+            raise PermissionDenied("Use the passkey-protected Console sign-in.")
+        return user, auth
 
 
 class PrivilegedAdminBoundary:

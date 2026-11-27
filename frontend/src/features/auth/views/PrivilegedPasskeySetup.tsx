@@ -32,7 +32,7 @@ export function PrivilegedPasskeySetup(){
 
   return <main className="mx-auto max-w-md px-4 py-12 text-console-ink">
     <h1 className="text-2xl font-medium">Set up a privileged passkey</h1>
-    {enrolled?<p role="status" className="mt-4 text-sm">Your passkey is ready. <Link href="/login" className="text-console-primary underline">Sign in</Link></p>:
+    {enrolled?<p role="status" className="mt-4 text-sm">Your passkey is ready. <Link href="/login?passkey=verify" className="text-console-primary underline">Verify passkey sign-in</Link></p>:
     <form onSubmit={submit} className="mt-5 space-y-4">
       <p className="text-sm text-console-muted">Use the one-time setup code issued by your authorized operator.</p>
       <label className="block text-sm">Setup code

@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ path: string[] }> };
-type Tokens = { access?: unknown; refresh?: unknown; user?: unknown };
+type Tokens = { access?: unknown; refresh?: unknown; user?: unknown; passkey_verified?: unknown };
 
 const MAX_REQUEST_BODY = 10 * 1024 * 1024;
 const SECRET_QUERY_KEYS = new Set([
@@ -164,6 +164,8 @@ async function forward(request: NextRequest, context: Context) {
     return error(404, "API route not found.");
   }
   const isLogin = apiPath === "auth/jwt/create";
+  const isEnrollment = apiPath === "auth/passkeys/enroll";
+  if (isEnrollment && method !== "POST") return error(405, "Method not allowed.");
   const isRegistration = apiPath === "auth/register";
   const isLogout = apiPath === "auth/logout";
   const isDirectRefresh = apiPath === "auth/jwt/refresh" ||
@@ -178,6 +180,15 @@ async function forward(request: NextRequest, context: Context) {
   }
   const contentType = request.headers.get("content-type");
   const body = incomingBody || undefined;
+  let proofRequested = false;
+  if (isLogin && method === "POST" && body && contentType?.includes("application/json")) {
+    try {
+      const submitted = JSON.parse(new TextDecoder().decode(body));
+      proofRequested = submitted?.passkey_qualification === true ||
+        Object.hasOwn(submitted ?? {}, "passkey_challenge") ||
+        Object.hasOwn(submitted ?? {}, "passkey_assertion");
+    } catch { return error(400, "Invalid sign-in request."); }
+  }
 
   if (isLogout) {
     let revoked = !refresh;
@@ -228,13 +239,16 @@ async function forward(request: NextRequest, context: Context) {
   try {
     const credentialExchange = method === "POST" && (isLogin || isRegistration);
     const first = await upstreamFetch(
-      target, method, credentialExchange ? null : access,
+      target, method, credentialExchange || isEnrollment ? null : access,
       body, contentType, trustedHeaders,
     );
 
     if (credentialExchange) {
       if (!first.ok) return safeForward(first);
       const payload = (await first.json()) as Tokens;
+      if (proofRequested && payload.passkey_verified !== true) {
+        return error(502, "Passkey verification was not confirmed.");
+      }
       const token = takeString(payload.access);
       const newRefresh = takeString(payload.refresh);
       if (!token || !newRefresh) {
@@ -254,7 +268,7 @@ async function forward(request: NextRequest, context: Context) {
 
     let final = first;
     let rotated: {access: string; refresh: string} | null = null;
-    if (first.status === 401 && refresh && !isLogin && !isRegistration) {
+    if (first.status === 401 && refresh && !isLogin && !isRegistration && !isEnrollment) {
       rotated = await rotatedToken(base, refresh, request);
       if (rotated) {
         final = await upstreamFetch(

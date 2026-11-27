@@ -395,7 +395,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'accounts.session_tokens.ConsoleJWTAuthentication',
         'accounts.privileged_session.ConsoleSessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',  
+        'accounts.privileged_session.ConsoleBasicAuthentication',  
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': (
