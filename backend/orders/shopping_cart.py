@@ -20,6 +20,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.settings import api_settings
 
+from accounts.session_tokens import SESSION_ID
 from accounts.account_self_service import reserve_email_attempt
 from domains.models import Domain, TLDPricing
 from domains.public_registrar import public_availability
@@ -368,6 +369,9 @@ def verify_shopping_session(request):
     try:
         refresh = RefreshToken(proof)
         if str(refresh.get(api_settings.USER_ID_CLAIM)) != str(request.user.pk):
+            raise PermissionDenied("Shopping session unavailable.")
+        access_session = request.auth.get(SESSION_ID) if request.auth else None
+        if access_session != refresh.get(SESSION_ID):
             raise PermissionDenied("Shopping session unavailable.")
     except TokenError:
         raise PermissionDenied("Shopping session unavailable.") from None
