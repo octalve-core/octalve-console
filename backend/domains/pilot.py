@@ -299,6 +299,19 @@ def reconcile_registration(order, supplier, workflow=None):
         except CloudflareINT01Denied:
             update_registration(order, "registration_pending")
             return
+        years = order.metadata[PILOT].get("years", 1)
+        if years != 1:
+            from django.utils.dateparse import parse_datetime
+            try:
+                start = parse_datetime(confirmation.get("registered_at") or "")
+                end = parse_datetime(confirmation.get("expires_at") or "")
+                if (not start or not end or timezone.is_naive(start) or timezone.is_naive(end)
+                        or end < start + relativedelta(years=years) - timezone.timedelta(days=1)):
+                    update_registration(order, "registration_action_required")
+                    return
+            except (TypeError, ValueError, OverflowError):
+                update_registration(order, "registration_action_required")
+                return
         if confirmation["sandbox_status"] == "active":
             update_registration(order, "registered", registration=confirmation)
         else:
