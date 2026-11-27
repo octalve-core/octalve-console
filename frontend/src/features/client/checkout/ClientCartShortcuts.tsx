@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect, useRef, useState} from "react";
+import {createContext,useEffect, useRef, useState} from "react";
 import {useRouter} from "next/navigation";
 import {useAuth} from "@/context/AuthContext";
 import {CartDrawer,CartTrigger,CommerceNotice,draftCartAmounts} from "@/components/shared-commerce/CommerceUI";
@@ -8,6 +8,8 @@ import type {CartView,CartActions} from "@/components/shared-commerce/types";
 import {sharedCartLines} from "./shared-cart-adapter";
 import {formatPlanAmount} from "../data/client-order-data";
 import {accountCartSnapshot,confirmedCartEvent,cartAddedEvent,cartChangedEvent,cartHref,readCart,removeFromCart,cartSelectionId,type CartSelection,type AccountSnapshot} from "./cart-selections";
+
+export const ClientCartCountContext=createContext<number|null>(null);
 
 export function useClientCartCount(email: string | undefined) {
   const [cart, setCart] = useState<{email:string; count:number}>();
@@ -19,7 +21,7 @@ export function useClientCartCount(email: string | undefined) {
       const current = ++request;
       const confirmed=event&&confirmedCartEvent(event);
       if(confirmed){setCart({email:account,count:confirmed.lines.length});return;}
-      void accountCartSnapshot().then(snapshot => snapshot?.lines.map(line=>line.selection)??[]).then(items => {
+      void readCart(account,false).then(items => {
         if (current === request) setCart({email:account, count:items.length});
       }).catch(() => {
         // Keep the last confirmed count during a transient outage.
@@ -57,7 +59,7 @@ function SharedAccountCartButton({count,identity}:{count:number|null;identity:st
  useEffect(()=>{router.prefetch(cartHref);},[router]);
  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(false),5000);return()=>clearTimeout(timer)},[notice]);
  const actions:CartActions={remove:id=>{void remove(id);},configure:async()=>{throw Error("Configure your services in the full cart.")},review:go,checkout:go,continueShopping:close};
- return <>{notice&&!open&&<CommerceNotice message="Added to your cart" onDismiss={()=>setNotice(false)} onView={()=>{setNotice(false);setOpen(true)}}/>}<CartTrigger count={snapshot?.lines.length??draft?.length??count} onOpen={()=>{opener.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setOpen(true);void refresh()}}/><CartDrawer open={open} close={close} cart={cart} actions={actions}/></>;
+ return <>{notice&&!open&&<CommerceNotice message="Added to your cart" onDismiss={()=>setNotice(false)} onView={()=>{setNotice(false);setOpen(true)}}/>}<CartTrigger count={count} onOpen={()=>{opener.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setOpen(true);void refresh()}}/><CartDrawer open={open} close={close} cart={cart} actions={actions}/></>;
 }
 export function ClientCartButton({count}:{count:number|null}){const {user}=useAuth();const router=useRouter();return user?.role==="client"?<SharedAccountCartButton key={user.id} identity={user.id} count={count}/>:<CartTrigger count={null} onOpen={()=>router.push(cartHref)}/>;}
 

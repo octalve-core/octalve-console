@@ -2,7 +2,7 @@
 import {useCallback,useState,type ReactNode} from "react";
 import {usePathname,useRouter} from "next/navigation";
 import {useAuth} from "@/context/AuthContext";
-import {ClientCartButton, useClientCartCount} from "@/features/client/checkout/ClientCartShortcuts";
+import {ClientCartButton, ClientCartCountContext, useClientCartCount} from "@/features/client/checkout/ClientCartShortcuts";
 import {DashboardHeader} from "@/components/layout/DashboardHeader";
 import {ConsoleThemeSync} from "@/features/shell/components/ConsoleThemeSync";
 import {DashboardSidebar} from "@/components/layout/DashboardSidebar";
@@ -42,7 +42,7 @@ export function DashboardShell({role,title,description,actions,children}:Props){
    <main id="console-main" tabIndex={-1} className="mx-auto min-h-0 w-full max-w-[1560px] min-w-0 flex-1 px-4 py-4 sm:px-6 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-4 lg:overflow-x-hidden lg:overflow-y-auto lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
     <span className="sr-only">{role} {title} {description??""}</span>
     {actions?<div className="mb-4 flex flex-wrap justify-end gap-2">{actions}</div>:null}
-    {children}
+    <ClientCartCountContext.Provider value={cartCount}>{children}</ClientCartCountContext.Provider>
    </main>
   </div>
   <ConsoleMobileBottomNav role={role} pathname={pathname} onMore={()=>setSidebarOpen(true)}/>
