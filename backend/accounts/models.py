@@ -190,3 +190,23 @@ class AuthThrottleBucket(models.Model):
     class Meta:
         verbose_name = "authentication throttle bucket"
         verbose_name_plural = "authentication throttle buckets"
+
+class PrivilegedPasskey(models.Model):
+    """Public WebAuthn credential material for a privileged account."""
+
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="privileged_passkeys")
+    credential_id = models.CharField(max_length=1024, unique=True)
+    public_key = models.BinaryField()
+    sign_count = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+
+class PrivilegedLoginChallenge(models.Model):
+    """Short-lived, single-use WebAuthn login challenge."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    challenge = models.BinaryField()
+    expires_at = models.DateTimeField(db_index=True)
+    used_at = models.DateTimeField(null=True, blank=True)

@@ -128,6 +128,7 @@ MIDDLEWARE = [
 
     # Shared Postgres-backed abuse control, never per-instance LocMemCache.
     'accounts.security_throttle.AuthAbuseLimitMiddleware',
+    'accounts.privileged_session.PrivilegedAdminBoundary',
     'rbac.middleware.RBACMiddleware',
     'audit.middleware.APILoggingMiddleware', 
     'audit.middleware.AuditMiddleware',  
@@ -393,7 +394,7 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'accounts.session_tokens.ConsoleJWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        'accounts.privileged_session.ConsoleSessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',  
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
@@ -550,6 +551,7 @@ CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED = env.bool("CLOUD_CREATE_ATTEMPT_RESERV
 CLOUD_HOSTING_READY_QUEUE_ENABLED = env.bool("CLOUD_HOSTING_READY_QUEUE_ENABLED", default=False)
 # Hosted payment initiation and signature-authenticated inbox are separate
 # opt-ins. Never enable for real money without isolated browser acceptance.
+CLOUD_PRIVILEGED_WEBAUTHN_REQUIRED = env.bool("CLOUD_PRIVILEGED_WEBAUTHN_REQUIRED", default=False)
 CLOUD_UNIFIED_SHOPPING_ENABLED = env.bool("CLOUD_UNIFIED_SHOPPING_ENABLED", default=False)
 CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED = env.bool("CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED", default=False)
 CLOUD_HOSTED_CHECKOUT_ENABLED = env.bool("CLOUD_HOSTED_CHECKOUT_ENABLED", default=False)

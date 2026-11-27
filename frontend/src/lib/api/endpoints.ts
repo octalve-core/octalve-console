@@ -223,7 +223,7 @@ export const authApi = {
   confirmEmailVerification(token:string) {
     return api.post<{email_verified:boolean}>("/auth/email/verification/confirm/",{token},{skipAuth:true});
   },
-  login(payload: LoginPayload) {
+  login(payload: LoginPayload & {passkey_challenge?:string;passkey_assertion?:unknown}) {
     return api.post<AuthSession>(apiPaths.auth.login, payload, {
       skipAuth: true,
     });

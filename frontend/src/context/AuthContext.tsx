@@ -11,6 +11,7 @@ import {
 } from "react";
 import { authApi } from "@/lib/api/endpoints";
 import {ApiError} from "@/lib/api/client";
+import {requestPrivilegedPasskey} from "@/lib/api/privileged-passkey";
 import {privateQueryClear} from "@/lib/api/private-query-cache";
 import type {
   AuthSession,
@@ -171,10 +172,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => { void refreshUser(); }, [refreshUser]);
 
   const login = useCallback(async (payload: LoginPayload): Promise<AuthSession> => {
-    const response = await authApi.login({
-      email: payload.email.trim().toLowerCase(),
-      password: payload.password,
-    });
+    const credentials = {email:payload.email.trim().toLowerCase(),password:payload.password};
+    const response = await authApi.login(credentials).catch(async error =>
+      authApi.login({...credentials,...await requestPrivilegedPasskey(error)}));
     const authenticatedUser = normalizeUser(response.user);
     if (!authenticatedUser.email) {
       throw new Error("Server did not verify the authenticated identity.");

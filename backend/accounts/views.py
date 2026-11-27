@@ -38,6 +38,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from .serializers import CustomUserCreateSerializer, CustomerListSerializer, CustomerDetailSerializer, CustomerCreateSerializer, CustomerUpdateSerializer
+from .privileged_mfa import ASSURANCE, begin_login, privileged_mfa_required, verify_login
 from .session_tokens import (REFRESH_ID, SESSION_ID, ConsoleRefreshToken,
     ConsoleTokenRefreshSerializer, revoke_legacy_access, session_record)
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
@@ -202,6 +203,9 @@ class CustomUserCreateNoTokenView(CreateAPIView):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     token_class = ConsoleRefreshToken
+    passkey_challenge = serializers.CharField(required=False, max_length=36, write_only=True)
+    passkey_assertion = serializers.JSONField(required=False, write_only=True)
+
 
     """
     Login with email OR username.
@@ -260,7 +264,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # ---- Build tokens manually (do NOT call super().validate) ----
         # super().validate() calls authenticate(email=identifier, password=...),
         # which fails when the caller used a *username* identifier.
+        credential = None
+        if privileged_mfa_required(user):
+            if "passkey_challenge" not in attrs and "passkey_assertion" not in attrs:
+                return {"passkey": begin_login(user)}
+            credential = verify_login(user, attrs.get("passkey_challenge"), attrs.get("passkey_assertion"))
         refresh = self.get_token(user)
+        if credential is not None:
+            refresh[ASSURANCE] = credential
 
         self.context['user'] = user          # view needs this for login()
 
@@ -311,8 +322,13 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         except TokenError as e:
             raise InvalidToken(e.args[0])
         
-        # Return response with tokens and user data
-        login(request, serializer.context['user']) 
+        if "passkey" in serializer.validated_data:
+            return Response(serializer.validated_data["passkey"], status=428,
+                            headers={"Cache-Control": "no-store"})
+
+        # Privileged Console sign-in grants only the passkey-bound token session.
+        if not privileged_mfa_required(serializer.context["user"]):
+            login(request, serializer.context["user"])
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
