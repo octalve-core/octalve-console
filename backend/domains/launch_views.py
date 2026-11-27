@@ -48,7 +48,9 @@ def registrar_launch_review(request):
             result=registration_review(invoice,data["domain"])
         AuditLog.objects.create(actor=request.user,action="provider_connection_test",entity_type="RegistrarSandbox",
             entity_id=result["domain"],entity_name="Cloudflare sandbox readback",
-            details={"operation":action,"read_only":True,"execution_enabled":False,"checked_at":result["checked_at"]})
+            details={"operation":action,"read_only":True,"execution_enabled":False,"checked_at":result["checked_at"],
+                     "external_acceptance":result.get("external_acceptance",False),
+                     "term_confirmed":result.get("term_confirmed",False)})
     except (CloudflareINT01Denied,VaultUnavailable,IntegrationCredentialVersion.DoesNotExist,DatabaseError,KeyError):
         return Response({"detail":"Sandbox supplier verification is unavailable. No operation was submitted."},status=503,headers=headers)
     return Response(result,headers=headers)
