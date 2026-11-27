@@ -153,6 +153,11 @@ def advance_approved_order():
         if key == PILOT:
             if state.get("state") not in ("registration_uncertain", "registration_pending"):
                 return "idle"
+            # Only a newly confirmed, explicitly deferred payment may submit.
+            if state.get("payment_only_pending_submission") is True and state.get("sandbox_submission_reserved") is False:
+                from .pilot import submit_deferred_registration
+                submit_deferred_registration(order)
+                return "advanced"
             # Historic recovery is never an automatic new submission.
             if state.get("sandbox_submission_reserved") is not True:
                 return "held"
