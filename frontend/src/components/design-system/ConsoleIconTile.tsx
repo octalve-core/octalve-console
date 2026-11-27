@@ -12,12 +12,12 @@ const tones:Record<Tone,string>={
  cyan:"text-cyan-800",
 };
 /** Shared Invoice-style Lucide treatment; no external icons or brand asset swap. */
-export function ConsoleIconTile({icon:Icon,tone="blue",size="md",className}:{
- icon:LucideIcon;tone?:Tone;size?:"sm"|"md"|"lg";className?:string;
+export function ConsoleIconTile({icon:Icon,tone="blue",size="md",className,initial}:{
+ icon:LucideIcon;tone?:Tone;size?:"sm"|"md"|"lg";className?:string;initial?:string;
 }){
  return <span aria-hidden="true" className={cn(
   "inline-flex shrink-0 items-center justify-center rounded-lg",
   size==="sm"?"h-9 w-9":size==="lg"?"h-12 w-12":"h-10 w-10",
   tones[tone],className
- )}><Icon className={size==="sm"?"h-4 w-4":"h-5 w-5"} strokeWidth={1.9}/></span>;
+ )}>{initial?<span className="text-sm font-medium">{initial.slice(0,1).toUpperCase()}</span>:<Icon className={size==="sm"?"h-4 w-4":"h-5 w-5"} strokeWidth={1.9}/>}</span>;
 }

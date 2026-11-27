@@ -168,11 +168,12 @@ function write(key: string, items: CartSelection[]) {
   window.dispatchEvent(new Event(cartChangedEvent));
 }
 
-export async function addToCart(item:CartSelection){
+export async function addToCart(item:CartSelection,requireConfirmed=false){
   if (!valid(item)) throw new Error("Choose a current offer before adding it.");
   const key=await accountCartKey();
   const remote=await accountCartSnapshot("POST",{selections:[item]});
-  if(remote!==null){announce(remote,true);return;}
+  if(remote!==null){if(requireConfirmed&&!remote.lines.some(line=>line.id===cartSelectionId(item)&&line.ready))throw Error("The cart did not confirm the hosting selection.");announce(remote,true);return;}
+  if(requireConfirmed)throw Error("The account cart is unavailable. Please retry.");
   const rest=read(key).filter(saved=>cartSelectionId(saved)!==cartSelectionId(item));
   if(rest.length>=20) throw new Error("The cart has reached its item limit.");
   write(key, [...rest, item]);

@@ -62,7 +62,7 @@ export function ClientProfileView(){
         description="Save your contact and billing information once, ready for future checkout."/>
       {loading?<Panel><p role="status" className="text-sm text-console-muted">Preparing your account details…</p></Panel>:null}
       {error?<p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</p>:null}
-      {message?<p role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">{message}</p>:null}
+      {message?<p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{message}</p>:null}
       <div className="grid min-w-0 gap-5 xl:grid-cols-3">
         <div className="min-w-0 xl:col-span-2">
           <ClientProfileDetailsForm profile={profile} draft={draft} name={user?.name||""}

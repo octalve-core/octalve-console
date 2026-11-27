@@ -1,8 +1,10 @@
 import {UserRound} from "lucide-react";
+import {ConsoleIconTile} from "@/components/design-system/ConsoleIconTile";
+
 import type {FormEvent} from "react";
 import {Panel} from "@/components/design-system/Panel";
 import {WorkspaceGrid} from "@/components/design-system/WorkspaceGrid";
-import {ConsoleIconTile} from "@/components/design-system/ConsoleIconTile";
+
 import {TextField} from "@/components/design-system/TextField";
 import {ActionButton} from "@/components/design-system/ActionButton";
 import type {AccountProfile,EditableAccountProfile} from "@/lib/api/endpoints";
@@ -18,23 +20,23 @@ const fields:readonly {key:keyof EditableAccountProfile;label:string;auto:string
  {key:"postal_code",label:"Postal code",auto:"postal-code"},
  {key:"tax_id",label:"Tax identification number",auto:"off"}
 ];
-export function ClientProfileDetailsForm({profile,draft,name,email,saving,onChange,onSubmit}:{
+export function ClientProfileDetailsForm({profile,draft,name,email,saving,onChange,onSubmit,embedded=false}:{
  profile:AccountProfile|null;draft:EditableAccountProfile|null;name:string;email:string;
- saving:boolean;onChange:(field:keyof EditableAccountProfile,value:string)=>void;
+ saving:boolean;embedded?:boolean;onChange:(field:keyof EditableAccountProfile,value:string)=>void;
  onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
- return <Panel>
-  <div className="flex min-w-0 items-center gap-3">
-   <ConsoleIconTile icon={UserRound} tone="blue" size="lg"/>
+ const content=<>
+  <div className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3.5">
+   <ConsoleIconTile icon={UserRound} initial={(profile?.full_name||name||"U").trim().charAt(0)||"U"} tone="blue" className="rounded-full bg-blue-100 text-console-primary"/>
    <div className="min-w-0">
-    <h2 className="truncate text-lg font-medium text-console-ink">{profile?.full_name||name||"Your details"}</h2>
-    <p className="truncate text-sm text-console-muted">{profile?.email||email||"Email unavailable"}</p>
+    <h2 className="break-words text-sm font-medium text-console-ink">{profile?.full_name||name||"Your details"}</h2>
+    <p className="break-all text-xs text-console-muted">{profile?.email||email||"Email unavailable"}</p>
    </div>
   </div>
-  {draft?<form onSubmit={onSubmit} className="mt-6 space-y-5">
+  {draft?<form onSubmit={onSubmit} className="mt-5 space-y-5">
    <WorkspaceGrid variant="filters">
-    {fields.map(field=><div key={field.key} className={field.key==="address"?"sm:col-span-2":""}>
-     <TextField name={field.key} label={field.label} autoComplete={field.auto}
+    {fields.map(field=><div key={field.key} className={["address","company_name","tax_id"].includes(field.key)?"sm:col-span-2":""}>
+     <TextField name={field.key} label={field.label} autoComplete={field.auto} type={field.key==="phone_number"?"tel":"text"} placeholder={["company_name","postal_code","tax_id"].includes(field.key)?"Optional":field.key==="address"?"Enter street address":undefined}
       maxLength={field.key==="address"?400:255} value={draft[field.key]}
       onChange={event=>onChange(field.key,event.target.value)} disabled={saving}/>
     </div>)}
@@ -43,5 +45,6 @@ export function ClientProfileDetailsForm({profile,draft,name,email,saving,onChan
     {saving?"Saving…":"Save account details"}
    </ActionButton>
   </form>:null}
- </Panel>;
+ </>;
+ return embedded?content:<Panel className="p-4 sm:p-6">{content}</Panel>;
 }
