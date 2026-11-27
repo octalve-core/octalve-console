@@ -83,6 +83,7 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     id,
     publicId,
     publicReference,
+    testLifecycle:record.test_lifecycle,
     documentNumber:readClientString(record,["invoice_number","order_number"],""),
     accountReference:readClientString(record,["client_reference"],""),
     orderReference:readClientString(record,["order_reference"],""),

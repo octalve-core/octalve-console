@@ -49,6 +49,11 @@ class OrderSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     invoice_documents = serializers.SerializerMethodField()
     payment_reference = serializers.SerializerMethodField()
+    test_lifecycle = serializers.SerializerMethodField()
+
+    def get_test_lifecycle(self, obj):
+        from payments.test_lifecycle import safe_snapshot
+        return safe_snapshot(obj)
 
     def get_payment_reference(self, obj):
         from billing.payment_reference import verified_payment_details
@@ -70,7 +75,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'status', 'status_display', 'source', 'currency', 'subtotal',
             'discount_total', 'tax_total', 'total', 'coupon_code',
             'coupon_discount', 'notes', 'created_at', 'paid_at',
-            'provisioned_at', 'items', 'invoice_documents', 'payment_reference'
+            'provisioned_at', 'items', 'invoice_documents', 'payment_reference', 'test_lifecycle'
         ]
         read_only_fields = ['order_number', 'created_at', 'paid_at', 'provisioned_at']
 

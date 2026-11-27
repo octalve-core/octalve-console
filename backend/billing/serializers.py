@@ -41,6 +41,11 @@ class InvoiceSerializer(serializers.ModelSerializer):
     test_checkout_status = serializers.SerializerMethodField()
     payment_reference = serializers.SerializerMethodField()
     payment_details = serializers.SerializerMethodField()
+    test_lifecycle = serializers.SerializerMethodField()
+
+    def get_test_lifecycle(self, obj):
+        from payments.test_lifecycle import safe_snapshot
+        return safe_snapshot(obj.order) if obj.order_id and obj.order.client_id == obj.client_id else None
     order_number = serializers.CharField(source="order.order_number", read_only=True, default=None)
     order_reference = serializers.CharField(source="order.public_reference", read_only=True, default=None)
     client_reference = serializers.CharField(source="client.public_reference", read_only=True)
@@ -59,7 +64,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
             'id', 'public_id', 'public_reference', 'invoice_number', 'order', 'client', 'client_name', 'client_email',
             'status', 'status_display', 'currency', 'subtotal', 'discount_total',
             'tax_total', 'total', 'amount_paid', 'amount_due', 'issue_date',
-            'due_date', 'paid_at', 'notes', 'items', 'is_overdue', 'created_at', 'payment_action_allowed', 'payment_resume', 'checkout_context', 'payment_attempt', 'test_checkout_status', 'payment_reference', 'payment_details', 'order_number', 'order_reference', 'client_reference'
+            'due_date', 'paid_at', 'notes', 'items', 'is_overdue', 'created_at', 'payment_action_allowed', 'payment_resume', 'checkout_context', 'payment_attempt', 'test_checkout_status', 'payment_reference', 'payment_details', 'order_number', 'order_reference', 'client_reference', 'test_lifecycle'
         ]
         read_only_fields = ['invoice_number', 'amount_paid', 'amount_due', 'created_at']
     
@@ -73,8 +78,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
         return obj.status == "unpaid" and obj.collectible_amount > 0 and not is_pilot_invoice(obj)
 
     def get_test_checkout_status(self, obj):
-        from payments.domain_pilot_scope import CART
-        return bool(obj.status == "void" and obj.metadata.get(CART) is True and obj.order_id
+        from payments.domain_pilot_scope import CART, PILOT
+        return bool(obj.status == "void" and (obj.metadata.get(CART) is True or obj.metadata.get(PILOT) is True) and obj.order_id
                     and obj.client_id == obj.order.client_id and obj.order.status == "needs_review")
 
     def get_payment_attempt(self, obj):

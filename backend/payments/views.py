@@ -235,4 +235,16 @@ class WebhookView(APIView):
         except WebhookRejected:
             return Response({"error": "Notification not accepted."},
                             status=status.HTTP_403_FORBIDDEN)
+        # Durable inbox committed before independent readback. Bounded test-only
+        # work; on a transient failure keep the inbox and request gateway retry.
+        if event and not event.is_processed:
+            from .test_lifecycle import consume_public_event
+            from rest_framework.exceptions import ValidationError
+            from django.db import DatabaseError
+            from .hosted_checkout import CheckoutRefused
+            from .readback import PaymentReadbackRejected
+            try:
+                consume_public_event(event.pk)
+            except (ValidationError, DatabaseError, CheckoutRefused, PaymentReadbackRejected):
+                return Response({"accepted": True, "processing": "pending"}, status=503)
         return Response({"accepted": True}, status=status.HTTP_200_OK)

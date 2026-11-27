@@ -2,6 +2,7 @@
 
 from django.urls import path, include
 from .vault_binding import admin_paystack_test_binding
+from .test_lifecycle_views import TestLifecycleCronView, TestLifecycleAdminView
 from rest_framework.routers import DefaultRouter
 from .views import (
     PaymentGatewayViewSet, TransactionViewSet,
@@ -13,6 +14,8 @@ router.register(r'gateways', PaymentGatewayViewSet, basename='payment-gateway')
 router.register(r'transactions', TransactionViewSet, basename='transaction')
 
 urlpatterns = [
+    path('test-lifecycle/cron/', TestLifecycleCronView.as_view(), name='test-lifecycle-cron'),
+    path('admin/test-lifecycle/', TestLifecycleAdminView.as_view(), name='test-lifecycle-admin'),
     path("admin/paystack-test-binding/", admin_paystack_test_binding, name="paystack-test-binding"),
     path('', include(router.urls)),
     path('checkout-options/', CheckoutOptionsView.as_view(), name='payment-checkout-options'),

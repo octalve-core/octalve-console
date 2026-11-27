@@ -242,7 +242,8 @@ def cart_result(order, invoice=None):
     evidence = verified_payment_details(invoice) or {}
     attempt = payment_attempt_summary(invoice)
     attempt_state = "verified" if evidence.get("test") is True else attempt["state"]
-    return {"invoice_id": invoice.pk, "invoice_public_id": str(invoice.public_id), "invoice_reference": invoice.public_reference, "order_reference": order.public_reference, "invoice": invoice.invoice_number, "order": order.order_number,
+    from payments.test_lifecycle import safe_snapshot
+    return {"test_lifecycle": safe_snapshot(order), "invoice_id": invoice.pk, "invoice_public_id": str(invoice.public_id), "invoice_reference": invoice.public_reference, "order_reference": order.public_reference, "invoice": invoice.invoice_number, "order": order.order_number,
             "payment_reference": evidence.get("reference"), "payment_gateway": evidence.get("gateway"),
             "verified_at": evidence.get("verified_at"),
             "total": str(invoice.total), "currency": invoice.currency,
@@ -285,6 +286,8 @@ def confirm_payment(order):
         locked.metadata[CART]["payment_reference"] = proof.reference
         locked.metadata[CART]["payment_remote_id"] = proof.remote_id
         locked.metadata[CART]["payment_verified_at"] = verified_at.isoformat()
+        from payments.test_lifecycle import record_confirmed_test
+        record_confirmed_test(invoice, payment, locked, proof, verified_at)
         locked.status = "needs_review"
         locked.save(update_fields=["metadata", "status", "updated_at"])
         payment.status = "completed"

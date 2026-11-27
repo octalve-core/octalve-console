@@ -11,6 +11,7 @@ export type ClientRecord = {
   id: string;
   publicId?: string;
   publicReference?: string;
+  testLifecycle?:unknown;
   title: string;
   subtitle: string;
   meta: string;
