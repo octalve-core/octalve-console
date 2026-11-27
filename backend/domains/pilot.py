@@ -347,6 +347,8 @@ def reconcile(order, *, payment_only=False):
     order.refresh_from_db(fields=["metadata", "status"])
     snapshot = order.metadata[PILOT]
     public_test = snapshot.get("public_payment_test") is True
+    if payment_only and snapshot["state"] != "awaiting_payment":
+        return
     if snapshot["state"] == "test_payment_verified":
         return
     if snapshot["state"] == "registered":
@@ -361,8 +363,6 @@ def reconcile(order, *, payment_only=False):
                         locked.save(update_fields=["metadata", "updated_at"])
         return
     if snapshot["state"] == "registration_rejected":
-        return
-    if payment_only and snapshot["state"] != "awaiting_payment":
         return
     if not public_test and snapshot.get("payment_only_pending_submission") is True:
         submit_deferred_registration(order)
@@ -396,7 +396,7 @@ def reconcile(order, *, payment_only=False):
         active, _ = payment_history(invoice, lock=True)
         if not active or active.pk != payment.pk:
             raise ValidationError("Payment history requires verification.")
-        if (not pilot_gateway_allowed(payment.gateway, invoice) or invoice.order_id != locked.pk
+        if (locked.metadata[PILOT] != snapshot or not pilot_gateway_allowed(payment.gateway, invoice) or invoice.order_id != locked.pk
                 or payment.invoice_id != invoice.pk or payment.client_id != invoice.client_id
                 or locked.client_id != invoice.client_id or locked.currency != invoice.currency
                 or locked.total != invoice.total
@@ -435,6 +435,7 @@ def submit_deferred_registration(order):
     Called only from the existing owner-scoped purchase flow or the explicitly
     pinned private registrar worker. No supplier work is part of payment reconciliation.
     """
+    from payments.models import Transaction
     from .sandbox_fulfillment import _private_context, _payment_context, _processed_evidence, assert_private_domain_unclaimed
     snapshot = order.metadata[PILOT]
     if (snapshot.get("payment_only_pending_submission") is not True
@@ -464,7 +465,8 @@ def submit_deferred_registration(order):
                 or intent.invoice_id != invoice.pk or intent.client_id != invoice.client_id
                 or intent.amount != invoice.total or intent.currency != invoice.currency
                 or locked.total != invoice.total or locked.currency != invoice.currency
-                or invoice.amount_paid != 0 or not pilot_gateway_allowed(intent.gateway, invoice)
+                or invoice.amount_paid != 0 or Transaction.objects.filter(invoice=invoice).exists()
+                or not pilot_gateway_allowed(intent.gateway, invoice)
                 or not _processed_evidence(invoice, intent, current)):
             return
         # The same claim guard used by the original pilot. Persist reservation
