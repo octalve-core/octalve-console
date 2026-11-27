@@ -23,9 +23,10 @@ def registrar_launch_review(request):
     assert_admin(request.user)
     headers={"Cache-Control":"private, no-store"}
     if request.method=="GET":
+        from .sandbox_fulfillment import automation_status
         rows=list(TLDPricing.objects.order_by("sort_order","tld")[:101])
         return Response({"mode":"read_only","suppliers":supplier_status(),"rates":[price_review(r) for r in rows[:100]],
-                         "truncated":len(rows)>100,"execution_enabled":False},headers=headers)
+                         "truncated":len(rows)>100,"execution_enabled":False,"sandbox_automation":automation_status()},headers=headers)
     data=request.data
     if not isinstance(data,dict):
         raise ValidationError("Use the reviewed registrar fields.")
