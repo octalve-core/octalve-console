@@ -14,7 +14,7 @@ export function checkoutDate(value?:string|null){
   return Number.isNaN(date.getTime())?"Pending confirmation":new Intl.DateTimeFormat("en-NG",{dateStyle:"medium",timeZone:"Africa/Lagos"}).format(date);
 }
 export function DomainCart({domain,amount,status,order,invoice,invoiceId,registeredAt,expiresAt,paymentVerified,publicPaymentTest=false,actions,busy,error,onAction}:{
- domain:string;amount?:string;status?:string;order?:string;invoice?:string;invoiceId?:number;registeredAt?:string|null;expiresAt?:string|null;
+ domain:string;amount?:string;status?:string;order?:string;invoice?:string;invoiceId?:number|string;registeredAt?:string|null;expiresAt?:string|null;
  paymentVerified:boolean;publicPaymentTest?:boolean;actions:readonly Action[];busy:boolean;error:string;onAction:(action:string)=>void;
 }){
  const router=useRouter();

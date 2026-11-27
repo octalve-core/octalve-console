@@ -236,7 +236,7 @@ def cart_result(order, invoice=None):
     evidence = verified_payment_details(invoice) or {}
     attempt = payment_attempt_summary(invoice)
     attempt_state = "verified" if evidence.get("test") is True else attempt["state"]
-    return {"invoice_id": invoice.pk, "invoice": invoice.invoice_number, "order": order.order_number,
+    return {"invoice_id": invoice.pk, "invoice_public_id": str(invoice.public_id), "invoice_reference": invoice.public_reference, "order_reference": order.public_reference, "invoice": invoice.invoice_number, "order": order.order_number,
             "payment_reference": evidence.get("reference"), "payment_gateway": evidence.get("gateway"),
             "verified_at": evidence.get("verified_at"),
             "total": str(invoice.total), "currency": invoice.currency,

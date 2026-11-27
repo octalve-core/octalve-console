@@ -11,6 +11,9 @@ type Purchase = {
   order: string;
   invoice: string;
   invoice_id?: number;
+  invoice_public_id?:string;
+  invoice_reference?:string;
+  order_reference?:string;
   domain: string;
   amount: string;
   state: keyof typeof labels;
@@ -124,8 +127,8 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
 
   if (checkoutPage && invoiceId && !purchase) return <CommerceCheckoutFrame stage={2} title="Existing invoice unavailable" back={()=>router.push("/client/invoices")} backLabel="Back to invoices"><CommercePanel>Review the invoice in your account.</CommercePanel></CommerceCheckoutFrame>;
   if (checkoutPage) return <DomainCart domain={overview.domain} amount={purchase?.amount ?? quote?.amount}
-    status={purchase ? labels[purchase.state] : undefined} order={purchase?.order} invoice={purchase?.invoice}
-    invoiceId={purchase?.invoice_id}
+    status={purchase ? labels[purchase.state] : undefined} order={purchase?.order_reference??purchase?.order} invoice={purchase?.invoice_reference??purchase?.invoice}
+    invoiceId={purchase?.invoice_public_id??purchase?.invoice_id}
     registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={!!purchase && ["registered","registration_uncertain","registration_rejected","registration_action_required","registration_pending","test_payment_verified"].includes(purchase.state)}
     publicPaymentTest={overview.public_payment_test===true} actions={buttons} busy={busy} error={error} onAction={action => void submit(action)}/>;
 

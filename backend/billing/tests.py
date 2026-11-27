@@ -91,7 +91,7 @@ class BillingDocumentAuthorityTests(APITestCase):
         Invoice.objects.filter(pk=self.invoice.pk).update(order=order)
         Invoice.objects.create(client=self.other, order=order, due_date=timezone.now())
         documents = OrderSerializer(order).data["invoice_documents"]
-        self.assertEqual(documents, [{"id": self.invoice.pk, "number": self.invoice.invoice_number, "payment_resume": None}])
+        self.assertEqual(documents, [{"id": self.invoice.pk, "number": self.invoice.invoice_number, "public_id": str(self.invoice.public_id), "public_reference": self.invoice.public_reference, "payment_resume": None}])
 
     def test_unpaid_pdf_shows_the_saved_billing_period(self):
         line = self.invoice.items.get()

@@ -97,7 +97,7 @@ def render(document: "InvoiceDocument") -> bytes:
         pdf.drawRightString(RIGHT, HEIGHT - 69, "INVOICE")
         pdf.setFont("Helvetica", 8.5)
         pdf.setFillColor(MUTED)
-        pdf.drawRightString(RIGHT, HEIGHT - 86, document.invoice_number)
+        pdf.drawRightString(RIGHT, HEIGHT - 86, document.public_reference or document.invoice_number)
         pdf.setStrokeColor(BORDER)
         pdf.line(LEFT, HEIGHT - 123, RIGHT, HEIGHT - 123)
         y = HEIGHT - 138
@@ -142,6 +142,23 @@ def render(document: "InvoiceDocument") -> bytes:
     pdf.setFont("Helvetica-Bold", 9)
     pdf.drawString(416, y - 38, document.status)
     y -= 78
+    references = [("Invoice reference", document.public_reference),
+                  ("Account reference", document.account_reference),
+                  ("Order reference", document.order_reference),
+                  ("Verified payment reference", document.payment_reference)]
+    for label, value in references:
+        if value:
+            ensure(30)
+            pdf.setFillColor(MUTED)
+            pdf.setFont("Helvetica", 8)
+            pdf.drawString(LEFT + 12, y - 10, label)
+            pdf.setFillColor(NAVY)
+            pdf.setFont("Helvetica", 9)
+            for part in _wrap(value, 9, RIGHT - LEFT - 180):
+                pdf.drawString(LEFT + 165, y - 10, part)
+                y -= 13
+            y -= 7
+    y -= 8
 
     issuer = [document.issuer_name, document.issuer_address, document.issuer_email, document.issuer_tax_id]
     customer = [

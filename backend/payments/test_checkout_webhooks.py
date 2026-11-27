@@ -68,7 +68,7 @@ class CheckoutAndWebhookTests(TestCase):
             self.assertEqual(kw["json"]["amount"], "350000")
             self.assertEqual(kw["json"]["currency"], "NGN")
             self.assertEqual(kw["json"]["callback_url"],
-                             f"https://console.cloud.octalve.com/client/order/checkout?view=invoice&invoice={self.invoice.pk}&returning=1")
+                             f"https://console.cloud.octalve.com/client/order/checkout?view=invoice&invoice={self.invoice.public_id}&returning=1")
             self.assertTrue(kw["verify"])
             self.assertFalse(kw["allow_redirects"])
             self.assertTrue(kw["stream"])
