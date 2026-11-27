@@ -9,7 +9,10 @@ export type DomainPickerActions={
  /** Send identifiers only; the backend must atomically add the domain and configure the line. Resolve only on acceptance. */
  addAndConfigure:(lineId:string,domain:string)=>Promise<void>;
 };
-export type CartActions={remove:(id:string)=>void;configure:(id:string,domain:string)=>void|Promise<void>;domainPicker?:DomainPickerActions;review:()=>void;checkout:()=>void;continueShopping:()=>void;addHosting?:()=>void};
+export type CartActions={remove:(id:string)=>void;configure:(id:string,domain:string)=>void|Promise<void>;domainPicker?:DomainPickerActions;review:()=>void;checkout:()=>void;continueShopping:()=>void;addHosting?:(domain:string)=>void;hostingPicker?:HostingPickerActions};
 export const steps=["Cart","Checkout","Payment","Confirmation"] as const;
 export type GatewayCode="paystack"|"flutterwave"|"monnify"|"google_pay";
 export type GatewayOption={code:GatewayCode;enabled:boolean;test?:boolean};
+
+export type HostingOffer={plan:string;revision:number;name:string;description:string;features:readonly string[];cycles:readonly {key:string;label:string;priceLabel:string;isDefault:boolean}[]};
+export type HostingPickerActions={load:(signal:AbortSignal)=>Promise<readonly HostingOffer[]>;add:(domain:string,offer:HostingOffer,cycle:string)=>Promise<void>};

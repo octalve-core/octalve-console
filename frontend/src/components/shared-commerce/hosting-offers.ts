@@ -1,0 +1,9 @@
+import type {HostingOffer} from "./types";
+type RawCycle={key:string;label:string;total_price:string;setup_fee:string;is_default:boolean};
+type RawPlan={id:number;published_revision:number;name:string;description:string;product_type:string;currency:string;features:string[];billing_cycles:RawCycle[]};
+const decimal=(value:unknown):value is string=>typeof value==="string"&&/^\d+(?:\.\d{1,2})?$/.test(value);
+export function parseHostingOffers(payload:unknown):HostingOffer[]{
+ const plans=payload&&typeof payload==="object"&&"plans" in payload?payload.plans:null;if(!Array.isArray(plans))throw Error("Hosting catalogue unavailable.");
+ return (plans as RawPlan[]).filter(p=>p&&Number.isSafeInteger(p.id)&&p.id>0&&Number.isSafeInteger(p.published_revision)&&p.published_revision>0&&["shared_hosting","wordpress_hosting"].includes(p.product_type)&&p.currency==="NGN"&&typeof p.name==="string"&&Array.isArray(p.billing_cycles)).map(p=>({plan:String(p.id),revision:p.published_revision,name:p.name,description:typeof p.description==="string"?p.description:"",features:Array.isArray(p.features)?p.features.filter(f=>typeof f==="string"):[],cycles:p.billing_cycles.filter(c=>c&&typeof c.key==="string"&&typeof c.label==="string"&&decimal(c.total_price)&&Number(c.total_price)>0&&decimal(c.setup_fee)).map(c=>({key:c.key,label:c.label,priceLabel:new Intl.NumberFormat("en-NG",{style:"currency",currency:p.currency}).format((Math.round(Number(c.total_price)*100)+Math.round(Number(c.setup_fee)*100))/100),isDefault:c.is_default===true}))})).filter(p=>p.cycles.length);
+}
+export async function loadHostingOffers(signal:AbortSignal){const response=await fetch("https://api.cloud.octalve.com/api/storefront/plans/",{credentials:"omit",cache:"no-store",signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});if(!response.ok)throw Error("Hosting catalogue unavailable.");return parseHostingOffers(await response.json());}
