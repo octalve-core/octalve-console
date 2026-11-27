@@ -34,12 +34,15 @@ def registrar_launch_review(request):
     required={"action","domain","confirm_password","totp_code"}
     if action=="registration":
         required.add("invoice")
-    if action not in ("quote","registration") or set(data)!=required:
+    if action not in ("quote","registration","catalogue") or set(data)!=required:
         raise ValidationError("Use the reviewed registrar fields.")
     check_mutation(request.user,data["confirm_password"],data["totp_code"])
     try:
         if action=="quote":
             result=sandbox_quote(data["domain"])
+        elif action=="catalogue":
+            from .supplier_catalogue import import_cloudflare_catalogue
+            result=import_cloudflare_catalogue(data["domain"], request.user)
         else:
             invoice=get_object_or_404(Invoice.objects.select_related("order","client"),**resource_lookup(data["invoice"]))
             result=registration_review(invoice,data["domain"])
