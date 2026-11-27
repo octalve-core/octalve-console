@@ -86,6 +86,7 @@ export function LoginPageClient() {
 
   const [nextPath, setNextPath] = useState("");
   const [passkeySetup,setPasskeySetup]=useState(false);
+  const [passkeyQualification,setPasskeyQualification]=useState(false);
   const [values, setValues] = useState({
     email: "",
     password: "",
@@ -96,7 +97,9 @@ export function LoginPageClient() {
 
   useEffect(() => {
     setNextPath(getSafeNextPath());
-    setPasskeySetup(new URLSearchParams(window.location.search).get("passkey")==="setup");
+    const mode=new URLSearchParams(window.location.search).get("passkey");
+    setPasskeySetup(mode==="setup");
+    setPasskeyQualification(mode==="verify");
   }, []);
 
   function updateField(name: keyof typeof values, value: string) {
@@ -121,6 +124,7 @@ export function LoginPageClient() {
       const session = await login({
         email: values.email,
         password: values.password,
+        ...(passkeyQualification ? {passkey_qualification:true} : {}),
       });
 
       const role=session.user.role;
@@ -147,7 +151,7 @@ export function LoginPageClient() {
     <AuthLayout
       icon={LockKeyhole}
       title="Welcome back"
-      description="Sign in to continue to Octalve Console."
+      description={passkeyQualification ? "Verify your enrolled privileged passkey." : "Sign in to continue to Octalve Console."}
       sideTitle="Manage your cloud services securely."
       sideDescription="Access your Octalve Console to manage hosting, domains, billing, orders, support, and services."
     >

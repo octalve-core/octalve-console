@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics, filters
 from rest_framework.pagination import PageNumberPagination
 from django.utils import timezone
@@ -38,7 +39,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from .serializers import CustomUserCreateSerializer, CustomerListSerializer, CustomerDetailSerializer, CustomerCreateSerializer, CustomerUpdateSerializer
-from .privileged_mfa import ASSURANCE, begin_login, privileged_mfa_required, verify_login
+from .privileged_mfa import (ASSURANCE, begin_login, has_passkey_assurance,
+    passkey_login_allowed, privileged_mfa_required, verify_login)
 from .session_tokens import (REFRESH_ID, SESSION_ID, ConsoleRefreshToken,
     ConsoleTokenRefreshSerializer, revoke_legacy_access, session_record)
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
@@ -203,6 +205,7 @@ class CustomUserCreateNoTokenView(CreateAPIView):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     token_class = ConsoleRefreshToken
+    passkey_qualification = serializers.BooleanField(required=False, write_only=True)
     passkey_challenge = serializers.CharField(required=False, max_length=36, write_only=True)
     passkey_assertion = serializers.JSONField(required=False, write_only=True)
 
@@ -265,19 +268,39 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # super().validate() calls authenticate(email=identifier, password=...),
         # which fails when the caller used a *username* identifier.
         credential = None
-        if privileged_mfa_required(user):
+        proof_requested = attrs.get("passkey_qualification", False) or (
+            "passkey_challenge" in attrs or "passkey_assertion" in attrs
+        )
+        if proof_requested and not passkey_login_allowed(user):
+            raise PermissionDenied("Passkey sign-in is unavailable for this account.")
+        if privileged_mfa_required(user) or proof_requested:
             if "passkey_challenge" not in attrs and "passkey_assertion" not in attrs:
                 return {"passkey": begin_login(user)}
             credential = verify_login(user, attrs.get("passkey_challenge"), attrs.get("passkey_assertion"))
-        refresh = self.get_token(user)
-        if credential is not None:
-            refresh[ASSURANCE] = credential
+
+        # Serialize token issuance against successful recovery (which locks this
+        # same account). Challenge consumption remains committed even on denial.
+        with transaction.atomic():
+            current = User.objects.select_for_update().filter(pk=user.pk).first()
+            if (current is None or current.password != user.password
+                    or not current.is_active or current.is_locked
+                    or (privileged_mfa_required(current) and credential is None)
+                    or (credential is not None and (
+                        not passkey_login_allowed(current)
+                        or not has_passkey_assurance(current, {ASSURANCE: credential})
+                    ))):
+                raise PermissionDenied("Account changed. Start a new sign-in.")
+            user = current
+            refresh = self.get_token(user)
+            if credential is not None:
+                refresh[ASSURANCE] = credential
 
         self.context['user'] = user          # view needs this for login()
 
         return {
             'refresh': str(refresh),
             'access': str(refresh.access_token),
+            **({"passkey_verified": True} if credential is not None else {}),
             'user': {
                 'id': user.id,
                 'email': user.email,
@@ -327,7 +350,9 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                             headers={"Cache-Control": "no-store"})
 
         # Privileged Console sign-in grants only the passkey-bound token session.
-        if not privileged_mfa_required(serializer.context["user"]):
+        if serializer.validated_data.get("passkey_verified"):
+            django_logout(request)
+        elif not privileged_mfa_required(serializer.context["user"]):
             login(request, serializer.context["user"])
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 

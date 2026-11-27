@@ -14,10 +14,18 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .privileged_mfa import has_passkey_assurance, privileged_mfa_required
+from .privileged_mfa import ASSURANCE, has_passkey_assurance, privileged_mfa_required
 
 REFRESH_ID = "console_refresh_jti"
 SESSION_ID = "console_session_id"
+
+
+def require_passkey_policy(user, token):
+    # A passkey-bound token must never outlive its credential, including after
+    # rollback of mandatory enforcement. Ordinary legacy sessions do not query
+    # the new table when both flags are off and the schema is not yet migrated.
+    if (ASSURANCE in token.payload or privileged_mfa_required(user)) and not has_passkey_assurance(user, token):
+        raise InvalidToken("Privileged sign-in requires passkey verification.")
 
 
 def session_record(session_id, user_id, *, lock=False):
@@ -64,8 +72,8 @@ class ConsoleTokenRefreshSerializer(TokenRefreshSerializer):
             session_id = presented.get(SESSION_ID)
             user_id = presented.get(api_settings.USER_ID_CLAIM)
             user = get_user_model().objects.filter(pk=user_id).first()
-            if user and privileged_mfa_required(user) and not has_passkey_assurance(user, presented):
-                raise InvalidToken("Privileged sign-in requires passkey verification.")
+            if user:
+                require_passkey_policy(user, presented)
             session = require_session(session_id, user_id, lock=True) if session_id else None
             outstanding = OutstandingToken.objects.select_for_update().filter(
                 jti=presented[api_settings.JTI_CLAIM],
@@ -89,8 +97,7 @@ class ConsoleTokenRefreshSerializer(TokenRefreshSerializer):
 class ConsoleJWTAuthentication(JWTAuthentication):
     def get_user(self, validated_token):
         user = super().get_user(validated_token)
-        if privileged_mfa_required(user) and not has_passkey_assurance(user, validated_token):
-            raise InvalidToken("Privileged sign-in requires passkey verification.")
+        require_passkey_policy(user, validated_token)
         session_id = validated_token.get(SESSION_ID)
         if session_id:
             require_session(session_id, user.pk)

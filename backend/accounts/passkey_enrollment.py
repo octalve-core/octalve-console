@@ -7,6 +7,7 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -15,23 +16,21 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from webauthn import generate_registration_options, options_to_json, verify_registration_response
-from webauthn.helpers import bytes_to_base64url
+from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.exceptions import WebAuthnException
-from webauthn.helpers.structs import AuthenticatorSelectionCriteria, UserVerificationRequirement
+from webauthn.helpers.structs import AuthenticatorSelectionCriteria, PublicKeyCredentialDescriptor, UserVerificationRequirement
 
 from audit.models import AuditLog
 from .account_self_service import reserve_email_attempt
 from .models import CustomUser, PrivilegedPasskey, PrivilegedPasskeyGrant
-from .privileged_mfa import ORIGIN, RP_ID
+from .privileged_mfa import ORIGIN, RP_ID, is_privileged_account
 
 GRANT_PATTERN = re.compile(r"[A-Za-z0-9_-]{43}")
 DENIED = "Enrollment could not be verified. Request a new authorized setup code."
 
 
 def is_privileged(user):
-    return user.is_active and not user.is_locked and (
-        user.is_staff or user.is_superuser or user.role in {"admin", "staff"}
-    )
+    return user.is_active and not user.is_locked and is_privileged_account(user)
 
 
 def audit_grant(grant, event):
@@ -100,7 +99,12 @@ class PrivilegedPasskeyEnrollmentView(APIView):
                 options = generate_registration_options(
                     rp_id=RP_ID, rp_name="Octalve Cloud",
                     user_id=str(user.pk).encode(), user_name=user.email,
-                    timeout=120000, authenticator_selection=AuthenticatorSelectionCriteria(
+                    timeout=120000,
+                    exclude_credentials=[
+                        PublicKeyCredentialDescriptor(id=base64url_to_bytes(item))
+                        for item in PrivilegedPasskey.objects.filter(user=user).values_list("credential_id", flat=True)
+                    ],
+                    authenticator_selection=AuthenticatorSelectionCriteria(
                         user_verification=UserVerificationRequirement.REQUIRED,
                     ),
                 )
@@ -131,6 +135,11 @@ class PrivilegedPasskeyEnrollmentView(APIView):
                 credential = None
             if credential is not None:
                 if grant.recovery:
+                    # Re-salt the verified current password without changing its
+                    # value. Django's session authentication hash changes, so
+                    # existing password sessions and reset links are invalidated.
+                    user.password = make_password(password)
+                    user.save(update_fields=["password"])
                     PrivilegedPasskey.objects.filter(user=user, revoked_at__isnull=True).exclude(
                         pk=credential.pk,
                     ).update(revoked_at=timezone.now())
