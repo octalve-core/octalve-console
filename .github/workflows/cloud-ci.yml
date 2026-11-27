@@ -302,6 +302,22 @@ jobs:
               'domains_domaindnsclaim','domains_domaindnsbinding')){
             if(-not $pythonRunner.Contains($word)){throw "DNS-01C operator authority missing: $word"}
           }
+      - name: AUTH-02 guarded WebAuthn local migration contract
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          $path = Join-Path (Get-Location) 'scripts/plan-neon-production-webauthn.ps1'
+          [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count -ne 0){ throw "AUTH-02 PowerShell syntax invalid: $($errors[0].Message)" }
+          $source = Get-Content -Raw -Path $path
+          foreach($required in @('-Preflight','-BackupOnly','-Apply','ApprovedCommit','0004_privileged_webauthn.py','0005_privileged_passkey_enrollment.py','production_webauthn_preflight.py apply','pg_dump','pg_restore','scram-sha-256','OCTALVE_WEBAUTHN_LEDGER_SHA256','64|117|f|f|f')){
+            if(-not $source.Contains($required)){throw "Missing AUTH-02 release guard: $required"}
+          }
+          if($source.Contains('-A trust')){throw 'Passwordless restore forbidden'}
+      - name: AUTH-02 negative migration guard tests (synthetic only)
+        working-directory: backend
+        run: python -m unittest tests.test_webauthn_preflight_guard -v
       - name: Django system check
         working-directory: backend
         run: python manage.py check
