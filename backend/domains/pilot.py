@@ -108,12 +108,13 @@ def pilot_order(account, name):
 def result(order):
     invoice = order.invoices.get()
     evidence = order.metadata[PILOT]
+    from payments.hosted_checkout import payment_attempt_summary
     intent = invoice.payment_intents.first()
     registration = evidence.get("registration", {}) if evidence["state"] == "registered" else {}
-    checkout_state = "available"
-    if intent:
-        checkout_state = ("expired" if intent.is_expired() else
-                          "resume" if intent.authorization_url else "uncertain")
+    attempt = payment_attempt_summary(invoice)
+    checkout_state = {"not_started": "available", "resumable": "resume", "reconciliation_required": "uncertain"}[attempt["state"]]
+    if checkout_state == "uncertain" and intent and intent.is_expired():
+        checkout_state = "expired"
     return {"checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
             "invoice_id": invoice.pk,
             "registered_at": registration.get("registered_at"), "expires_at": registration.get("expires_at"),
@@ -426,6 +427,13 @@ def domain_pilot(request):
     order = pilot_order(account, name)
     if order and bool(order.metadata[PILOT].get("public_payment_test")) != public_test:
         raise NotFound()
+    exact_invoice = request.query_params.get("invoice")
+    if exact_invoice is not None:
+        if (not is_client or not order or not exact_invoice.isascii() or not exact_invoice.isdecimal()
+                or len(exact_invoice) > 15 or exact_invoice.startswith("0")
+                or order.invoices.count() != 1
+                or not order.invoices.filter(pk=int(exact_invoice), client=user, metadata__sandbox_domain_purchase=True).exists()):
+            raise NotFound()
     headers = {"Cache-Control": "private, no-store"}
     if request.method == "GET":
         return Response({"domain": name, "purchase": result(order) if order else None,
@@ -435,6 +443,8 @@ def domain_pilot(request):
     if not isinstance(request.data, dict):
         raise ValidationError("Supply a purchase action.")
     action = request.data.get("action")
+    if exact_invoice is not None and action not in ("checkout", "reconcile"):
+        raise ValidationError("An existing invoice cannot create another order.")
     try:
         if public_test and action in ("quote", "checkout"):
             retry = spend_durable_attempt("domains:public_payment_test", "global", 100, 3600)

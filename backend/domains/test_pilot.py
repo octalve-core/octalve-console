@@ -101,7 +101,7 @@ class DomainPilotTests(TestCase):
         def send(_url, **kwargs):
             body = kwargs["json"]
             self.assertEqual(body["callback_url"],
-                             "https://console.cloud.octalve.com/client/order/checkout?product=domain&domain=selected-by-customer.com")
+                             f"https://console.cloud.octalve.com/client/order/checkout?view=invoice&invoice={invoice.pk}&returning=1")
             return reply({"status": True, "data": {"reference": body["reference"],
                          "authorization_url": "https://checkout.paystack.com/test_12345"}})
 
@@ -238,7 +238,7 @@ class DomainPilotTests(TestCase):
             body = kwargs["json"]
             self.assertEqual(body["amount"], "2800000")
             self.assertEqual(body["callback_url"],
-                             f"https://console.cloud.octalve.com/client/order/checkout?view=combined-review&invoice={invoice.pk}")
+                             f"https://console.cloud.octalve.com/client/order/checkout?view=invoice&invoice={invoice.pk}&returning=1")
             return reply({"status": True, "data": {"reference": body["reference"],
                          "authorization_url": "https://checkout.paystack.com/test_12345"}})
 
@@ -450,7 +450,7 @@ class DomainPilotTests(TestCase):
                 def send(_url, **kwargs):
                     body = kwargs["json"]
                     self.assertEqual(body["amount"], str(int(amount * 100)))
-                    self.assertIn("view=combined-review", body["callback_url"])
+                    self.assertIn(f"view=invoice&invoice={invoice.pk}&returning=1", body["callback_url"])
                     return reply({"status": True, "data": {"reference": body["reference"],
                          "authorization_url": "https://checkout.paystack.com/test_12345"}})
                 with patch.object(PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789"):

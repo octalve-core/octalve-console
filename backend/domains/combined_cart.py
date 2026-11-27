@@ -21,7 +21,7 @@ from payments.domain_pilot_scope import (
     CART, PILOT, pilot_gateway_allowed, selected_domain_test_account_allowed, selected_domain_test_allowed,
     public_payment_test_account_allowed, public_domain_payment_test_allowed,
 )
-from payments.hosted_checkout import CheckoutRefused, reserve_hosted_checkout
+from payments.hosted_checkout import CheckoutRefused, reserve_hosted_checkout, payment_attempt_summary
 from django.db import DatabaseError
 from payments.models import PaymentIntent, WebhookEvent
 from payments.test_payment_evidence import consume_matching_test_event
@@ -234,12 +234,8 @@ def cart_result(order, invoice=None):
     invoice = invoice or order.invoices.get()
     from billing.payment_reference import verified_payment_details
     evidence = verified_payment_details(invoice) or {}
-    attempts = list(invoice.payment_intents.all().order_by("pk")[:2])
-    attempt = attempts[0] if len(attempts) == 1 else None
-    resumable = bool(attempt and attempt.status == "pending" and not attempt.is_expired()
-                     and isinstance(attempt.metadata, dict) and attempt.metadata.get("checkout_state") == "confirmed" and attempt.authorization_url)
-    attempt_state = ("verified" if evidence.get("test") is True else "not_started" if not attempts else
-                     "resumable" if resumable else "reconciliation_required")
+    attempt = payment_attempt_summary(invoice)
+    attempt_state = "verified" if evidence.get("test") is True else attempt["state"]
     return {"invoice_id": invoice.pk, "invoice": invoice.invoice_number, "order": order.order_number,
             "payment_reference": evidence.get("reference"), "payment_gateway": evidence.get("gateway"),
             "verified_at": evidence.get("verified_at"),
@@ -247,7 +243,7 @@ def cart_result(order, invoice=None):
             "payment_verified": evidence.get("test") is True,
             "public_payment_test": order.metadata[CART].get("public_payment_test") is True,
             "lines": [{"name": line.description, "amount": str(line.subtotal), "kind": line.item_type, "domain": line.domain_name, "period": line.cycle_key} for line in order.items.all()],
-            "payment_started": bool(attempts), "payment_attempt_state": attempt_state,
+            "payment_started": attempt["state"] != "not_started", "payment_attempt_state": attempt_state,
             "domains": [{"id": line.pk, "name": line.domain_name,
                          "state": "test_payment_verified" if order.metadata[CART].get("public_payment_test") is True and invoice.status == "void" and order.metadata[CART].get("payment_reference") else line.config[CART]["state"],
                          "registered_at": line.config[CART].get("registration", {}).get("registered_at"),

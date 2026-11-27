@@ -81,15 +81,9 @@ def _post_checkout(intent, *, poster=None):
     if not isinstance(email, str) or len(email) > 254 or "@" not in email:
         raise CheckoutRefused("Verified invoice contact email is required.")
     callback = _return_url()
-    if invoice.metadata.get(CART) is True:
-        query = urlencode({"view": "combined-review", "invoice": invoice.pk})
-        callback = urlsplit(callback)._replace(path="/client/order/checkout", query=query).geturl()
-    elif is_pilot_invoice(invoice):
-        snapshot = invoice.order.metadata.get(PILOT, {})
-        selected = snapshot.get("selected_domain") is True
-        selection = {"domain": snapshot["domain"]} if selected else {"existing": "1"}
-        query = urlencode({"product": "domain", **selection})
-        callback = urlsplit(callback)._replace(path="/client/order/checkout", query=query).geturl()
+    # Every new hosted payment returns to the existing invoice, never a fresh cart.
+    query = urlencode({"view": "invoice", "invoice": invoice.pk, "returning": "1"})
+    callback = urlsplit(callback)._replace(path="/client/order/checkout", query=query).geturl()
     if intent.currency != "NGN":
         # Other currencies require independently audited subunit conventions.
         raise CheckoutRefused("Only audited NGN payment initialization is supported.")
@@ -143,6 +137,29 @@ def _post_checkout(intent, *, poster=None):
             answer.close()
 
 
+def payment_attempt_summary(invoice):
+    """Safe metadata only; no hosted URL/reference or credential disclosure."""
+    rows = list(invoice.payment_intents.select_related("gateway").order_by("pk")[:2])
+    if not rows:
+        return {"state": "not_started", "gateway": None}
+    if len(rows) != 1:
+        return {"state": "reconciliation_required", "gateway": None}
+    prior = rows[0]
+    resume = (prior.status == "pending" and not prior.is_expired()
+              and prior.client_id == invoice.client_id and prior.amount == invoice.total
+              and prior.currency == invoice.currency and isinstance(prior.metadata, dict)
+              and prior.metadata.get("checkout_state") == "confirmed"
+              and prior.gateway.code in ALLOWED_CHECKOUT)
+    if resume:
+        try:
+            _checkout_url(prior.authorization_url, prior.gateway.code)
+        except CheckoutRefused:
+            resume = False
+    return {"state": "resumable" if resume else "reconciliation_required",
+            "gateway": prior.gateway.code if prior.gateway.code in ALLOWED_CHECKOUT else None,
+            "test": prior.gateway.test_mode}
+
+
 def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None):
     """No duplicate external POST for one invoice and gateway.
 
@@ -184,6 +201,7 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None):
                 raise CheckoutRefused("Existing payment attempt requires reconciliation.")
             state = prior.metadata.get("checkout_state") if isinstance(prior.metadata, dict) else None
             if state == "confirmed" and prior.authorization_url:
+                _checkout_url(prior.authorization_url, gateway.code)
                 return prior, False
             raise CheckoutRefused("Gateway initialization needs manual reconciliation.")
         issued = PaymentIntent.objects.create(
