@@ -4,6 +4,7 @@ from django.utils.dateparse import parse_datetime
 from audit.models import AuditLog
 from payments.models import WebhookEvent, Transaction
 from payments.domain_pilot_scope import CART, PILOT
+from payments.hosted_checkout import payment_history, CheckoutRefused
 
 def test_payment_evidence(invoice):
     if (invoice.status!="void" or invoice.amount_paid!=0 or not invoice.order_id
@@ -23,6 +24,12 @@ def test_payment_evidence(invoice):
     if len(intents)!=1 or state.get("payment_reference")!=intents[0].reference:
         return None
     intent=intents[0]
+    try:
+        active,_=payment_history(invoice)
+        if not active or active.pk!=intent.pk:
+            return None
+    except CheckoutRefused:
+        return None
     events=list(WebhookEvent.objects.filter(gateway_id=intent.gateway_id,is_verified=True,
         event_type="charge.success",payload__intent_id=intent.pk,payload__reference=intent.reference)[:2])
     if len(events)!=1 or not events[0].is_processed or not events[0].processed_at:
