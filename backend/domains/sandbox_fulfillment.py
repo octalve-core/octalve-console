@@ -109,7 +109,7 @@ def _processed_evidence(invoice, intent, state):
         gateway_id=intent.gateway_id, is_verified=True, event_type="charge.success",
         payload__intent_id=intent.pk, payload__reference=intent.reference,
         payload__remote_id=remote)[:2])
-    if len(events) != 1 or not events[0].is_processed or events[0].processed_at is None:
+    if len(events) != 1 or not events[0].is_processed or events[0].processed_at is None or events[0].payload.get("remote_id") != remote:
         return False
     from audit.models import AuditLog
     return not AuditLog.objects.filter(entity_type="HistoricalTestPayment", entity_id=str(events[0].pk),
@@ -153,6 +153,11 @@ def advance_approved_order():
         if key == PILOT:
             if state.get("state") not in ("registration_uncertain", "registration_pending"):
                 return "idle"
+            # Only a newly confirmed, explicitly deferred payment may submit.
+            if state.get("payment_only_pending_submission") is True and state.get("sandbox_submission_reserved") is False:
+                from .pilot import submit_deferred_registration
+                submit_deferred_registration(order)
+                return "advanced"
             # Historic recovery is never an automatic new submission.
             if state.get("sandbox_submission_reserved") is not True:
                 return "held"

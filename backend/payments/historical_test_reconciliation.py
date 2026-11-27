@@ -38,7 +38,7 @@ def _context(event, invoice, intent, order):
         raise ValidationError("Historical payment attempt is ambiguous.")
     return remote
 
-def reconcile_historical_test(event_id, actor):
+def reconcile_historical_test(event_id, actor=None):
     """Fresh provider readback first, then lock and compare original evidence.
 
     Store a new reconciliation receipt, never invent an old verification timestamp
@@ -76,6 +76,7 @@ def reconcile_historical_test(event_id, actor):
             receipt = AuditLog.objects.create(actor=actor, action="settings_updated",
                 entity_type="HistoricalTestPayment", entity_id=str(event.pk),
                 entity_name=invoice.public_reference, details={"test": True, "read_only": True,
+                    "source": "automatic_server_reconciliation" if actor is None else "operator_reconciliation",
                     "independent_verification": True, "reference": proof.reference,
                     "remote_id": proof.remote_id, "amount": str(proof.amount), "currency": proof.currency,
                     "fulfillment_authorized": False, "verified_at": timezone.now().isoformat()})

@@ -2,7 +2,7 @@
 from django.db import connection
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import WebhookEvent
+from .models import Transaction, WebhookEvent
 
 
 def consume_matching_test_event(payment, proof):
@@ -17,13 +17,13 @@ def consume_matching_test_event(payment, proof):
     if (payment.gateway.code != "paystack" or not payment.gateway.test_mode
             or payment.gateway.status != "test" or proof.gateway != "paystack"
             or payment.reference != proof.reference or payment.currency != proof.currency
-            or payment.amount != proof.amount or payment.status not in ("pending", "processing")):
+            or payment.amount != proof.amount or payment.status not in ("pending", "processing")
+            or Transaction.objects.filter(invoice_id=payment.invoice_id).exists()):
         raise ValidationError("Payment evidence changed before confirmation.")
     events = list(WebhookEvent.objects.select_for_update().filter(
         gateway_id=payment.gateway_id, is_verified=True, event_type="charge.success",
-        payload__intent_id=payment.pk, payload__reference=proof.reference,
-        payload__remote_id=proof.remote_id).order_by("pk")[:2])
-    if len(events) != 1 or events[0].is_processed:
+        payload__intent_id=payment.pk, payload__reference=proof.reference).order_by("pk")[:2])
+    if len(events) != 1 or events[0].is_processed or events[0].payload.get("remote_id") != proof.remote_id:
         raise ValidationError("Exactly one unprocessed matching signed payment notification is required.")
     event = events[0]
     now = timezone.now()

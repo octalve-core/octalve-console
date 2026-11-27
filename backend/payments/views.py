@@ -223,8 +223,8 @@ class WebhookView(APIView):
 
     def post(self, request, gateway_code):
         # Only the separately gated, signature-authenticated inbox is public.
-        # Even with ingest enabled, signed events NEVER settle, mark paid,
-        # create a hosting service or call the provider.
+        # The authenticated inbox cannot mark live invoices paid or create services.
+        # A separate test-only consumer independently verifies each payment.
         if not getattr(settings, "CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED", False):
             return Response({"error": "Payment webhook processing is not enabled."},
                             status=status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -238,13 +238,15 @@ class WebhookView(APIView):
         # Durable inbox committed before independent readback. Bounded test-only
         # work; on a transient failure keep the inbox and request gateway retry.
         if event and not event.is_processed:
-            from .test_lifecycle import consume_public_event
+            from .automatic_reconciliation import attempt_event
             from rest_framework.exceptions import ValidationError
             from django.db import DatabaseError
             from .hosted_checkout import CheckoutRefused
             from .readback import PaymentReadbackRejected
             try:
-                consume_public_event(event.pk)
+                result = attempt_event(event.pk)
+                if result == "held":
+                    return Response({"accepted": True, "processing": "pending"}, status=503)
             except (ValidationError, DatabaseError, CheckoutRefused, PaymentReadbackRejected):
                 return Response({"accepted": True, "processing": "pending"}, status=503)
         return Response({"accepted": True}, status=status.HTTP_200_OK)

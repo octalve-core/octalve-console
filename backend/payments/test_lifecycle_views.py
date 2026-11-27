@@ -43,7 +43,8 @@ class TestLifecycleAdminView(APIView):
 
     def get(self,request):
         self._guard(request)
-        return Response({"mode":"simulation","historical_review":review_historical_events()},headers={"Cache-Control":"private, no-store"})
+        from .automatic_reconciliation import enabled as reconciliation_enabled
+        return Response({"mode":"simulation","automatic_reconciliation":reconciliation_enabled(),"historical_review":review_historical_events()},headers={"Cache-Control":"private, no-store"})
 
     def post(self,request):
         self._guard(request)
