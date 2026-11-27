@@ -176,4 +176,6 @@ class PaystackTestBindingTests(TestCase):
             gateway.save(update_fields=["test_mode","status"])
             self.assertEqual(refresh_bound_test_verification(),"not_bound")
             readback.assert_called_once()
-        self.assertEqual(AuditLog.objects.count(),1)
+        self.assertEqual(AuditLog.objects.filter(entity_type="IntegrationConnection",
+            entity_id=str(self.conn.pk),action="provider_connection_test").count(),1)
+        self.assertFalse(AuditLog.objects.filter(details__source="scheduled_bound_test_readback").exists())
