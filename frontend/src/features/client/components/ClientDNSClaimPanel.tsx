@@ -18,12 +18,13 @@ export function ClientDNSClaimPanel(){
   const [available,setAvailable]=useState(false);
   const [error,setError]=useState("");
   const [copied,setCopied]=useState(false);
+  const [selfService,setSelfService]=useState(false),[allowed,setAllowed]=useState(""),[consent,setConsent]=useState(false),[notice,setNotice]=useState("");
 
   useEffect(()=>{
     let active=true;
     void clientApi.dnsOnlyClaims().then(data=>{
       if(active&&data.execution_enabled===false&&Array.isArray(data.results)){
-        setAvailable(true);setClaims(data.results.slice(0,30));
+        setAvailable(true);setClaims(data.results.slice(0,30));setSelfService(data.self_service===true);setAllowed(data.allowed_domain??"");if(data.allowed_domain)setDomain(data.allowed_domain);
       }
     }).catch(()=>{if(active)setAvailable(false);});
     return ()=>{active=false;};
@@ -32,7 +33,7 @@ export function ClientDNSClaimPanel(){
   async function create(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
     const name=canonical(domain);
-    if(!nameValid(name)||busy)return;
+    if(!nameValid(name)||busy||(allowed&&name!==allowed))return;
     setBusy(true);setError("");setCopied(false);
     try{
       const response=await clientApi.beginDnsOnlyClaim(name);
@@ -43,12 +44,22 @@ export function ClientDNSClaimPanel(){
         throw Error("Verification response could not be confirmed.");
       setIssued(response);
       setClaims(previous=>[response,...previous.filter(item=>item.id!==response.id)]);
-      setDomain("");
+      setDomain(allowed);setConsent(false);
     }catch{
       setError("The domain could not be prepared. It may already be claimed, or this service may be temporarily unavailable.");
     }finally{setBusy(false);}
   }
 
+  async function verify(id:string){
+    if(busy||!consent)return;
+    setBusy(true);setError("");setNotice("");
+    try{
+      const result=await clientApi.verifyOwnDnsClaim(id);
+      if(result.id!==id||result.state!=="verified"||result.execution_enabled!==false)throw Error();
+      setClaims(old=>old.map(c=>c.id===id?result:c));setIssued(null);setNotice("Domain connected. Refresh My Domains to view live DNS records.");setConsent(false)
+    }catch{setError("Verification is pending. Check the TXT record and that the dedicated Cloudflare connection is configured and verified.")}
+    finally{setBusy(false)}
+  }
   async function copy(value:string){
     try{await navigator.clipboard.writeText(value);setCopied(true);}
     catch{setCopied(false);}
@@ -78,7 +89,7 @@ export function ClientDNSClaimPanel(){
       </label>
       <div className="flex flex-wrap items-end gap-3">
         <input id="external-domain" type="text" autoComplete="off" value={domain}
-          onChange={e=>setDomain(e.target.value)} required
+          onChange={e=>setDomain(e.target.value)} readOnly={!!allowed} required
           placeholder="yourcompany.com"
           className="min-h-11 min-w-48 flex-1 rounded-xl border border-console-line bg-white px-3 text-sm text-console-ink"/>
         <button type="submit" disabled={busy||!nameValid(canonical(domain))}
@@ -120,9 +131,11 @@ export function ClientDNSClaimPanel(){
       {copied?<p role="status" className="mt-2 flex items-center gap-2 text-xs text-console-muted">
         <CheckCircle2 className="h-4 w-4"/>Copied to clipboard</p>:null}
       <p className="mt-3 text-xs leading-5 text-console-muted">
-        Contact support after adding the record. Keep it in place to maintain read-only DNS access.
+        Keep this record in place to maintain read-only DNS access. {selfService?"The system checks the exact zone and ownership proof automatically.":"Contact support after adding the record."}
       </p>
     </div>:null}
+    {selfService&&claims.some(c=>c.state==="pending")?<div className="mt-4 space-y-3 rounded-lg border border-console-line p-3"><label className="flex gap-2 text-sm"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/>I authorize Octalve Cloud to read DNS records for this verified zone.</label>{claims.filter(c=>c.state==="pending").map(c=><button key={c.id} type="button" disabled={!consent||busy} className="rounded-lg bg-console-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50" onClick={()=>void verify(c.id)}>{busy?"Verifying…":"Verify "+c.domain_name}</button>)}</div>:null}
+    {notice?<p role="status" className="mt-3 text-sm text-console-muted">{notice}</p>:null}{error&&!open?<p role="alert" className="mt-3 text-sm text-rose-700">{error}</p>:null}
     {available&&claims.length>0?<div className="mt-5 border-t border-console-line pt-4">
       <div className="flex items-center gap-2">
         <RefreshCw className="h-4 w-4 text-console-muted"/>
