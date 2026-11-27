@@ -20,6 +20,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 
 from .models import AuthThrottleBucket
+from .passkey_continuation import valid_continuation
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,15 @@ def _request_ip(request):
         return ipaddress.ip_address(candidate).compressed
     except ValueError:
         return "unattributed"
+
+
+def _login_continuation(request):
+    if len(request.body) > 65536:
+        return False
+    try:
+        return valid_continuation(json.loads(request.body))
+    except (ValueError, UnicodeDecodeError, TypeError):
+        return False
 
 
 def _identifier(request, path):
@@ -149,7 +159,13 @@ class AuthAbuseLimitMiddleware:
                 logger.warning("SEC01 authentication rate ceiling hit: route=%s scope=network", path)
                 return _limit_response(wait, 429)
             if subject is not None:
-                wait = _spend(path + ":identity", subject, id_limit, id_seconds)
+                # Only a server-signed proof bound to the exact already-verified
+                # password gets the second-stage budget. Forged/missing tickets
+                # remain in the original password budget. Network budget is shared.
+                scope = ":identity"
+                if path == "/api/auth/jwt/create/" and _login_continuation(request):
+                    scope = ":passkey-continuation"
+                wait = _spend(path + scope, subject, id_limit, id_seconds)
                 if wait:
                     logger.warning("SEC01 authentication rate ceiling hit: route=%s scope=identifier", path)
                     return _limit_response(wait, 429)

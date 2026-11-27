@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import {PrivilegedPasskeySetup} from "./PrivilegedPasskeySetup";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {ApiError} from "@/lib/api/client";
 import { useRouter } from "next/navigation";
 import { Loader2, LockKeyhole, Mail } from "lucide-react";
 import styles from "../components/AuthLayout.module.css";
@@ -94,6 +95,16 @@ export function LoginPageClient() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef=useRef(false);
+  const [retryUntil,setRetryUntil]=useState(0);
+  const [retrySeconds,setRetrySeconds]=useState(0);
+  useEffect(()=>{
+    if(!retryUntil)return;
+    const tick=()=>setRetrySeconds(Math.max(0,Math.ceil((retryUntil-Date.now())/1000)));
+    tick();
+    const timer=window.setInterval(tick,1000);
+    return ()=>window.clearInterval(timer);
+  },[retryUntil]);
 
   useEffect(() => {
     setNextPath(getSafeNextPath());
@@ -116,6 +127,8 @@ export function LoginPageClient() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if(submittingRef.current||Date.now()<retryUntil)return;
+    submittingRef.current=true;
     setError("");
     setFieldErrors({});
     setIsSubmitting(true);
@@ -138,9 +151,14 @@ export function LoginPageClient() {
         "Unable to login. Please check your details and try again.",
       );
 
-      setError(parsed.message);
+      if(err instanceof ApiError&&err.status===429&&err.retryAfterSeconds){
+        setRetrySeconds(err.retryAfterSeconds);
+        setRetryUntil(Date.now()+err.retryAfterSeconds*1000);
+        setError("Too many sign-in requests. Your account is protected by a temporary rate limit.");
+      }else setError(parsed.message);
       setFieldErrors(parsed.fieldErrors);
     } finally {
+      submittingRef.current=false;
       setIsSubmitting(false);
     }
   }
@@ -189,16 +207,17 @@ export function LoginPageClient() {
         </div>
 
         <ApiFormError message={error} fieldErrors={fieldErrors} />
+        {retrySeconds>0?<p className="text-sm text-console-muted" role="status">Try again in {Math.floor(retrySeconds/60)}:{String(retrySeconds%60).padStart(2,"0")}. No automatic retry.</p>:null}
 
         <div className="pt-2">
-          <AuthButton disabled={isSubmitting}>
+          <AuthButton disabled={isSubmitting||retrySeconds>0}>
           {isSubmitting ? (
             <span className="inline-flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
               Logging in...
             </span>
           ) : (
-            "Sign in"
+            retrySeconds>0?"Please wait":"Sign in"
           )}
         </AuthButton>
         </div>

@@ -42,6 +42,7 @@ from .serializers import CustomUserCreateSerializer, CustomerListSerializer, Cus
 from audit.models import AuditLog
 from .privileged_mfa import (ASSURANCE, begin_login, has_passkey_assurance,
     passkey_login_allowed, privileged_mfa_required, verify_login)
+from .passkey_continuation import issue_continuation, valid_continuation
 from .session_tokens import (REFRESH_ID, SESSION_ID, ConsoleRefreshToken,
     ConsoleTokenRefreshSerializer, revoke_legacy_access, session_record)
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
@@ -207,6 +208,7 @@ class CustomUserCreateNoTokenView(CreateAPIView):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     token_class = ConsoleRefreshToken
     passkey_qualification = serializers.BooleanField(required=False, write_only=True)
+    passkey_continuation = serializers.CharField(required=False, max_length=1024, write_only=True, trim_whitespace=False)
     passkey_challenge = serializers.CharField(required=False, max_length=36, write_only=True)
     passkey_assertion = serializers.JSONField(required=False, write_only=True)
 
@@ -233,6 +235,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'Both email/username and password are required.',
                 code='authorization',
             )
+
+        if "passkey_continuation" in attrs and not valid_continuation(attrs):
+            raise PermissionDenied("Passkey sign-in expired or invalid. Start a new sign-in.")
 
         # Look up by email or username
         if '@' in identifier:
@@ -270,13 +275,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # which fails when the caller used a *username* identifier.
         credential = None
         proof_requested = attrs.get("passkey_qualification", False) or (
-            "passkey_challenge" in attrs or "passkey_assertion" in attrs
+            "passkey_challenge" in attrs or "passkey_assertion" in attrs or "passkey_continuation" in attrs
         )
         if proof_requested and not passkey_login_allowed(user):
             raise PermissionDenied("Passkey sign-in is unavailable for this account.")
         if privileged_mfa_required(user) or proof_requested:
             if "passkey_challenge" not in attrs and "passkey_assertion" not in attrs:
-                return {"passkey": begin_login(user)}
+                challenge = begin_login(user)
+                challenge["continuation"] = issue_continuation(identifier, password, challenge["challenge_id"])
+                return {"passkey": challenge}
             credential = verify_login(user, attrs.get("passkey_challenge"), attrs.get("passkey_assertion"))
 
         # Serialize token issuance against successful recovery (which locks this
@@ -360,7 +367,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             django_logout(request)
         elif not privileged_mfa_required(serializer.context["user"]):
             login(request, serializer.context["user"])
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK,
+                        headers={"Cache-Control": "no-store"})
 
 
 class CustomTokenRefreshView(TokenRefreshView):

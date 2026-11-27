@@ -119,3 +119,16 @@ test("BFF refuses password-only success for an explicit passkey exchange", async
   assert.equal(cookies,1);
   assert.equal(result.body.user.id,1);
 });
+
+
+test("AUTH-03B Retry-After is bounded and parsed from the server header", () => {
+  const source=fs.readFileSync(path.join(__dirname,"../src/lib/api/client.ts"),"utf8");
+  const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const mod={exports:{}};
+  require("node:vm").runInNewContext(compiled,{exports:mod.exports,require:()=>({}),process:{env:{}}});
+  assert.equal(mod.exports.parseRetryAfter("120"),120);
+  for(const bad of [null,"","0","-1","1.5","86401","infinite"])assert.equal(mod.exports.parseRetryAfter(bad),undefined);
+  const route=fs.readFileSync(path.join(__dirname,"../src/app/api/cloud/[...path]/route.ts"),"utf8");
+  assert.match(route,/apiPath === "auth\/passkeys" && method !== "GET"/);
+  assert.match(route,/Object\.hasOwn\(submitted \?\? \{\}, "passkey_continuation"\)/);
+});

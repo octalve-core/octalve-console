@@ -11,7 +11,7 @@ function encode(value:ArrayBuffer):string{
 
 export async function requestPrivilegedPasskey(error:unknown){
   if(!(error instanceof ApiError)||error.status!==428)throw error;
-  const challenge=error.payload as {code?:unknown;challenge_id?:unknown;public_key?:{
+  const challenge=error.payload as {code?:unknown;challenge_id?:unknown;continuation?:unknown;public_key?:{
     challenge?:unknown;rpId?:unknown;allowCredentials?:{id:string}[];
   }}|null;
   const options=challenge?.public_key;
@@ -30,7 +30,8 @@ export async function requestPrivilegedPasskey(error:unknown){
     throw new Error("Passkey sign-in was cancelled.");
   }
   const response=credential.response;
-  return {passkey_challenge:challenge.challenge_id,passkey_assertion:{
+  return {passkey_challenge:challenge.challenge_id,
+    ...(typeof challenge.continuation==="string" ? {passkey_continuation:challenge.continuation} : {}),passkey_assertion:{
     id:credential.id,rawId:encode(credential.rawId),type:credential.type,
     response:{clientDataJSON:encode(response.clientDataJSON),authenticatorData:encode(response.authenticatorData),
       signature:encode(response.signature),userHandle:response.userHandle?encode(response.userHandle):null},
@@ -54,11 +55,18 @@ export async function enrollPrivilegedPasskey(code:string,password:string){
   if(options.rp.id!==location.hostname){
     throw new Error("The passkey setup origin was invalid.");
   }
-  const credential=await navigator.credentials.create({publicKey:{
+  let credential:Credential|null;
+  try {
+    credential=await navigator.credentials.create({publicKey:{
     ...options,challenge:decode(options.challenge),user:{...options.user,id:decode(options.user.id)},
     excludeCredentials:options.excludeCredentials?.map(item=>({...item,id:decode(item.id)})),
     authenticatorSelection:{...options.authenticatorSelection,userVerification:"required"},
   }});
+  } catch(error) {
+    if(error instanceof DOMException && error.name==="InvalidStateError") throw new Error("This authenticator already contains a registered passkey. Use a separate security key or passkey manager. Do not delete your existing passkey.");
+    if(error instanceof DOMException && error.name==="NotAllowedError") throw new Error("Passkey setup was cancelled or timed out. Try again with an independent authenticator if your setup code is still valid.");
+    throw error;
+  }
   if(!(credential instanceof PublicKeyCredential)||!(credential.response instanceof AuthenticatorAttestationResponse)){
     throw new Error("Passkey setup was cancelled.");
   }
