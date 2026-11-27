@@ -1,5 +1,6 @@
 """One authorized sandbox domain purchase using the deployed Console."""
 import json
+from dateutil.relativedelta import relativedelta
 import os
 import re
 from decimal import Decimal
@@ -127,7 +128,7 @@ def result(order):
     return {"test_lifecycle": safe_snapshot(order), "gateway_options": choices, "payment_attempt_state": attempt["state"], "payment_verified": proof.get("test") is True, "verified_at": proof.get("verified_at"), "payment_gateway": proof.get("gateway"), "checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
             "invoice_id": invoice.pk, "invoice_public_id": str(invoice.public_id), "invoice_reference": invoice.public_reference, "order_reference": order.public_reference,
             "registered_at": registration.get("registered_at"), "expires_at": registration.get("expires_at"),
-            "domain": evidence["domain"], "amount": str(invoice.total), "currency": "NGN",
+            "domain": evidence["domain"], "years": evidence.get("years",1), "amount": str(invoice.total), "currency": "NGN",
             "state": evidence["state"], "payment_reference": evidence.get("payment_reference") or (intent.reference if intent else None)}
 
 
@@ -139,13 +140,15 @@ def _selected_rate(name, *, lock=False):
         raise ValidationError("This extension does not have a published registrar and price.")
     if type(route.get("revision")) is not int:
         raise ValidationError("This extension does not have a valid published rate revision.")
-    return {"registration": {"1": str(card.register_price)}, "revision": route["revision"], "route": route}
+    return {"registration": {"1": str(card.register_price), **{str(n): str(card.register_price + (n-1)*card.renewal_price) for n in (2,5,10) if card.renewal_price > 0 and card.register_price + (n-1)*card.renewal_price <= Decimal("99999999.99")}}, "revision": route["revision"], "route": route}
 
 
-def quote_domain(account, name, *, selected=False, public_payment_test=False):
+def quote_domain(account, name, *, selected=False, public_payment_test=False, years=1):
+    if type(years) is not int or years not in (1,2,5,10) or (years != 1 and (not selected or public_payment_test)):
+        raise ValidationError("This registration term is unavailable for this checkout.")
     card = TLDPricing.objects.filter(tld=".com").first()
     rate = _selected_rate(name) if selected else rate_card_draft(card) if card else None
-    if not rate or Decimal(rate["registration"]["1"]) <= 0:
+    if not rate or not rate["registration"].get(str(years)) or Decimal(rate["registration"][str(years)]) <= 0:
         raise ValidationError("Set a positive one-year .com rate first.")
     if selected:
         if not public_payment_test:
@@ -159,7 +162,9 @@ def quote_domain(account, name, *, selected=False, public_payment_test=False):
         availability = supplier.check(name)
         if not availability["registrable"]:
             raise ValidationError("The domain is unavailable in the registrar sandbox.")
-    snapshot = {"client": account, "domain": name, "amount": rate["registration"]["1"],
+        if years != 1 and years not in supplier.supported_registration_terms(name.rsplit(".",1)[1]):
+            raise ValidationError("The supplier has not confirmed this registration term.")
+    snapshot = {"client": account, "domain": name, "amount": rate["registration"][str(years)], "years": years,
                 "price_revision": rate["revision"],
                 "registrar": binding, "supplier_quote": availability}
     if selected:
@@ -167,7 +172,7 @@ def quote_domain(account, name, *, selected=False, public_payment_test=False):
     if public_payment_test:
         snapshot["public_payment_test"] = True
     return {"quote": signing.dumps(snapshot, salt=QUOTE_SALT), "domain": name,
-            "amount": snapshot["amount"], "currency": "NGN", "years": 1}
+            "amount": snapshot["amount"], "currency": "NGN", "years": years}
 
 
 @transaction.atomic
@@ -189,9 +194,12 @@ def accept_quote(user, name, token, *, selected=False, public_payment_test=False
             or bool(snapshot.get("selected_domain")) != selected
             or bool(snapshot.get("public_payment_test")) != public_payment_test):
         raise ValidationError("This quote does not match the pilot account.")
+    years = snapshot.get("years", 1)
+    if type(years) is not int or years not in (1,2,5,10) or (years != 1 and (not selected or public_payment_test)):
+        raise ValidationError("This registration term is unavailable.")
     card = TLDPricing.objects.select_for_update().filter(tld=".com").first()
     rate = _selected_rate(name, lock=True) if selected else rate_card_draft(card) if card else None
-    if (not rate or rate["registration"]["1"] != snapshot["amount"]
+    if (not rate or rate["registration"].get(str(years)) != snapshot["amount"]
             or rate["revision"] != snapshot["price_revision"]
             or (selected and rate["route"] != snapshot.get("live_route"))):
         raise ValidationError("The price changed. Request a fresh quote.")
@@ -206,14 +214,14 @@ def accept_quote(user, name, token, *, selected=False, public_payment_test=False
         assert_private_domain_unclaimed([name])
         registrar(snapshot)
     amount = Decimal(snapshot["amount"])
-    label = (f"Payment test only: {name} (1 year)" if public_payment_test else f"Sandbox only: {name} registration (1 year)")
+    label = (f"Payment test only: {name} (1 year)" if public_payment_test else f"Sandbox only: {name} registration ({years} year{'s' if years != 1 else ''})")
     contact = billing_contact_snapshot(user)
     order = Order.objects.create(client=user, status="pending_payment", subtotal=amount,
                                  total=amount, notes=label,
                                  metadata={PILOT: {**snapshot, "state": "awaiting_payment"}})
     OrderItem.objects.create(order=order, product_id=0, plan_id=0, billing_cycle_id=0,
                              item_type="domain", domain_name=name, description=label,
-                             unit_price=amount, cycle_key="1yr", months=12)
+                             unit_price=amount, cycle_key=f"{years}yr", months=years*12)
     invoice = Invoice.objects.create(order=order, client=user, subtotal=amount,
                                      total=amount, notes=label,
                                      metadata={PILOT: True, "billing_contact": contact},
@@ -221,7 +229,7 @@ def accept_quote(user, name, token, *, selected=False, public_payment_test=False
     InvoiceItem.objects.create(invoice=invoice, description=label, domain_name=name,
                                unit_price=amount, subtotal=amount,
                                quantity=1, period_start=invoice.issue_date,
-                               period_end=invoice.issue_date + timezone.timedelta(days=365))
+                               period_end=invoice.issue_date + relativedelta(years=years))
     return order
 
 
@@ -346,6 +354,11 @@ def reconcile(order):
 
     intent, proof = inspect_payment(order)
     contact = None if public_test else registrant_contact()
+    if not public_test and snapshot.get("years", 1) != 1:
+        fresh = supplier.check(snapshot["domain"])
+        if (fresh != snapshot.get("supplier_quote") or not fresh.get("registrable")
+                or snapshot["years"] not in supplier.supported_registration_terms(snapshot["domain"].rsplit(".",1)[1])):
+            raise ValidationError("Supplier price or term changed. Review the original test invoice.")
     with transaction.atomic():
         # Canonical lock order: invoice, intent, order, signed inbox event.
         invoice = Invoice.objects.select_for_update().get(pk=intent.invoice_id)
@@ -478,7 +491,7 @@ def domain_pilot(request):
         if action == "quote" and not order:
             if (pilot_readiness(account, public_payment_test=True) if public_test else pilot_readiness(account)):
                 raise ValidationError("The test setup is incomplete. Check the Admin domain pricing preflight.")
-            return Response(quote_domain(account, name, selected=selected, public_payment_test=public_test), headers=headers)
+            return Response(quote_domain(account, name, selected=selected, public_payment_test=public_test, years=request.data.get("years",1)), headers=headers)
         if action == "accept" and isinstance(request.data.get("quote"), str):
             return Response(result(accept_quote(user, name, request.data["quote"], selected=selected, public_payment_test=public_test)), headers=headers)
         if action == "checkout" and order and order.metadata[PILOT]["state"] == "awaiting_payment":
