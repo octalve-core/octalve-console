@@ -193,9 +193,9 @@ class DomainViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
             'invoice_id': invoice.pk if invoice else None,
             'invoice_public_id': str(invoice.public_id) if invoice else None,
             'auto_renew': domain.auto_renew,
-            'registration_date': domain.registration_date.isoformat(),
-            'expiry_date': domain.expiry_date.isoformat(),
-            'next_due_date': domain.next_due_date.isoformat(),
+            'registration_date': domain.registration_date.isoformat() if domain.registration_date else None,
+            'expiry_date': domain.expiry_date.isoformat() if domain.expiry_date else None,
+            'next_due_date': domain.next_due_date.isoformat() if domain.next_due_date else None,
         }, headers={'Cache-Control': 'private, no-store'})
 
     @action(detail=True, methods=['post'])
