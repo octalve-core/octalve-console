@@ -761,3 +761,46 @@ class DomainPilotTests(TestCase):
         self.assertEqual(transport.call_args_list[-1].args[2]["years"],2)
         self.assertFalse(transport.call_args_list[-1].args[2]["auto_renew"])
         self.assertFalse(Transaction.objects.exists())
+
+
+    @override_settings(CLOUD_TEST_LIFECYCLE_ENABLED=True,CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED=True,
+                       CLOUD_GATEWAY_READBACK_ENABLED=True,CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED=True)
+    def test_private_pilot_payment_automatically_reconciles_even_without_supplier(self):
+        from payments.automatic_reconciliation import attempt_event
+        order=accept_quote(self.owner,self.domain,self.token)
+        invoice=order.invoices.get()
+        intent=PaymentIntent.objects.create(invoice=invoice,client=self.owner,gateway=self.gateway,
+            reference="OC-AUTO-DEFERRED",status="pending",amount=invoice.total,currency="NGN",
+            expires_at=timezone.now()+timezone.timedelta(minutes=10))
+        event=WebhookEvent.objects.create(gateway=self.gateway,is_verified=True,event_type="charge.success",
+            event_id="automatic-deferred-test",payload={"intent_id":intent.pk,"reference":intent.reference,
+            "remote_id":"123"})
+        proof=ConfirmedGatewayPayment("paystack",intent.reference,"NGN",invoice.total,"123")
+        with patch("domains.pilot.registrar",side_effect=CloudflareINT01Denied()) as registrar,patch(
+                "domains.pilot.verify_gateway_intent",return_value=proof) as readback:
+            self.assertEqual(attempt_event(event.pk),"processed")
+            self.assertEqual(attempt_event(event.pk),"processed")
+            registrar.assert_not_called()
+            readback.assert_called_once()
+        order.refresh_from_db()
+        invoice.refresh_from_db()
+        intent.refresh_from_db()
+        self.assertEqual(invoice.status,"void")
+        self.assertEqual(intent.status,"completed")
+        self.assertEqual(order.metadata[PILOT]["state"],"registration_pending")
+        self.assertTrue(order.metadata[PILOT]["payment_only_pending_submission"])
+        self.assertFalse(order.metadata[PILOT]["sandbox_submission_reserved"])
+        self.supplier.check.return_value={"registrable":True}
+        self.supplier.submit_pilot_registration.side_effect=CloudflareINT01Denied()
+        reconcile(order)
+        order.refresh_from_db()
+        self.assertTrue(order.metadata[PILOT]["sandbox_submission_reserved"])
+        self.assertNotIn("payment_only_pending_submission",order.metadata[PILOT])
+        self.supplier.pilot_registration_status.return_value={"state":"succeeded"}
+        self.supplier.get_registration.return_value={"domain_name":self.domain,"sandbox_status":"active",
+            "registered_at":"2026-11-27T12:00:00Z","expires_at":"2027-11-27T12:00:00Z"}
+        reconcile(order)
+        order.refresh_from_db()
+        self.assertEqual(order.metadata[PILOT]["state"],"registered")
+        self.supplier.submit_pilot_registration.assert_called_once()
+        self.assertFalse(Transaction.objects.exists())
