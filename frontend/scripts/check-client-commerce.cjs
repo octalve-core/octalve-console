@@ -111,3 +111,6 @@ requires("features/client/checkout/CombinedCartCheckout.tsx",["action:\"pay\"","
 requires("features/client/checkout/CartView.tsx",["CartDomainSearchPanel","draftCartAmounts"]);
 requires("features/client/checkout/ClientCartShortcuts.tsx",["draftCartAmounts"]);
 requires("features/client/checkout/CheckoutBillingDetails.tsx",["<ClientProfileDetailsForm embedded"]);
+
+requires("features/client/checkout/CartView.tsx",["hostingPicker:{load:loadHostingOffers","revision:offer.revision,domain},true)"]);
+requires("features/client/checkout/cart-selections.ts",["requireConfirmed","The cart did not confirm the hosting selection"]);
