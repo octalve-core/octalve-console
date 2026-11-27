@@ -17,9 +17,9 @@ from django.db import transaction
 from django.utils import timezone
 
 from billing.models import Invoice
-from payments.models import PaymentGateway, PaymentIntent
+from payments.models import PaymentGateway, PaymentIntent, WebhookEvent
 from payments.sandbox import gateway_can_read, secret_matches_mode
-from payments.domain_pilot_scope import CART, PILOT, is_pilot_invoice
+from payments.domain_pilot_scope import CART, PILOT, is_pilot_invoice, pilot_gateway_allowed
 
 REFERENCE = re.compile(r"^OC[A-Z0-9]{30}$")
 ALLOWED_CHECKOUT = {"paystack": "checkout.paystack.com",
@@ -137,17 +137,56 @@ def _post_checkout(intent, *, poster=None):
             answer.close()
 
 
+MAX_TEST_ATTEMPTS = 3
+
+
+def payment_history(invoice, *, lock=False):
+    """Keep old test references; only an explicitly superseded failed attempt is historical."""
+    query = invoice.payment_intents.select_related("gateway").order_by("pk")
+    if lock:
+        query = invoice.payment_intents.select_for_update().order_by("pk")
+    rows = list(query[:MAX_TEST_ATTEMPTS + 1])
+    if len(rows) > MAX_TEST_ATTEMPTS:
+        raise CheckoutRefused("Payment history requires review.")
+    active, archived = [], []
+    for row in rows:
+        if (row.client_id != invoice.client_id or row.amount != invoice.total
+                or row.currency != invoice.currency or not isinstance(row.metadata, dict)):
+            raise CheckoutRefused("Payment history requires review.")
+        if row.metadata.get("test_retry_superseded") is True:
+            if (row.status != "failed" or row.metadata.get("verified_retry_status") not in ("abandoned", "failed")
+                    or not pilot_gateway_allowed(row.gateway, invoice)):
+                raise CheckoutRefused("Payment history requires review.")
+            archived.append(row)
+        else:
+            active.append(row)
+    if len(active) > 1 or (archived and not active):
+        raise CheckoutRefused("Payment history requires review.")
+    if archived and WebhookEvent.objects.filter(is_verified=True, event_type="charge.success",
+            gateway_id__in=[r.gateway_id for r in archived], payload__intent_id__in=[r.pk for r in archived]).exists():
+        raise CheckoutRefused("An earlier payment needs verification.")
+    return (active[0] if active else None), archived
+
+
+def test_retry_candidate(invoice, prior, archived):
+    return bool(prior and prior.status == "pending" and prior.is_expired()
+                and prior.metadata.get("checkout_state") == "confirmed"
+                and len(archived) + 1 < MAX_TEST_ATTEMPTS
+                and invoice.status == "unpaid" and invoice.amount_paid == 0
+                and pilot_gateway_allowed(prior.gateway, invoice)
+                and not WebhookEvent.objects.filter(gateway_id=prior.gateway_id, is_verified=True,
+                    event_type="charge.success", payload__intent_id=prior.pk).exists())
+
+
 def payment_attempt_summary(invoice):
     """Safe metadata only; no hosted URL/reference or credential disclosure."""
-    rows = list(invoice.payment_intents.select_related("gateway").order_by("pk")[:2])
-    if not rows:
-        return {"state": "not_started", "gateway": None}
-    if len(rows) != 1:
+    try:
+        prior, archived = payment_history(invoice)
+    except CheckoutRefused:
         return {"state": "reconciliation_required", "gateway": None}
-    prior = rows[0]
+    if not prior:
+        return {"state": "not_started", "gateway": None}
     resume = (prior.status == "pending" and not prior.is_expired()
-              and prior.client_id == invoice.client_id and prior.amount == invoice.total
-              and prior.currency == invoice.currency and isinstance(prior.metadata, dict)
               and prior.metadata.get("checkout_state") == "confirmed"
               and prior.gateway.code in ALLOWED_CHECKOUT)
     if resume:
@@ -155,12 +194,12 @@ def payment_attempt_summary(invoice):
             _checkout_url(prior.authorization_url, prior.gateway.code)
         except CheckoutRefused:
             resume = False
-    return {"state": "resumable" if resume else "reconciliation_required",
-            "gateway": prior.gateway.code if prior.gateway.code in ALLOWED_CHECKOUT else None,
+    state = "resumable" if resume else "retry_check" if test_retry_candidate(invoice, prior, archived) else "reconciliation_required"
+    return {"state": state, "gateway": prior.gateway.code if prior.gateway.code in ALLOWED_CHECKOUT else None,
             "test": prior.gateway.test_mode}
 
 
-def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None):
+def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None, allow_test_retry=False):
     """No duplicate external POST for one invoice and gateway.
 
     Under the invoice lock, reserve one pending intent and stable reference.
@@ -172,6 +211,22 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None):
         raise CheckoutRefused("Hosted payment initialization is disabled.")
     if not isinstance(gateway_code, str) or gateway_code not in ALLOWED_CHECKOUT:
         raise CheckoutRefused("Unsupported hosted gateway.")
+    retry_proof = None
+    # A local timeout is never a failure verdict. Read the same test reference
+    # before acquiring the write lock; do not hold a DB lock during network I/O.
+    if allow_test_retry and gateway_code == "paystack":
+        candidate = Invoice.objects.select_related("client", "order").filter(pk=invoice_id).first()
+        if candidate:
+            prior, archived = payment_history(candidate)
+            if test_retry_candidate(candidate, prior, archived):
+                from payments.readback import verify_gateway_intent, PaymentReadbackRejected
+                try:
+                    status = verify_gateway_intent(prior, inspect_pilot=True)
+                except PaymentReadbackRejected:
+                    raise CheckoutRefused("We could not verify your previous payment. Your invoice is saved.") from None
+                if status not in ("abandoned", "failed"):
+                    raise CheckoutRefused("Your previous payment is awaiting confirmation. No new payment has been started.")
+                retry_proof = (prior.pk, prior.reference, status, prior.expires_at)
     with transaction.atomic():
         try:
             invoice = Invoice.objects.select_for_update().select_related("client").get(pk=invoice_id)
@@ -187,23 +242,25 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None):
         if not gateway or not gateway_can_read(gateway, invoice):
             raise CheckoutRefused("Approved payment provider unavailable.")
         _return_url()
-        active = list(PaymentIntent.objects.select_for_update().filter(invoice=invoice))
-        if active:
-            # One live or ambiguous attempt per invoice; no other gateway can
-            # be launched until a separate audited exception resolution.
-            if len(active) != 1:
-                raise CheckoutRefused("Multiple historical payment intents require review.")
-            prior = active[0]
+        prior, archived = payment_history(invoice, lock=True)
+        if prior:
             if (prior.gateway_id != gateway.pk or prior.client_id != invoice.client_id
-                    or prior.amount != invoice.total or prior.currency != invoice.currency
-                    or prior.status not in ("pending", "processing")
-                    or prior.is_expired()):
+                    or prior.amount != invoice.total or prior.currency != invoice.currency):
                 raise CheckoutRefused("Existing payment attempt requires reconciliation.")
-            state = prior.metadata.get("checkout_state") if isinstance(prior.metadata, dict) else None
-            if state == "confirmed" and prior.authorization_url:
+            state = prior.metadata.get("checkout_state")
+            if prior.status == "pending" and not prior.is_expired() and state == "confirmed" and prior.authorization_url:
                 _checkout_url(prior.authorization_url, gateway.code)
                 return prior, False
-            raise CheckoutRefused("Gateway initialization needs manual reconciliation.")
+            if (not retry_proof or not allow_test_retry or not test_retry_candidate(invoice, prior, archived)
+                    or retry_proof[:2] != (prior.pk, prior.reference) or retry_proof[3] != prior.expires_at):
+                raise CheckoutRefused("Existing payment attempt requires reconciliation.")
+            # Sandbox ONLY. Old reference is retained and any late signed success
+            # blocks subsequent settlement. Never retry live or uncertain POSTs.
+            prior.status = "failed"
+            prior.metadata = {**prior.metadata, "test_retry_superseded": True,
+                              "verified_retry_status": retry_proof[2],
+                              "verified_retry_at": timezone.now().isoformat()}
+            prior.save(update_fields=["status", "metadata"])
         issued = PaymentIntent.objects.create(
             invoice=invoice, client_id=invoice.client_id, gateway=gateway,
             reference="OC" + secrets.token_hex(15).upper(),

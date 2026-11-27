@@ -109,13 +109,21 @@ def result(order):
     invoice = order.invoices.get()
     evidence = order.metadata[PILOT]
     from payments.hosted_checkout import payment_attempt_summary
-    intent = invoice.payment_intents.first()
+    from payments.hosted_checkout import payment_history
+    try:
+        intent, _ = payment_history(invoice)
+    except CheckoutRefused:
+        intent = None
     registration = evidence.get("registration", {}) if evidence["state"] == "registered" else {}
     attempt = payment_attempt_summary(invoice)
-    checkout_state = {"not_started": "available", "resumable": "resume", "reconciliation_required": "uncertain"}[attempt["state"]]
+    checkout_state = {"not_started": "available", "resumable": "resume", "reconciliation_required": "uncertain", "retry_check": "retry_check"}[attempt["state"]]
     if checkout_state == "uncertain" and intent and intent.is_expired():
         checkout_state = "expired"
-    return {"checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
+    from billing.payment_reference import verified_payment_details
+    proof = verified_payment_details(invoice) or {}
+    from .combined_cart import gateway_choices
+    choices = gateway_choices(invoice.client, evidence.get("public_payment_test") is True, True) if evidence["state"] == "awaiting_payment" else []
+    return {"gateway_options": choices, "payment_attempt_state": attempt["state"], "payment_verified": proof.get("test") is True, "verified_at": proof.get("verified_at"), "payment_gateway": proof.get("gateway"), "checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
             "invoice_id": invoice.pk, "invoice_public_id": str(invoice.public_id), "invoice_reference": invoice.public_reference, "order_reference": order.public_reference,
             "registered_at": registration.get("registered_at"), "expires_at": registration.get("expires_at"),
             "domain": evidence["domain"], "amount": str(invoice.total), "currency": "NGN",
@@ -282,7 +290,10 @@ def reconcile_registration(order, supplier, workflow=None):
 
 
 def inspect_payment(order):
-    intent = PaymentIntent.objects.filter(invoice__order=order, gateway__code="paystack").first()
+    from payments.hosted_checkout import payment_history
+    intent, _ = payment_history(order.invoices.get())
+    if intent and intent.gateway.code != "paystack":
+        raise ValidationError("Payment needs verification.")
     if not intent:
         raise ValidationError("Start the Paystack test checkout first.")
     try:
@@ -460,7 +471,9 @@ def domain_pilot(request):
             if not public_test:
                 registrant_contact()
                 registrar(order.metadata[PILOT])
-            intent, _ = reserve_hosted_checkout(order.invoices.get().pk, "paystack")
+            if request.data.get("gateway") != "paystack" or request.data.get("consent") is not True:
+                raise ValidationError("Select Paystack and accept the terms to continue.")
+            intent, _ = reserve_hosted_checkout(order.invoices.get().pk, "paystack", allow_test_retry=True)
             return Response({"checkout_url": intent.authorization_url}, headers=headers)
         if action == "reconcile" and order:
             reconcile(order)
@@ -468,5 +481,5 @@ def domain_pilot(request):
             return Response(result(order), headers=headers)
     except (CloudflareINT01Denied, VaultUnavailable, CheckoutRefused, PaymentReadbackRejected,
             IntegrationCredentialVersion.DoesNotExist, DjangoValidationError, ValueError) as exc:
-        raise ValidationError("The sandbox provider could not confirm this step. Check the purchase status before retrying.") from exc
+        raise ValidationError("We could not confirm your payment. Your invoice is saved. Please try again or contact support.") from exc
     raise ValidationError("This action is unavailable for the current purchase state.")

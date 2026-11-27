@@ -115,7 +115,7 @@ def start_cart_payment(user, invoice):
             raise ValidationError("Domain test checkout is currently unavailable.")
         for line in order.items.filter(item_type="domain"):
             registrar(line.config[CART])
-    intent, _ = reserve_hosted_checkout(invoice.pk, "paystack")
+    intent, _ = reserve_hosted_checkout(invoice.pk, "paystack", allow_test_retry=True)
     return intent.authorization_url
 
 
@@ -262,6 +262,10 @@ def confirm_payment(order):
         locked = Order.objects.select_for_update().get(pk=order.pk)
         if locked.status == "needs_review":
             return
+        from payments.hosted_checkout import payment_history
+        active, _ = payment_history(invoice, lock=True)
+        if not active or active.pk != payment.pk:
+            raise ValidationError("Payment history requires verification.")
         if (not pilot_gateway_allowed(payment.gateway, invoice) or invoice.order_id != locked.pk
                 or payment.invoice_id != invoice.pk or payment.client_id != invoice.client_id
                 or locked.client_id != invoice.client_id or locked.currency != invoice.currency
@@ -395,6 +399,7 @@ def combined_cart(request):
         if action == "pay":
             return Response(payment_response(user, invoice), headers=headers)
         if action == "checkout":
+            require_payment_consent(data)
             return Response({"checkout_url": start_cart_payment(user, invoice)}, headers=headers)
         if action == "advance":
             advance_cart(order, invoice)
