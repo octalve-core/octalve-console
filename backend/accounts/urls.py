@@ -22,7 +22,10 @@ from .account_self_service import (
     EmailVerificationRequestView, EmailVerificationConfirmView, AccountEmailDeliveryStatusView,
 )
 
+from .passkey_enrollment import PrivilegedPasskeyEnrollmentView
+
 urlpatterns = [
+    path("passkeys/enroll/", PrivilegedPasskeyEnrollmentView.as_view(), name="privileged-passkey-enrollment"),
     path('profile/', OwnProfileView.as_view(), name='self-service-profile'),
     path('language/', OwnLanguagePreferenceView.as_view(), name='own-language-preference'),
     path('staff/', AdminStaffRosterView.as_view(), name='admin-staff-roster'),
