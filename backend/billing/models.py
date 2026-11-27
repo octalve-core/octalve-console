@@ -1,5 +1,7 @@
 # billing/models.py
 
+from octalve_backend.resource_identity import reference_inv, reference_qte
+import uuid
 from django.db import models, transaction
 from octalve_backend.document_sequence import lock_document_sequence
 from django.conf import settings
@@ -13,6 +15,8 @@ from decimal import Decimal
 
 class Invoice(models.Model):
     """Customer invoices for orders and renewals"""
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    public_reference = models.CharField(max_length=24, default=reference_inv, unique=True, editable=False)
     
     STATUS_CHOICES = [
         ('draft', 'Draft'),
@@ -314,6 +318,8 @@ class Tax(models.Model):
 
 class Quote(models.Model):
     """Quotes/estimates for customers before order"""
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    public_reference = models.CharField(max_length=24, default=reference_qte, unique=True, editable=False)
     
     STATUS_CHOICES = [
         ('draft', 'Draft'),

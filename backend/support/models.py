@@ -1,5 +1,6 @@
 # support/models.py
 
+from octalve_backend.resource_identity import reference_tkt
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -61,6 +62,8 @@ class SupportDepartment(models.Model):
 
 class SupportTicket(models.Model):
     """Customer support tickets"""
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    public_reference = models.CharField(max_length=24, default=reference_tkt, unique=True, editable=False)
     
     PRIORITY_CHOICES = [
         ('low', 'Low'),
