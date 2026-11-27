@@ -1,5 +1,6 @@
 "use client";
 
+import {SandboxDomainWorkspace} from "../components/SandboxDomainWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { Plus, RefreshCcw } from "lucide-react";
 import { ActionButton } from "@/components/design-system/ActionButton";
@@ -79,7 +80,7 @@ export function ClientResourceListView({ resource }: ClientResourceListViewProps
     onClick={()=>{void loadRecords(false);}}>Try again</ActionButton>;
   const recovery=issue?.signIn?<ActionLink href="/login" size="sm" variant="outline">Sign in</ActionLink>:retry;
   const body=<div className="space-y-5">
-    {resource==="domains"?<ClientDNSClaimPanel/>:null}
+    {resource==="domains"?<><SandboxDomainWorkspace/><details className="rounded-xl border border-console-line bg-white p-4"><summary className="cursor-pointer text-sm font-medium">Connect an external DNS zone</summary><div className="mt-4"><ClientDNSClaimPanel/></div></details></>:null}
 
     {isLoading?<LoadingState title={`Loading your ${config.title.toLowerCase()}`} description="Checking your latest account records."/>:
      error&&(!records.length||issue?.signIn)?<ErrorState title={issue?.title} description={issue?.description??error} action={recovery}/>:
