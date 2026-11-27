@@ -383,7 +383,9 @@ jobs:
           assert hashlib.sha256(reference.encode('utf-8')).hexdigest() == '516cd378502964020838c5d23b89caf172bd1cf135677172ee85e4795892a8cd'
           assert 'accounts.0003_auththrottlebucket' in transcript
           migrations = [line for line in transcript.splitlines() if line and not line.startswith(' ') and line != 'Planned operations:']
-          assert len(migrations) == 66, f'Expected baseline 64 plus two WebAuthn migrations, got {len(migrations)}'
+          assert len(migrations) == 74, f'Expected baseline 66 plus eight identity migrations, got {len(migrations)}'
+          from scripts.production_identity_preflight import TARGETS
+          assert {name for name in migrations if name.endswith('_resource_identity')} == {f'{app}.{name}' for app,name in TARGETS}, 'Unexpected identity migration set'
           assert 'accounts.0004_privileged_webauthn' in migrations
           assert 'accounts.0005_privileged_passkey_enrollment' in migrations
           assert 'domains.0002_dns_readonly_binding' in transcript, 'DNS-01 authorization migration missing'
