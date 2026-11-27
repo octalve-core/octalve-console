@@ -4,9 +4,10 @@ import Link from "next/link";
 import {ArrowLeftRight,Globe2,ShieldCheck} from "lucide-react";
 import {DomainBundleImport} from "./domain-search/DomainBundleImport";
 import {DomainSearchForm} from "./domain-search/DomainSearchForm";
-import {DomainSearchResult} from "./domain-search/DomainSearchResult";
+import {DomainDiscoveryPanel,DomainAvailabilityBanner} from "@/components/shared-commerce/DomainCommerce";
+import {DomainSearchResult,DomainSearchAction} from "./domain-search/DomainSearchResult";
 import {PublishedDomainCatalogue} from "./domain-search/PublishedDomainCatalogue";
-import type {DomainLookup,PublishedDomainPrice} from "./domain-search/domain-types";
+import {formatDomainPrice,type DomainLookup,type PublishedDomainPrice} from "./domain-search/domain-types";
 import {Panel} from "@/components/design-system/Panel";
 import {SectionHeading} from "@/components/design-system/SectionHeading";
 
@@ -16,6 +17,7 @@ export function ClientDomainSearch({onAdded,discovery=false}: {onAdded?: () => v
  const [busy,setBusy]=useState(false),[error,setError]=useState("");
  const [catalogue,setCatalogue]=useState<{currency:string;tlds:PublishedDomainPrice[]}>();
  const [catalogueFailed,setCatalogueFailed]=useState(false);
+ const [selected,setSelected]=useState(".com");
  const searchArea=useRef<HTMLDivElement|null>(null);
  useEffect(()=>{
    if(!discovery)return;
@@ -29,21 +31,14 @@ export function ClientDomainSearch({onAdded,discovery=false}: {onAdded?: () => v
      }).catch(()=>{if(!controller.signal.aborted)setCatalogueFailed(true);});
    return ()=>controller.abort();
  },[discovery]);
- function selectTld(tld:string){
-   setDomain(value=>{
-     const input=value.trim().toLowerCase().replace(/^https?:\/\//,"").replace(/\/$/,"");
-     const base=input.startsWith(".")?"":input.split(".")[0];
-     return base?base+tld:tld;
-   });
-   searchArea.current?.querySelector("input")?.focus();
- }
+ function selectTld(tld:string){setSelected(tld);const base=domain.trim().toLowerCase().replace(/^https?:\/\//,"").split(".")[0];if(base){const name=base+tld;setDomain(name);void lookup(name)}else searchArea.current?.querySelector("input")?.focus();}
  const abort=useRef<AbortController|null>(null);
  useEffect(()=>{
    const input=new URLSearchParams(window.location.search).get("domain");
    if(input)setDomain(input.slice(0,253));
    return ()=>abort.current?.abort();
  },[]);
- async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();await lookup(domain);}
+ async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();const name=domain.includes(".")?domain:domain+selected;setDomain(name);await lookup(name);}
  async function lookup(value:string){
    abort.current?.abort();
    const next=new AbortController();abort.current=next;
@@ -55,24 +50,15 @@ export function ClientDomainSearch({onAdded,discovery=false}: {onAdded?: () => v
      if(!response.ok)throw new Error(response.status===400?"Enter a valid domain name, for example yourbrand.com.":"Domain search is temporarily unavailable.");
      const data=await response.json() as DomainLookup;
      if(data.domain!==clean)throw Error("Mismatched domain lookup.");
-     if(!next.signal.aborted)setResult(data);
+     if(!next.signal.aborted){setResult(data);if(data.tld)setSelected("."+data.tld.replace(/^\./,""));}
    }catch(e){if(!next.signal.aborted)setError(e instanceof Error&&e.name==="TimeoutError"?"Domain lookup timed out. Please retry.":e instanceof Error?e.message:"Domain search is temporarily unavailable.");}
    finally{if(!next.signal.aborted)setBusy(false);}
  }
  return <div className="min-w-0 space-y-6">{discovery&&<DomainBundleImport/>}<Panel padded={false} id="domain-search" aria-label="Find and check a domain name"
    className="scroll-mt-24 overflow-hidden">
-   {discovery?<div ref={searchArea} className="relative isolate overflow-hidden rounded-[22px] bg-black px-4 py-7 text-white sm:px-8 sm:py-10">
-     <div className="mx-auto max-w-4xl">
-       <h2 className="text-2xl font-normal tracking-tight sm:text-3xl">Find your perfect domain</h2>
-       <p className="mb-5 mt-2 text-sm leading-6 text-zinc-400">Your next big idea starts with the right domain name.</p>
-       <DomainSearchForm domain={domain} onChange={value=>{abort.current?.abort();setBusy(false);setResult(null);setError("");setDomain(value)}} busy={busy} onSubmit={submit}/>
-       <div className="mt-3 flex flex-wrap items-center gap-2">
-         {catalogue?.tlds.slice(0,6).map(price=><button key={price.tld} type="button" onClick={()=>selectTld(price.tld)} className="min-h-11 rounded-lg border border-white/40 px-3 text-sm hover:bg-white/15">{price.tld}</button>)}
-         <Link href="/client/domains/transfer" className="inline-flex min-h-11 items-center gap-2 px-2 text-sm underline underline-offset-4"><ArrowLeftRight aria-hidden="true" size={16}/>Transfer a domain</Link>
-       </div>
-       {error&&<p role="alert" className="mt-2 rounded-lg bg-rose-50 p-3 text-sm text-rose-900">{error}</p>}
-     </div>
-   </div>:<>
+   {discovery?<div ref={searchArea}><DomainDiscoveryPanel controls={<><span className="rounded-xl border border-white/20 bg-white/5 px-3 py-2">{selected}</span><Link href="/client/domains/transfer" className="inline-flex min-h-11 items-center gap-2 text-slate-300 underline underline-offset-4"><ArrowLeftRight size={16}/>Transfer a domain</Link></>} result={<>{error&&<p role="alert" className="mt-2 rounded-lg bg-rose-50 p-3 text-sm text-rose-900">{error}</p>}{result?.registrar_connected&&result.availability==="available"&&result.registration_price&&Number(result.registration_price)>0&&result.currency&&<DomainAvailabilityBanner name={result.domain} price={formatDomainPrice(result.registration_price,result.currency)+"/yr"} renewal={result.renewal_price&&Number(result.renewal_price)>0?"Renews at "+formatDomainPrice(result.renewal_price,result.currency)+"/yr":undefined} action={<DomainSearchAction value={result} onAdded={onAdded}/>}/>}</>}>
+ <DomainSearchForm domain={domain} onChange={value=>{abort.current?.abort();setBusy(false);setResult(null);setError("");setDomain(value)}} busy={busy} onSubmit={submit}/>
+ </DomainDiscoveryPanel></div>:<>
    <div className="border-b border-slate-200 bg-slate-50 px-5 py-6 text-slate-950 sm:px-7 sm:py-7">
      <div className="flex items-start gap-3">
        <span className="flex h-11 w-11 shrink-0 items-center justify-center text-blue-700">
@@ -92,10 +78,10 @@ export function ClientDomainSearch({onAdded,discovery=false}: {onAdded?: () => v
    </div>
    </>}
    {busy&&<p className="sr-only" role="status">Checking domain availability</p>}
-   {result&&<DomainSearchResult value={result} onAdded={onAdded}/>}
+   {result&&(!discovery||!result.registrar_connected||result.availability!=="available"||!result.registration_price||Number(result.registration_price)<=0||!result.currency)&&<DomainSearchResult value={result} onAdded={onAdded}/>}
    {result&&result.registrar_connected&&["registered","unavailable"].includes(result.availability)&&<div className="mx-4 mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:mx-6"><h3 className="font-medium">Try another name</h3><p className="mt-1 text-sm text-slate-600">These are name ideas, not confirmed availability. Select one to check the registrar.</p><div className="mt-3 flex flex-wrap gap-2">{[result.domain.split(".")[0]+"hq.com","get"+result.domain.split(".")[0]+".com",result.domain.split(".")[0]+"online.com"].filter(name=>name.length<=67).map(name=><button key={name} type="button" className="min-h-11 break-all rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-blue-700" onClick={()=>{setDomain(name);void lookup(name)}}>{name}</button>)}</div><Link href="/client/domains/transfer" className="mt-3 inline-flex min-h-11 items-center text-sm text-blue-700">Already own this domain? Explore transfer</Link></div>}
  </Panel>
- {discovery && (catalogue?.tlds.length ? <PublishedDomainCatalogue prices={catalogue.tlds} currency={catalogue.currency} onSelect={selectTld}/>
+ {discovery && (catalogue?.tlds.length ? <PublishedDomainCatalogue prices={catalogue.tlds} currency={catalogue.currency} selected={selected} onSelect={selectTld} renderAction={tld=>result?.tld&&"."+result.tld.replace(/^\./,"")===tld&&result.registrar_connected&&result.availability==="available"?<div className="mt-2"><DomainSearchAction value={result} onAdded={onAdded}/></div>:null}/>
   : <p role="status" className="text-sm text-console-muted">{catalogueFailed?"Published prices are temporarily unavailable.":catalogue?"No extensions are currently published.":"Loading published extensions…"}</p>)}
  </div>;
 }
