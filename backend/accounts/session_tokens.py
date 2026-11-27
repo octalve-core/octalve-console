@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone as django_timezone
 
@@ -12,6 +13,8 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from .privileged_mfa import has_passkey_assurance, privileged_mfa_required
 
 REFRESH_ID = "console_refresh_jti"
 SESSION_ID = "console_session_id"
@@ -60,6 +63,9 @@ class ConsoleTokenRefreshSerializer(TokenRefreshSerializer):
         with transaction.atomic():
             session_id = presented.get(SESSION_ID)
             user_id = presented.get(api_settings.USER_ID_CLAIM)
+            user = get_user_model().objects.filter(pk=user_id).first()
+            if user and privileged_mfa_required(user) and not has_passkey_assurance(user, presented):
+                raise InvalidToken("Privileged sign-in requires passkey verification.")
             session = require_session(session_id, user_id, lock=True) if session_id else None
             outstanding = OutstandingToken.objects.select_for_update().filter(
                 jti=presented[api_settings.JTI_CLAIM],
@@ -83,6 +89,8 @@ class ConsoleTokenRefreshSerializer(TokenRefreshSerializer):
 class ConsoleJWTAuthentication(JWTAuthentication):
     def get_user(self, validated_token):
         user = super().get_user(validated_token)
+        if privileged_mfa_required(user) and not has_passkey_assurance(user, validated_token):
+            raise InvalidToken("Privileged sign-in requires passkey verification.")
         session_id = validated_token.get(SESSION_ID)
         if session_id:
             require_session(session_id, user.pk)

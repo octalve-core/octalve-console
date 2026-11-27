@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import {PrivilegedPasskeySetup} from "./PrivilegedPasskeySetup";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, LockKeyhole, Mail } from "lucide-react";
@@ -84,6 +85,7 @@ export function LoginPageClient() {
   const { login } = useAuth();
 
   const [nextPath, setNextPath] = useState("");
+  const [passkeySetup,setPasskeySetup]=useState(false);
   const [values, setValues] = useState({
     email: "",
     password: "",
@@ -94,6 +96,7 @@ export function LoginPageClient() {
 
   useEffect(() => {
     setNextPath(getSafeNextPath());
+    setPasskeySetup(new URLSearchParams(window.location.search).get("passkey")==="setup");
   }, []);
 
   function updateField(name: keyof typeof values, value: string) {
@@ -137,6 +140,8 @@ export function LoginPageClient() {
       setIsSubmitting(false);
     }
   }
+
+  if(passkeySetup)return <PrivilegedPasskeySetup/>;
 
   return (
     <AuthLayout

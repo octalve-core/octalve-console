@@ -23,3 +23,4 @@ django-environ
 pymysql
 # Security minimum for OAuth device authorization (CVE-2026-49272)
 oauthlib>=4.0.1,<4.1
+webauthn==3.0.1
