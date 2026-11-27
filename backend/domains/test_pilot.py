@@ -707,3 +707,24 @@ class DomainPilotTests(TestCase):
         order.save(update_fields=["metadata"])
         with transaction.atomic():
             assert_private_domain_unclaimed([self.domain])
+
+    @override_settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=True)
+    def test_private_multi_year_quote_is_published_rate_and_supplier_bound(self):
+        from domains.pilot import quote_domain
+        from rest_framework.exceptions import ValidationError
+        TLDPricing.objects.filter(tld=".com").update(metadata={"published_registrar":{"revision":1}})
+        self.supplier.check.return_value={"name":self.domain,"registrable":True,
+            "currency":"USD","registration_cost":"10.00","renewal_cost":"11.00"}
+        self.supplier.supported_registration_terms.return_value=[1,2,5]
+        with patch("domains.pilot.query_published_registrar",return_value={"registrable":True}):
+            quoted=quote_domain(self.owner.pk,self.domain,selected=True,years=2)
+            self.assertEqual(Decimal(quoted["amount"]),Decimal("26000"))
+            self.assertEqual(quoted["years"],2)
+            with self.assertRaises(ValidationError):
+                quote_domain(self.owner.pk,self.domain,selected=True,years=10)
+            with self.assertRaises(ValidationError):
+                quote_domain(self.owner.pk,self.domain,selected=True,public_payment_test=True,years=2)
+        order=accept_quote(self.owner,self.domain,quoted["quote"],selected=True)
+        self.assertEqual(order.items.get().months,24)
+        self.assertEqual(order.invoices.get().total,Decimal("26000"))
+        self.supplier.submit_pilot_registration.assert_not_called()
