@@ -16,7 +16,7 @@ import {cartSelectionId, removeFromCart} from "./cart-selections";
 
 type Stage="domain"|"review"|"completed";
 type Confirmation={id?:number;order_number?:string;total?:string;currency?:string;
-  invoice?:{id:number;invoice_number:string;status:string;amount_due:string}};
+  invoice?:{id:number;public_id?:string;public_reference?:string;invoice_number:string;status:string;amount_due:string}};
 const domainPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/;
 const actionClass=primary+" w-full sm:w-auto";
 
@@ -207,7 +207,7 @@ export function ServiceCheckout(){
         <p className="mt-3 text-sm leading-7 text-slate-600">Order {confirmation.order_number} is linked to invoice {confirmation.invoice?.invoice_number}.
           Payment is not yet confirmed and hosting has not been activated.</p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href={invoiceCheckoutHref(confirmation.invoice?.id??"")}
+          <Link href={invoiceCheckoutHref(confirmation.invoice?.public_id??confirmation.invoice?.id??"")}
             className={actionClass}>View payment and order status <ArrowRight className="h-4 w-4"/></Link>
           <Link href="/client/orders" className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium">My orders</Link>
         </div>

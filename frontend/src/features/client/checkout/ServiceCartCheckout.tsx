@@ -13,7 +13,7 @@ import {formatPlanAmount} from "../data/client-order-data";
 import {cartSelectionId, readCart, removeFromCart, type CartSelection} from "./cart-selections";
 
 type ServiceSelection = Extract<CartSelection, {kind:"service"}>;
-type OrderResult = {invoice?: {id:number; invoice_number:string}};
+type OrderResult = {invoice?: {id:number; public_id?:string; public_reference?:string; invoice_number:string}};
 
 export function ServiceCartCheckout() {
   const router=useRouter();
@@ -73,7 +73,7 @@ export function ServiceCartCheckout() {
       {!draft && !error && <p role="status">Checking current prices…</p>}
       {confirmation ? <OrderConfirmation reference={confirmation.invoice_number} title="Invoice created">
         <p>Invoice {confirmation.invoice_number} is ready.</p>
-        <Link className="mt-3 inline-flex min-h-11 items-center font-medium text-console-primary" href={`/client/invoices/${confirmation.id}`}>View invoice</Link><Link href={invoiceCheckoutHref(confirmation.id)} className={primary}>Continue to payment</Link>
+        <Link className="mt-3 inline-flex min-h-11 items-center font-medium text-console-primary" href={`/client/invoices/${confirmation.public_id??confirmation.id}`}>View invoice</Link><Link href={invoiceCheckoutHref(confirmation.public_id??confirmation.id)} className={primary}>Continue to payment</Link>
       </OrderConfirmation> : draft && <CheckoutColumns summary={<CheckoutSummary title="Invoice summary">
           <p className="text-2xl font-medium tabular-nums">{formatPlanAmount(Number(draft.quote.total), draft.quote.currency)}</p>
           <h3 className="mt-4 text-sm font-medium">Billing address</h3>

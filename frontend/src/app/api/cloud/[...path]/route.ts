@@ -136,7 +136,7 @@ async function forward(request: NextRequest, context: Context) {
   const trustedHeaders = signedClientIpHeaders(request, method, djangoPath);
   if (path[0] === "auth" &&
       !ALLOWED_AUTH_PATHS.has(apiPath) &&
-      !(path[1] === "customers" && path.length === 3 && /^\d+$/.test(path[2]))) {
+      !(path[1] === "customers" && path.length === 3 && /^(?:[1-9][0-9]{0,14}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/.test(path[2]))) {
     return error(404, "API route not found.");
   }
   // Staff roster is explicitly GET-only; never proxy invitations, role edits or secrets.

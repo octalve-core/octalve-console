@@ -11,11 +11,11 @@ export default async function ClientCheckoutPage({searchParams}: {
 }) {
   const {domain, product, plan, cycle, category, revision, existing, view, invoice} = await searchParams;
   if (view === "invoice") {
-    if (typeof invoice !== "string" || !/^[1-9][0-9]{0,14}$/.test(invoice)) redirect("/client/invoices");
+    if (typeof invoice !== "string" || !/^(?:[1-9][0-9]{0,14}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/.test(invoice)) redirect("/client/invoices");
     return <ClientProcessingView key={invoice}/>;
   }
   if (view === "combined-review") {
-    if (invoice !== undefined && (typeof invoice !== "string" || !/^[1-9][0-9]{0,14}$/.test(invoice))) redirect("/client/order/checkout?view=cart");
+    if (invoice !== undefined && (typeof invoice !== "string" || !/^(?:[1-9][0-9]{0,14}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/.test(invoice))) redirect("/client/order/checkout?view=cart");
     return <CombinedCartCheckout invoice={invoice ? Number(invoice) : undefined}/>;
   }
   if (view === "cart") return <CartView/>;

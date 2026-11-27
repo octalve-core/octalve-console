@@ -15,7 +15,7 @@ export function sanitizeCommerceNext(raw: string | null): string {
    const keys=[...url.searchParams.keys()];
    const invoice=url.searchParams.get("invoice");
    const returning=url.searchParams.get("returning");
-   if(url.searchParams.get("view")==="invoice"&&invoice&&/^[1-9][0-9]{0,14}$/.test(invoice)&&keys.length===new Set(keys).size&&keys.every(k=>["view","invoice","returning"].includes(k))&&(returning===null||returning==="1"))return url.pathname+"?view=invoice&invoice="+invoice+(returning==="1"?"&returning=1":"");
+   if(url.searchParams.get("view")==="invoice"&&invoice&&/^(?:[1-9][0-9]{0,14}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/.test(invoice)&&keys.length===new Set(keys).size&&keys.every(k=>["view","invoice","returning"].includes(k))&&(returning===null||returning==="1"))return url.pathname+"?view=invoice&invoice="+invoice+(returning==="1"?"&returning=1":"");
    return "";
   }
   if(!["/client/order","/client/domains/register"].includes(url.pathname))return "";

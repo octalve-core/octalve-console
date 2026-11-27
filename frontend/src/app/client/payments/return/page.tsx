@@ -15,7 +15,7 @@ export const metadata = {
  */
 export default async function HostedPaymentReturnPage({searchParams}:{searchParams:Promise<{invoice?:string}>}) {
   const {invoice}=await searchParams;
-  if(typeof invoice==="string"&&/^[1-9][0-9]{0,14}$/.test(invoice))redirect(invoiceCheckoutHref(invoice)+"&returning=1");
+  if(typeof invoice==="string"&&/^(?:[1-9][0-9]{0,14}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/.test(invoice))redirect(invoiceCheckoutHref(invoice)+"&returning=1");
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-12 text-slate-900">
       <Panel className="mx-auto max-w-xl p-6 sm:p-10">
