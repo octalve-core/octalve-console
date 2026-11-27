@@ -558,13 +558,80 @@ class DomainPilotTests(TestCase):
             self.assertEqual(invoice.status, "unpaid")
             self.assertFalse(Transaction.objects.exists())
 
-            # An expired link must be represented as reconciliation-only and never restarted.
+            # A local expiry does not establish provider failure.
+            prior=invoice.payment_intents.get()
             invoice.payment_intents.update(expires_at=timezone.now()-timezone.timedelta(minutes=1))
             status = api.get(f"{path}?invoice={invoice_id}")
-            self.assertEqual(status.data["payment_attempt_state"], "reconciliation_required")
-            with patch("payments.hosted_checkout.requests.post") as no_post:
-                retry = api.post(f"{path}?invoice={invoice_id}", {"action":"pay","gateway":"paystack","consent":True}, format="json")
-                self.assertIn("checkout_error", retry.data)
-                self.assertEqual(retry.data["payment_attempt_state"], "reconciliation_required")
-                no_post.assert_not_called()
+            self.assertEqual(status.data["payment_attempt_state"], "retry_check")
+            for outcome in ("pending", "ongoing", "processing", "reversed", ConfirmedGatewayPayment("paystack", prior.reference, "NGN", invoice.total, "987")):
+                with patch("payments.readback.verify_gateway_intent", return_value=outcome), patch("payments.hosted_checkout.requests.post") as no_post:
+                    retry = api.post(f"{path}?invoice={invoice_id}", {"action":"pay","gateway":"paystack","consent":True}, format="json")
+                    self.assertIn("checkout_error", retry.data)
+                    no_post.assert_not_called()
             self.assertEqual(invoice.payment_intents.count(),1)
+            with patch("payments.readback.verify_gateway_intent", return_value="abandoned") as verified, patch("payments.hosted_checkout.requests.post", side_effect=send) as post:
+                resumed=api.post(f"{path}?invoice={invoice_id}", {"action":"pay","gateway":"paystack","consent":True}, format="json")
+                self.assertEqual(resumed.status_code,200,resumed.data)
+                self.assertEqual(resumed.data["invoice_id"],invoice_id)
+                self.assertEqual(resumed.data["payment_attempt_state"],"resumable")
+                self.assertIn("checkout_url",resumed.data)
+                verified.assert_called_once()
+                repeated=api.post(f"{path}?invoice={invoice_id}", {"action":"pay","gateway":"paystack","consent":True}, format="json")
+                self.assertEqual(repeated.data["checkout_url"],resumed.data["checkout_url"])
+                post.assert_called_once()
+            prior.refresh_from_db()
+            self.assertEqual(prior.status,"failed")
+            self.assertTrue(prior.metadata["test_retry_superseded"])
+            self.assertEqual(prior.metadata["verified_retry_status"],"abandoned")
+            self.assertEqual(invoice.payment_intents.count(),2)
+            active=invoice.payment_intents.exclude(pk=prior.pk).get()
+            self.assertNotEqual(active.reference,prior.reference)
+            self.assertEqual(self.owner.orders.count(),1)
+            self.assertFalse(Transaction.objects.exists())
+            # A late signed success for an earlier test attempt holds the invoice
+            # rather than silently accepting another reference.
+            WebhookEvent.objects.create(gateway=self.gateway,event_id="late-old-test",event_type="charge.success",is_verified=True,
+                payload={"intent_id":prior.pk,"reference":prior.reference,"remote_id":"987"})
+            self.assertEqual(api.get(f"{path}?invoice={invoice_id}").data["payment_attempt_state"],"reconciliation_required")
+            with patch("payments.hosted_checkout.requests.post") as no_post:
+                held=api.post(f"{path}?invoice={invoice_id}", {"action":"pay","gateway":"paystack","consent":True}, format="json")
+                self.assertIn("checkout_error",held.data)
+                no_post.assert_not_called()
+            invoice.refresh_from_db()
+            self.assertEqual(invoice.status,"unpaid")
+            self.assertFalse(Transaction.objects.exists())
+
+    @override_settings(CLOUD_HOSTED_CHECKOUT_ENABLED=True, CLOUD_PAYMENT_RETURN_URL="https://console.cloud.octalve.com/client/order/processing")
+    def test_legacy_invoice_pay_now_requires_consent_and_recovers_test_only(self):
+        from payments.hosted_checkout import payment_attempt_summary
+        order=accept_quote(self.owner,self.domain,self.token)
+        invoice=order.invoices.get()
+        prior=PaymentIntent.objects.create(invoice=invoice,client=self.owner,gateway=self.gateway,
+            reference="OC"+"A"*30,amount=invoice.total,currency="NGN",status="pending",
+            expires_at=timezone.now()-timezone.timedelta(minutes=1),
+            authorization_url="https://checkout.paystack.com/test_12345",metadata={"checkout_state":"confirmed"})
+        api=APIClient()
+        api.force_authenticate(self.owner)
+        path=f"/api/domains/sandbox-purchase/?invoice={invoice.pk}"
+        with patch("domains.combined_cart.pilot_readiness",return_value=[]), patch.object(PaymentGateway,"get_secret_key",return_value="sk_test_example_fixture_0123456789"):
+            state=api.get(path)
+            self.assertEqual(state.data["purchase"]["checkout_state"],"retry_check")
+            self.assertTrue(state.data["purchase"]["gateway_options"][0]["enabled"])
+            with patch("payments.hosted_checkout.requests.post") as no_post:
+                self.assertEqual(api.post(path,{"action":"checkout","gateway":"paystack"},format="json").status_code,400)
+                self.assertEqual(api.post(path,{"action":"checkout","gateway":"flutterwave","consent":True},format="json").status_code,400)
+                no_post.assert_not_called()
+            def send(_url,**kwargs):
+                return reply({"status":True,"data":{"reference":kwargs["json"]["reference"],"authorization_url":"https://checkout.paystack.com/test_12345"}})
+            with patch("payments.readback.verify_gateway_intent",side_effect=PaymentReadbackRejected("fixture")), patch("payments.hosted_checkout.requests.post") as no_post:
+                self.assertEqual(api.post(path,{"action":"checkout","gateway":"paystack","consent":True},format="json").status_code,400)
+                no_post.assert_not_called()
+            with patch("payments.readback.verify_gateway_intent",return_value="failed"), patch("payments.hosted_checkout.requests.post",side_effect=send) as post:
+                response=api.post(path,{"action":"checkout","gateway":"paystack","consent":True},format="json")
+                self.assertEqual(response.status_code,200,response.data)
+                post.assert_called_once()
+        self.assertEqual(invoice.payment_intents.count(),2)
+        self.assertEqual(self.owner.orders.count(),1)
+        self.assertEqual(payment_attempt_summary(invoice)["state"],"resumable")
+        self.supplier.submit_pilot_registration.assert_not_called()
+        self.assertFalse(Transaction.objects.exists())
