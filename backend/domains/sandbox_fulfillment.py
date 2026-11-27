@@ -205,8 +205,10 @@ def advance_due_orders(*, owner=None):
         Q(metadata__has_key=CART,has_pending_domain=True))
     if owner is not None:
         rows=rows.filter(client=owner)
-    rows=rows.exclude(metadata__sandbox_domain_purchase__public_payment_test=True).exclude(
-        metadata__combined_domain_test_cart__public_payment_test=True).order_by("updated_at","pk")[:10]
+    private=(Q(metadata__has_key=PILOT) & (Q(metadata__sandbox_domain_purchase__public_payment_test=False) |
+        Q(metadata__sandbox_domain_purchase__public_payment_test__isnull=True))) | (Q(metadata__has_key=CART) & (
+        Q(metadata__combined_domain_test_cart__public_payment_test=False) | Q(metadata__combined_domain_test_cart__public_payment_test__isnull=True)))
+    rows=rows.filter(private).order_by("updated_at","pk")[:10]
     for order in rows:
         context=_private_context(order)
         if not context:
@@ -214,6 +216,8 @@ def advance_due_orders(*, owner=None):
         try:
             evidence=_payment_context(order,*context)
             if not evidence or not _processed_evidence(*evidence,context[1]):
+                # Move ineligible old rows behind eligible work without granting authority.
+                Order.objects.filter(pk=order.pk,status="needs_review").update(updated_at=timezone.now())
                 continue
             result=advance_order(order)
         except (CheckoutRefused,ValidationError,DatabaseError,TypeError,ValueError,KeyError):
