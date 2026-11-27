@@ -201,7 +201,7 @@ class ShoppingCartTests(TestCase):
         proof = {"HTTP_X_OCTALVE_SHOPPING_SESSION": registered.data["refresh"]}
         self.assertEqual(self.console.get(bridge, **proof).data["lines"][0]["selection"], self.item)
         self.assertEqual(self.console.post("/api/auth/logout/", {"refresh": registered.data["refresh"]}, format="json").status_code, 200)
-        self.assertEqual(self.console.get(bridge, **proof).status_code, 403)
+        self.assertEqual(self.console.get(bridge, **proof).status_code, 401)
         self.console.credentials()
         login = self.console.post("/api/auth/jwt/create/", {"email":"unified-registration@example.invalid","password":password}, format="json")
         self.assertEqual(login.status_code, 200, login.data)
