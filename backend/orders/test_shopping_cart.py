@@ -241,3 +241,18 @@ class ShoppingCartTests(TestCase):
         self.assertIsNone(cleaned.data["checkout_issue"])
         self.assertEqual(len(cleaned.data["lines"]), 4)
         self.assertEqual(cleaned.data["subtotal"], "48000.00")
+
+
+    def test_empty_snapshot_reports_zero_ngn_without_inventing_nonempty_price(self):
+        from orders.shopping_cart import snapshot
+        empty = snapshot(None)
+        self.assertEqual(empty["lines"], [])
+        self.assertEqual(empty["subtotal"], "0.00")
+        self.assertEqual(empty["currency"], "NGN")
+        from types import SimpleNamespace
+        from rest_framework.exceptions import ValidationError
+        with patch("orders.shopping_cart.priced_line", side_effect=ValidationError("unpriced")):
+            unpriced = snapshot(SimpleNamespace(items=[{"kind":"domain","domain":"example.com"}], client_id=None))
+        self.assertIsNone(unpriced["subtotal"])
+        self.assertIsNone(unpriced["currency"])
+        self.assertFalse(unpriced["lines"][0]["ready"])

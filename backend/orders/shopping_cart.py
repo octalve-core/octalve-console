@@ -168,7 +168,9 @@ def snapshot(cart):
                              else "This service offer or configuration is no longer valid.")
         lines.append(line)
     currencies = {line.get("currency") for line in lines if line["ready"]}
-    currency = next(iter(currencies)) if len(currencies) == 1 and all(line["ready"] for line in lines) else None
+    # Empty cart is a zero-value NGN basket; unknown/mixed nonempty prices
+    # must remain unavailable rather than be displayed as zero.
+    currency = "NGN" if not lines else (next(iter(currencies)) if len(currencies) == 1 and all(line["ready"] for line in lines) else None)
     subtotal = str(sum((Decimal(line["amount"]) for line in lines), Decimal("0.00"))) if currency else None
     domains = list(owned_domains(cart.client_id).order_by("domain_name").values_list("domain_name", flat=True)[:100]) if cart and cart.client_id else []
     return {"lines": lines, "subtotal": subtotal, "currency": currency, "domains": domains,

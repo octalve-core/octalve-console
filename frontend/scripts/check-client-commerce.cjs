@@ -118,3 +118,7 @@ requires("features/client/checkout/CheckoutBillingDetails.tsx",["<ClientProfileD
 
 requires("features/client/checkout/CartView.tsx",["hostingPicker:{load:loadHostingOffers","revision:offer.revision,domain},true)"]);
 requires("features/client/checkout/cart-selections.ts",["requireConfirmed","The cart did not confirm the hosting selection"]);
+
+requires("features/client/views/ClientProcessingView.tsx",["checkout_context","CombinedCartCheckout invoice={invoiceId}","DomainCheckout invoiceId={invoiceId}","CheckoutColumns","CheckoutSummary","CartItem","PaymentGatewayChoices","CheckoutConsent","payment_attempt","payingRef"]);
+requires("features/client/components/commerce/invoice-links.ts",["invoiceCheckoutHref","view=invoice&invoice="]);
+requires("features/client/components/DomainSandboxPurchase.tsx",["data.purchase?.invoice_id===invoiceId","params.set(\"invoice\",String(invoiceId))"]);

@@ -10,16 +10,15 @@ import type {CartLine,CartView,GatewayCode,GatewayOption} from "@/components/sha
 import {authApi, type AccountProfile} from "@/lib/api/endpoints";
 import {formatPlanAmount} from "../data/client-order-data";
 import {CheckoutBillingDetails} from "./CheckoutBillingDetails";
-import {invoiceDownloadHref} from "../components/commerce/invoice-links";
+import {invoiceDownloadHref,invoiceCheckoutHref} from "../components/commerce/invoice-links";
 import {sharedCartLines} from "./shared-cart-adapter";
 import {cartSelectionId, accountCartSnapshot, removePurchasedItems, type AccountSnapshot, type CartSelection} from "./cart-selections";
 
 type PricedLine={name:string; amount:string; kind:string; domain?:string; period?:string};
 type Quote = {quote:string; total:string; currency:string; lines:PricedLine[]; public_payment_test?:boolean;gateway_options?:GatewayOption[]};
 type Purchase = {invoice_id:number; invoice:string; order:string; total:string; currency:string;
-  payment_verified:boolean; payment_reference?:string|null; payment_gateway?:string|null; verified_at?:string|null; payment_started:boolean; gateway_options?:GatewayOption[];checkout_url?:string;checkout_error?:string; public_payment_test?:boolean; lines:PricedLine[]; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
+  payment_verified:boolean; payment_reference?:string|null; payment_gateway?:string|null; verified_at?:string|null; payment_started:boolean; payment_attempt_state?:"verified"|"not_started"|"resumable"|"reconciliation_required"; gateway_options?:GatewayOption[];checkout_url?:string;checkout_error?:string; public_payment_test?:boolean; lines:PricedLine[]; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
 
-const reviewHref = "/client/order/checkout?view=combined-review";
 const actionStyle = primary;
 const statuses: Record<string,string> = {
   awaiting_payment:"Awaiting test payment", registration_uncertain:"Registration unconfirmed",
@@ -61,7 +60,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
 
   useEffect(() => {
     let active = true;
-    if(invoice){const params=new URLSearchParams(window.location.search);setReturningFromGateway(params.has("reference")||params.has("trxref"));}
+    if(invoice){const params=new URLSearchParams(window.location.search);setReturningFromGateway(params.has("reference")||params.has("trxref")||params.get("returning")==="1");}
     async function load() {
       if (invoice) {
         const current = await request<Purchase>(invoice);
@@ -141,7 +140,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
 
   async function run(action: "pay" | "reconcile", line?: number) {
     if (inFlight.current) return;
-    if(action==="pay"&&(!consent||!gateway))return;
+    if(action==="pay"&&(!consent||!gateway||purchase?.payment_attempt_state==="reconciliation_required"||waiting))return;
     inFlight.current = true;
     setBusy(true);
     setError("");
@@ -152,7 +151,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
           ...(!purchase?{quote:quote!.quote,checkout_id:checkoutId}:{})});
         setPurchase({...result,gateway_options:result.gateway_options??purchase?.gateway_options??quote?.gateway_options});
         if(!purchase){
-          window.history.replaceState(null,"",`${reviewHref}&invoice=${result.invoice_id}`);
+          window.history.replaceState(null,"",invoiceCheckoutHref(result.invoice_id));
           try{await removePurchasedItems(items.map(cartSelectionId));}catch{/* The accepted invoice remains the payment authority. */}
           sessionStorage.removeItem("octalve-combined-cart-review");
         }
@@ -173,19 +172,21 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   const address = [account?.address, account?.city, account?.state, account?.country, account?.postal_code].filter(Boolean).join(", ");
   const record=purchase??quote;
   const options=record?.gateway_options??[];
-  const canPay=consent&&!!gateway&&options.some(g=>g.code===gateway&&g.enabled)&&!busy;
+  const reconciliationRequired=purchase?.payment_attempt_state==="reconciliation_required";
+  const canPay=consent&&!!gateway&&options.some(g=>g.code===gateway&&g.enabled)&&!busy&&!reconciliationRequired;
   const lines:CartLine[]=(record?.lines??[]).map((line,index)=>({id:String(index),kind:line.kind==="domain"?"domain":line.kind==="vps"?"vps":"hosting",name:line.kind==="domain"?(line.domain||line.name):line.name,description:"",period:line.period??(line.kind==="domain"?"1 year":"Selected billing cycle"),priceLabel:formatPlanAmount(Number(line.amount),record!.currency),domain:line.domain}));
   const total=record?formatPlanAmount(Number(record.total),record.currency):"Awaiting quote";
   const cart:CartView={lines,subtotal:total,tax:record?formatPlanAmount(0,record.currency):"—",total,busy:busy||(!record&&!error),error,checkoutAllowed:!!quote&&!purchase};
   return <DashboardShell role="client" title="Checkout" description="Review your products and payment.">
-    <CommerceCheckoutFrame stage={purchase?.payment_verified?3:purchase?2:1} title={purchase?.payment_verified?"Payment confirmation":purchase?"Complete your payment":"Checkout"} back={()=>router.push("/client/order/checkout?view=cart")}>
+    <CommerceCheckoutFrame stage={purchase?.payment_verified?3:purchase?2:1} title={purchase?.payment_verified?"Payment confirmation":purchase?"Complete your payment":"Checkout"} back={()=>router.push(purchase?"/client/invoices":"/client/order/checkout?view=cart")} backLabel={purchase?"Back to invoices":"Back to cart"}>
       <CartFeedback cart={cart}/>
       {!record&&draft&&<CheckoutColumns summary={<CheckoutSummary cart={{...cart,lines:sharedCartLines(draft),subtotal:draft.subtotal&&draft.currency?formatPlanAmount(Number(draft.subtotal),draft.currency):"Awaiting quote"}}><p role="status" className="text-sm text-slate-600">Confirming your order total and eligibility.</p></CheckoutSummary>}>{sharedCartLines(draft).map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}</CheckoutColumns>}
       {!record&&error&&<div className="flex flex-wrap gap-2"><button className={secondary} onClick={()=>router.push("/client/order/checkout?view=cart")}>Edit shopping cart</button><button className={secondary} onClick={()=>{setError("");setReload(n=>n+1)}}>Retry quotation</button></div>}
       {purchase?.payment_verified&&<VerifiedPaymentReceipt amount={total} reference={purchase.payment_reference} order={purchase.order} invoice={purchase.invoice} method={purchase.payment_gateway==="paystack"?"Paystack":purchase.payment_gateway} paidAt={purchase.verified_at?new Date(purchase.verified_at).toLocaleString("en-NG"):undefined} test actions={<><Link href="/client" className={primary}>Go to dashboard</Link><a href={invoiceDownloadHref(purchase.invoice_id)} className={secondary}>Download test invoice</a></>}><p className="text-sm text-slate-600">{purchase.public_payment_test?"No domain registration or service activation has occurred.":"Test registration status is shown below."}</p>{lines.map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}{!purchase.public_payment_test&&purchase.domains.map(domain=><div key={domain.id} className="mt-3 rounded-xl border p-3 text-sm"><p>{domain.name}</p><p>{statuses[domain.state]??domain.state}</p>{!["awaiting_payment","registered","registration_rejected"].includes(domain.state)&&<button type="button" className={secondary} onClick={()=>void run("reconcile",domain.id)} disabled={busy}>Check registration</button>}</div>)}</VerifiedPaymentReceipt>}
       {record&&!purchase?.payment_verified&&<CheckoutColumns summary={<CheckoutSummary cart={cart}>
         <PaymentGatewayChoices options={options} selected={gateway} onChange={setGateway}/>
-        {!waiting&&<><CheckoutConsent checked={consent} onChange={setConsent} disabled={busy}/><button type="button" disabled={!canPay} className={primary+" w-full"} onClick={()=>void run("pay")}>{busy?"Preparing secure payment…":purchase?.payment_started?"Resume payment":"Pay now"}</button></>}
+        {reconciliationRequired&&<p role="status" className="text-sm text-slate-600">An existing payment attempt needs verification. Check its status or contact support with the invoice number. No new payment will be started.</p>}
+        {!waiting&&!reconciliationRequired&&<><CheckoutConsent checked={consent} onChange={setConsent} disabled={busy}/><button type="button" disabled={!canPay} className={primary+" w-full"} onClick={()=>void run("pay")}>{busy?"Preparing secure payment…":purchase?.payment_started?"Resume payment":"Pay now"}</button></>}
         {purchase&&<Link href={`/client/invoices/${purchase.invoice_id}`} className={secondary+" w-full"}>View invoice {purchase.invoice}</Link>}
         {purchase?.payment_started&&!waiting&&<button className={secondary+" w-full"} onClick={()=>setStatusRefresh(n=>n+1)}>Check payment status</button>}
         <p className="text-xs text-slate-600">Test Mode only. No real money will be charged.</p>

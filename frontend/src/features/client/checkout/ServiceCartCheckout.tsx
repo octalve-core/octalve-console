@@ -3,6 +3,7 @@
 import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
+import {invoiceCheckoutHref} from "../components/commerce/invoice-links";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {CheckoutColumns,CheckoutSummary} from "./ui/CheckoutSections";
 import {CommerceCheckoutFrame,CommercePanel,primary,OrderConfirmation} from "@/components/shared-commerce/CommerceUI";
@@ -72,7 +73,7 @@ export function ServiceCartCheckout() {
       {!draft && !error && <p role="status">Checking current prices…</p>}
       {confirmation ? <OrderConfirmation reference={confirmation.invoice_number} title="Invoice created">
         <p>Invoice {confirmation.invoice_number} is ready.</p>
-        <Link className="mt-3 inline-flex min-h-11 items-center font-medium text-console-primary" href={`/client/invoices/${confirmation.id}`}>View invoice</Link><Link href={"/client/order/processing?invoice="+confirmation.id} className={primary}>Continue to payment</Link>
+        <Link className="mt-3 inline-flex min-h-11 items-center font-medium text-console-primary" href={`/client/invoices/${confirmation.id}`}>View invoice</Link><Link href={invoiceCheckoutHref(confirmation.id)} className={primary}>Continue to payment</Link>
       </OrderConfirmation> : draft && <CheckoutColumns summary={<CheckoutSummary title="Invoice summary">
           <p className="text-2xl font-medium tabular-nums">{formatPlanAmount(Number(draft.quote.total), draft.quote.currency)}</p>
           <h3 className="mt-4 text-sm font-medium">Billing address</h3>

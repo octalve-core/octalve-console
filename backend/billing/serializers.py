@@ -36,6 +36,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
     amount_due = serializers.DecimalField(source="collectible_amount", max_digits=12, decimal_places=2, read_only=True)
     payment_action_allowed = serializers.SerializerMethodField()
     payment_resume = serializers.SerializerMethodField()
+    checkout_context = serializers.SerializerMethodField()
+    payment_attempt = serializers.SerializerMethodField()
     test_checkout_status = serializers.SerializerMethodField()
     payment_reference = serializers.SerializerMethodField()
     payment_details = serializers.SerializerMethodField()
@@ -55,7 +57,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
             'id', 'invoice_number', 'order', 'client', 'client_name', 'client_email',
             'status', 'status_display', 'currency', 'subtotal', 'discount_total',
             'tax_total', 'total', 'amount_paid', 'amount_due', 'issue_date',
-            'due_date', 'paid_at', 'notes', 'items', 'is_overdue', 'created_at', 'payment_action_allowed', 'payment_resume', 'test_checkout_status', 'payment_reference', 'payment_details', 'order_number'
+            'due_date', 'paid_at', 'notes', 'items', 'is_overdue', 'created_at', 'payment_action_allowed', 'payment_resume', 'checkout_context', 'payment_attempt', 'test_checkout_status', 'payment_reference', 'payment_details', 'order_number'
         ]
         read_only_fields = ['invoice_number', 'amount_paid', 'amount_due', 'created_at']
     
@@ -73,6 +75,34 @@ class InvoiceSerializer(serializers.ModelSerializer):
         return bool(obj.status == "void" and obj.metadata.get(CART) is True and obj.order_id
                     and obj.client_id == obj.order.client_id and obj.order.status == "needs_review")
 
+    def get_payment_attempt(self, obj):
+        from payments.hosted_checkout import payment_attempt_summary
+        if obj.status != "unpaid" or getattr(self.context.get("view"), "action", None) == "list":
+            return None
+        return payment_attempt_summary(obj)
+
+    def get_checkout_context(self, obj):
+        """Route only an existing invoice; never permission to pay."""
+        from payments.domain_pilot_scope import CART, PILOT, pilot_configuration, selected_domain_test_account_allowed, selected_domain_test_allowed, public_payment_test_account_allowed, public_domain_payment_test_allowed
+        if not obj.order_id or obj.order.client_id != obj.client_id:
+            return {"kind": "invoice"}
+        snapshot = obj.order.metadata or {}
+        if obj.metadata.get(CART) is True and isinstance(snapshot.get(CART), dict):
+            public = snapshot[CART].get("public_payment_test") is True
+            allowed = public_payment_test_account_allowed(obj.client) if public else selected_domain_test_account_allowed(obj.client)
+            if allowed:
+                return {"kind": "combined_domain"}
+        if obj.metadata.get(PILOT) is True and isinstance(snapshot.get(PILOT), dict):
+            pilot = snapshot[PILOT]
+            domain = pilot.get("domain")
+            if pilot.get("selected_domain") is True:
+                allowed = public_domain_payment_test_allowed(obj.client, domain) if pilot.get("public_payment_test") is True else selected_domain_test_allowed(obj.client, domain)
+                if allowed:
+                    return {"kind": "domain", "domain": domain}
+            elif pilot_configuration() == (obj.client_id, domain):
+                return {"kind": "legacy_domain"}
+        return {"kind": "invoice"}
+
     def get_payment_resume(self, obj):
         from payments.domain_pilot_scope import CART, PILOT, is_pilot_invoice, pilot_configuration, selected_domain_test_allowed, public_domain_payment_test_allowed
 
@@ -81,7 +111,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
             return None
         if is_pilot_invoice(obj):
             if obj.metadata.get(CART) is True:
-                return {"kind": "combined_domain"}
+                context = self.get_checkout_context(obj)
+                return context if context["kind"] == "combined_domain" else None
             snapshot = obj.order.metadata.get(PILOT, {}) if isinstance(obj.order.metadata, dict) else {}
             if not isinstance(snapshot, dict) or snapshot.get("state") != "awaiting_payment":
                 return None

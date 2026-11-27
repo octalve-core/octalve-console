@@ -26,6 +26,7 @@ from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_gatewa
 from payments.hosted_checkout import CheckoutRefused, _return_url, reserve_hosted_checkout
 from payments.models import PaymentGateway, PaymentIntent, WebhookEvent
 from payments.readback import PaymentReadbackRejected, verify_gateway_intent
+from payments.test_payment_evidence import consume_matching_test_event
 from providers.cloudflare_int01 import CloudflareINT01, CloudflareINT01Denied, FixedCloudflareTransport
 from providers.connection_audit import verify_chain
 from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion
@@ -107,12 +108,13 @@ def pilot_order(account, name):
 def result(order):
     invoice = order.invoices.get()
     evidence = order.metadata[PILOT]
+    from payments.hosted_checkout import payment_attempt_summary
     intent = invoice.payment_intents.first()
     registration = evidence.get("registration", {}) if evidence["state"] == "registered" else {}
-    checkout_state = "available"
-    if intent:
-        checkout_state = ("expired" if intent.is_expired() else
-                          "resume" if intent.authorization_url else "uncertain")
+    attempt = payment_attempt_summary(invoice)
+    checkout_state = {"not_started": "available", "resumable": "resume", "reconciliation_required": "uncertain"}[attempt["state"]]
+    if checkout_state == "uncertain" and intent and intent.is_expired():
+        checkout_state = "expired"
     return {"checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
             "invoice_id": invoice.pk,
             "registered_at": registration.get("registered_at"), "expires_at": registration.get("expires_at"),
@@ -331,22 +333,27 @@ def reconcile(order):
     intent, proof = inspect_payment(order)
     contact = None if public_test else registrant_contact()
     with transaction.atomic():
+        # Canonical lock order: invoice, intent, order, signed inbox event.
+        invoice = Invoice.objects.select_for_update().get(pk=intent.invoice_id)
+        payment = PaymentIntent.objects.select_for_update().get(pk=intent.pk)
         locked = Order.objects.select_for_update().get(pk=order.pk)
         if locked.metadata[PILOT]["state"] != "awaiting_payment":
             return
-        # Keep the lock order aligned with reserve_hosted_checkout.
-        invoice = Invoice.objects.select_for_update().get(pk=intent.invoice_id)
-        payment = PaymentIntent.objects.select_for_update().get(pk=intent.pk)
-        if (payment.status != intent.status or payment.reference != proof.reference
+        if (not pilot_gateway_allowed(payment.gateway, invoice) or invoice.order_id != locked.pk
+                or payment.invoice_id != invoice.pk or payment.client_id != invoice.client_id
+                or locked.client_id != invoice.client_id or locked.currency != invoice.currency
+                or locked.total != invoice.total
+                or payment.status != intent.status or payment.reference != proof.reference
                 or payment.amount != proof.amount or payment.currency != proof.currency
                 or payment.gateway_id != intent.gateway_id
                 or invoice.status != "unpaid" or invoice.amount_paid != 0
                 or invoice.total != proof.amount or invoice.currency != proof.currency
                 or locked.status != "pending_payment"):
             raise ValidationError("The pilot payment changed during verification.")
+        verified_at = consume_matching_test_event(payment, proof)
         # Reserve before the POST. A crash at any point now requires readback only.
         locked.metadata[PILOT].update(state="test_payment_verified" if public_test else "registration_uncertain", payment_reference=proof.reference,
-                                     payment_remote_id=proof.remote_id, sandbox_submission_reserved=not public_test)
+                                     payment_remote_id=proof.remote_id, payment_verified_at=verified_at.isoformat(), sandbox_submission_reserved=not public_test)
         locked.status = "needs_review"
         locked.save(update_fields=["metadata", "status", "updated_at"])
         payment.status = "completed"
@@ -420,6 +427,13 @@ def domain_pilot(request):
     order = pilot_order(account, name)
     if order and bool(order.metadata[PILOT].get("public_payment_test")) != public_test:
         raise NotFound()
+    exact_invoice = request.query_params.get("invoice")
+    if exact_invoice is not None:
+        if (not is_client or not order or not exact_invoice.isascii() or not exact_invoice.isdecimal()
+                or len(exact_invoice) > 15 or exact_invoice.startswith("0")
+                or order.invoices.count() != 1
+                or not order.invoices.filter(pk=int(exact_invoice), client=user, metadata__sandbox_domain_purchase=True).exists()):
+            raise NotFound()
     headers = {"Cache-Control": "private, no-store"}
     if request.method == "GET":
         return Response({"domain": name, "purchase": result(order) if order else None,
@@ -429,6 +443,8 @@ def domain_pilot(request):
     if not isinstance(request.data, dict):
         raise ValidationError("Supply a purchase action.")
     action = request.data.get("action")
+    if exact_invoice is not None and action not in ("checkout", "reconcile"):
+        raise ValidationError("An existing invoice cannot create another order.")
     try:
         if public_test and action in ("quote", "checkout"):
             retry = spend_durable_attempt("domains:public_payment_test", "global", 100, 3600)

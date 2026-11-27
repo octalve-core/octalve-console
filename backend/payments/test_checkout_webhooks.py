@@ -68,7 +68,7 @@ class CheckoutAndWebhookTests(TestCase):
             self.assertEqual(kw["json"]["amount"], "350000")
             self.assertEqual(kw["json"]["currency"], "NGN")
             self.assertEqual(kw["json"]["callback_url"],
-                             "https://console.cloud.octalve.com/client/payments/return/")
+                             f"https://console.cloud.octalve.com/client/order/checkout?view=invoice&invoice={self.invoice.pk}&returning=1")
             self.assertTrue(kw["verify"])
             self.assertFalse(kw["allow_redirects"])
             self.assertTrue(kw["stream"])
@@ -86,6 +86,10 @@ class CheckoutAndWebhookTests(TestCase):
         self.assertFalse(created_again)
         self.assertEqual(attempt.pk, second.pk)
         self.assertEqual(post.call_count, 1)
+        from payments.hosted_checkout import payment_attempt_summary
+        self.assertEqual(payment_attempt_summary(self.invoice)["state"], "resumable")
+        PaymentIntent.objects.filter(pk=attempt.pk).update(expires_at=timezone.now()-timedelta(seconds=1))
+        self.assertEqual(payment_attempt_summary(self.invoice)["state"], "reconciliation_required")
         self.assertEqual(PaymentIntent.objects.count(), 1)
         self.assertEqual(self.invoice.status, "unpaid")
         self.assertFalse(Transaction.objects.exists())

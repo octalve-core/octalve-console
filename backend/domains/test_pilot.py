@@ -96,12 +96,20 @@ class DomainPilotTests(TestCase):
         from billing.serializers import InvoiceSerializer
         invoice_data = InvoiceSerializer(invoice).data
         self.assertEqual(invoice_data["payment_resume"], {"kind": "domain", "domain": name})
+        self.assertEqual(invoice_data["checkout_context"], {"kind": "domain", "domain": name})
+        exact = f"{path}&invoice={invoice.pk}"
+        self.assertEqual(api.get(exact).data["purchase"]["invoice_id"], invoice.pk)
+        self.assertEqual(api.get(f"{path}&invoice={invoice.pk + 9999}").status_code, 404)
+        self.assertEqual(api.post(exact, {"action": "quote"}, format="json").status_code, 400)
+        self.assertEqual(api.post(exact, {"action": "accept", "quote": quote.data["quote"]}, format="json").status_code, 400)
+        self.assertEqual(order.invoices.count(), 1)
+
         self.assertFalse(invoice_data["payment_action_allowed"])
         self.assertTrue(gateway_can_read(self.gateway, invoice))
         def send(_url, **kwargs):
             body = kwargs["json"]
             self.assertEqual(body["callback_url"],
-                             "https://console.cloud.octalve.com/client/order/checkout?product=domain&domain=selected-by-customer.com")
+                             f"https://console.cloud.octalve.com/client/order/checkout?view=invoice&invoice={invoice.pk}&returning=1")
             return reply({"status": True, "data": {"reference": body["reference"],
                          "authorization_url": "https://checkout.paystack.com/test_12345"}})
 
@@ -238,7 +246,7 @@ class DomainPilotTests(TestCase):
             body = kwargs["json"]
             self.assertEqual(body["amount"], "2800000")
             self.assertEqual(body["callback_url"],
-                             f"https://console.cloud.octalve.com/client/order/checkout?view=combined-review&invoice={invoice.pk}")
+                             f"https://console.cloud.octalve.com/client/order/checkout?view=invoice&invoice={invoice.pk}&returning=1")
             return reply({"status": True, "data": {"reference": body["reference"],
                          "authorization_url": "https://checkout.paystack.com/test_12345"}})
 
@@ -261,11 +269,25 @@ class DomainPilotTests(TestCase):
             gateway=self.gateway, is_verified=True, event_type="charge.success", event_id="cart-test",
             payload={"reference": intent.reference, "remote_id": "234", "intent_id": intent.pk},
         )
+        # A second exact signed inbox row is ambiguous: refuse and leave all state untouched.
+        duplicate = WebhookEvent.objects.create(gateway=self.gateway, is_verified=True, event_type="charge.success", event_id="cart-duplicate-fixture", payload={"reference": intent.reference, "remote_id": "234", "intent_id": intent.pk})
+        with patch("domains.pilot.verify_gateway_intent", return_value=proof):
+            denied = api.post(status_url, {"action":"advance"}, format="json")
+        self.assertEqual(denied.status_code,400)
+        intent.refresh_from_db()
+        invoice.refresh_from_db()
+        self.assertEqual(intent.status,"pending")
+        self.assertEqual(invoice.status,"unpaid")
+        self.assertFalse(WebhookEvent.objects.get(event_id="cart-test").is_processed)
+        duplicate.delete()  # disposable test fixture only
         self.supplier.submit_cart_registration.side_effect = [CloudflareINT01Denied(), {"state": "failed"}]
         with patch("domains.pilot.verify_gateway_intent", return_value=proof):
             paid = api.post(status_url, {"action": "advance"}, format="json")
         self.assertEqual(paid.status_code, 200, paid.data)
         self.assertTrue(paid.data["payment_verified"])
+        event = WebhookEvent.objects.get(event_id="cart-test")
+        self.assertTrue(event.is_processed)
+        self.assertIsNotNone(event.processed_at)
         self.supplier.submit_cart_registration.assert_not_called()
         first_result = api.post(status_url, {"action": "advance"}, format="json")
         self.assertEqual(first_result.status_code, 200, first_result.data)
@@ -313,7 +335,7 @@ class DomainPilotTests(TestCase):
         with patch.object(PaymentGateway, "get_secret_key", return_value="sk_test_fixture_key"):
             self.assertEqual(verify_gateway_intent(
                 intent, getter=Mock(return_value=reply(packet)), inspect_pilot=True), "abandoned")
-            for change in ({"domain": "live"}, {"amount": 1250001}, {"reference": "another_ref"}):
+            for change in ({"domain": "live"}, {"domain": None}, {"domain": "unexpected"}, {"amount": 1250001}, {"reference": "another_ref"}):
                 altered = {**packet, "data": {**packet["data"], **change}}
                 with self.assertRaises(PaymentReadbackRejected):
                     verify_gateway_intent(intent, getter=Mock(return_value=reply(altered)), inspect_pilot=True)
@@ -371,6 +393,9 @@ class DomainPilotTests(TestCase):
             intent.refresh_from_db()
             self.assertEqual(invoice.status, "void")
             self.assertEqual(intent.status, "completed")
+            event = WebhookEvent.objects.get(event_id="public-trial")
+            self.assertTrue(event.is_processed)
+            self.assertIsNotNone(event.processed_at)
             self.assertFalse(Transaction.objects.exists())
             self.assertEqual(api.post(path, {"action": "reconcile"}, format="json").data["state"], "test_payment_verified")
         api.force_authenticate(self.owner)
@@ -433,7 +458,7 @@ class DomainPilotTests(TestCase):
                 def send(_url, **kwargs):
                     body = kwargs["json"]
                     self.assertEqual(body["amount"], str(int(amount * 100)))
-                    self.assertIn("view=combined-review", body["callback_url"])
+                    self.assertIn(f"view=invoice&invoice={invoice.pk}&returning=1", body["callback_url"])
                     return reply({"status": True, "data": {"reference": body["reference"],
                          "authorization_url": "https://checkout.paystack.com/test_12345"}})
                 with patch.object(PaymentGateway, "get_secret_key", return_value="sk_test_example_fixture_0123456789"):
@@ -524,6 +549,7 @@ class DomainPilotTests(TestCase):
                     self.assertEqual(response.data["invoice_id"], invoice_id)
                     self.assertEqual(response.data["checkout_url"], "https://checkout.paystack.com/test_12345")
                     self.assertTrue(response.data["payment_started"])
+                    self.assertEqual(response.data["payment_attempt_state"], "resumable")
                 post.assert_called_once()
             invoice = Invoice.objects.get(pk=invoice_id)
             self.assertEqual(invoice.total, Decimal("12500.00"))
@@ -531,3 +557,14 @@ class DomainPilotTests(TestCase):
             self.assertEqual(self.owner.orders.count(), 1)
             self.assertEqual(invoice.status, "unpaid")
             self.assertFalse(Transaction.objects.exists())
+
+            # An expired link must be represented as reconciliation-only and never restarted.
+            invoice.payment_intents.update(expires_at=timezone.now()-timezone.timedelta(minutes=1))
+            status = api.get(f"{path}?invoice={invoice_id}")
+            self.assertEqual(status.data["payment_attempt_state"], "reconciliation_required")
+            with patch("payments.hosted_checkout.requests.post") as no_post:
+                retry = api.post(f"{path}?invoice={invoice_id}", {"action":"pay","gateway":"paystack","consent":True}, format="json")
+                self.assertIn("checkout_error", retry.data)
+                self.assertEqual(retry.data["payment_attempt_state"], "reconciliation_required")
+                no_post.assert_not_called()
+            self.assertEqual(invoice.payment_intents.count(),1)

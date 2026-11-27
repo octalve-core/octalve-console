@@ -21,9 +21,10 @@ from payments.domain_pilot_scope import (
     CART, PILOT, pilot_gateway_allowed, selected_domain_test_account_allowed, selected_domain_test_allowed,
     public_payment_test_account_allowed, public_domain_payment_test_allowed,
 )
-from payments.hosted_checkout import CheckoutRefused, reserve_hosted_checkout
+from payments.hosted_checkout import CheckoutRefused, reserve_hosted_checkout, payment_attempt_summary
 from django.db import DatabaseError
 from payments.models import PaymentIntent, WebhookEvent
+from payments.test_payment_evidence import consume_matching_test_event
 from providers.cloudflare_int01 import CloudflareINT01Denied
 from providers.connection_models import IntegrationCredentialVersion
 from providers.connection_vault import VaultUnavailable
@@ -134,8 +135,11 @@ def payment_response(user, invoice):
         link = start_cart_payment(user, invoice)
         result["checkout_url"] = link
         result["payment_started"] = True
+        result["payment_attempt_state"] = "resumable"
     except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError, ValidationError, Throttled):
-        result["payment_started"] = invoice.payment_intents.exists()
+        refreshed = cart_result(invoice.order, invoice)
+        result["payment_started"] = refreshed["payment_started"]
+        result["payment_attempt_state"] = refreshed["payment_attempt_state"]
         result["checkout_error"] = "Payment could not start. Your invoice is saved. Check the existing payment or retry."
     return result
 
@@ -230,14 +234,16 @@ def cart_result(order, invoice=None):
     invoice = invoice or order.invoices.get()
     from billing.payment_reference import verified_payment_details
     evidence = verified_payment_details(invoice) or {}
+    attempt = payment_attempt_summary(invoice)
+    attempt_state = "verified" if evidence.get("test") is True else attempt["state"]
     return {"invoice_id": invoice.pk, "invoice": invoice.invoice_number, "order": order.order_number,
             "payment_reference": evidence.get("reference"), "payment_gateway": evidence.get("gateway"),
             "verified_at": evidence.get("verified_at"),
             "total": str(invoice.total), "currency": invoice.currency,
-            "payment_verified": invoice.status == "void" and order.status == "needs_review" and bool(order.metadata[CART].get("payment_reference")),
+            "payment_verified": evidence.get("test") is True,
             "public_payment_test": order.metadata[CART].get("public_payment_test") is True,
             "lines": [{"name": line.description, "amount": str(line.subtotal), "kind": line.item_type, "domain": line.domain_name, "period": line.cycle_key} for line in order.items.all()],
-            "payment_started": invoice.payment_intents.exists(),
+            "payment_started": attempt["state"] != "not_started", "payment_attempt_state": attempt_state,
             "domains": [{"id": line.pk, "name": line.domain_name,
                          "state": "test_payment_verified" if order.metadata[CART].get("public_payment_test") is True and invoice.status == "void" and order.metadata[CART].get("payment_reference") else line.config[CART]["state"],
                          "registered_at": line.config[CART].get("registration", {}).get("registered_at"),
@@ -256,15 +262,19 @@ def confirm_payment(order):
         locked = Order.objects.select_for_update().get(pk=order.pk)
         if locked.status == "needs_review":
             return
-        if (not pilot_gateway_allowed(intent.gateway, invoice) or invoice.order_id != locked.pk
+        if (not pilot_gateway_allowed(payment.gateway, invoice) or invoice.order_id != locked.pk
+                or payment.invoice_id != invoice.pk or payment.client_id != invoice.client_id
+                or locked.client_id != invoice.client_id or locked.currency != invoice.currency
                 or invoice.status != "unpaid" or invoice.amount_paid != 0
                 or locked.status != "pending_payment" or payment.status not in ("pending", "processing")
                 or payment.reference != proof.reference or payment.amount != proof.amount
                 or payment.currency != proof.currency or payment.gateway_id != intent.gateway_id
                 or invoice.total != proof.amount or locked.total != proof.amount or invoice.currency != proof.currency):
             raise ValidationError("The payment changed during verification.")
+        verified_at = consume_matching_test_event(payment, proof)
         locked.metadata[CART]["payment_reference"] = proof.reference
-        locked.metadata[CART]["payment_verified_at"] = timezone.now().isoformat()
+        locked.metadata[CART]["payment_remote_id"] = proof.remote_id
+        locked.metadata[CART]["payment_verified_at"] = verified_at.isoformat()
         locked.status = "needs_review"
         locked.save(update_fields=["metadata", "status", "updated_at"])
         payment.status = "completed"

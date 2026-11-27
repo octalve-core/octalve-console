@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
+import {invoiceCheckoutHref} from "../components/commerce/invoice-links";
 import {ArrowLeft,ArrowRight,Loader2,ShieldCheck} from "lucide-react";
 import {OrderConfirmation,CommercePanel,CommerceCheckoutFrame,CheckoutColumns,primary} from "@/components/shared-commerce/CommerceUI";
 import {Panel} from "@/components/design-system/Panel";
@@ -206,7 +207,7 @@ export function ServiceCheckout(){
         <p className="mt-3 text-sm leading-7 text-slate-600">Order {confirmation.order_number} is linked to invoice {confirmation.invoice?.invoice_number}.
           Payment is not yet confirmed and hosting has not been activated.</p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href={`/client/order/processing?invoice=${encodeURIComponent(String(confirmation.invoice?.id))}`}
+          <Link href={invoiceCheckoutHref(confirmation.invoice?.id??"")}
             className={actionClass}>View payment and order status <ArrowRight className="h-4 w-4"/></Link>
           <Link href="/client/orders" className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium">My orders</Link>
         </div>

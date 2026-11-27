@@ -21,7 +21,7 @@ export function DomainCart({domain,amount,status,order,invoice,invoiceId,registe
  const price=amount&&Number.isFinite(Number(amount))&&Number(amount)>0?formatPlanAmount(Number(amount),"NGN"):null;
  const cart:CartView={lines:[{id:"domain:"+domain,kind:"domain",name:domain,description:"",period:"1 year",priceLabel:price??"—"}],subtotal:price??"—",tax:price?formatPlanAmount(0,"NGN"):"—",total:price??"—",busy,error,checkoutAllowed:false};
  const stage=paymentVerified?3:order?2:1;
- return <CommerceCheckoutFrame stage={stage} title={paymentVerified?"Test payment confirmed":order?"Complete your payment":"Review your order"} back={()=>router.push("/client/order/checkout?view=cart")}>
+ return <CommerceCheckoutFrame stage={stage} title={paymentVerified?"Test payment confirmed":order?"Complete your payment":"Review your order"} back={()=>router.push(invoiceId?"/client/invoices":"/client/order/checkout?view=cart")} backLabel={invoiceId?"Back to invoices":"Back to cart"}>
   <CheckoutColumns summary={<CheckoutSummary cart={cart}>
    <p className="flex items-start gap-2 text-xs text-slate-600"><ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true"/>Test checkout. No money will be charged.</p>
    {actions.map((action,index)=><button key={action.action} type="button" disabled={busy} onClick={()=>onAction(action.action)} className={(index===0?primary:secondary)+" w-full"}>{busy&&index===0?"Working…":action.text}{!busy&&index===0&&<ArrowRight size={16} aria-hidden="true"/>}</button>)}
