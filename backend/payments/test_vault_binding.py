@@ -109,3 +109,71 @@ class PaystackTestBindingTests(TestCase):
         gateway.refresh_from_db()
         self.assertFalse(gateway.test_mode)
         self.assertEqual(gateway.encrypted_secret_key,"ciphertext-vault-is-different")
+
+
+    @override_settings(CLOUD_TEST_LIFECYCLE_ENABLED=True,CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED=True,
+                       CLOUD_GATEWAY_READBACK_ENABLED=True,CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED=True)
+    def test_scheduled_refresh_only_existing_approved_current_test_binding(self):
+        from datetime import timedelta
+        from audit.models import AuditLog
+        from payments.bound_verification import refresh_bound_test_verification
+        from providers.connection_status import safe_verification_status, verification_receipts
+        gateway=PaymentGateway.objects.create(code="paystack",name="Paystack (test only)",
+            status="test",test_mode=True,
+            config={"provider_vault_connection_id":str(self.conn.pk),"provider_vault_version":1})
+        before=gateway.config.copy()
+        proof={"authenticated":True,"environment":"test","read_only":True,"payment_collection_enabled":False}
+        old=timezone.now()-timedelta(days=6)
+        IntegrationConnection.objects.filter(pk=self.conn.pk).update(updated_at=old-timedelta(minutes=1))
+        self.conn.refresh_from_db()
+        with patch("payments.bound_verification.connection_database_qualified",return_value=True),patch(
+                "payments.bound_verification.verify_chain"),patch(
+                "payments.bound_verification.paystack_readback",return_value=proof) as readback:
+            self.assertEqual(refresh_bound_test_verification(),"held")
+            readback.assert_not_called()
+            receipt=AuditLog.objects.create(actor=self.admin,action="provider_connection_test",
+                entity_type="IntegrationConnection",entity_id=str(self.conn.pk),entity_name="paystack",
+                details={"adapter":"paystack","credential_version":1,"verified":True,"read_only":True,
+                         "execution_enabled":False})
+            AuditLog.objects.filter(pk=receipt.pk).update(created_at=old)
+            self.assertEqual(refresh_bound_test_verification(),"refreshed")
+            self.assertEqual(refresh_bound_test_verification(),"fresh")
+            readback.assert_called_once_with(SECRET,"test")
+            self.conn.current_version=2
+            self.conn.save(update_fields=["current_version"])
+            self.assertEqual(refresh_bound_test_verification(),"held")
+            readback.assert_called_once()
+        gateway.refresh_from_db()
+        self.assertEqual(gateway.config,before)
+        self.assertTrue(gateway.test_mode)
+        self.assertEqual(AuditLog.objects.filter(actor__isnull=True,
+            details__source="scheduled_bound_test_readback").count(),1)
+        self.assertFalse(PaymentIntent.objects.exists())
+
+    @override_settings(CLOUD_TEST_LIFECYCLE_ENABLED=True,CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED=True,
+                       CLOUD_GATEWAY_READBACK_ENABLED=True,CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED=True)
+    def test_scheduled_refresh_rejects_failed_provider_and_live_binding(self):
+        from datetime import timedelta
+        from audit.models import AuditLog
+        from providers.connection_verification import ProviderReadbackFailed
+        from payments.bound_verification import refresh_bound_test_verification
+        gateway=PaymentGateway.objects.create(code="paystack",name="Paystack (test only)",
+            status="test",test_mode=True,config={"provider_vault_connection_id":str(self.conn.pk),
+            "provider_vault_version":1})
+        old=timezone.now()-timedelta(days=6)
+        IntegrationConnection.objects.filter(pk=self.conn.pk).update(updated_at=old-timedelta(minutes=1))
+        receipt=AuditLog.objects.create(actor=self.admin,action="provider_connection_test",
+            entity_type="IntegrationConnection",entity_id=str(self.conn.pk),entity_name="paystack",
+            details={"adapter":"paystack","credential_version":1,"verified":True,"read_only":True,
+                     "execution_enabled":False})
+        AuditLog.objects.filter(pk=receipt.pk).update(created_at=old)
+        with patch("payments.bound_verification.connection_database_qualified",return_value=True),patch(
+                "payments.bound_verification.verify_chain"),patch(
+                "payments.bound_verification.paystack_readback",side_effect=ProviderReadbackFailed()) as readback:
+            self.assertEqual(refresh_bound_test_verification(),"held")
+            gateway.test_mode=False
+            gateway.status="active"
+            gateway.save(update_fields=["test_mode","status"])
+            self.assertEqual(refresh_bound_test_verification(),"not_bound")
+            readback.assert_called_once()
+        self.assertEqual(AuditLog.objects.count(),1)
