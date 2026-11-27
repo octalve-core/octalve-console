@@ -162,8 +162,15 @@ def quote_domain(account, name, *, selected=False, public_payment_test=False, ye
         availability = supplier.check(name)
         if not availability["registrable"]:
             raise ValidationError("The domain is unavailable in the registrar sandbox.")
-        if years != 1 and years not in supplier.supported_registration_terms(name.rsplit(".",1)[1]):
-            raise ValidationError("The supplier has not confirmed this registration term.")
+        if years != 1:
+            from .supplier_catalogue import choose_candidate
+            candidate = {"adapter":"cloudflare-registrar","environment":"test",
+                "credential_verified":True,"contract_qualified":True,"available":True,
+                "terms":supplier.supported_registration_terms(name.rsplit(".",1)[1]),
+                "currency":availability["currency"],"registration_cost":availability["registration_cost"],
+                "renewal_cost":availability["renewal_cost"]}
+            if not choose_candidate([candidate], years=years):
+                raise ValidationError("The supplier has not confirmed this registration term.")
     snapshot = {"client": account, "domain": name, "amount": rate["registration"][str(years)], "years": years,
                 "price_revision": rate["revision"],
                 "registrar": binding, "supplier_quote": availability}
@@ -476,6 +483,7 @@ def domain_pilot(request):
     if request.method == "GET":
         return Response({"domain": name, "purchase": result(order) if order else None,
                          "public_payment_test": public_test,
+                         "private_multi_year": bool(selected and is_client and not public_test and not order),
                          "readiness_issues": pilot_readiness(account) if is_admin else None,
                          "payment_test_readiness_issues": pilot_readiness(account, public_payment_test=True) if is_admin else None}, headers=headers)
     if not isinstance(request.data, dict):
