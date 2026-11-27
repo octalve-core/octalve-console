@@ -140,7 +140,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
 
   async function run(action: "pay" | "reconcile", line?: number) {
     if (inFlight.current) return;
-    if(action==="pay"&&(!consent||!gateway||purchase?.payment_attempt_state==="reconciliation_required"))return;
+    if(action==="pay"&&(!consent||!gateway||purchase?.payment_attempt_state==="reconciliation_required"||waiting))return;
     inFlight.current = true;
     setBusy(true);
     setError("");

@@ -77,7 +77,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
     def get_payment_attempt(self, obj):
         from payments.hosted_checkout import payment_attempt_summary
-        if obj.status != "unpaid":
+        if obj.status != "unpaid" or getattr(self.context.get("view"), "action", None) == "list":
             return None
         return payment_attempt_summary(obj)
 

@@ -45,7 +45,7 @@ export function ClientProcessingView(){
 
   const reload=useCallback(async(id:number)=>{
     const data=await clientApi.invoice(String(id)) as unknown as InvoiceState;
-    if(!data||data.id!==id||typeof data.status!=="string"||typeof data.amount_due!=="string")
+    if(!data||Number(data.id)!==id||typeof data.status!=="string"||typeof data.amount_due!=="string")
       throw Error("Invoice response unavailable");
     setInvoice(data);setError("");setPending(false);
     return data;
@@ -89,7 +89,7 @@ export function ClientProcessingView(){
     }catch{
       setError("Secure payment could not be started or its previous attempt requires review. Do not pay twice; check your invoice or contact support.");
       payingRef.current=false;setPaying(false);
-      try{await reload(invoiceId);}catch{/* Preserve the original invoice and error. */}
+      try{await reload(invoiceId);setError("Secure payment could not be started. Check the existing invoice before retrying.");}catch{/* Preserve the original invoice and error. */}
     }
   }
 

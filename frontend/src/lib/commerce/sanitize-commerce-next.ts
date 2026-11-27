@@ -11,7 +11,12 @@ export function sanitizeCommerceNext(raw: string | null): string {
   const url=new URL(raw,"https://console.cloud.octalve.com");
   if(url.origin!=="https://console.cloud.octalve.com"||url.hash)return "";
   if(url.pathname==="/client/order/checkout"){
-   return url.search==="?view=cart"?url.pathname+url.search:"";
+   if(url.search==="?view=cart")return url.pathname+url.search;
+   const keys=[...url.searchParams.keys()];
+   const invoice=url.searchParams.get("invoice");
+   const returning=url.searchParams.get("returning");
+   if(url.searchParams.get("view")==="invoice"&&invoice&&/^[1-9][0-9]{0,14}$/.test(invoice)&&keys.length===new Set(keys).size&&keys.every(k=>["view","invoice","returning"].includes(k))&&(returning===null||returning==="1"))return url.pathname+"?view=invoice&invoice="+invoice+(returning==="1"?"&returning=1":"");
+   return "";
   }
   if(!["/client/order","/client/domains/register"].includes(url.pathname))return "";
   const keys=[...url.searchParams.keys()];
