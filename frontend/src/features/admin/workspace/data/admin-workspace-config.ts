@@ -34,6 +34,8 @@ export type AdminWorkspaceKey =
   | "service-queue";
 
 export type AdminWorkspaceRecord = {
+  publicId?:string;
+  publicReference?:string;
   id: string;
   title: string;
   subtitle: string;

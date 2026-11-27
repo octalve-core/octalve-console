@@ -75,9 +75,46 @@ jobs:
           assert 'accounts.0005_privileged_passkey_enrollment' in plan.stdout
           print('PASS: locked historical 48/217 evidence preserved; SEC01 adds one migration')
           PY
-      - name: Apply initial schema ONLY to disposable CI PostgreSQL
+      - name: Apply baseline and test real existing-row identity backfill on disposable PostgreSQL
         working-directory: backend
-        run: python manage.py migrate --noinput
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import timedelta
+          import django
+          os.environ.setdefault("DJANGO_SETTINGS_MODULE","octalve_backend.settings")
+          django.setup()
+          from django.db import connection
+          from django.db.migrations.executor import MigrationExecutor
+          from django.utils import timezone
+          from scripts.production_identity_preflight import TARGETS, original_digest, postflight
+          assert connection.settings_dict["NAME"] == "octalve_auth_ci"
+          executor = MigrationExecutor(connection)
+          baseline = [node for node in executor.loader.graph.leaf_nodes() if node not in TARGETS]
+          for target in TARGETS:
+              baseline.extend(executor.loader.disk_migrations[target].dependencies)
+          baseline = list(set(baseline))
+          executor.migrate(baseline)
+          apps = executor.loader.project_state(baseline).apps
+          User = apps.get_model("accounts","CustomUser")
+          Order = apps.get_model("orders","Order")
+          Invoice = apps.get_model("billing","Invoice")
+          owner = User.objects.create(username="legacy-owner",email="legacy-owner@example.invalid",password="!unusable")
+          other = User.objects.create(username="legacy-other",email="legacy-other@example.invalid",password="!unusable")
+          for index,user in enumerate((owner,other),1):
+              order=Order.objects.create(client_id=user.pk,order_number=f"ORD-2026-{index:05d}",total="12.00",status="pending_payment")
+              Invoice.objects.create(client_id=user.pk,order_id=order.pk,invoice_number=f"INV-2026-{index:05d}",total="12.00",amount_due="12.00",due_date=timezone.now()+timedelta(days=2))
+          before=original_digest(connection)
+          executor=MigrationExecutor(connection)
+          plan=executor.migration_plan(executor.loader.graph.leaf_nodes())
+          assert {(m.app_label,m.name) for m,reverse in plan if not reverse}==TARGETS
+          assert not any(reverse for _,reverse in plan)
+          executor.migrate(executor.loader.graph.leaf_nodes(),plan=plan)
+          assert original_digest(connection)==before
+          postflight(connection)
+          print("PASS: existing account, order and invoice records preserved; non-null unique identities populated")
+          PY
+          python manage.py migrate --noinput
       - name: Independently verify PostgreSQL schema and migration ledger
         working-directory: backend
         run: |

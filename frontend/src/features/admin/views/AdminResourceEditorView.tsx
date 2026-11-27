@@ -189,7 +189,7 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isSubmitting || queryState === null || isLoading) return;
-    if (effectiveMode === "edit" && (!activeId || sourceRecord?.id !== activeId)) {
+    if (effectiveMode === "edit" && (!activeId || (sourceRecord?.id !== activeId && sourceRecord?.publicId !== activeId))) {
       setError("This record could not be verified. Return to the list and select a valid record.");
       return;
     }
@@ -252,7 +252,7 @@ function AuthorizedAdminResourceEditorView({ resource, mode = "create" }: AdminR
       >
         {(queryState === null || isLoading) ? (
           <LoadingState title="Preparing editor" description="Loading record details for editing." />
-        ) : effectiveMode === "edit" && (!sourceRecord || sourceRecord.id !== activeId) ? (
+        ) : effectiveMode === "edit" && (!sourceRecord || (sourceRecord.id !== activeId && sourceRecord.publicId !== activeId)) ? (
           <ErrorState title="Record unavailable" description={error || "The requested record could not be verified."} />
         ) : (
           <div className="mx-auto w-full max-w-4xl">
