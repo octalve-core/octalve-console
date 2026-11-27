@@ -121,6 +121,19 @@ jobs:
                   for name, definition in constraints:
                       print('CONSTRAINT', name, definition)
           PY
+      - name: AUTH-02 postflight schema contract on disposable PostgreSQL
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os
+          from unittest.mock import patch
+          import psycopg
+          from scripts import production_webauthn_preflight as guard
+          with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as db:
+              with patch.object(guard,"EXPECTED_DATABASE","octalve_auth_ci"), patch.object(guard,"EXPECTED_ROLE","octalve_ci"):
+                  guard.verify_webauthn_postflight(db, require_empty=True)
+          print("PASS: AUTH-02 independent postflight constraints, indexes, columns and empty tables")
+          PY
       - name: Verify atomic throttle budget across concurrent database clients
         working-directory: backend
         run: |
