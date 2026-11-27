@@ -82,7 +82,7 @@ export type ExternalDNSClaimIssued = ExternalDNSClaim & {
   challenge:{type:"TXT";name:string;value:string;expires_at:string};
   next_step:string;
 };
-export type ExternalDNSClaimList = {results:ExternalDNSClaim[];execution_enabled:false};
+export type ExternalDNSClaimList = {results:ExternalDNSClaim[];execution_enabled:false;self_service?:boolean;allowed_domain?:string|null};
 export type LiveDomainDNS = {
   state:"not_connected"|"awaiting_customer_approval"|"awaiting_octalve_approval"|"revoked"|"recheck_required"|"connected";
   domain:string;read_only:true;execution_enabled:false;
@@ -411,6 +411,9 @@ export const clientApi = {
   dnsOnlyClaims(){
     return api.get<ExternalDNSClaimList>(
       apiPaths.client.domains+"dns-only-claims/");
+  },
+  verifyOwnDnsClaim(claim_id:string){
+    return api.post<ExternalDNSClaim & {next_step:string}>("/domains/domains/dns-only-self-verify/",{claim_id,accept:true,consent_version:"dns-read-v1"});
   },
   beginDnsOnlyClaim(domain_name:string){
     return api.post<ExternalDNSClaimIssued>(
