@@ -308,3 +308,67 @@ class SandboxLifecycleTests(TestCase):
         self.assertNotIn(KEY,self.order.metadata)
         self.assertTrue(WebhookEvent.objects.get().is_processed)
         self.assert_no_live_rows()
+
+
+    def test_customer_domain_workspace_and_dns_are_isolated(self):
+        from domains.models import Domain, DNSRecord
+        self.confirmed()
+        path="/api/domains/sandbox-domains/"
+        api=APIClient()
+        api.force_authenticate(self.owner)
+        result=api.get(path)
+        self.assertEqual(result.status_code,200,result.data)
+        domain=result.data["domains"][0]
+        self.assertTrue(domain["payment_verified"])
+        self.assertTrue(domain["dns_editable"])
+        self.assertFalse(domain["live_dns"])
+        self.assertEqual(domain["registration"],"not_confirmed")
+        endpoint=path+str(domain["id"])+"/dns/"
+        record={"type":"A","name":"www","value":"192.0.2.1","ttl":3600,"priority":None}
+        reply1=api.post(endpoint,{"action":"create","record":record},format="json")
+        self.assertEqual(reply1.status_code,200,reply1.data)
+        rid=reply1.data["records"][0]["id"]
+        self.assertEqual(api.post(endpoint,{"action":"create","record":record},format="json").status_code,400)
+        self.assertEqual(api.post(endpoint,{"action":"update","id":rid,"record":{**record,"value":"bad"}},format="json").status_code,400)
+        changed=api.post(endpoint,{"action":"update","id":rid,"record":{**record,"value":"192.0.2.2"}},format="json")
+        self.assertEqual(changed.status_code,200,changed.data)
+        self.assertEqual(api.get(path).data["domains"][0]["records"][0]["value"],"192.0.2.2")
+        other=get_user_model().objects.create_user(username="other-test-domain",email="other-domain@example.test",
+            role="client",email_verified_at=timezone.now())
+        api.force_authenticate(other)
+        self.assertEqual(api.get(path).data["domains"],[])
+        self.assertEqual(api.post(endpoint,{"action":"delete","id":rid},format="json").status_code,404)
+        api.force_authenticate(self.owner)
+        self.assertEqual(api.post(endpoint,{"action":"delete","id":rid},format="json").data["records"],[])
+        self.assertFalse(Domain.objects.exists())
+        self.assertFalse(DNSRecord.objects.exists())
+        self.assert_no_live_rows()
+
+    def test_customer_open_recovers_historical_payment_and_rehearsal(self):
+        from billing.payment_reference import verified_payment_details
+        from payments.test_lifecycle import rehearse_verified_test
+        self.confirmed()
+        event=WebhookEvent.objects.get()
+        event.is_processed=False
+        event.processed_at=None
+        event.save(update_fields=["is_processed","processed_at"])
+        self.order.metadata[CART].pop("payment_remote_id")
+        self.order.metadata.pop(KEY)
+        self.order.save(update_fields=["metadata"])
+        self.invoice.refresh_from_db()
+        self.assertIsNone(verified_payment_details(self.invoice))
+        api=APIClient()
+        api.force_authenticate(self.owner)
+        path="/api/domains/sandbox-domains/"
+        self.assertFalse(api.get(path).data["domains"][0]["dns_editable"])
+        with patch.object(PaymentGateway,"get_secret_key",return_value=self.secret),patch(
+                "payments.readback.requests.get",return_value=reply(self.packet)) as readback:
+            result=api.post(path,{"action":"sync"},format="json")
+            self.assertEqual(result.status_code,200,result.data)
+            self.assertTrue(result.data["domains"][0]["dns_editable"])
+            self.assertTrue(api.post(path,{"action":"sync"},format="json").data["domains"][0]["dns_editable"])
+            readback.assert_called_once()
+        self.invoice.refresh_from_db()
+        self.assertTrue(verified_payment_details(self.invoice)["test"])
+        self.assertEqual(rehearse_verified_test(self.invoice.pk)["payment"]["status"],"verified_test")
+        self.assert_no_live_rows()
