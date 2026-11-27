@@ -121,6 +121,7 @@ class InvoiceDocument:
     account_reference: str = ""
     order_reference: str = ""
     payment_reference: str = ""
+    payment_reference_test: bool = False
 
 
 def _document(invoice):
@@ -141,7 +142,8 @@ def _document(invoice):
         public_reference=_clean(invoice.public_reference, 40),
         account_reference=_clean(client.public_reference, 40),
         order_reference=_clean(invoice.order.public_reference, 40) if invoice.order_id else "",
-        payment_reference=_clean(evidence.get("reference"), 100) if not evidence.get("test") else "",
+        payment_reference=_clean(evidence.get("reference"), 100),
+        payment_reference_test=evidence.get("test") is True,
         invoice_number=_clean(invoice.invoice_number, 40),
         status=_clean(invoice.status, 24).upper(),
         issue_date=_date(invoice.issue_date),

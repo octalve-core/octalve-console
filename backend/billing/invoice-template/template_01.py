@@ -145,7 +145,7 @@ def render(document: "InvoiceDocument") -> bytes:
     references = [("Invoice reference", document.public_reference),
                   ("Account reference", document.account_reference),
                   ("Order reference", document.order_reference),
-                  ("Verified payment reference", document.payment_reference)]
+                  ("Verified test reference" if document.payment_reference_test else "Verified payment reference", document.payment_reference)]
     for label, value in references:
         if value:
             ensure(30)
