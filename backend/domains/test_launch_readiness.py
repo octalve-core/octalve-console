@@ -63,7 +63,7 @@ class RegistrarLaunchTests(TestCase):
             self.assertEqual(self.api.post(URL,{**self.payload,"auth_code":"NEVER"},format="json").status_code,400)
             vendor.assert_not_called()
     def test_exact_registration_requires_processed_event_and_pinned_binding(self):
-        snapshot={"domain":"launch-test.com","state":"registered","payment_reference":"OC"+"A"*30,"payment_remote_id":"12345","registrar":{"connection":"fixture","version":1}}
+        snapshot={"domain":"launch-test.com","state":"registered","payment_reference":"OC"+"A"*30,"payment_remote_id":"12345","payment_verified_at":timezone.now().isoformat(),"registrar":{"connection":"fixture","version":1}}
         order=Order.objects.create(client=self.owner,status="needs_review",total=Decimal("17000"),subtotal=Decimal("17000"),metadata={PILOT:snapshot})
         OrderItem.objects.create(order=order,product_id=0,plan_id=0,billing_cycle_id=0,item_type="domain",description="Test",domain_name=snapshot["domain"],unit_price=Decimal("17000"),cycle_key="1yr",months=12)
         invoice=Invoice.objects.create(order=order,client=self.owner,status="void",subtotal=order.total,total=order.total,due_date=timezone.now(),metadata={PILOT:True})
