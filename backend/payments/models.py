@@ -102,7 +102,7 @@ class PaymentGateway(models.Model):
 class Transaction(models.Model):
     """Payment transactions"""
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    public_reference = models.CharField(max_length=24, default=reference_txn, unique=True, editable=False)
+    public_reference = models.CharField(max_length=28, default=reference_txn, unique=True, editable=False)
     
     STATUS_CHOICES = [
         ('pending', 'Pending'),

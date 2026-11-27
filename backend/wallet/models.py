@@ -15,7 +15,7 @@ from decimal import Decimal
 class Wallet(models.Model):
     """Customer wallet for credits"""
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    public_reference = models.CharField(max_length=24, default=reference_wlt, unique=True, editable=False)
+    public_reference = models.CharField(max_length=28, default=reference_wlt, unique=True, editable=False)
     
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wallet')
     currency = models.CharField(max_length=3, default='NGN')

@@ -18,7 +18,7 @@ import string
 class Order(models.Model):
     """Customer orders for products/services"""
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    public_reference = models.CharField(max_length=24, default=reference_ord, unique=True, editable=False)
+    public_reference = models.CharField(max_length=28, default=reference_ord, unique=True, editable=False)
     
     STATUS_CHOICES = [
         ('draft', 'Draft'),

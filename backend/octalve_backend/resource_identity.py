@@ -5,8 +5,8 @@ ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 
 def make_reference(kind):
-    random = "".join(secrets.choice(ALPHABET) for _ in range(12))
-    return "OC-" + kind + "-" + "-".join(random[i:i+4] for i in range(0, 12, 4))
+    random = "".join(secrets.choice(ALPHABET) for _ in range(16))
+    return "OC-" + kind + "-" + "-".join(random[i:i+4] for i in range(0, 16, 4))
 
 def reference_acc():
     return make_reference("ACC")

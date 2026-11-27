@@ -15,7 +15,7 @@ from decimal import Decimal
 class Service(models.Model):
     """Customer services (hosting, VPS, domains, SSL, etc.)"""
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    public_reference = models.CharField(max_length=24, default=reference_svc, unique=True, editable=False)
+    public_reference = models.CharField(max_length=28, default=reference_svc, unique=True, editable=False)
     
     STATUS_CHOICES = [
         ('pending', 'Pending Provisioning'),
