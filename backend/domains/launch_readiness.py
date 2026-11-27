@@ -28,7 +28,9 @@ def price_review(row):
     draft=rate_card_draft(row)
     published=row.metadata.get("published_registrar") if isinstance(row.metadata,dict) else None
     published=published if isinstance(published,dict) and type(published.get("revision")) is int and row.status=="active" else None
-    return {"tld":row.tld,"currency":"NGN","published_revision":published["revision"] if published else None,
+    from .supplier_catalogue import KEY
+    catalogue = row.metadata.get(KEY, {}) if isinstance(row.metadata, dict) else {}
+    return {"tld":row.tld,"currency":"NGN","sandbox_catalogue":catalogue,"published_revision":published["revision"] if published else None,
         "draft_revision":draft["revision"],"published": {
             "registration":str(row.register_price),"renewal":str(row.renewal_price),
         } if published else None,
