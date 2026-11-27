@@ -99,8 +99,10 @@ requires("features/client/components/ClientDomainSearch.tsx",["Try another name"
 requires("features/client/checkout/cart-selections.ts",["recoverAccountCart","scopedKey","subtotal","return account;"]);
 
 requires("features/client/checkout/cart-selections.ts",["pendingWrite","mutationVersion","configureCartItem","version!==mutationVersion"]);
-requires("features/client/checkout/ClientCartShortcuts.tsx",["<CartTrigger count={null}","count={snapshot?.lines.length??draft?.length??count}"]);
+requires("features/client/checkout/ClientCartShortcuts.tsx",["<CartTrigger count={null}","count={count}","readCart(account,false)"]);
 
+requires("components/layout/DashboardShell.tsx",["ClientCartCountContext.Provider value={cartCount}","ClientCartButton count={cartCount}"]);
+requires("features/client/checkout/ClientPurchaseShortcuts.tsx",["useContext(ClientCartCountContext)","href={cartHref}"]);
 requires("features/client/checkout/CheckoutBillingDetails.tsx",["authApi.saveProfile","ClientProfileDetailsForm","Your account email cannot be changed here"]);
 requires("features/client/checkout/CartView.tsx",["<ClientDomainSearch discovery","CommerceRecommendations","Billing period","CheckoutBillingDetails"]);
 requires("features/client/checkout/CombinedCartCheckout.tsx",["VerifiedPaymentReceipt","Download test invoice","payment_reference","CheckoutBillingDetails"]);
@@ -110,6 +112,8 @@ requires("features/client/checkout/CombinedCartCheckout.tsx",["action:\"pay\"","
 
 requires("features/client/checkout/CartView.tsx",["CartDomainSearchPanel","draftCartAmounts"]);
 requires("features/client/checkout/ClientCartShortcuts.tsx",["draftCartAmounts"]);
+requires("components/layout/DashboardShell.tsx",["ClientCartCountContext.Provider value={cartCount}","ClientCartButton count={cartCount}"]);
+requires("features/client/checkout/ClientPurchaseShortcuts.tsx",["useContext(ClientCartCountContext)","href={cartHref}"]);
 requires("features/client/checkout/CheckoutBillingDetails.tsx",["<ClientProfileDetailsForm embedded"]);
 
 requires("features/client/checkout/CartView.tsx",["hostingPicker:{load:loadHostingOffers","revision:offer.revision,domain},true)"]);
