@@ -21,9 +21,8 @@ def consume_matching_test_event(payment, proof):
         raise ValidationError("Payment evidence changed before confirmation.")
     events = list(WebhookEvent.objects.select_for_update().filter(
         gateway_id=payment.gateway_id, is_verified=True, event_type="charge.success",
-        payload__intent_id=payment.pk, payload__reference=proof.reference,
-        payload__remote_id=proof.remote_id).order_by("pk")[:2])
-    if len(events) != 1 or events[0].is_processed:
+        payload__intent_id=payment.pk, payload__reference=proof.reference).order_by("pk")[:2])
+    if len(events) != 1 or events[0].is_processed or events[0].payload.get("remote_id") != proof.remote_id:
         raise ValidationError("Exactly one unprocessed matching signed payment notification is required.")
     event = events[0]
     now = timezone.now()
