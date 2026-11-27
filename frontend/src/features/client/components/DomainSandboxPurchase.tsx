@@ -9,6 +9,7 @@ import { removeFromCart } from "../checkout/cart-selections";
 
 const endpoint = "/api/cloud/domains/sandbox-purchase/";
 type Purchase = {
+  test_lifecycle?:unknown;
   order: string;
   invoice: string;
   invoice_id?: number;
@@ -159,7 +160,7 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
     status={purchase ? labels[purchase.state] : undefined} order={purchase?.order_reference??purchase?.order} invoice={purchase?.invoice_reference??purchase?.invoice}
     invoiceId={purchase?.invoice_public_id??purchase?.invoice_id}
     registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={purchase?.payment_verified===true}
-    gatewayOptions={purchase?.gateway_options??[]} paymentReference={purchase?.payment_reference} verifiedAt={purchase?.verified_at} paymentGateway={purchase?.payment_gateway} checkoutState={purchase?.checkout_state}
+    testLifecycle={purchase?.test_lifecycle} gatewayOptions={purchase?.gateway_options??[]} paymentReference={purchase?.payment_reference} verifiedAt={purchase?.verified_at} paymentGateway={purchase?.payment_gateway} checkoutState={purchase?.checkout_state}
     publicPaymentTest={overview.public_payment_test===true} actions={buttons} busy={busy} error={error} onAction={(action,gateway,consent) => void submit(action,gateway,consent)}/>;
 
   return (

@@ -7,6 +7,7 @@ import {CommerceCheckoutFrame,CheckoutColumns,CheckoutSummary,CommercePanel,Cart
 import type {CartView,GatewayOption,GatewayCode} from "@/components/shared-commerce/types";
 import {formatPlanAmount} from "../data/client-order-data";
 import {invoiceDownloadHref,invoiceHref} from "../components/commerce/invoice-links";
+import {TestLifecyclePanel} from "@/components/modules/TestLifecyclePanel";
 import {PendingInvoiceReferences} from "./PendingInvoiceReferences";
 
 type Action = {action:string;text:string};
@@ -15,9 +16,10 @@ export function checkoutDate(value?:string|null){
   const date=new Date(value);
   return Number.isNaN(date.getTime())?"Pending confirmation":new Intl.DateTimeFormat("en-NG",{dateStyle:"medium",timeZone:"Africa/Lagos"}).format(date);
 }
-export function DomainCart({domain,amount,status,order,invoice,invoiceId,registeredAt,expiresAt,paymentVerified,publicPaymentTest=false,actions,busy,error,onAction,gatewayOptions,paymentReference,verifiedAt,paymentGateway,checkoutState}:{
+export function DomainCart({domain,amount,status,order,invoice,invoiceId,registeredAt,expiresAt,paymentVerified,publicPaymentTest=false,actions,busy,error,onAction,gatewayOptions,paymentReference,verifiedAt,paymentGateway,checkoutState,testLifecycle}:{
  domain:string;amount?:string;status?:string;order?:string;invoice?:string;invoiceId?:number|string;registeredAt?:string|null;expiresAt?:string|null;
  paymentVerified:boolean;publicPaymentTest?:boolean;actions:readonly Action[];busy:boolean;error:string;onAction:(action:string,gateway?:GatewayCode,consent?:boolean)=>void;
+ testLifecycle?:unknown;
  gatewayOptions:readonly GatewayOption[];paymentReference?:string;verifiedAt?:string;paymentGateway?:string;checkoutState?:string;
 }){
  const router=useRouter();
@@ -31,7 +33,7 @@ export function DomainCart({domain,amount,status,order,invoice,invoiceId,registe
  const details=<PendingInvoiceReferences invoice={invoice} order={order} invoiceId={invoiceId}/>;
  const registration=paymentVerified&&!publicPaymentTest?<CommercePanel><h3 className="font-medium">Domain registration</h3><p className="mt-2 text-sm text-slate-600">{status}</p>{(registeredAt||expiresAt)&&<dl className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-3"><dt className="flex items-center gap-2 text-xs text-slate-500"><CalendarDays size={16} aria-hidden="true"/>Registration date</dt><dd className="mt-1 text-sm">{checkoutDate(registeredAt)}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Expiry date</dt><dd className="mt-1 text-sm">{checkoutDate(expiresAt)}</dd></div></dl>}{actions.filter(a=>a.action!=="checkout").map(a=><button key={a.action} type="button" className={secondary+" mt-3"} disabled={busy} onClick={()=>onAction(a.action)}>{a.text}</button>)}</CommercePanel>:null;
  return <CommerceCheckoutFrame stage={stage} title={paymentVerified?"Payment confirmation":order?"Complete your payment":"Review your order"} back={()=>router.push(invoiceId?"/client/invoices":"/client/order/checkout?view=cart")} backLabel={invoiceId?"Back to invoices":"Back to cart"}>
-  {paymentVerified&&order&&invoice?<VerifiedPaymentReceipt amount={cart.total} reference={paymentReference} order={order} invoice={invoice} method={paymentGateway==="paystack"?"Paystack":paymentGateway} paidAt={verifiedAt?new Date(verifiedAt).toLocaleString("en-NG"):undefined} test actions={<><Link href="/client" className={primary}>Go to dashboard</Link>{invoiceId&&<a href={invoiceDownloadHref(invoiceId)} className={secondary}>Download invoice</a>}</>}><CartItem line={cart.lines[0]} readOnly remove={()=>{}} configure={()=>{}}/>{registration}</VerifiedPaymentReceipt>:
+  {paymentVerified&&order&&invoice?<VerifiedPaymentReceipt amount={cart.total} reference={paymentReference} order={order} invoice={invoice} method={paymentGateway==="paystack"?"Paystack":paymentGateway} paidAt={verifiedAt?new Date(verifiedAt).toLocaleString("en-NG"):undefined} test actions={<><Link href="/client" className={primary}>Go to dashboard</Link>{invoiceId&&<a href={invoiceDownloadHref(invoiceId)} className={secondary}>Download invoice</a>}</>}><CartItem line={cart.lines[0]} readOnly remove={()=>{}} configure={()=>{}}/>{registration}<TestLifecyclePanel value={testLifecycle}/></VerifiedPaymentReceipt>:
   <CheckoutColumns summary={<CheckoutSummary cart={cart}>
    {order?<><PaymentGatewayChoices options={options} selected={selected} onChange={setGateway}/>
     {canPay?<><CheckoutConsent checked={consent} onChange={setConsent} disabled={busy}/><button type="button" disabled={busy||!consent} onClick={()=>onAction("checkout",selected??undefined,consent)} className={primary+" w-full"}>{busy?"Preparing secure payment…":"Pay now"}{!busy&&<ArrowRight size={16} aria-hidden="true"/>}</button></>:<p role="status" className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Your previous payment needs confirmation, or the payment method is temporarily unavailable. If you have already paid, do not pay again.</p>}

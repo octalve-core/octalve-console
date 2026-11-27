@@ -90,7 +90,8 @@ def record_confirmed_test(invoice, payment, order, proof, verified_at):
         "welcome": {"reference": _identity(order, 0, "welcome"), "status": "simulated_queued",
                     "subject": "[TEST] Your Octalve Cloud order is ready for review",
                     "body": "Sandbox lifecycle completed. No domain, hosting account or credentials were issued. Review your order in the signed-in Console."},
-        "renewals": [], "refund": {"status": "not_requested"}}
+        "renewals": [], "refund": {"status": "not_requested"},
+        "next_due_at": min(row["next_due"] for row in rows)}
 
 
 def _locked_verified(invoice_id):
@@ -142,6 +143,8 @@ def advance_renewals(invoice_id, *, at=None):
                 "amount": item["amount"], "currency": invoice.currency, "pricing": "original_test_amount"})
             changed = True
     if changed:
+        remaining=[i["next_due"] for i in value["items"] if i["reference"] not in {r["service_reference"] for r in value["renewals"]}]
+        value["next_due_at"]=min(remaining) if remaining else None
         order.metadata[KEY] = value
         order.save(update_fields=["metadata", "updated_at"])
     return changed
@@ -157,6 +160,7 @@ def simulate_refund(invoice_id):
                        "amount": str(invoice.total), "currency": invoice.currency}
     for item in value["items"]:
         item["status"] = "simulated_cancelled"
+    value["next_due_at"]=None
     order.metadata[KEY] = value
     order.save(update_fields=["metadata", "updated_at"])
     return value
@@ -257,8 +261,10 @@ def run_due_work():
         except (ValidationError, DatabaseError, CheckoutRefused, PaymentReadbackRejected):
             counters["held"] += 1
     # Mark work as complete for each simulated cycle; no repeating invoices.
-    candidates = Invoice.objects.filter(status="void",order__metadata__has_key=KEY).select_related("order").order_by("pk")
     now=timezone.now()
+    candidates = Invoice.objects.filter(status="void",order__metadata__test_lifecycle_v1__refund__status="not_requested",
+        order__metadata__test_lifecycle_v1__next_due_at__lte=now.isoformat(),
+        order__metadata__test_lifecycle_v1__next_due_at__isnull=False).exclude(order__metadata__test_lifecycle_v1__next_due_at=None).select_related("order").order_by("pk")[:40]
     count=0
     for invoice in candidates.iterator(chunk_size=100):
         value=safe_snapshot(invoice.order)
