@@ -1,4 +1,5 @@
 """Read-only payment evidence shared by customer display and test rehearsals."""
+from decimal import Decimal, InvalidOperation
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from audit.models import AuditLog
@@ -41,9 +42,12 @@ def test_payment_evidence(invoice):
     receipts=list(AuditLog.objects.filter(entity_type="HistoricalTestPayment",entity_id=str(event.pk),
         entity_name=invoice.public_reference,details__independent_verification=True,
         details__fulfillment_authorized=False,details__test=True,details__reference=intent.reference,
-        details__remote_id=remote,details__amount=str(intent.amount),details__currency=intent.currency)[:2])
+        details__remote_id=remote,details__currency=intent.currency)[:2])
     try:
         if len(receipts)==1:
+            amount=Decimal(receipts[0].details.get("amount",""))
+            if not amount.is_finite() or amount!=intent.amount:
+                return None
             verified=parse_datetime(receipts[0].details.get("verified_at") or "")
         elif not receipts and state.get("payment_remote_id")==remote:
             verified=parse_datetime(state.get("payment_verified_at") or "")
@@ -51,7 +55,7 @@ def test_payment_evidence(invoice):
             return None
         if not verified or timezone.is_naive(verified) or verified>timezone.now():
             return None
-    except (TypeError,ValueError,OverflowError):
+    except (InvalidOperation,TypeError,ValueError,OverflowError):
         return None
     return {"reference":intent.reference,"gateway":"paystack","verified_at":verified,
             "remote_id":remote,"test":True,"historical":bool(receipts)}
