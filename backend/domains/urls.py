@@ -5,6 +5,7 @@ from .tld_pricing_admin import admin_tld_price_cards, publish_tld_price_card
 from .pilot import domain_pilot
 from .launch_views import registrar_launch_review
 from .combined_cart import combined_cart
+from .sandbox_workspace import sandbox_domains, sandbox_dns
 from rest_framework.routers import DefaultRouter
 from .views import (
     DomainViewSet, DNSRecordViewSet, TLDPricingViewSet,
@@ -19,6 +20,8 @@ router.register(r'search', DomainSearchViewSet, basename='domain-search')
 router.register(r'ssl-certificates', SSLCertificateViewSet, basename='ssl-certificate')
 
 urlpatterns = [
+    path("sandbox-domains/", sandbox_domains, name="customer-sandbox-domains"),
+    path("sandbox-domains/<int:item_id>/dns/", sandbox_dns, name="customer-sandbox-dns"),
     path("admin/launch-review/", registrar_launch_review, name="registrar-launch-review"),
     path("combined-cart/", combined_cart, name="combined-domain-cart"),
     path("sandbox-purchase/", domain_pilot, name="domain-sandbox-purchase"),
