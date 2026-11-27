@@ -420,6 +420,8 @@ def recover_locally_blocked_submission(order, supplier):
                     payload__remote_id=snapshot.get("payment_remote_id"),
                 ).exists()):
             return False
+        from .sandbox_fulfillment import assert_private_domain_unclaimed
+        assert_private_domain_unclaimed([snapshot["domain"]], order_id=locked.pk)
         snapshot["sandbox_submission_reserved"] = True
         locked.save(update_fields=["metadata", "updated_at"])
     submit_reserved_registration(locked, supplier, contact)
