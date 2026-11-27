@@ -63,6 +63,8 @@ class TestLifecycleAdminView(APIView):
                 rehearse_verified_test(invoice.pk)
             elif action=="renewal_rehearsal":
                 value=safe_snapshot(invoice.order)
+                if value["refund"]["status"] != "not_requested":
+                    raise ValidationError("A refunded rehearsal cannot generate a renewal invoice.")
                 due=max(parse_datetime(item["next_due"]) for item in value["items"])
                 advance_renewals(invoice.pk,at=due)
             else:

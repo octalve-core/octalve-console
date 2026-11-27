@@ -168,7 +168,8 @@ class DomainViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
         """Only return a confirmed existing domain-renewal invoice; never mutate."""
         if getattr(request.user, 'role', '') != 'client' or not request.user.is_active:
             return Response({'detail': 'Unavailable.'}, status=404)
-        domain = get_object_or_404(Domain, pk=pk, client_id=request.user.pk)
+        from octalve_backend.resource_lookup import resource_lookup
+        domain = get_object_or_404(Domain, client_id=request.user.pk, **resource_lookup(pk))
         if domain.management_kind == "dns_only":
             return Response({
                 'domain_id': domain.pk, 'state': 'unavailable',
@@ -190,6 +191,7 @@ class DomainViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
                 else 'unavailable'
             ),
             'invoice_id': invoice.pk if invoice else None,
+            'invoice_public_id': str(invoice.public_id) if invoice else None,
             'auto_renew': domain.auto_renew,
             'registration_date': domain.registration_date.isoformat(),
             'expiry_date': domain.expiry_date.isoformat(),
