@@ -38,6 +38,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from .serializers import CustomUserCreateSerializer, CustomerListSerializer, CustomerDetailSerializer, CustomerCreateSerializer, CustomerUpdateSerializer
+from .session_tokens import REFRESH_ID, ConsoleRefreshToken, ConsoleTokenRefreshSerializer, revoke_legacy_access
 import logging
 
 logger = logging.getLogger(__name__)
@@ -75,7 +76,7 @@ User = get_user_model()
 #                 user = serializer.save()
                 
 #                 # Generate JWT tokens for immediate login
-#                 refresh = RefreshToken.for_user(user)
+#                 refresh = ConsoleRefreshToken.for_user(user)
                 
 #                 # Return response with user data and tokens
 #                 return Response({
@@ -112,7 +113,7 @@ class CustomUserCreateView(CreateAPIView):
 
         if serializer.is_valid():
             user = serializer.save()
-            refresh = RefreshToken.for_user(user)
+            refresh = ConsoleRefreshToken.for_user(user)
 
             return Response({
                 "access": str(refresh.access_token),
@@ -198,6 +199,8 @@ class CustomUserCreateNoTokenView(CreateAPIView):
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    token_class = ConsoleRefreshToken
+
     """
     Login with email OR username.
     Handles lockout, LoginHistory, and returns custom user payload.
@@ -312,7 +315,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 
 class CustomTokenRefreshView(TokenRefreshView):
-    """Use pinned SimpleJWT rotation, blacklist and active-user checks."""
+    """Use SimpleJWT rotation with access bound to the current refresh token."""
+    serializer_class = ConsoleTokenRefreshSerializer
 
 
 class CustomLogoutView(APIView):
@@ -341,7 +345,15 @@ class CustomLogoutView(APIView):
                     {'error': 'Refresh token does not belong to this account.'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-            token.blacklist()
+            bound_refresh = request.auth.get(REFRESH_ID) if request.auth else None
+            if bound_refresh and bound_refresh != token[api_settings.JTI_CLAIM]:
+                return Response(
+                    {'error': 'Refresh token does not belong to this session.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            with transaction.atomic():
+                token.blacklist()
+                revoke_legacy_access(request.auth, request.user)
         except TokenError:
             django_logout(request)
             return Response(
@@ -404,7 +416,7 @@ class SimpleCustomTokenObtainPairView(TokenObtainPairView):
         
         # If user found, create token with standard flow
         if user:
-            refresh = RefreshToken.for_user(user)
+            refresh = ConsoleRefreshToken.for_user(user)
             return Response({
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),

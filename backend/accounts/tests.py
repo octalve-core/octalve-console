@@ -112,11 +112,27 @@ class CloudAccountApiTests(APITestCase):
         )
         self.assertEqual(out.status_code, status.HTTP_200_OK, out.data)
         self.assertEqual(BlacklistedToken.objects.count(), 1)
+        denied = self.client.get('/api/auth/me/')
+        self.assertEqual(denied.status_code, status.HTTP_401_UNAUTHORIZED, denied.data)
         self.client.credentials()
         invalid = self.client.post(
             '/api/auth/jwt/refresh/', {'refresh': signup.data['refresh']}, format='json'
         )
         self.assertEqual(invalid.status_code, status.HTTP_401_UNAUTHORIZED, invalid.data)
+
+    def test_rotated_access_is_bound_to_new_refresh(self):
+        signup = self.register()
+        rotated = self.client.post(
+            '/api/auth/jwt/refresh/', {'refresh': signup.data['refresh']}, format='json'
+        )
+        self.assertEqual(rotated.status_code, status.HTTP_200_OK, rotated.data)
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + signup.data['access'])
+        self.assertEqual(self.client.get('/api/auth/me/').status_code, status.HTTP_401_UNAUTHORIZED)
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + rotated.data['access'])
+        self.assertEqual(self.client.get('/api/auth/me/').status_code, status.HTTP_200_OK)
+        logout = self.client.post('/api/auth/logout/', {'refresh': rotated.data['refresh']}, format='json')
+        self.assertEqual(logout.status_code, status.HTTP_200_OK, logout.data)
+        self.assertEqual(self.client.get('/api/auth/me/').status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_missing_refresh_does_not_claim_successful_revocation(self):
         signup = self.register()
