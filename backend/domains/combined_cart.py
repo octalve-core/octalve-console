@@ -208,6 +208,9 @@ def accept_cart(user, data):
             raise ValidationError("Domain pricing changed. Review the current prices.")
         if not public_test:
             registrar(domain)
+    if not public_test:
+        from .sandbox_fulfillment import assert_private_domain_unclaimed
+        assert_private_domain_unclaimed(names)
     items = services_for(services)
     lines = lines_for(domains, items)
     if lines != snapshot["lines"]:
@@ -315,6 +318,8 @@ def reconcile_line(order, line_id):
             return
         submit = state == "awaiting_payment"
         if submit:
+            from .sandbox_fulfillment import assert_private_domain_unclaimed
+            assert_private_domain_unclaimed([locked.domain_name], order_id=order.pk)
             locked.config[CART]["state"] = "registration_uncertain"
             OrderItem.objects.filter(pk=locked.pk).update(config=locked.config)
     try:
