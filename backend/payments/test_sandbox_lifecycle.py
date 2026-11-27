@@ -121,6 +121,7 @@ class SandboxLifecycleTests(TestCase):
         self.assertEqual(result.status_code,200,result.data)
         self.assertEqual(result.data["test_lifecycle"]["refund"]["status"],"simulated_refund")
         self.assertFalse(advance_renewals(self.invoice.pk,at=timezone.now()+timedelta(days=400)))
+        self.assertEqual(api.post(path,payload,format="json").status_code,400)
         self.assertEqual(Invoice.objects.count(),1)
         self.assert_no_live_rows()
     def test_scheduled_work_guard_and_historical_readonly(self):

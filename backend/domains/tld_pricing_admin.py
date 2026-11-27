@@ -78,6 +78,8 @@ def rate_card_draft(row):
         "revision": saved.get("revision", 0) if type(saved.get("revision", 0)) is int else 0,
         "updated_at": row.updated_at.isoformat(),
         "publication": "inactive_draft",
+        "published_status": row.status,
+        "published_prices": {"registration": str(row.register_price), "renewal": str(row.renewal_price), "transfer": str(row.transfer_price)} if row.status == "active" else None,
         "published_registrar": metadata.get("published_registrar") if row.status == "active" else None,
         "registrar_quote_verified": False,
         "checkout_enabled": False,

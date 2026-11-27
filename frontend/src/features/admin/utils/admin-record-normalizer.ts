@@ -42,7 +42,7 @@ export function normalizeAdminRecord(value:unknown,key:AdminResourceKey):AdminRe
  const dateISO=isoDate(item.created_at)||isoDate(item.updated_at)||isoDate(item.date)||isoDate(item.expiry);
  const amount=readAdminString(item,["total","price","amount","balance","credited"],"");
  const currency=readAdminString(item,["currency","currency_code"],"").trim().toUpperCase();
- return {id,publicId,publicReference,testLifecycle:item.test_lifecycle,verifiedTest:item.test_checkout_status===true,title,subtitle,meta,reference,amount:amount&&/^[A-Z]{3}$/.test(currency)?displayMoney(amount,currency,"en"):amount,
+ return {id,publicId,publicReference,testLifecycle:item.test_lifecycle,verifiedTest:item.test_checkout_status===true,testDomain:Array.isArray(item.items)?item.items.find(x=>x&&typeof x.domain_name==="string"&&x.domain_name)?.domain_name:undefined,title,subtitle,meta,reference,amount:amount&&/^[A-Z]{3}$/.test(currency)?displayMoney(amount,currency,"en"):amount,
   status:readAdminString(item,["status","state","payment_status"],"Unknown"),
   date:dateISO?dateText(dateISO):readAdminString(item,["date","created_at","updated_at","expiry"],""),
   dateISO,actionHref:getAdminResourceBasePath(key)+"/"+encodeURIComponent(publicId)};

@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {ArrowLeft} from "lucide-react";
+import {RegistrarLaunchReview} from "../components/RegistrarLaunchReview";
 import {AdminTestLifecyclePanel,TestLifecyclePanel} from "@/components/modules/TestLifecyclePanel";
 import {AdminRecordDetailPanel} from "../components/AdminRecordDetailPanel";
 import {ActionLink} from "@/components/design-system/ActionLink";
@@ -105,6 +106,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
               actions={[...(resource==="providers"?[]:isAdminMutationDisabled(resource)?[]:[{href:editHref,label:"Edit record",variant:"primary" as const}]),
                 {href:editorConfig.listHref,label:"Back to records",variant:"outline"}]}/>
             {resource==="invoices"?<AdminTestLifecyclePanel key={record.id} invoiceId={record.publicId??record.id} value={record.testLifecycle} verifiedTest={record.verifiedTest}/>:resource==="orders"?<TestLifecyclePanel value={record.testLifecycle}/>:null}
+            {resource==="invoices"&&record.verifiedTest?<RegistrarLaunchReview key={"registrar-"+record.id} invoiceId={record.publicId??record.id} initialDomain={record.testDomain??""}/>:null}
             {resource==="domains"?<div className="mt-4">
               <ActionLink variant="outline" href={`/admin/billing/domains/${encodeURIComponent(record.id)}/dns`}>
                 Review customer DNS access
