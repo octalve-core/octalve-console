@@ -4,11 +4,16 @@ import { ServiceCartCheckout } from "@/features/client/checkout/ServiceCartCheck
 import { CombinedCartCheckout } from "@/features/client/checkout/CombinedCartCheckout";
 import { CartView } from "@/features/client/checkout/CartView";
 import { redirect } from "next/navigation";
+import {ClientProcessingView} from "@/features/client/views/ClientProcessingView";
 
 export default async function ClientCheckoutPage({searchParams}: {
   searchParams: Promise<{domain?: string; product?: string; plan?: string; cycle?: string; category?: string; revision?: string; existing?: string; view?: string; invoice?: string}>;
 }) {
   const {domain, product, plan, cycle, category, revision, existing, view, invoice} = await searchParams;
+  if (view === "invoice") {
+    if (typeof invoice !== "string" || !/^[1-9][0-9]{0,14}$/.test(invoice)) redirect("/client/invoices");
+    return <ClientProcessingView key={invoice}/>;
+  }
   if (view === "combined-review") {
     if (invoice !== undefined && (typeof invoice !== "string" || !/^[1-9][0-9]{0,14}$/.test(invoice))) redirect("/client/order/checkout?view=cart");
     return <CombinedCartCheckout invoice={invoice ? Number(invoice) : undefined}/>;

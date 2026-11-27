@@ -31,8 +31,8 @@ const labels = {
   registered: "Sandbox domain registered",
 };
 
-export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = false }: {
-  admin?: boolean; domain?: string; checkoutPage?: boolean;
+export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checkoutPage = false }: {
+  admin?: boolean; domain?: string; invoiceId?:number; checkoutPage?: boolean;
 }) {
   const router=useRouter();
   const submitting=useRef(false);
@@ -41,7 +41,10 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const requestUrl = domain ? `${endpoint}?${new URLSearchParams({ domain })}` : endpoint;
+  const params = new URLSearchParams();
+  if(domain)params.set("domain",domain);
+  if(invoiceId)params.set("invoice",String(invoiceId));
+  const requestUrl=params.size?`${endpoint}?${params}`:endpoint;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -50,7 +53,7 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
         const response = await fetch(requestUrl, { signal: controller.signal, cache: "no-store" });
         if (response.ok) {
           const data = await response.json();
-          if (!controller.signal.aborted) setOverview(data);
+          if (!controller.signal.aborted && (!invoiceId || data.purchase?.invoice_id===invoiceId)) setOverview(data);
         }
       } catch {
         // The purchase control is only available to eligible accounts.
@@ -60,10 +63,10 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
     }
     void load();
     return () => controller.abort();
-  }, [requestUrl]);
+  }, [requestUrl,invoiceId]);
 
   async function submit(action: string) {
-    if(submitting.current)return;
+    if(submitting.current || (invoiceId && !["checkout","reconcile"].includes(action)))return;
     submitting.current=true;
     setBusy(true);
     setError("");
@@ -78,11 +81,11 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
         const message: string = typeof data.detail === "string" ? data.detail : "This step could not be confirmed. Refresh to check the current status.";
         setError(admin ? message : message.replace(/Paystack Test Mode|Paystack|Cloudflare/gi, name => /paystack/i.test(name) ? "the payment service" : "the registrar"));
         const status = await fetch(requestUrl, { cache: "no-store" });
-        if (status.ok) setOverview(await status.json());
+        if (status.ok){const refreshed=await status.json();if(!invoiceId||refreshed.purchase?.invoice_id===invoiceId)setOverview(refreshed);}
         return;
       }
       if (action === "quote") setQuote(data);
-      else if (action === "checkout") {const url=new URL(data.checkout_url);if(url.origin!=="https://checkout.paystack.com"||url.username||url.password||url.hash)throw Error("Unapproved payment destination");window.location.assign(url.href);}
+      else if (action === "checkout") {const url=new URL(data.checkout_url);if(url.origin!=="https://checkout.paystack.com"||url.username||url.password||url.hash||url.search)throw Error("Unapproved payment destination");window.location.assign(url.href);}
       else {
         setOverview((current) => current ? { ...current, purchase: data } : current);
         if (action === "accept" && domain && data.order && data.domain === domain) {
@@ -119,6 +122,7 @@ export function DomainSandboxPurchase({ admin = false, domain, checkoutPage = fa
         ...(purchase.state === "registered" && !purchase.registered_at ? [{action:"reconcile",text:"Refresh registration dates"}] : []),
       ];
 
+  if (checkoutPage && invoiceId && !purchase) return <CommerceCheckoutFrame stage={2} title="Existing invoice unavailable" back={()=>router.push("/client/invoices")} backLabel="Back to invoices"><CommercePanel>Review the invoice in your account.</CommercePanel></CommerceCheckoutFrame>;
   if (checkoutPage) return <DomainCart domain={overview.domain} amount={purchase?.amount ?? quote?.amount}
     status={purchase ? labels[purchase.state] : undefined} order={purchase?.order} invoice={purchase?.invoice}
     invoiceId={purchase?.invoice_id}

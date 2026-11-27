@@ -1,3 +1,5 @@
+import {redirect} from "next/navigation";
+import {invoiceCheckoutHref} from "@/features/client/components/commerce/invoice-links";
 import {Panel} from "@/components/design-system/Panel";
 import {ActionLink} from "@/components/design-system/ActionLink";
 
@@ -11,7 +13,9 @@ export const metadata = {
  * tx_ref, reference, or amount from the browser URL to activate hosting.
  * Console's independently verified invoice state is the only authority.
  */
-export default function HostedPaymentReturnPage() {
+export default async function HostedPaymentReturnPage({searchParams}:{searchParams:Promise<{invoice?:string}>}) {
+  const {invoice}=await searchParams;
+  if(typeof invoice==="string"&&/^[1-9][0-9]{0,14}$/.test(invoice))redirect(invoiceCheckoutHref(invoice)+"&returning=1");
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-12 text-slate-900">
       <Panel className="mx-auto max-w-xl p-6 sm:p-10">
