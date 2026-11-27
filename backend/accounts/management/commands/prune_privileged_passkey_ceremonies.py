@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 from accounts.models import PrivilegedLoginChallenge, PrivilegedPasskeyGrant
+from audit.models import AuditLog
 
 
 class Command(BaseCommand):
@@ -22,12 +23,16 @@ class Command(BaseCommand):
         if options["apply"] and not (options["approval_reference"] and 1 <= len(options["approval_reference"].strip()) <= 100):
             raise CommandError("Approved retention reference required for cleanup.")
         cutoff = timezone.now() - timedelta(days=7)
+        removed = {}
         for model in (PrivilegedLoginChallenge, PrivilegedPasskeyGrant):
             candidates = model.objects.filter(expires_at__lt=cutoff).order_by("expires_at")
             ids = list(candidates.values_list("pk", flat=True)[:limit])
             if options["apply"]:
                 count, _ = candidates.filter(pk__in=ids).delete()
+                removed[model.__name__] = count
             else:
                 count = len(ids)
             self.stdout.write(f"{model.__name__}: {'deleted' if options['apply'] else 'eligible'} {count}")
+        if options["apply"]:
+            AuditLog.objects.create(action="settings_updated", entity_type="privileged_passkey_maintenance", entity_name="Expired passkey ceremonies pruned", details={"approval_reference": options["approval_reference"].strip(), "removed": removed, "cutoff": cutoff.isoformat()})
         self.stdout.write("Credentials and audit logs retained.")
