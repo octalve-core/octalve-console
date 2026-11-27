@@ -33,8 +33,12 @@ def approved_order_id():
         return None
     return identifier if identifier.version == 4 and str(identifier) == raw else None
 
+def queue_enabled():
+    return os.getenv("CLOUD_REGISTRAR_SANDBOX_QUEUE_ENABLED") == "true"
+
+
 def automation_status():
-    return {"mode": "operator_scoped_sandbox", "configured": approved_order_id() is not None,
+    return {"mode": "verified_private_sandbox_queue" if queue_enabled() else "operator_scoped_sandbox", "configured": queue_enabled() or approved_order_id() is not None,
             "public_payment_only": True, "live_execution_enabled": False}
 
 def assert_private_domain_unclaimed(names, *, order_id=None):
@@ -107,8 +111,7 @@ def _processed_evidence(invoice, intent, state):
         return False
     events = list(WebhookEvent.objects.filter(
         gateway_id=intent.gateway_id, is_verified=True, event_type="charge.success",
-        payload__intent_id=intent.pk, payload__reference=intent.reference,
-        payload__remote_id=remote)[:2])
+        payload__intent_id=intent.pk, payload__reference=intent.reference)[:2])
     if len(events) != 1 or not events[0].is_processed or events[0].processed_at is None or events[0].payload.get("remote_id") != remote:
         return False
     from audit.models import AuditLog
@@ -123,6 +126,10 @@ def advance_approved_order():
     order = Order.objects.filter(public_id=identifier).first()
     if order is None:
         return "held"
+    return advance_order(order)
+
+
+def advance_order(order):
     context = _private_context(order)
     if not context:
         return "held"
@@ -178,3 +185,40 @@ def advance_approved_order():
     except (CheckoutRefused, CloudflareINT01Denied, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist,
             DatabaseError, ValidationError, KeyError, TypeError, ValueError):
         return "held"
+
+
+def advance_due_orders(*, owner=None):
+    """One bounded, independently verified private sandbox operation per run.
+    No user-supplied order selection, live registrar, public purchase, or replay.
+    The current sandbox account and exact pinned credential are checked downstream.
+    """
+    if not queue_enabled():
+        return "disabled"
+    from payments.automatic_reconciliation import enabled
+    from django.db.models import Exists, OuterRef
+    if not enabled():
+        return "disabled"
+    pending_lines = OrderItem.objects.filter(order_id=OuterRef("pk"),item_type="domain",
+        config__combined_domain_test_cart__state__in=["awaiting_payment","registration_uncertain","registration_pending"])
+    rows=Order.objects.filter(status="needs_review").annotate(has_pending_domain=Exists(pending_lines)).filter(
+        Q(metadata__sandbox_domain_purchase__state__in=["registration_uncertain","registration_pending"]) |
+        Q(metadata__has_key=CART,has_pending_domain=True))
+    if owner is not None:
+        rows=rows.filter(client=owner)
+    rows=rows.exclude(metadata__sandbox_domain_purchase__public_payment_test=True).exclude(
+        metadata__combined_domain_test_cart__public_payment_test=True).order_by("updated_at","pk")[:10]
+    for order in rows:
+        context=_private_context(order)
+        if not context:
+            continue
+        try:
+            evidence=_payment_context(order,*context)
+            if not evidence or not _processed_evidence(*evidence,context[1]):
+                continue
+            result=advance_order(order)
+        except (CheckoutRefused,ValidationError,DatabaseError,TypeError,ValueError,KeyError):
+            result="held"
+        # Fair retry even if a supplier is temporarily unavailable. No state overwrite.
+        Order.objects.filter(pk=order.pk,status="needs_review").update(updated_at=timezone.now())
+        return result
+    return "idle"
