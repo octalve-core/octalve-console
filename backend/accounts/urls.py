@@ -23,8 +23,10 @@ from .account_self_service import (
 )
 
 from .passkey_enrollment import PrivilegedPasskeyEnrollmentView
+from .passkey_management import OwnPrivilegedPasskeyView
 
 urlpatterns = [
+    path("passkeys/", OwnPrivilegedPasskeyView.as_view(), name="own-privileged-passkeys"),
     path("passkeys/enroll/", PrivilegedPasskeyEnrollmentView.as_view(), name="privileged-passkey-enrollment"),
     path('profile/', OwnProfileView.as_view(), name='self-service-profile'),
     path('language/', OwnLanguagePreferenceView.as_view(), name='own-language-preference'),

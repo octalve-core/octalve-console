@@ -5,6 +5,7 @@ import {DashboardPage} from "@/components/layout/DashboardPage";
 import {ActionLink} from "@/components/design-system/ActionLink";
 import {ConsolePolicyEditor} from "../components/ConsolePolicyEditor";
 import {MailTemplateWorkbench} from "../components/MailTemplateWorkbench";
+import {PrivilegedPasskeyPanel} from "@/features/auth/components/PrivilegedPasskeyPanel";
 import {AccountEmailVerificationPanel} from "../components/AccountEmailVerificationPanel";
 import {ProviderVaultEnrollment} from "../../integrations/ProviderVaultEnrollment";
 import {ConsoleTaxEditor} from "../components/ConsoleTaxEditor";
@@ -27,6 +28,7 @@ export function AdminSettingsSectionView({section}:{section:AdminSettingsKey}){
       section==="notifications"?null:<OperationalSettingsStatus section={section}/>}
     {(section==="mail"||section==="notifications")?<MailTemplateWorkbench/>:null}
     {(section==="mail"||section==="security")?<AccountEmailVerificationPanel/>:null}
+    {section==="security"?<PrivilegedPasskeyPanel/>:null}
     {section==="security"?<ProviderVaultEnrollment/>:null}
     {section==="domain-pricing"?<DomainSandboxPurchase admin/>:null}
    </div>

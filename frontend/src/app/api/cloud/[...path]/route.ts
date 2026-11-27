@@ -28,7 +28,7 @@ const API_ROOTS = new Set([
   "storefront", "notifications", "rewards",
 ]);
 const ALLOWED_AUTH_PATHS = new Set([
-  "auth/jwt/create", "auth/passkeys/enroll", "auth/register", "auth/username-availability", "auth/logout",
+  "auth/jwt/create", "auth/passkeys", "auth/passkeys/enroll", "auth/register", "auth/username-availability", "auth/logout",
   "auth/users/me", "auth/me",
   "auth/users/reset_password", "auth/users/reset_password_confirm",
   "auth/users/set_password", "auth/customers",
@@ -164,6 +164,7 @@ async function forward(request: NextRequest, context: Context) {
     return error(404, "API route not found.");
   }
   const isLogin = apiPath === "auth/jwt/create";
+  if (apiPath === "auth/passkeys" && method !== "GET") return error(405, "Method not allowed.");
   const isEnrollment = apiPath === "auth/passkeys/enroll";
   if (isEnrollment && method !== "POST") return error(405, "Method not allowed.");
   const isRegistration = apiPath === "auth/register";
@@ -186,7 +187,7 @@ async function forward(request: NextRequest, context: Context) {
       const submitted = JSON.parse(new TextDecoder().decode(body));
       proofRequested = submitted?.passkey_qualification === true ||
         Object.hasOwn(submitted ?? {}, "passkey_challenge") ||
-        Object.hasOwn(submitted ?? {}, "passkey_assertion");
+        Object.hasOwn(submitted ?? {}, "passkey_assertion") || Object.hasOwn(submitted ?? {}, "passkey_continuation");
     } catch { return error(400, "Invalid sign-in request."); }
   }
 

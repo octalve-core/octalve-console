@@ -46,13 +46,21 @@ export const tokenStorage = {
 export class ApiError extends Error {
   status: number;
   payload: unknown;
+  retryAfterSeconds?: number;
 
-  constructor(message: string, status: number, payload?: unknown) {
+  constructor(message: string, status: number, payload?: unknown, retryAfterSeconds?: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.payload = payload;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+export function parseRetryAfter(value: string | null): number | undefined {
+  if (!value || !/^\d+$/.test(value)) return undefined;
+  const seconds = Number(value);
+  return Number.isSafeInteger(seconds) && seconds > 0 && seconds <= 86400 ? seconds : undefined;
 }
 
 function assertSafeQueryParams(params?: QueryParams) {
@@ -215,6 +223,7 @@ async function performRequest<T>(
       getErrorMessage(payload, `Request failed with status ${response.status}`),
       response.status,
       payload,
+      response.status === 429 ? parseRetryAfter(response.headers.get("retry-after")) : undefined,
     );
   }
 

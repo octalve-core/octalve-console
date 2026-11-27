@@ -34,7 +34,7 @@ export function PrivilegedPasskeySetup(){
     <h1 className="text-2xl font-medium">Set up a privileged passkey</h1>
     {enrolled?<p role="status" className="mt-4 text-sm">Your passkey is ready. <Link href="/login?passkey=verify" className="text-console-primary underline">Verify passkey sign-in</Link></p>:
     <form onSubmit={submit} className="mt-5 space-y-4">
-      <p className="text-sm text-console-muted">Use the one-time setup code issued by your authorized operator.</p>
+      <p className="text-sm text-console-muted">Use the one-time setup code issued by your authorized operator. For a backup, choose a separate authenticator, not a synced copy of an existing passkey.</p>
       <label className="block text-sm">Setup code
         <input name="code" type="password" autoComplete="off" required minLength={43} maxLength={43}
           className="mt-1 block min-h-11 w-full rounded-xl border border-console-line px-3"/>
