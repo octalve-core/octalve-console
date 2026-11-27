@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.filters import SearchFilter, OrderingFilter
+from octalve_backend.resource_lookup import ResourceIdentityLookupMixin
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -35,7 +36,7 @@ def _requires_approved_provider(operation):
     )
 
 
-class DomainViewSet(viewsets.ModelViewSet):
+class DomainViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
     """ViewSet for domains"""
     
     serializer_class = DomainSerializer

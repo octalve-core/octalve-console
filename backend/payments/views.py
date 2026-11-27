@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.views import APIView
+from octalve_backend.resource_lookup import ResourceIdentityLookupMixin
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -46,7 +47,7 @@ class PaymentGatewayViewSet(viewsets.ReadOnlyModelViewSet):
     
 
 
-class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
+class TransactionViewSet(ResourceIdentityLookupMixin, viewsets.ReadOnlyModelViewSet):
     """ViewSet for transactions (read-only)"""
     
     serializer_class = TransactionSerializer
