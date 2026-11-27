@@ -5,7 +5,9 @@ worker share one dispatcher; the existing invoice/intent/order locks are
 the idempotency boundary. Historical evidence is audited, never replayed.
 """
 from django.db import DatabaseError
-from django.db.models import F, Q
+from django.db.models import CharField, F, Q
+from django.db.models.fields.json import KeyTextTransform
+from django.db.models.functions import Cast
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -45,6 +47,8 @@ def consume_test_event(event_id):
     invoice, order = intent.invoice, intent.invoice.order
     markers = [key for key in (CART, PILOT) if invoice.metadata.get(key) is True
                and isinstance(order.metadata.get(key), dict)]
+    if not markers:
+        return "ignored"
     if len(markers) != 1 or not pilot_gateway_allowed(intent.gateway, invoice):
         return "held"
     if intent.status == "completed" and invoice.status == "void":
@@ -94,5 +98,6 @@ def due_event_ids(*, historical, limit=2):
     # Bound candidate work by inbox, not the number of old intents.
     return list(WebhookEvent.objects.filter(is_verified=True,is_processed=False,
         event_type="charge.success",gateway__code="paystack",gateway__test_mode=True,
-        payload__intent_id__in=intents.values("pk")).order_by(
+        ).annotate(intent_key=Cast(KeyTextTransform("intent_id","payload"),CharField())).filter(
+        intent_key__in=intents.annotate(intent_key=Cast("pk",CharField())).values("intent_key")).order_by(
         F("error_message").asc(nulls_first=True),"pk").values_list("pk",flat=True)[:limit])
