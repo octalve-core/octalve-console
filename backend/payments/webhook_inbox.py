@@ -66,6 +66,8 @@ def accept_signed_event(gateway_code, raw_body, headers):
     # Only minimal non-sensitive evidence is persisted. No raw payload/card,
     # customer email, cookie, auth header or full webhook headers are retained.
     with db_transaction.atomic():
+        from billing.models import Invoice
+        Invoice.objects.select_for_update().get(pk=intent.invoice_id)
         saved, created = WebhookEvent.objects.get_or_create(
             event_id="cloud_" + fingerprint,
             defaults={"gateway": gateway, "event_type": event,

@@ -21,7 +21,7 @@ from payments.domain_pilot_scope import (
     CART, PILOT, pilot_gateway_allowed, selected_domain_test_account_allowed, selected_domain_test_allowed,
     public_payment_test_account_allowed, public_domain_payment_test_allowed,
 )
-from payments.hosted_checkout import CheckoutRefused, reserve_hosted_checkout, payment_attempt_summary
+from payments.hosted_checkout import CheckoutRefused, PreviousPaymentHeld, reserve_hosted_checkout, payment_attempt_summary
 from django.db import DatabaseError
 from payments.models import PaymentIntent, WebhookEvent
 from payments.test_payment_evidence import consume_matching_test_event
@@ -115,7 +115,7 @@ def start_cart_payment(user, invoice):
             raise ValidationError("Domain test checkout is currently unavailable.")
         for line in order.items.filter(item_type="domain"):
             registrar(line.config[CART])
-    intent, _ = reserve_hosted_checkout(invoice.pk, "paystack")
+    intent, _ = reserve_hosted_checkout(invoice.pk, "paystack", allow_test_retry=True)
     return intent.authorization_url
 
 
@@ -133,14 +133,20 @@ def payment_response(user, invoice):
         return result
     try:
         link = start_cart_payment(user, invoice)
-        result["checkout_url"] = link
-        result["payment_started"] = True
-        result["payment_attempt_state"] = "resumable"
-    except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError, ValidationError, Throttled):
+        invoice.refresh_from_db()
+        result = cart_result(invoice.order, invoice)
+        if result["payment_attempt_state"] == "resumable" and not result["payment_verified"]:
+            result["checkout_url"] = link
+        elif not result["payment_verified"]:
+            result["checkout_error"] = "Your existing payment needs confirmation. No further payment has been started."
+    except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError, ValidationError, Throttled) as exc:
+        invoice.refresh_from_db()
         refreshed = cart_result(invoice.order, invoice)
         result["payment_started"] = refreshed["payment_started"]
         result["payment_attempt_state"] = refreshed["payment_attempt_state"]
-        result["checkout_error"] = "Payment could not start. Your invoice is saved. Check the existing payment or retry."
+        result["checkout_error"] = ("Your previous payment needs confirmation. No new payment was started." if isinstance(exc, PreviousPaymentHeld) else "We couldn’t open secure payment. Your invoice is saved. Please try again or contact support.")
+        if isinstance(exc, PreviousPaymentHeld):
+            result["checkout_hold"] = True
     return result
 
 
@@ -262,6 +268,10 @@ def confirm_payment(order):
         locked = Order.objects.select_for_update().get(pk=order.pk)
         if locked.status == "needs_review":
             return
+        from payments.hosted_checkout import payment_history
+        active, _ = payment_history(invoice, lock=True)
+        if not active or active.pk != payment.pk:
+            raise ValidationError("Payment history requires verification.")
         if (not pilot_gateway_allowed(payment.gateway, invoice) or invoice.order_id != locked.pk
                 or payment.invoice_id != invoice.pk or payment.client_id != invoice.client_id
                 or locked.client_id != invoice.client_id or locked.currency != invoice.currency
@@ -395,6 +405,7 @@ def combined_cart(request):
         if action == "pay":
             return Response(payment_response(user, invoice), headers=headers)
         if action == "checkout":
+            require_payment_consent(data)
             return Response({"checkout_url": start_cart_payment(user, invoice)}, headers=headers)
         if action == "advance":
             advance_cart(order, invoice)

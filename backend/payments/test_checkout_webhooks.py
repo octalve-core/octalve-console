@@ -90,6 +90,12 @@ class CheckoutAndWebhookTests(TestCase):
         self.assertEqual(payment_attempt_summary(self.invoice)["state"], "resumable")
         PaymentIntent.objects.filter(pk=attempt.pk).update(expires_at=timezone.now()-timedelta(seconds=1))
         self.assertEqual(payment_attempt_summary(self.invoice)["state"], "reconciliation_required")
+        # Even explicitly requesting the sandbox retry path cannot reopen a live charge.
+        with patch("payments.readback.verify_gateway_intent", return_value="failed") as readback:
+            with self.assertRaises(CheckoutRefused):
+                reserve_hosted_checkout(self.invoice.pk, "paystack", poster=post, allow_test_retry=True)
+            readback.assert_not_called()
+        self.assertEqual(post.call_count, 1)
         self.assertEqual(PaymentIntent.objects.count(), 1)
         self.assertEqual(self.invoice.status, "unpaid")
         self.assertFalse(Transaction.objects.exists())

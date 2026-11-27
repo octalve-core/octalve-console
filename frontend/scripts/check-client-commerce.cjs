@@ -122,3 +122,7 @@ requires("features/client/checkout/cart-selections.ts",["requireConfirmed","The 
 requires("features/client/views/ClientProcessingView.tsx",["checkout_context","CombinedCartCheckout invoice={invoice.id}","DomainCheckout invoiceId={invoice.id}","CheckoutColumns","CheckoutSummary","CartItem","PaymentGatewayChoices","CheckoutConsent","payment_attempt","payingRef"]);
 requires("features/client/components/commerce/invoice-links.ts",["invoiceCheckoutHref","view=invoice&invoice="]);
 requires("features/client/components/DomainSandboxPurchase.tsx",["data.purchase?.invoice_id===invoiceId","params.set(\"invoice\",String(invoiceId))"]);
+
+requires("features/client/checkout/DomainCart.tsx",["PaymentGatewayChoices","CheckoutConsent","VerifiedPaymentReceipt","PendingInvoiceReferences","Pay now","retry_check","Verify previous payment"]);
+requires("features/client/components/DomainSandboxPurchase.tsx",["gateway,consent","data.invoice_id!==invoiceId","retry_check"]);
+requires("features/client/checkout/CombinedCartCheckout.tsx",["PendingInvoiceReferences","retry_check","Verify previous payment"]);
