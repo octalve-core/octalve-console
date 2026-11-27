@@ -19,7 +19,7 @@ export function SupportDeskView({role}:{role:Role}){
     .finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[]);
   const shown=useMemo(()=>tickets.filter(t=>(filter==="all"||(
     filter==="active"?open.has(t.status):filter===t.status))&&
-    [t.subject,t.ticket_number,t.client_name,t.department_name,t.priority].join(" ").toLowerCase().includes(query.toLowerCase())
+    [t.subject,t.public_reference,t.ticket_number,t.client_name,t.department_name,t.priority].join(" ").toLowerCase().includes(query.toLowerCase())
   ),[tickets,filter,query]);
   const count=tickets.filter(t=>open.has(t.status)).length;
   return <DashboardShell role={role} title="Support desk" description="Manage customer requests and specialist queues.">

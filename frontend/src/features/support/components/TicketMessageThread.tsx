@@ -4,7 +4,7 @@ import type {TicketDetail} from "@/lib/api/modules/help-center.api";
 export function TicketMessageThread({ticket}: {ticket:TicketDetail}){
  return <div className="mt-6 space-y-6">
   <div className="flex flex-wrap items-center gap-2 border-b border-console-line pb-5">
-   <span className="text-sm font-medium text-console-primary">{ticket.ticket_number}</span>
+   <span className="text-sm font-medium text-console-primary">{ticket.public_reference??ticket.ticket_number}</span>
    <StatusBadge tone={ticket.status==="closed"||ticket.status==="resolved"?"success":"info"}>
     {ticket.status.replaceAll("_"," ")}
    </StatusBadge>

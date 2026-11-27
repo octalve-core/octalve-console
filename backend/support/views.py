@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.filters import SearchFilter, OrderingFilter
+from octalve_backend.resource_lookup import ResourceIdentityLookupMixin
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.db.models import Count, Q
@@ -90,7 +91,7 @@ class SupportDepartmentViewSet(viewsets.ModelViewSet):
     # The legacy decorator is not an authority substitute for API-level role checks.
 
 
-class SupportTicketViewSet(viewsets.ModelViewSet):
+class SupportTicketViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
     """ViewSet for support tickets"""
     
     serializer_class = SupportTicketSerializer

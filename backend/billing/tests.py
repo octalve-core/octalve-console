@@ -91,7 +91,7 @@ class BillingDocumentAuthorityTests(APITestCase):
         Invoice.objects.filter(pk=self.invoice.pk).update(order=order)
         Invoice.objects.create(client=self.other, order=order, due_date=timezone.now())
         documents = OrderSerializer(order).data["invoice_documents"]
-        self.assertEqual(documents, [{"id": self.invoice.pk, "number": self.invoice.invoice_number, "payment_resume": None}])
+        self.assertEqual(documents, [{"id": self.invoice.pk, "number": self.invoice.invoice_number, "public_id": str(self.invoice.public_id), "public_reference": self.invoice.public_reference, "payment_resume": None}])
 
     def test_unpaid_pdf_shows_the_saved_billing_period(self):
         line = self.invoice.items.get()
@@ -365,3 +365,30 @@ class BillingDocumentAuthorityTests(APITestCase):
         self.assertEqual(self.client.get(path).status_code, 200)
         self.client.force_authenticate(self.other)
         self.assertEqual(self.client.get(path).status_code, 404)
+
+    def test_uuid_invoice_reference_and_pdf_authorization(self):
+        from uuid import uuid4
+        from orders.models import Order
+        from billing.serializers import InvoiceSerializer
+        original = self.invoice.invoice_number
+        order = Order.objects.create(client=self.owner)
+        Invoice.objects.filter(pk=self.invoice.pk).update(order=order)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.invoice_number, original)
+        self.assertEqual(self.invoice.public_id.version, 4)
+        self.assertRegex(self.invoice.public_reference, r"^OC-INV-(?:[0-9A-Z]{4}-){3}[0-9A-Z]{4}$")
+        self.assertNotEqual(self.invoice.public_id, order.public_id)
+        self.assertEqual(_document(self.invoice).public_reference, self.invoice.public_reference)
+        self.assertEqual(_document(self.invoice).account_reference, self.owner.public_reference)
+        self.assertEqual(_document(self.invoice).order_reference, order.public_reference)
+        self.assertEqual(_document(self.invoice).invoice_number, original)
+        self.assertEqual(InvoiceSerializer(self.invoice).data["public_id"], str(self.invoice.public_id))
+        path = f"/api/billing/invoices/{self.invoice.public_id}/"
+        self.client.force_authenticate(self.owner)
+        self.assertEqual(self.client.get(path).status_code, 200)
+        self.assertEqual(self.client.get(path+"download_pdf/").status_code, 200)
+        self.assertEqual(self.client.get(f"/api/billing/invoices/{uuid4()}/").status_code, 404)
+        self.client.force_authenticate(self.other)
+        self.assertEqual(self.client.get(path).status_code, 404)
+        self.assertEqual(self.client.get(path+"download_pdf/").status_code, 404)
+        self.assertEqual(self.client.get(f"/api/orders/orders/{order.public_id}/").status_code, 404)

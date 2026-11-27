@@ -26,7 +26,7 @@ export function billingRecordRows(resource:BillingResource, records:readonly Cli
    dateISO:date&&/^\d{4}-\d{2}-\d{2}/.test(date)?date.slice(0,10):undefined,
    href:r.actionHref,
    icon:<Icon aria-hidden="true" className="h-5 w-5"/>,
-   searchTerms:[r.id,r.meta,r.subtitle,r.paymentReference||""]
+   searchTerms:[r.meta,r.subtitle,r.documentNumber||"",r.paymentReference||""]
   };
  });
 }
@@ -42,7 +42,7 @@ export function BillingRecordDirectory({resource,records,emptyTitle,emptyDescrip
  };
  const payAction={key:"pay-invoice",label:"Pay now",icon:CreditCard,available:(row:DirectoryRow)=>!!paymentHref(row.id),href:(row:DirectoryRow)=>paymentHref(row.id)};
  return <RecordDirectory label={resource==="orders"?"Orders":"Invoices"} rows={rows} columns={cols}
-  actions={resource==="invoices"?[payAction,{key:"invoice-pdf",label:"Download invoice PDF",icon:Download,href:row=>invoiceDownloadHref(row.id)}]:[
+  actions={resource==="invoices"?[payAction,{key:"invoice-pdf",label:"Download invoice PDF",icon:Download,href:row=>invoiceDownloadHref(records.find(record=>record.id===row.id)?.publicId??row.id)}]:[
    payAction,
    {key:"view-invoice",label:"View latest invoice",icon:FileText,available:row=>!!linkedInvoice(row.id),href:row=>{
     const invoice=linkedInvoice(row.id);return invoice?invoiceHref(invoice.id):undefined;

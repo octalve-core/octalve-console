@@ -1,4 +1,5 @@
 import uuid
+from octalve_backend.resource_identity import reference_acc
 from django.db import models
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.utils.translation import gettext_lazy as _
@@ -45,6 +46,8 @@ class CustomUserManager(UserManager):
 # ============================================
 
 class CustomUser(AbstractUser):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    public_reference = models.CharField(max_length=28, default=reference_acc, unique=True, editable=False)
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Admin'
         STAFF = 'staff', 'Staff'

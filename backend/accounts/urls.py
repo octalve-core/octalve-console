@@ -49,5 +49,6 @@ urlpatterns = [
     # Admin customer management
     path('customers/', AdminCustomerListView.as_view(), name='admin-customers'),
     path('customers/<int:id>/', AdminCustomerDetailView.as_view(), name='admin-customer-detail'),
+    path('customers/<uuid:id>/', AdminCustomerDetailView.as_view(), name='admin-customer-public-detail'),
 
 ]

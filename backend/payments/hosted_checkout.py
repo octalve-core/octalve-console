@@ -82,7 +82,7 @@ def _post_checkout(intent, *, poster=None):
         raise CheckoutRefused("Verified invoice contact email is required.")
     callback = _return_url()
     # Every new hosted payment returns to the existing invoice, never a fresh cart.
-    query = urlencode({"view": "invoice", "invoice": invoice.pk, "returning": "1"})
+    query = urlencode({"view": "invoice", "invoice": str(invoice.public_id), "returning": "1"})
     callback = urlsplit(callback)._replace(path="/client/order/checkout", query=query).geturl()
     if intent.currency != "NGN":
         # Other currencies require independently audited subunit conventions.

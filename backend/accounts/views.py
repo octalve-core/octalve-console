@@ -10,6 +10,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics, filters
 from rest_framework.pagination import PageNumberPagination
+from octalve_backend.resource_lookup import ResourceIdentityLookupMixin
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
@@ -446,6 +447,8 @@ class CustomUserInfoView(APIView):
         user = request.user
         return Response({
             'id': user.id,
+            'public_id': str(user.public_id),
+            'public_reference': user.public_reference,
             'email': user.email,
             'username': user.username,
             'full_name': user.full_name,
@@ -537,7 +540,7 @@ class AdminCustomerListView(generics.ListCreateAPIView):
     pagination_class = AdminCustomerPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['role']
-    search_fields = ['email', 'full_name', 'company_name', 'phone_number']
+    search_fields = ['email', 'full_name', 'company_name', 'phone_number', 'public_reference']
     ordering_fields = ['date_joined', 'full_name', 'email']
     ordering = ['-date_joined', '-pk']
 
@@ -623,7 +626,7 @@ class AdminCustomerListView(generics.ListCreateAPIView):
         return user
 
 
-class AdminCustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
+class AdminCustomerDetailView(ResourceIdentityLookupMixin, generics.RetrieveUpdateDestroyAPIView):
     """GET/PATCH/DELETE /api/auth/customers/{id}/"""
     
     permission_classes = [IsCloudCustomerAdmin]

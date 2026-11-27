@@ -13,7 +13,7 @@ class WalletSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
         fields = [
-            'id', 'user', 'user_name', 'user_email', 'currency', 'balance',
+            'id', 'public_id', 'public_reference', 'user', 'user_name', 'user_email', 'currency', 'balance',
             'auto_pay_enabled', 'auto_pay_threshold', 'low_balance_threshold',
             'is_active', 'created_at', 'updated_at'
         ]

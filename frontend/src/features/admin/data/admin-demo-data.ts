@@ -1,5 +1,7 @@
 export type AdminRecord = {
   id: string;
+  publicId?: string;
+  publicReference?: string;
   title: string;
   subtitle: string;
   meta: string;

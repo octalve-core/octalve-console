@@ -117,6 +117,11 @@ class InvoiceDocument:
     amount_due: Decimal
     notes: str
     logo: bytes
+    public_reference: str = ""
+    account_reference: str = ""
+    order_reference: str = ""
+    payment_reference: str = ""
+    payment_reference_test: bool = False
 
 
 def _document(invoice):
@@ -131,7 +136,14 @@ def _document(invoice):
     client = invoice.client
     recipient_name = billing.get("full_name") or getattr(client, "full_name", "") or client.email
     issuer_name = getattr(settings, "OCTALVE_INVOICE_ISSUER_NAME", "Octalve Cloud")
+    from .payment_reference import verified_payment_details
+    evidence = verified_payment_details(invoice) or {}
     return InvoiceDocument(
+        public_reference=_clean(invoice.public_reference, 40),
+        account_reference=_clean(client.public_reference, 40),
+        order_reference=_clean(invoice.order.public_reference, 40) if invoice.order_id else "",
+        payment_reference=_clean(evidence.get("reference"), 100),
+        payment_reference_test=evidence.get("test") is True,
         invoice_number=_clean(invoice.invoice_number, 40),
         status=_clean(invoice.status, 24).upper(),
         issue_date=_date(invoice.issue_date),

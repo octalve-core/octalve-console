@@ -134,7 +134,7 @@ class SupportTicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupportTicket
         fields = [
-            'id', 'ticket_number', 'client', 'client_name', 'client_email',
+            'id', 'public_id', 'public_reference', 'ticket_number', 'client', 'client_name', 'client_email',
             'department', 'department_name', 'routing_tag', 'subject', 'priority', 'priority_display',
             'status', 'status_display', 'assigned_to', 'assigned_to_name',
             'service', 'order', 'invoice', 'last_reply_at', 'last_reply_by',

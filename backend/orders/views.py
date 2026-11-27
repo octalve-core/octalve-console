@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.filters import SearchFilter, OrderingFilter
+from octalve_backend.resource_lookup import ResourceIdentityLookupMixin
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from decimal import Decimal
@@ -30,7 +31,7 @@ class OrderWriteAuthority(BasePermission):
         return True
 
 
-class OrderViewSet(viewsets.ModelViewSet):
+class OrderViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
     """ViewSet for orders"""
     
     serializer_class = OrderSerializer
@@ -139,7 +140,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             previous = existing.invoices.first()
             if previous:
                 data['invoice'] = {
-                    'id': previous.id, 'invoice_number': previous.invoice_number,
+                    'id': previous.id, 'public_id': str(previous.public_id), 'public_reference': previous.public_reference, 'invoice_number': previous.invoice_number,
                     'status': previous.status, 'amount_due': str(previous.amount_due),
                 }
             return Response(data, status=status.HTTP_200_OK)
@@ -255,7 +256,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         data = OrderSerializer(order).data
         data['invoice'] = {
-            'id': invoice.id, 'invoice_number': invoice.invoice_number,
+            'id': invoice.id, 'public_id': str(invoice.public_id), 'public_reference': invoice.public_reference, 'invoice_number': invoice.invoice_number,
             'status': invoice.status, 'amount_due': str(invoice.amount_due),
         }
         return Response(data, status=status.HTTP_201_CREATED)

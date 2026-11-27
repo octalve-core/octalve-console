@@ -9,12 +9,12 @@ export function readAuthorizedDetail(value:unknown,id:string,href:string):AdminR
   value&&typeof value==="object"&&"results" in value&&Array.isArray((value as {results:unknown}).results)?
   (value as {results:unknown[]}).results:[];
  const row=rows.find(item=>item&&typeof item==="object"&&
-  read(item as Record<string,unknown>,["id","uuid","reference","code"],"")===id);
+  (read(item as Record<string,unknown>,["id","uuid","reference","code"],"")===id || (item as Record<string,unknown>).public_id===id));
  if(!row)return null;
  const item=row as Record<string,unknown>;
- return {id,title:read(item,["quote_number","full_name","name","title","subject","domain","label","customer","client"],id),
+ return {id,publicId:read(item,["public_id"],""),publicReference:read(item,["public_reference"],""),title:read(item,["full_name","public_reference","quote_number","name","title","subject","domain","label","customer","client"],id),
   subtitle:read(item,["client_email","email","description","summary","product","category"],""),
-  meta:read(item,["reference","type","category","provider","status"],"—"),
+  meta:read(item,["public_reference","reference","type","category","provider","status"],"—"),
   amount:read(item,["total","price","amount","balance"],""),
   status:read(item,["status","state","payment_status"],"Unknown"),
   date:read(item,["date","created_at","updated_at","due_date"],""),

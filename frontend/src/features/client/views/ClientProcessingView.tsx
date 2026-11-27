@@ -13,13 +13,13 @@ import {DomainCheckout} from "../checkout/DomainCheckout";
 import type {CartLine,CartView,GatewayCode} from "@/components/shared-commerce/types";
 import {invoiceDownloadHref,invoiceHref} from "../components/commerce/invoice-links";
 
-type InvoiceState={id:number;subtotal:string;discount_total:string;tax_total:string;items?:{id:number;description:string;domain_name?:string;plan_id?:number|null;quantity:number;subtotal:string}[];checkout_context?:{kind:string;domain?:string};payment_attempt?:{state:string;gateway:string|null;test?:boolean};invoice_number?:string;status:string;currency:string;total:string;amount_due:string;payment_action_allowed?:boolean;order_number?:string;payment_details?:{reference:string;gateway:string;verified_at?:string;test:boolean}|null};
+type InvoiceState={id:number;public_id?:string;public_reference?:string;order_reference?:string;client_reference?:string;subtotal:string;discount_total:string;tax_total:string;items?:{id:number;description:string;domain_name?:string;plan_id?:number|null;quantity:number;subtotal:string}[];checkout_context?:{kind:string;domain?:string};payment_attempt?:{state:string;gateway:string|null;test?:boolean};invoice_number?:string;status:string;currency:string;total:string;amount_due:string;payment_action_allowed?:boolean;order_number?:string;payment_details?:{reference:string;gateway:string;verified_at?:string;test:boolean}|null};
 const doneStates=["paid","void","cancelled","refunded"];
 const allowedHosts=new Set(["checkout.paystack.com","checkout.flutterwave.com"]);
 
 export function ClientProcessingView(){
   const router=useRouter();
-  const [invoiceId,setInvoiceId]=useState<number|null>(null);
+  const [invoiceId,setInvoiceId]=useState<string|null>(null);
   const [invoice,setInvoice]=useState<InvoiceState|null>(null);
   const [options,setOptions]=useState<CheckoutOptions|null>(null);
   const [error,setError]=useState("");
@@ -33,19 +33,17 @@ export function ClientProcessingView(){
   useEffect(()=>{
     const query=new URLSearchParams(window.location.search);
     const raw=query.get("invoice")||"";
-    if(!/^[1-9]\d{0,14}$/.test(raw)){setError("Open an invoice from your account to view its status.");setPending(false);return;}
-    const id=Number(raw);
-    if(!Number.isSafeInteger(id)){setError("Invalid invoice.");setPending(false);return;}
-    setInvoiceId(id);
+    if(!/^(?:[1-9][0-9]{0,14}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/.test(raw)){setError("Open an invoice from your account to view its status.");setPending(false);return;}
+    setInvoiceId(raw);
     let active=true;
     void clientApi.checkoutOptions().then(d=>{if(active)setOptions(d);})
       .catch(()=>{if(active)setOptions({enabled:false,gateways:[],currency:"NGN",google_pay_review_enabled:false});});
     return()=>{active=false;};
   },[]);
 
-  const reload=useCallback(async(id:number)=>{
+  const reload=useCallback(async(id:string)=>{
     const data=await clientApi.invoice(String(id)) as unknown as InvoiceState;
-    if(!data||Number(data.id)!==id||typeof data.status!=="string"||typeof data.amount_due!=="string")
+    if(!data||String(data.id)!==id&&data.public_id!==id||typeof data.status!=="string"||typeof data.amount_due!=="string")
       throw Error("Invoice response unavailable");
     setInvoice(data);setError("");setPending(false);
     return data;
@@ -53,7 +51,7 @@ export function ClientProcessingView(){
 
   useEffect(()=>{
     if(invoiceId===null)return;
-    const id:number=Number(invoiceId);
+    const id=invoiceId;
     let active=true;
     let fetching=false;
     let attempts=0;
@@ -81,7 +79,7 @@ export function ClientProcessingView(){
     payingRef.current=true;
     setPaying(true);setError("");
     try{
-      const response=await clientApi.initializeHostedPayment(invoiceId,gateway);
+      const response=await clientApi.initializeHostedPayment(invoice.id,gateway);
       const target=new URL(response.checkout_url);
       if(target.protocol!=="https:"||!allowedHosts.has(target.hostname)||
         target.username||target.password||target.hash||target.search||target.port)throw Error("Unapproved payment destination");
@@ -94,9 +92,9 @@ export function ClientProcessingView(){
   }
 
   // Resolve the controller only from the authenticated invoice response.
-  if(invoiceId&&invoice?.checkout_context?.kind==="combined_domain")return <CombinedCartCheckout invoice={invoiceId}/>;
-  if(invoiceId&&invoice?.checkout_context?.kind==="domain"&&typeof invoice.checkout_context.domain==="string")return <DomainCheckout domain={invoice.checkout_context.domain} invoiceId={invoiceId}/>;
-  if(invoiceId&&invoice?.checkout_context?.kind==="legacy_domain")return <DomainCheckout invoiceId={invoiceId}/>;
+  if(invoiceId&&invoice?.checkout_context?.kind==="combined_domain")return <CombinedCartCheckout invoice={invoice.id}/>;
+  if(invoiceId&&invoice?.checkout_context?.kind==="domain"&&typeof invoice.checkout_context.domain==="string")return <DomainCheckout domain={invoice.checkout_context.domain} invoiceId={invoice.id}/>;
+  if(invoiceId&&invoice?.checkout_context?.kind==="legacy_domain")return <DomainCheckout invoiceId={invoice.id}/>;
   const paid=invoice?.status==="paid";
   const offered=!!(options?.enabled&&invoice?.currency===options.currency&&invoice?.status==="unpaid"&&invoice.payment_action_allowed);
   const reconciliation=invoice?.payment_attempt?.state==="reconciliation_required";
@@ -109,7 +107,7 @@ export function ClientProcessingView(){
   const verified=paid&&invoice?.payment_details&&!invoice.payment_details.test;
   return <DashboardShell role="client" title="Checkout" description="Continue the existing invoice and secure payment.">
     <CommerceCheckoutFrame stage={paid?3:2} title={paid?"Payment confirmed":"Complete your payment"} back={()=>router.push("/client/invoices")} backLabel="Back to invoices">
-      {verified&&invoice&&invoice.payment_details?<VerifiedPaymentReceipt amount={money(invoice.total)} reference={invoice.payment_details.reference} order={invoice.order_number||"—"} invoice={invoice.invoice_number||"—"} method={invoice.payment_details.gateway==="paystack"?"Paystack":invoice.payment_details.gateway} paidAt={invoice.payment_details.verified_at?new Date(invoice.payment_details.verified_at).toLocaleString("en-NG"):undefined} test={false} actions={<><Link href="/client" className={primary}>Go to dashboard</Link><a href={invoiceDownloadHref(invoice.id)} className={secondary}>Download receipt</a></>}><p className="text-sm text-slate-600">Your payment is recorded. Track service activation in your account.</p></VerifiedPaymentReceipt>:<>
+      {verified&&invoice&&invoice.payment_details?<VerifiedPaymentReceipt amount={money(invoice.total)} reference={invoice.payment_details.reference} order={invoice.order_reference||invoice.order_number||"—"} invoice={invoice.public_reference||invoice.invoice_number||"—"} method={invoice.payment_details.gateway==="paystack"?"Paystack":invoice.payment_details.gateway} paidAt={invoice.payment_details.verified_at?new Date(invoice.payment_details.verified_at).toLocaleString("en-NG"):undefined} test={false} actions={<><Link href="/client" className={primary}>Go to dashboard</Link><a href={invoiceDownloadHref(invoice.public_id??invoice.id)} className={secondary}>Download receipt</a></>}><p className="text-sm text-slate-600">Your payment is recorded. Track service activation in your account.</p></VerifiedPaymentReceipt>:<>
       {pending&&<CommercePanel><p role="status" className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin"/>Checking the existing invoice…</p></CommercePanel>}
       {error&&<p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{error}</p>}
       {invoice&&<CheckoutColumns summary={<CheckoutSummary cart={cart}>
@@ -118,13 +116,13 @@ export function ClientProcessingView(){
         {invoice.status==="unpaid"&&<PaymentGatewayChoices options={choices} selected={selected} onChange={setGateway}/>}
         {reconciliation&&<p role="status" className="text-sm text-slate-600">Your original payment needs verification. No second payment will be created.</p>}
         {offered&&!reconciliation&&<><CheckoutConsent checked={consent} onChange={setConsent} disabled={paying}/><button type="button" disabled={!consent||paying||(selected!=="paystack"&&selected!=="flutterwave")} className={primary+" w-full"} onClick={()=>{if(selected==="paystack"||selected==="flutterwave")void beginPayment(selected);}}>{paying?"Connecting…":invoice.payment_attempt?.state==="resumable"?"Resume payment":"Pay now"}</button></>}
-        {options?.google_pay_review_enabled&&invoiceId&&invoice?.status==="unpaid"&&invoice.payment_action_allowed&&!reconciliation?<GooglePayReviewButton invoiceId={invoiceId}/>:null}
+        {options?.google_pay_review_enabled&&invoiceId&&invoice?.status==="unpaid"&&invoice.payment_action_allowed&&!reconciliation?<GooglePayReviewButton invoiceId={invoice.id}/>:null}
         <button type="button" disabled={paying} className={secondary+" w-full"} onClick={()=>{if(invoiceId)void reload(invoiceId).catch(()=>setError("Invoice status could not be refreshed."));}}>Check payment status</button>
-        <Link href={invoiceHref(invoice.id)} className={secondary+" w-full"}>View invoice</Link>
-        <a href={invoiceDownloadHref(invoice.id)} className={secondary+" w-full"}>Download invoice</a>
+        <Link href={invoiceHref(invoice.public_id??invoice.id)} className={secondary+" w-full"}>View invoice</Link>
+        <a href={invoiceDownloadHref(invoice.public_id??invoice.id)} className={secondary+" w-full"}>Download invoice</a>
       </CheckoutSummary>}>
         {lines.map(line=><CartItem key={line.id} line={line} readOnly remove={()=>{}} configure={()=>{}}/>)}
-        <CheckoutPayment><p className="mt-3 break-words text-sm text-slate-600">Invoice {invoice.invoice_number||"—"} · Order {invoice.order_number||"—"}</p><div className="mt-3"><StatusBadge tone={paid?"success":invoice.status==="unpaid"?"warning":"neutral"}>{invoice.status.replaceAll("_"," ")}</StatusBadge></div>
+        <CheckoutPayment><p className="mt-3 break-words text-sm text-slate-600">Invoice {invoice.public_reference||invoice.invoice_number||"—"} · Order {invoice.order_reference||invoice.order_number||"—"}</p><div className="mt-3"><StatusBadge tone={paid?"success":invoice.status==="unpaid"?"warning":"neutral"}>{invoice.status.replaceAll("_"," ")}</StatusBadge></div>
           <p className="mt-3 text-sm text-slate-600">{paid?"Payment is recorded. Service activation is verified separately.":invoice.status==="void"?"No payment is due for this invoice.":!offered?"Payment is not currently available. Your invoice is preserved.":"Continue this existing invoice. Payment is verified independently."}</p>
           {finishedChecking&&!paid&&<p className="mt-3 text-xs text-slate-600">Automatic checks paused. Use Check payment status to refresh.</p>}
           <Link href="/client/support/new" className={secondary+" mt-4"}>Contact support</Link>

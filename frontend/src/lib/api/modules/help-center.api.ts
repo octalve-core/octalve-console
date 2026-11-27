@@ -9,7 +9,7 @@ export type Department={id:number;name:string;description:string|null;is_active:
 export type SupportTopic={id:number;department:number;label:string;slug:string;is_active:boolean;assigned_staff:number[]};
 export type SupportAgent={id:number;full_name:string;role:string};
 export type TicketMessage={id:number;sender_name_display:string;sender_role:string;message:string;is_internal:boolean;created_at:string};
-export type TicketDetail={id:number;ticket_number:string;subject:string;status:string;priority:string;
+export type TicketDetail={id:number;public_id?:string;public_reference?:string;ticket_number:string;subject:string;status:string;priority:string;
  department:number;department_name:string;routing_tag:number|null;assigned_to:number|null;assigned_to_name:string|null;
  client_name:string;messages:TicketMessage[];created_at:string};
 export function asList<T>(data:T[]|{results:T[]}):T[]{return Array.isArray(data)?data:data.results||[];}

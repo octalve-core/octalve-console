@@ -59,14 +59,14 @@ class OrderSerializer(serializers.ModelSerializer):
         from billing.serializers import InvoiceSerializer
 
         serializer = InvoiceSerializer()
-        return [{"id": invoice.pk, "number": invoice.invoice_number,
+        return [{"id": invoice.pk, "number": invoice.invoice_number, "public_id": str(invoice.public_id), "public_reference": invoice.public_reference,
                  "payment_resume": serializer.get_payment_resume(invoice)} for invoice in obj.invoices.all()
                 if invoice.client_id == obj.client_id]
     
     class Meta:
         model = Order
         fields = [
-            'id', 'order_number', 'client', 'client_email', 'client_name',
+            'id', 'public_id', 'public_reference', 'order_number', 'client', 'client_email', 'client_name',
             'status', 'status_display', 'source', 'currency', 'subtotal',
             'discount_total', 'tax_total', 'total', 'coupon_code',
             'coupon_discount', 'notes', 'created_at', 'paid_at',

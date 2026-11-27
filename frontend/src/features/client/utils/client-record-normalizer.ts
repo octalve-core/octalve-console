@@ -1,3 +1,4 @@
+import {publicResourceId} from "../../../lib/commerce/resource-id.ts";
 import type { ClientRecord, ClientResourceKey } from "../data/client-demo-data";
 import {displayMoney} from "../../../lib/i18n/formatters.ts";
 import {normalizeServiceSnapshot} from "./service-contract.ts";
@@ -44,10 +45,12 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
   const record = item as Record<string, unknown>;
 
   const id = readClientString(record, ["id", "uuid", "reference", "code"], "");
+  const publicId=publicResourceId(record.public_id,id);
+  const publicReference=readClientString(record,["public_reference"],"");
   if (!id) throw new Error("Account record is missing its identifier.");
   const title = readClientString(
     record,
-    ["domain_name", "name", "title", "domain", "label", "subject", "invoice_number", "order_number", "product"],
+    ["domain_name", "name", "title", "domain", "label", "subject", "public_reference", "invoice_number", "order_number", "product"],
     id,
   );
   const subtitle = readClientString(
@@ -57,7 +60,7 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
   );
   const meta = readClientString(
     record,
-    ["invoice_number", "order_number", "ticket_number", "reference", "domain_name", "type", "cycle", "adapter", "registrar", "priority", "term"],
+    ["public_reference", "invoice_number", "order_number", "ticket_number", "reference", "domain_name", "type", "cycle", "adapter", "registrar", "priority", "term"],
     "—",
   );
   const amount = readClientString(record, ["total", "price", "amount", "balance", "due", "paid"], "");
@@ -78,6 +81,11 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
 
   return {
     id,
+    publicId,
+    publicReference,
+    documentNumber:readClientString(record,["invoice_number","order_number"],""),
+    accountReference:readClientString(record,["client_reference"],""),
+    orderReference:readClientString(record,["order_reference"],""),
     title,
     subtitle,
     meta,
@@ -85,17 +93,17 @@ export function normalizeClientRecord(item: unknown, resource: ClientResourceKey
     amount: amount && /^[A-Z]{3}$/.test(currency) ? displayMoney(amount,currency,"en") : amount,
     status,
     date,
-    actionHref: `${getClientResourceBasePath(resource)}/${encodeURIComponent(id)}`,
+    actionHref: `${getClientResourceBasePath(resource)}/${encodeURIComponent(publicId)}`,
     score: undefined,
     service: resource === "services" ? normalizeServiceSnapshot(record) : undefined,
     invoicePeriods,
     invoiceDocuments: resource === "orders" && Array.isArray(record.invoice_documents)
       ? record.invoice_documents.flatMap(item => item && Number.isSafeInteger(item.id) && item.id > 0 && typeof item.number === "string"
-        ? [{id:String(item.id), number:item.number, paymentHref:invoicePaymentHref(item.id,item.payment_resume)}] : [])
+        ? [{id:publicResourceId(item.public_id,item.id), number:typeof item.public_reference==="string"?item.public_reference:item.number, paymentHref:invoicePaymentHref(publicResourceId(item.public_id,item.id),item.payment_resume)}] : [])
       : undefined,
-    paymentHref: resource === "invoices" ? invoicePaymentHref(id, record.payment_resume) : undefined,
+    paymentHref: resource === "invoices" ? invoicePaymentHref(publicId, record.payment_resume) : undefined,
     testCheckoutHref: resource === "invoices" && record.test_checkout_status === true
-      ? invoicePaymentHref(id, {kind:"combined_domain"}) : undefined,
+      ? invoicePaymentHref(publicId, {kind:"combined_domain"}) : undefined,
     createdDate: readClientString(record,["created_at","date_created"],""),
     dueDate: resource === "invoices" ? readClientString(record,["due_date","dueDate"],"") : undefined,
     issuedDate: resource === "invoices" ? readClientString(record,["issue_date"],"") : undefined,

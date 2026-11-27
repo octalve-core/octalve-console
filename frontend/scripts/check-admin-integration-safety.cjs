@@ -24,8 +24,8 @@ const editor=read("features/admin/views/AdminResourceEditorView.tsx");
 const form=read("features/admin/components/AdminResourceEditorForm.tsx");
 if(!editor.includes("AdminResourceEditorForm")||!form.includes("AdminEditorFields")||/Field validation ready|Django serializer|Record ID:|Resource:/.test(editor+form))
  throw Error("Admin editor must use a dedicated presentational form without internal implementation copy");
-for(const token of ["setSourceRecord(foundApiRecord)","findExactAdminRecord(authorizedRows, activeId)","sourceRecord?.id !== activeId",
- 'setError("This record is not available in your authorized account.',"effectiveMode === \"edit\" && (!sourceRecord || sourceRecord.id !== activeId)",
+for(const token of ["setSourceRecord(foundApiRecord)","findExactAdminRecord(authorizedRows, activeId)","sourceRecord?.id !== activeId && sourceRecord?.publicId !== activeId",
+ 'setError("This record is not available in your authorized account.',"effectiveMode === \"edit\" && (!sourceRecord || (sourceRecord.id !== activeId && sourceRecord.publicId !== activeId))",
  "saveAdminResourceRecord(resource, effectiveMode, payload"])
  if(!editor.includes(token))throw Error("Authorized API edit gate missing: "+token);
 if(editor.includes("listConfig.fallback")||editor.includes("prefilled with fallback"))

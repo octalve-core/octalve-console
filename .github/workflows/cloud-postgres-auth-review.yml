@@ -75,9 +75,46 @@ jobs:
           assert 'accounts.0005_privileged_passkey_enrollment' in plan.stdout
           print('PASS: locked historical 48/217 evidence preserved; SEC01 adds one migration')
           PY
-      - name: Apply initial schema ONLY to disposable CI PostgreSQL
+      - name: Apply baseline and test real existing-row identity backfill on disposable PostgreSQL
         working-directory: backend
-        run: python manage.py migrate --noinput
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import timedelta
+          import django
+          os.environ.setdefault("DJANGO_SETTINGS_MODULE","octalve_backend.settings")
+          django.setup()
+          from django.db import connection
+          from django.db.migrations.executor import MigrationExecutor
+          from django.utils import timezone
+          from scripts.production_identity_preflight import TARGETS, original_digest, postflight
+          assert connection.settings_dict["NAME"] == "octalve_auth_ci"
+          executor = MigrationExecutor(connection)
+          baseline = [node for node in executor.loader.graph.leaf_nodes() if node not in TARGETS]
+          for target in TARGETS:
+              baseline.extend(executor.loader.disk_migrations[target].dependencies)
+          baseline = list(set(baseline))
+          executor.migrate(baseline)
+          apps = executor.loader.project_state(baseline).apps
+          User = apps.get_model("accounts","CustomUser")
+          Order = apps.get_model("orders","Order")
+          Invoice = apps.get_model("billing","Invoice")
+          owner = User.objects.create(username="legacy-owner",email="legacy-owner@example.invalid",password="!unusable",referral_code="LEGACYOWNER")
+          other = User.objects.create(username="legacy-other",email="legacy-other@example.invalid",password="!unusable",referral_code="LEGACYOTHERS")
+          for index,user in enumerate((owner,other),1):
+              order=Order.objects.create(client_id=user.pk,order_number=f"ORD-2026-{index:05d}",total="12.00",status="pending_payment")
+              Invoice.objects.create(client_id=user.pk,order_id=order.pk,invoice_number=f"INV-2026-{index:05d}",total="12.00",amount_due="12.00",due_date=timezone.now()+timedelta(days=2))
+          before=original_digest(connection)
+          executor=MigrationExecutor(connection)
+          plan=executor.migration_plan(executor.loader.graph.leaf_nodes())
+          assert {(m.app_label,m.name) for m,reverse in plan if not reverse}==TARGETS
+          assert not any(reverse for _,reverse in plan)
+          executor.migrate(executor.loader.graph.leaf_nodes(),plan=plan)
+          assert original_digest(connection)==before
+          postflight(connection)
+          print("PASS: existing account, order and invoice records preserved; non-null unique identities populated")
+          PY
+          python manage.py migrate --noinput
       - name: Independently verify PostgreSQL schema and migration ledger
         working-directory: backend
         run: |
@@ -87,8 +124,8 @@ jobs:
           with psycopg.connect(os.environ['DATABASE_URL']) as db:
               with db.cursor() as cur:
                   cur.execute('SELECT COUNT(*) FROM django_migrations')
-                  assert cur.fetchone()[0] == 66, 'Baseline 64 plus two privileged WebAuthn migrations required'
-                  cur.execute("SELECT COUNT(*) FROM django_migrations WHERE NOT ((app='catalog' AND name='0002_catalog_offers') OR (app='opanel_bridge' AND name='0001_initial') OR (app='notifications' AND name='0001_hosting_ready_outbox') OR (app='support' AND name='0002_routing_tags') OR (app='knowledge_base' AND name='0001_initial') OR (app='rewards' AND name='0001_initial') OR (app='providers' AND name='0002_integration_draft_vault') OR (app='providers' AND name='0003_provider_vault_authenticator') OR (app='providers' AND name='0004_provider_event_integrity') OR (app='settings_registry' AND name IN ('0002_console_policy_defaults','0003_mail_template_outbox','0004_seed_mail_templates','0005_tax_policy_revision')) OR (app='domains' AND name IN ('0002_dns_readonly_binding','0003_external_dns_claims')) OR (app='accounts' AND name IN ('0004_privileged_webauthn','0005_privileged_passkey_enrollment')))")
+                  assert cur.fetchone()[0] == 74, 'Baseline 66 plus eight identity migrations required'
+                  cur.execute("SELECT COUNT(*) FROM django_migrations WHERE name NOT LIKE '%resource_identity' AND NOT ((app='catalog' AND name='0002_catalog_offers') OR (app='opanel_bridge' AND name='0001_initial') OR (app='notifications' AND name='0001_hosting_ready_outbox') OR (app='support' AND name='0002_routing_tags') OR (app='knowledge_base' AND name='0001_initial') OR (app='rewards' AND name='0001_initial') OR (app='providers' AND name='0002_integration_draft_vault') OR (app='providers' AND name='0003_provider_vault_authenticator') OR (app='providers' AND name='0004_provider_event_integrity') OR (app='settings_registry' AND name IN ('0002_console_policy_defaults','0003_mail_template_outbox','0004_seed_mail_templates','0005_tax_policy_revision')) OR (app='domains' AND name IN ('0002_dns_readonly_binding','0003_external_dns_claims')) OR (app='accounts' AND name IN ('0004_privileged_webauthn','0005_privileged_passkey_enrollment')))")
                   assert cur.fetchone()[0] == 49, 'Historical SEC-01 ledger must remain exactly 49 migrations'
                   cur.execute("SELECT COUNT(*) FROM django_migrations WHERE app='token_blacklist'")
                   assert cur.fetchone()[0] == 12, 'Blacklist history must contain 12 migrations'
@@ -130,9 +167,22 @@ jobs:
           import psycopg
           from scripts import production_webauthn_preflight as guard
           with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as db:
-              with patch.object(guard,"EXPECTED_DATABASE","octalve_auth_ci"), patch.object(guard,"EXPECTED_ROLE","octalve_ci"):
+              with patch.object(guard,"EXPECTED_DATABASE","octalve_auth_ci"), patch.object(guard,"EXPECTED_ROLE","octalve_ci"), patch.object(guard,"EXPECTED_AFTER",(74,120)):
                   guard.verify_webauthn_postflight(db, require_empty=True)
           print("PASS: AUTH-02 independent postflight constraints, indexes, columns and empty tables")
+          PY
+      - name: Independently verify identity schema and exact migration ledger
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg
+          from scripts.production_identity_preflight import TARGETS, postflight
+          with psycopg.connect(os.environ["DATABASE_URL"]) as db:
+              with db.cursor() as cur:
+                  cur.execute("SELECT app,name FROM django_migrations WHERE name LIKE '%resource_identity'")
+                  assert set(cur.fetchall()) == TARGETS
+              postflight(db)
           PY
       - name: Verify atomic throttle budget across concurrent database clients
         working-directory: backend
@@ -161,10 +211,10 @@ jobs:
           PY
       - name: Test real auth lifecycle against PostgreSQL
         working-directory: backend
-        run: python manage.py test accounts.tests accounts.test_privileged_mfa accounts.test_passkey_management accounts.test_passkey_recovery_readiness --verbosity=2
+        run: python manage.py test accounts.tests accounts.test_privileged_mfa accounts.test_passkey_management accounts.test_passkey_recovery_readiness accounts.test_resource_identity --verbosity=2
       - name: BIZ-01 order and pending-invoice regression on disposable PostgreSQL
         working-directory: backend
-        run: python manage.py test orders.tests orders.test_shopping_cart domains.test_pilot payments.test_checkout_webhooks payments.test_readback --verbosity=2
+        run: python manage.py test orders.tests orders.test_shopping_cart billing.tests domains.test_pilot payments.test_checkout_webhooks payments.test_readback --verbosity=2
       - name: Batch 13.2 verified points race and margin guards on disposable PostgreSQL
         working-directory: backend
         run: python manage.py test rewards.test_financial_qualification --verbosity=2

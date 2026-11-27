@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.filters import SearchFilter, OrderingFilter
+from octalve_backend.resource_lookup import ResourceIdentityLookupMixin
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.db.models import OuterRef, Prefetch, Subquery
@@ -31,7 +32,7 @@ class CloudServiceWritePermission(BasePermission):
                     (request.user.is_superuser or (request.user.is_staff and request.user.role == 'admin')))
 
 
-class ServiceViewSet(viewsets.ModelViewSet):
+class ServiceViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
     """ViewSet for services"""
     
     serializer_class = ServiceSerializer

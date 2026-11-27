@@ -9,10 +9,15 @@ export type ClientResourceKey =
 
 export type ClientRecord = {
   id: string;
+  publicId?: string;
+  publicReference?: string;
   title: string;
   subtitle: string;
   meta: string;
   paymentReference?: string;
+  documentNumber?: string;
+  accountReference?: string;
+  orderReference?: string;
   status: string;
   amount?: string;
   date?: string;

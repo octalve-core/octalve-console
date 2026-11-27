@@ -26,6 +26,8 @@ class AdminStaffRosterView(APIView):
             profile = getattr(user, "staff_profile", None)
             rows.append({
                 "id": str(user.pk),
+                "public_id": str(user.public_id),
+                "public_reference": user.public_reference,
                 "full_name": user.full_name or user.username,
                 "email": user.email,
                 "department": profile.department if profile else "",

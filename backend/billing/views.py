@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.filters import SearchFilter, OrderingFilter
+from octalve_backend.resource_lookup import ResourceIdentityLookupMixin
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.utils import timezone
@@ -28,14 +29,14 @@ class InvoiceWriteAuthority(BasePermission):
         return True
 
 
-class InvoiceViewSet(viewsets.ModelViewSet):
+class InvoiceViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
     """ViewSet for invoices"""
     
     serializer_class = InvoiceSerializer
     permission_classes = [IsAuthenticated, InvoiceWriteAuthority]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['status']
-    search_fields = ['invoice_number', 'client__email', 'client__full_name']
+    search_fields = ['invoice_number', 'public_reference', 'client__email', 'client__full_name']
     ordering_fields = ['issue_date', 'due_date', 'total']
     ordering = ['-issue_date']
     
@@ -232,7 +233,7 @@ class TaxViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
 
-class QuoteViewSet(viewsets.ModelViewSet):
+class QuoteViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
     """Existing quotes are viewable but legacy writes lack price authority.
 
     The prior endpoint trusted caller-supplied amounts and its convert_to_order

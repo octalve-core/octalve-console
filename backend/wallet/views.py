@@ -208,7 +208,10 @@ class DepositRequestViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
 
 
 # Admin Views
-class AdminWalletViewSet(viewsets.ReadOnlyModelViewSet):
+from octalve_backend.resource_lookup import ResourceIdentityLookupMixin
+
+
+class AdminWalletViewSet(ResourceIdentityLookupMixin, viewsets.ReadOnlyModelViewSet):
     """Admin view for all wallets"""
     
     queryset = Wallet.objects.all()

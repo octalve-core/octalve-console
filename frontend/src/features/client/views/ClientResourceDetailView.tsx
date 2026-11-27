@@ -94,7 +94,7 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
       const apiRecords = (resource==="invoices"||resource==="orders"
         ? [response as unknown as Record<string,unknown>]
         : unwrapClientList(response)).map((item) => normalizeClientRecord(item, config.key));
-      const foundApiRecord = apiRecords.find((item) => item.id === id);
+      const foundApiRecord = apiRecords.find((item) => item.id === id || item.publicId === id);
 
       // Never substitute sample hosting/domain/order/invoice data for a missing
       // live record. A missing API object is not proof of customer ownership.
@@ -145,7 +145,7 @@ export function ClientResourceDetailView({ resource }: ClientResourceDetailViewP
                     </div>
 
                     <div className="min-w-0">
-                      <p className="text-sm text-white/75">{record.id}</p>
+                      <p className="text-sm text-white/75">{record.publicReference||record.id}</p>
                       <h2 className="mt-2 text-3xl font-medium tracking-[-0.05em]">{record.title}</h2>
                       <p className="mt-2 max-w-2xl text-sm leading-6 text-white/80">{record.subtitle}</p>
                     </div>

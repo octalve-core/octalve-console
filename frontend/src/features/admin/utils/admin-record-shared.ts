@@ -33,7 +33,7 @@ export function getAdminRecordId(value: unknown): string {
 
 export function findExactAdminRecord(rows: Record<string, unknown>[], id: string) {
   if (!id) return null;
-  const matches = rows.filter(row => getAdminRecordId(row) === id);
+  const matches = rows.filter(row => getAdminRecordId(row) === id || row.public_id === id);
   if (matches.length > 1) throw new Error("Ambiguous API record identifier.");
   return matches[0] ?? null;
 }

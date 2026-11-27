@@ -32,6 +32,9 @@ export function BillingRecordDetail({record,resource,actions}:{
    </div>
    <dl className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-4">
     {[
+     {key:resource==="invoices"?"Invoice number":"Order number",value:record.documentNumber||"—",icon:FileText},
+     ...(record.accountReference?[{key:"Account reference",value:record.accountReference,icon:FileText}]:[]),
+     ...(record.orderReference?[{key:"Order reference",value:record.orderReference,icon:FileText}]:[]),
      {key:"Payment reference",value:record.paymentReference||"—",icon:FileText},
      {key:"Status",value:formatStatus(record.status),icon:ShieldCheck},
      {key:resource==="orders"?"Ordered":"Due date",value:serviceDate(record.date||null),icon:CalendarDays},
@@ -62,7 +65,7 @@ export function BillingRecordDetail({record,resource,actions}:{
     <div className="mt-4 grid gap-3">
      {resource==="invoices" && record.testCheckoutHref && <ActionLink href={record.testCheckoutHref} variant="outline">View test registration status</ActionLink>}
      {resource==="invoices" && record.paymentHref && <ActionLink href={record.paymentHref} variant="primary">Pay now</ActionLink>}
-     {resource==="invoices" && <a href={invoiceDownloadHref(record.id)} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-console-primary px-4 text-sm font-medium text-white">Download invoice PDF</a>}
+     {resource==="invoices" && <a href={invoiceDownloadHref(record.publicId??record.id)} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-console-primary px-4 text-sm font-medium text-white">Download invoice PDF</a>}
      {resource==="orders" && record.invoiceDocuments?.map(invoice=><div key={invoice.id} className="grid gap-2 rounded-lg border border-console-line p-3 text-sm">
       <ActionLink href={invoiceHref(invoice.id)} variant="primary">View invoice {invoice.number}</ActionLink>
       {invoice.paymentHref && <ActionLink href={invoice.paymentHref} variant="outline">Pay now</ActionLink>}

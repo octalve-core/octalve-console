@@ -42,6 +42,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
     payment_reference = serializers.SerializerMethodField()
     payment_details = serializers.SerializerMethodField()
     order_number = serializers.CharField(source="order.order_number", read_only=True, default=None)
+    order_reference = serializers.CharField(source="order.public_reference", read_only=True, default=None)
+    client_reference = serializers.CharField(source="client.public_reference", read_only=True)
 
     def get_payment_details(self, obj):
         from .payment_reference import verified_payment_details
@@ -54,10 +56,10 @@ class InvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
         fields = [
-            'id', 'invoice_number', 'order', 'client', 'client_name', 'client_email',
+            'id', 'public_id', 'public_reference', 'invoice_number', 'order', 'client', 'client_name', 'client_email',
             'status', 'status_display', 'currency', 'subtotal', 'discount_total',
             'tax_total', 'total', 'amount_paid', 'amount_due', 'issue_date',
-            'due_date', 'paid_at', 'notes', 'items', 'is_overdue', 'created_at', 'payment_action_allowed', 'payment_resume', 'checkout_context', 'payment_attempt', 'test_checkout_status', 'payment_reference', 'payment_details', 'order_number'
+            'due_date', 'paid_at', 'notes', 'items', 'is_overdue', 'created_at', 'payment_action_allowed', 'payment_resume', 'checkout_context', 'payment_attempt', 'test_checkout_status', 'payment_reference', 'payment_details', 'order_number', 'order_reference', 'client_reference'
         ]
         read_only_fields = ['invoice_number', 'amount_paid', 'amount_due', 'created_at']
     
@@ -147,7 +149,7 @@ class QuoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quote
         fields = [
-            'id', 'quote_number', 'client', 'client_name', 'client_email',
+            'id', 'public_id', 'public_reference', 'quote_number', 'client', 'client_name', 'client_email',
             'status', 'status_display', 'currency', 'subtotal', 'discount_total',
             'tax_total', 'total', 'issued_at', 'valid_until', 'accepted_at',
             'notes', 'items_data', 'created_at'

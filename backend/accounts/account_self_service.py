@@ -39,11 +39,11 @@ class OwnProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = (
-            "email", "email_verified", "full_name", "phone_number",
+            "public_id", "public_reference", "email", "email_verified", "full_name", "phone_number",
             "company_name", "address", "city", "state", "country",
             "postal_code", "tax_id",
         )
-        read_only_fields = ("email", "email_verified")
+        read_only_fields = ("email", "email_verified", "public_id", "public_reference")
         extra_kwargs = {
             "full_name": {"allow_blank": True, "required": False},
             "phone_number": {"allow_blank": True, "required": False},
@@ -60,7 +60,7 @@ class OwnProfileSerializer(serializers.ModelSerializer):
         return obj.email_verified_at is not None
 
     def validate(self, attrs):
-        writable = set(self.fields) - {"email", "email_verified"}
+        writable = set(self.fields) - {"email", "email_verified", "public_id", "public_reference"}
         disallowed = set(self.initial_data) - writable
         if disallowed:
             raise serializers.ValidationError("Only contact and billing details can be changed.")

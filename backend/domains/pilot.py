@@ -116,7 +116,7 @@ def result(order):
     if checkout_state == "uncertain" and intent and intent.is_expired():
         checkout_state = "expired"
     return {"checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
-            "invoice_id": invoice.pk,
+            "invoice_id": invoice.pk, "invoice_public_id": str(invoice.public_id), "invoice_reference": invoice.public_reference, "order_reference": order.public_reference,
             "registered_at": registration.get("registered_at"), "expires_at": registration.get("expires_at"),
             "domain": evidence["domain"], "amount": str(invoice.total), "currency": "NGN",
             "state": evidence["state"], "payment_reference": evidence.get("payment_reference") or (intent.reference if intent else None)}

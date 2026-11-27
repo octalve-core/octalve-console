@@ -50,7 +50,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
       const apiRecords = resource === "customers"
         ? [normalizeAdminRecord(response, "customers")]
         : unwrapAdminList(response).map((item) => normalizeAdminRecord(item, listConfig.key));
-      const foundApiRecord = apiRecords.find((item) => item.id === id);
+      const foundApiRecord = apiRecords.find((item) => item.id === id || item.publicId === id);
       if (requestId !== requestSequence.current) return;
       setCustomer(resource==="customers"?response as unknown as CustomerDetail:null);
       setRecord(foundApiRecord ?? null);
@@ -104,7 +104,7 @@ export function AdminResourceDetailView({ resource }: AdminResourceDetailViewPro
               actions={[...(resource==="providers"?[]:isAdminMutationDisabled(resource)?[]:[{href:editHref,label:"Edit record",variant:"primary" as const}]),
                 {href:editorConfig.listHref,label:"Back to records",variant:"outline"}]}/>
             {resource==="domains"?<div className="mt-4">
-              <ActionLink variant="outline" href={`/admin/billing/domains/${encodeURIComponent(id)}/dns`}>
+              <ActionLink variant="outline" href={`/admin/billing/domains/${encodeURIComponent(record.id)}/dns`}>
                 Review customer DNS access
               </ActionLink>
             </div>:null}

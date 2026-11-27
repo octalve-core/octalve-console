@@ -1,6 +1,8 @@
 from decimal import Decimal
 # orders/models.py
 
+from octalve_backend.resource_identity import reference_ord
+import uuid
 from django.db import models, transaction
 from octalve_backend.document_sequence import lock_document_sequence
 from django.conf import settings
@@ -15,6 +17,8 @@ import string
 
 class Order(models.Model):
     """Customer orders for products/services"""
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    public_reference = models.CharField(max_length=28, default=reference_ord, unique=True, editable=False)
     
     STATUS_CHOICES = [
         ('draft', 'Draft'),

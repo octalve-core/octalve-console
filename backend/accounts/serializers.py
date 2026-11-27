@@ -38,7 +38,7 @@ class CustomUserCreateSerializer(BaseUserCreateSerializer):
     class Meta(BaseUserCreateSerializer.Meta):
         model = User
         fields = (
-            'id',
+            'id', 'public_id', 'public_reference',
             'full_name',
             'email',
             'username',
@@ -164,7 +164,7 @@ class CustomUserSerializer(BaseUserSerializer):
     class Meta(BaseUserSerializer.Meta):
         model = User
         fields = [
-            'id',
+            'id', 'public_id', 'public_reference',
             'email',
             'username',
             'full_name',
@@ -268,7 +268,7 @@ class CustomerListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'full_name', 'email', 'phone_number', 'company_name',
+            'id', 'public_id', 'public_reference', 'full_name', 'email', 'phone_number', 'company_name',
             'role', 'status', 'date_joined', 'last_login',
             'services_count', 'total_invoices', 'unpaid_invoices', 'wallet_balance',
         ]
@@ -320,7 +320,7 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'full_name', 'email', 'username', 'phone_number', 'company_name',
+            'id', 'public_id', 'public_reference', 'full_name', 'email', 'username', 'phone_number', 'company_name',
             'address_line1', 'city', 'state', 'country', 'postal_code',
             'tax_id', 'tax_exempt',
             'role', 'status', 'email_verified', 'phone_verified', 'two_factor_enabled',

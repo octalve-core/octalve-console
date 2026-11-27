@@ -7,7 +7,7 @@ import type {AdminRecord} from "../data/admin-demo-data";
 type DetailAction={href:string;label:string;variant:"primary"|"outline"};
 function tone(status:string):StatusTone{const x=getStatusTone(status);return x==="danger"?"error":x;}
 export function AdminRecordDetailPanel({record,actions}:{record:AdminRecord;actions:readonly DetailAction[]}){
- const details=[{label:"Reference",value:record.id,icon:Database},
+ const details=[{label:"Reference",value:record.publicReference||record.reference||record.id,icon:Database},
  {label:"Status",value:formatStatus(record.status),icon:ShieldCheck},
  {label:"Date",value:record.date||"—",icon:CalendarDays},
  {label:"Amount",value:record.amount||"—",icon:ExternalLink}];
@@ -19,7 +19,7 @@ export function AdminRecordDetailPanel({record,actions}:{record:AdminRecord;acti
       <span aria-hidden="true" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white/15">
        <Server className="h-6 w-6"/></span>
       <div className="min-w-0">
-       <p className="break-all text-xs text-white/80">{record.id}</p>
+       <p className="break-all text-xs text-white/80">{record.publicReference||record.id}</p>
        <h2 className="mt-2 break-words text-2xl font-medium tracking-tight sm:text-3xl">{record.title}</h2>
        <p className="mt-2 break-words text-sm leading-6 text-white/85">{record.subtitle}</p>
       </div>
