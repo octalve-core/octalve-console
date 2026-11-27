@@ -284,25 +284,17 @@ def run_due_work():
     from django.db.models import Q
     from payments.readback import PaymentReadbackRejected
     counters = {"processed":0,"held":0,"renewals":0}
-    # Filter to currently payable, public test invoices first; historical
-    # evidence cannot starve pending inbox rows.
-    intents = PaymentIntent.objects.filter(status__in=("pending","processing"),
-        gateway__code="paystack",gateway__test_mode=True,gateway__status="test",
-        invoice__status="unpaid").filter(
-        Q(invoice__metadata__combined_domain_test_cart=True,
-          invoice__order__metadata__combined_domain_test_cart__public_payment_test=True) |
-        Q(invoice__metadata__sandbox_domain_purchase=True,
-          invoice__order__metadata__sandbox_domain_purchase__public_payment_test=True))
-    ids = list(intents.order_by("pk").values_list("pk",flat=True)[:100])
-    events = WebhookEvent.objects.filter(is_verified=True,is_processed=False,
-        event_type="charge.success",gateway__code="paystack",gateway__test_mode=True,
-        payload__intent_id__in=ids).order_by("pk")[:2]
-    for event in events:
-        try:
-            result = consume_public_event(event.pk)
-            counters["processed" if result=="processed" else "held"] += 1
-        except (ValidationError, DatabaseError, CheckoutRefused, PaymentReadbackRejected):
-            counters["held"] += 1
+    from payments.automatic_reconciliation import attempt_event, due_event_ids
+    counters.update(historical_reconciled=0, historical_held=0)
+    # New payment and historical evidence have separate bounded retry lanes.
+    # At most four payment readbacks per cron; normal webhooks reconcile immediately.
+    for historical in (False, True):
+        for event_id in due_event_ids(historical=historical):
+            result = attempt_event(event_id)
+            if historical:
+                counters["historical_reconciled" if result == "processed" else "historical_held"] += 1
+            else:
+                counters["processed" if result == "processed" else "held"] += 1
     # Mark work as complete for each simulated cycle; no repeating invoices.
     now=timezone.now()
     candidates = Invoice.objects.filter(status="void",order__metadata__test_lifecycle_v1__refund__status="not_requested",
