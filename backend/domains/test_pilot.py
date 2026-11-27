@@ -804,3 +804,35 @@ class DomainPilotTests(TestCase):
         self.assertEqual(order.metadata[PILOT]["state"],"registered")
         self.supplier.submit_pilot_registration.assert_called_once()
         self.assertFalse(Transaction.objects.exists())
+
+
+    @override_settings(CLOUD_TEST_LIFECYCLE_ENABLED=True,CLOUD_PUBLIC_DOMAIN_PAYMENT_TEST_ENABLED=True,
+                       CLOUD_GATEWAY_READBACK_ENABLED=True,CLOUD_SIGNED_WEBHOOK_INGEST_ENABLED=True)
+    def test_queue_automatically_selects_verified_private_order_without_uuid_pin(self):
+        from domains.sandbox_fulfillment import advance_due_orders
+        from payments.automatic_reconciliation import attempt_event
+        order=accept_quote(self.owner,self.domain,self.token)
+        invoice=order.invoices.get()
+        intent=PaymentIntent.objects.create(invoice=invoice,client=self.owner,gateway=self.gateway,
+            reference="OC-QUEUE-PRIVATE",status="pending",amount=invoice.total,currency="NGN",
+            expires_at=timezone.now()+timezone.timedelta(minutes=10))
+        event=WebhookEvent.objects.create(gateway=self.gateway,is_verified=True,event_type="charge.success",
+            event_id="queue-test",payload={"intent_id":intent.pk,"reference":intent.reference,"remote_id":"123"})
+        proof=ConfirmedGatewayPayment("paystack",intent.reference,"NGN",invoice.total,"123")
+        with patch.dict("os.environ",{"CLOUD_REGISTRAR_SANDBOX_QUEUE_ENABLED":"true",
+                                     "CLOUD_REGISTRAR_SANDBOX_ORDER_ID":""}):
+            self.assertEqual(advance_due_orders(),"idle")
+            with patch("domains.pilot.verify_gateway_intent",return_value=proof):
+                self.assertEqual(attempt_event(event.pk),"processed")
+            self.supplier.check.return_value={"registrable":True}
+            self.supplier.submit_pilot_registration.side_effect=CloudflareINT01Denied()
+            self.assertEqual(advance_due_orders(),"advanced")
+            self.supplier.pilot_registration_status.return_value={"state":"succeeded"}
+            self.supplier.get_registration.return_value={"domain_name":self.domain,"sandbox_status":"active",
+                "registered_at":"2026-11-27T12:00:00Z","expires_at":"2027-11-27T12:00:00Z"}
+            self.assertEqual(advance_due_orders(),"advanced")
+            self.assertEqual(advance_due_orders(),"idle")
+            self.supplier.submit_pilot_registration.assert_called_once()
+        order.refresh_from_db()
+        self.assertEqual(order.metadata[PILOT]["state"],"registered")
+        self.assertFalse(Transaction.objects.exists())
