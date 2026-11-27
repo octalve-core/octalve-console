@@ -1,6 +1,7 @@
 "use client";
 import {useState} from "react";
 import {AdminResourceDirectory} from "../components/AdminResourceDirectory";
+import {RegistrarLaunchReview} from "../components/RegistrarLaunchReview";
 import {AdminDNSClaimQueue} from "../components/AdminDNSClaimQueue";
 import {AdminCustomerDirectoryView} from "./AdminCustomerDirectoryView";
 import {DashboardPage} from "@/components/layout/DashboardPage";
@@ -36,7 +37,7 @@ function OtherAdminResourceListView({resource}:{resource:Exclude<AdminResourceKe
  return <DashboardShell role="admin" title={config.title} description={config.description}>
   <DashboardPage eyebrow={config.eyebrow} title={config.title} description={config.description}>
    <div className="space-y-4">
-    {resource==="domains"?<AdminDNSClaimQueue/>:null}
+    {resource==="domains"?<><AdminDNSClaimQueue/><RegistrarLaunchReview/></>:null}
     {error?<ErrorState description={error}/>:null}
     {isLoading?<DirectoryLoadingSkeleton label={config.title}/>:
      !error||records.length?<AdminResourceDirectory resource={resource} records={records}

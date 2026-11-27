@@ -4,6 +4,7 @@ export type AdminRecord = {
   publicReference?: string;
   testLifecycle?:unknown;
   verifiedTest?:boolean;
+  testDomain?:string;
   title: string;
   subtitle: string;
   meta: string;

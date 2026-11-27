@@ -34,7 +34,7 @@ def price_review(row):
         } if published else None,
         "terms":[{"years":int(term),"registration_draft":draft["registration"][term],
                   "renewal_draft":draft["renewal"][term],
-                  "test_checkout_qualified":bool(published and row.tld==".com" and term=="1" and row.register_price>0)}
+                  "term_supported_by_existing_test_checkout":bool(published and row.tld==".com" and term=="1" and row.register_price>0)}
                  for term in TERMS],
         "transfer_draft":draft["transfer_price"],"transfer_executable":False,
         "renewal_executable":False,"live_execution_enabled":False}
@@ -104,7 +104,10 @@ def registration_review(invoice, domain):
     result=adapter.get_registration(name)
     if result.get("domain_name")!=name:
         raise CloudflareINT01Denied()
-    expiry=parse_datetime(result.get("expires_at") or "")
+    try:
+        expiry=parse_datetime(result.get("expires_at") or "")
+    except (ValueError,TypeError):
+        expiry=None
     days=(expiry-timezone.now()).days if expiry and expiry.utcoffset() is not None else None
     return {"mode":"sandbox_readback","domain":name,"registration":result,
             "days_until_expiry":days,"checked_at":timezone.now().isoformat(),
