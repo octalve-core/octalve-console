@@ -319,6 +319,7 @@ def reconcile_line(order, line_id):
         if not evidence or current.status != "needs_review" or not _processed_evidence(*evidence, context[1]):
             raise ValidationError("Processed private test payment evidence is required.")
         locked = order.items.select_for_update().get(pk=line.pk)
+        locked.order = current
         state = locked.config[CART]["state"]
         if state in ("registered", "registration_rejected"):
             return
