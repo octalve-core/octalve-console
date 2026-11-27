@@ -57,7 +57,7 @@ class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
         fields = [
-            'id', 'reference', 'provider_reference', 'client_name', 'client_email',
+            'id', 'public_id', 'public_reference', 'reference', 'provider_reference', 'client_name', 'client_email',
             'invoice_number', 'gateway_name', 'transaction_type', 'currency',
             'amount', 'fee', 'net_amount', 'status', 'status_display',
             'payment_method', 'card_last4', 'card_type', 'paid_at', 'created_at'

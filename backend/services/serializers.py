@@ -77,7 +77,7 @@ class ServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
         fields = [
-            'id', 'client', 'client_name', 'client_email', 'service_type',
+            'id', 'public_id', 'public_reference', 'client', 'client_name', 'client_email', 'service_type',
             'domain_name', 'label', 'plan_name', 'description', 'status', 'status_display',
             'billing_cycle', 'amount', 'currency', 'next_due_date',
             'auto_renew', 'has_ssl', 'has_backup', 'activated_at',

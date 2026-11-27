@@ -45,7 +45,7 @@ class DomainSerializer(serializers.ModelSerializer):
     class Meta:
         model = Domain
         fields = [
-            'id', 'domain_name', 'tld', 'client', 'client_name', 'client_email',
+            'id', 'public_id', 'public_reference', 'domain_name', 'tld', 'client', 'client_name', 'client_email',
             'status', 'status_display', 'registration_type', 'management_kind', 'registrar',
             'registration_date', 'expiry_date', 'next_due_date', 'auto_renew',
             'dnssec_enabled', 'days_until_expiry', 'is_expiring_soon',
