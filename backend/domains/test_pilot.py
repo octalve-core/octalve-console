@@ -289,7 +289,11 @@ class DomainPilotTests(TestCase):
         self.assertTrue(event.is_processed)
         self.assertIsNotNone(event.processed_at)
         self.supplier.submit_cart_registration.assert_not_called()
-        first_result = api.post(status_url, {"action": "advance"}, format="json")
+        from domains.sandbox_fulfillment import advance_approved_order
+        with patch.dict("os.environ", {"CLOUD_REGISTRAR_SANDBOX_AUTOMATION_ENABLED": "true",
+                                     "CLOUD_REGISTRAR_SANDBOX_ORDER_ID": str(invoice.order.public_id)}):
+            self.assertEqual(advance_approved_order(), "advanced")
+        first_result = api.get(status_url)
         self.assertEqual(first_result.status_code, 200, first_result.data)
         self.assertEqual(first_result.data["domains"][0]["state"], "registration_uncertain")
         self.supplier.pilot_registration_status.return_value = {"state": "succeeded"}
