@@ -13,7 +13,7 @@ from webauthn.helpers import base64url_to_bytes
 from webauthn.helpers.exceptions import WebAuthnException
 from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
 
-from .models import PrivilegedLoginChallenge, PrivilegedPasskey
+from .models import CustomUser, PrivilegedLoginChallenge, PrivilegedPasskey
 
 RP_ID = "console.cloud.octalve.com"
 ORIGIN = "https://console.cloud.octalve.com"
@@ -35,7 +35,11 @@ def passkey_login_allowed(user):
     )
 
 
+@transaction.atomic
 def begin_login(user):
+    current = CustomUser.objects.select_for_update().filter(pk=user.pk).first()
+    if current is None or not current.is_active or current.is_locked or current.password != user.password or not passkey_login_allowed(current):
+        raise PermissionDenied("Account changed. Start a new sign-in.")
     credentials = list(PrivilegedPasskey.objects.filter(user=user, revoked_at__isnull=True))
     if not credentials:
         raise PermissionDenied("This privileged account requires an enrolled passkey.")
@@ -66,6 +70,10 @@ def verify_login(user, challenge_id, assertion):
     except ValueError:
         raise PermissionDenied(denied) from None
     with transaction.atomic():
+        # Serialize challenges and assertions against recovery using account-first locks.
+        current = CustomUser.objects.select_for_update().filter(pk=user.pk).first()
+        if current is None or not current.is_active or current.is_locked or current.password != user.password or not passkey_login_allowed(current):
+            raise PermissionDenied(denied)
         challenge = PrivilegedLoginChallenge.objects.select_for_update().filter(
             pk=challenge_key, user=user, used_at__isnull=True, expires_at__gt=timezone.now(),
         ).first()

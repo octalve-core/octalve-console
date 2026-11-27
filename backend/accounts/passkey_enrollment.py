@@ -7,7 +7,7 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, check_password
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -22,7 +22,7 @@ from webauthn.helpers.structs import AuthenticatorSelectionCriteria, PublicKeyCr
 
 from audit.models import AuditLog
 from .account_self_service import reserve_email_attempt
-from .models import CustomUser, PrivilegedPasskey, PrivilegedPasskeyGrant
+from .models import CustomUser, PrivilegedPasskey, PrivilegedPasskeyGrant, PrivilegedLoginChallenge
 from .privileged_mfa import ORIGIN, RP_ID, is_privileged_account
 
 GRANT_PATTERN = re.compile(r"[A-Za-z0-9_-]{43}")
@@ -33,16 +33,16 @@ def is_privileged(user):
     return user.is_active and not user.is_locked and is_privileged_account(user)
 
 
-def audit_grant(grant, event):
+def audit_grant(grant, event, **evidence):
     AuditLog.objects.create(
         action="settings_updated", entity_type="privileged_passkey",
         entity_id=str(grant.user_id), entity_name=event,
-        details={"approval_reference": grant.approval_reference, "recovery": grant.recovery},
+        details={"approval_reference": grant.approval_reference, "recovery": grant.recovery, **evidence},
     )
 
 
 @transaction.atomic
-def issue_grant(user, approval_reference, recovery=False):
+def issue_grant(user, approval_reference, recovery=False, notification_reference=None):
     user = CustomUser.objects.select_for_update().get(pk=user.pk)
     if not is_privileged(user):
         raise PermissionDenied(DENIED)
@@ -53,7 +53,7 @@ def issue_grant(user, approval_reference, recovery=False):
         approval_reference=approval_reference, recovery=recovery,
         expires_at=timezone.now()+timedelta(minutes=15),
     )
-    audit_grant(grant, "Enrollment authorization issued")
+    audit_grant(grant, "Enrollment authorization issued", **({"notification_reference": notification_reference} if notification_reference else {}))
     return code
 
 
@@ -86,7 +86,7 @@ class PrivilegedPasskeyEnrollmentView(APIView):
         if grant_owner is None:
             raise PermissionDenied(DENIED)
         initial_user = CustomUser.objects.filter(pk=grant_owner).first()
-        if initial_user is None or not is_privileged(initial_user) or not initial_user.check_password(password):
+        if initial_user is None or not is_privileged(initial_user) or not check_password(password, initial_user.password):
             raise PermissionDenied(DENIED)
         with transaction.atomic():
             user = CustomUser.objects.select_for_update().get(pk=grant_owner)
@@ -140,6 +140,7 @@ class PrivilegedPasskeyEnrollmentView(APIView):
                     # existing password sessions and reset links are invalidated.
                     user.password = make_password(password)
                     user.save(update_fields=["password"])
+                    PrivilegedLoginChallenge.objects.filter(user=user, used_at__isnull=True).update(used_at=timezone.now())
                     PrivilegedPasskey.objects.filter(user=user, revoked_at__isnull=True).exclude(
                         pk=credential.pk,
                     ).update(revoked_at=timezone.now())
@@ -147,7 +148,7 @@ class PrivilegedPasskeyEnrollmentView(APIView):
                         user=user, expires_at__gt=timezone.now(),
                     ).order_by("id"):
                         BlacklistedToken.objects.get_or_create(token=token)
-                audit_grant(grant, "Privileged passkey recovered" if grant.recovery else "Privileged passkey enrolled")
+                audit_grant(grant, "Privileged passkey recovered" if grant.recovery else "Privileged passkey enrolled", credential_record_id=credential.pk)
         if credential is None:
             raise PermissionDenied(DENIED)
         return Response({"enrolled": True}, status=201, headers={"Cache-Control": "no-store"})

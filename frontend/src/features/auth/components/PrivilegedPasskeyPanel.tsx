@@ -17,14 +17,14 @@ export function PrivilegedPasskeyPanel(){
     finally{setLoading(false);}
   },[]);
   useEffect(()=>{void load();},[load]);
-  return <Panel className="space-y-4 xl:col-span-2">
+  return <Panel className="space-y-4 xl:col-span-3">
     <div className="flex items-start justify-between gap-3">
       <div className="flex min-w-0 items-start gap-3"><Fingerprint aria-hidden="true" className="mt-1 h-5 w-5 shrink-0 text-console-primary"/>
         <div><h2 className="text-base font-medium text-console-ink">Security &amp; passkeys</h2><p className="text-sm text-console-muted">Your registered privileged authentication credentials.</p></div></div>
       <button type="button" onClick={()=>void load()} disabled={loading} aria-label="Refresh passkey status" className="min-h-11 rounded-lg border border-console-line px-3 text-sm disabled:opacity-50"><RefreshCw aria-hidden="true" className="h-4 w-4"/></button>
     </div>
     {loading?<p role="status" className="text-sm text-console-muted">Checking passkey status…</p>:error?<p role="alert" className="text-sm text-rose-700">{error}</p>:state?<>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
         <div className="rounded-xl border border-console-line p-3"><p className="text-xs text-console-muted">Active credentials</p><p className="text-xl font-medium">{state.active_count}</p></div>
         <div className="rounded-xl border border-console-line p-3"><p className="text-xs text-console-muted">Verified credentials</p><p className="text-xl font-medium">{state.verified_active_count}</p></div>
       </div>
@@ -37,7 +37,7 @@ export function PrivilegedPasskeyPanel(){
         {record.revoked_at?<p className="text-console-muted">Revoked: {displayDate(record.revoked_at)}</p>:null}
       </div>)}
       </div>
-      <div className="rounded-xl border border-console-line p-3 text-sm"><p className="font-medium">Enrollment, replacement and revocation</p><p className="mt-1 text-console-muted">Contact your authorized security operator for an independently approved, account-bound grant or credential revocation. Use a separate signed-out browser for setup. Never share setup codes, passwords or passkeys. The final active verified credential cannot be removed through the normal revocation procedure.</p></div>
+      <div className="rounded-xl border border-console-line p-3 text-sm"><p className="font-medium">Enrollment, replacement and revocation</p><p className="mt-1 text-console-muted">Contact your authorized security operator for an independently approved, account-bound grant or credential revocation. Use a separate signed-out browser for setup. Never share setup codes, passwords or passkeys. The final active verified credential cannot be removed through the normal revocation procedure. If all authenticators are lost, request independently approved recovery and notification; existing credentials and sessions are revoked only after a valid replacement is registered.</p></div>
     </>:null}
   </Panel>;
 }
