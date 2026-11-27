@@ -18,6 +18,7 @@ from billing.models import Invoice
 from orders.models import Order
 from payments.domain_pilot_scope import CART, PILOT, pilot_gateway_allowed
 from payments.models import PaymentIntent, WebhookEvent, Transaction
+from payments.hosted_checkout import payment_history, CheckoutRefused
 
 KEY = "test_lifecycle_v1"
 
@@ -103,6 +104,9 @@ def _locked_verified(invoice_id):
     if not key or not value or len(intents) != 1 or invoice.status != "void" or order.status != "needs_review":
         raise ValidationError("Verified test lifecycle is unavailable.")
     intent = intents[0]
+    active, _ = payment_history(invoice, lock=True)
+    if not active or active.pk != intent.pk:
+        raise ValidationError("Test payment history requires review.")
     evidence = value["payment"]
     if (not pilot_gateway_allowed(intent.gateway, invoice) or intent.client_id != invoice.client_id
             or intent.reference != evidence["reference"] or intent.amount != invoice.total
@@ -190,3 +194,84 @@ def consume_public_event(event_id):
         from domains.pilot import reconcile
         reconcile(intent.invoice.order)
     return "processed" if WebhookEvent.objects.filter(pk=event.pk, is_processed=True).exists() else "pending"
+
+def review_historical_events():
+    """Metadata-only audit. Never invent missing provider evidence or repair rows."""
+    rows = WebhookEvent.objects.filter(is_verified=True, is_processed=False,
+        event_type="charge.success", gateway__code="paystack", gateway__test_mode=True).order_by("pk")[:100]
+    results = []
+    for event in rows:
+        data = event.payload if isinstance(event.payload, dict) else {}
+        intent = PaymentIntent.objects.select_related("invoice__order", "gateway").filter(
+            pk=data.get("intent_id") if type(data.get("intent_id")) is int else None,
+            gateway_id=event.gateway_id, reference=data.get("reference")).first()
+        if not intent or not intent.invoice.order_id:
+            results.append({"event":event.pk, "classification":"unmatched_reference"})
+            continue
+        invoice, order = intent.invoice, intent.invoice.order
+        snapshot = next((order.metadata.get(k) for k in (CART,PILOT) if invoice.metadata.get(k) is True), None)
+        classification = "pending_verification"
+        if intent.status == "completed":
+            if (invoice.status != "void" or order.status != "needs_review" or
+                    intent.client_id != invoice.client_id or order.client_id != invoice.client_id or
+                    intent.amount != invoice.total or order.total != invoice.total or
+                    invoice.currency != intent.currency or not isinstance(snapshot,dict) or
+                    snapshot.get("payment_reference") != intent.reference):
+                classification = "conflicting_history"
+            elif not snapshot.get("payment_remote_id"):
+                classification = "missing_stored_remote_identity"
+            elif snapshot["payment_remote_id"] == data.get("remote_id"):
+                classification = "matching_stored_evidence_requires_audit"
+            else:
+                classification = "conflicting_remote_identity"
+        results.append({"event":event.pk,"invoice_reference":invoice.public_reference,
+                        "order_reference":order.public_reference,"classification":classification})
+    return results
+
+
+def run_due_work():
+    """Bounded recurring work. No live settlement or supplier/mail transport."""
+    if not enabled():
+        return {"disabled":True}
+    from django.db import DatabaseError
+    from django.db.models import Q
+    from payments.readback import PaymentReadbackRejected
+    counters = {"processed":0,"held":0,"renewals":0}
+    # Filter to currently payable, public test invoices first; historical
+    # evidence cannot starve pending inbox rows.
+    intents = PaymentIntent.objects.filter(status__in=("pending","processing"),
+        gateway__code="paystack",gateway__test_mode=True,gateway__status="test",
+        invoice__status="unpaid").filter(
+        Q(invoice__metadata__combined_domain_test_cart=True,
+          invoice__order__metadata__combined_domain_test_cart__public_payment_test=True) |
+        Q(invoice__metadata__sandbox_domain_purchase=True,
+          invoice__order__metadata__sandbox_domain_purchase__public_payment_test=True))
+    ids = list(intents.order_by("pk").values_list("pk",flat=True)[:100])
+    events = WebhookEvent.objects.filter(is_verified=True,is_processed=False,
+        event_type="charge.success",gateway__code="paystack",gateway__test_mode=True,
+        payload__intent_id__in=ids).order_by("pk")[:2]
+    for event in events:
+        try:
+            result = consume_public_event(event.pk)
+            counters["processed" if result=="processed" else "held"] += 1
+        except (ValidationError, DatabaseError, CheckoutRefused, PaymentReadbackRejected):
+            counters["held"] += 1
+    # Mark work as complete for each simulated cycle; no repeating invoices.
+    candidates = Invoice.objects.filter(status="void",order__metadata__has_key=KEY).select_related("order").order_by("pk")
+    now=timezone.now()
+    count=0
+    for invoice in candidates.iterator(chunk_size=100):
+        value=safe_snapshot(invoice.order)
+        if not value or value.get("refund",{}).get("status")!="not_requested":
+            continue
+        existing={r["service_reference"] for r in value["renewals"]}
+        if not any(item["reference"] not in existing and parse_datetime(item["next_due"]) <= now for item in value["items"]):
+            continue
+        if count>=20:
+            break
+        count+=1
+        try:
+            counters["renewals"] += int(advance_renewals(invoice.pk,at=now))
+        except (ValidationError, DatabaseError, CheckoutRefused):
+            counters["held"] += 1
+    return counters
