@@ -250,8 +250,9 @@ def verify_self_service(request):
     if not claim or not _self_service_scope(request.user,claim.domain_name):
         raise PermissionDenied("This challenge is not available.")
     if claim.state==DomainDNSClaim.State.VERIFIED:
-        binding=DomainDNSBinding.objects.filter(domain=claim.domain,client=request.user,state="active").first()
-        if binding:
+        from .dns_readonly import _binding_matches_domain
+        binding=DomainDNSBinding.objects.select_related("connection","domain").filter(domain=claim.domain,client=request.user,state="active").first()
+        if binding and _binding_matches_domain(binding,binding.domain):
             return Response({**_public(claim),"next_step":"Open My Domains to view live DNS."},headers=NO_CACHE)
     if claim.state!=DomainDNSClaim.State.PENDING or claim.expires_at<=timezone.now():
         return Response({"detail":"Request a fresh verification record."},status=409,headers=NO_CACHE)
@@ -268,9 +269,9 @@ def verify_self_service(request):
 
 
 def _confirm_claim(claim, connection, actor, *, self_service=False):
-    connector = _conn(connection, connection.current_version)
-    zone_id = require_id(connection.public_settings.get("zone_id", ""))
     try:
+        connector = _conn(connection, connection.current_version)
+        zone_id = require_id(connection.public_settings.get("zone_id", ""))
         snapshot = connector.dns_live_inventory(zone_id, claim.domain_name)
     except CloudflareINT01Denied:
         return Response({"detail": "Unable to verify the exact Cloudflare zone."},
