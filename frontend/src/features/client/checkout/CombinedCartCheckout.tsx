@@ -176,7 +176,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   const canPay=consent&&!!gateway&&options.some(g=>g.code===gateway&&g.enabled)&&!busy;
   const lines:CartLine[]=(record?.lines??[]).map((line,index)=>({id:String(index),kind:line.kind==="domain"?"domain":line.kind==="vps"?"vps":"hosting",name:line.kind==="domain"?(line.domain||line.name):line.name,description:"",period:line.period??(line.kind==="domain"?"1 year":"Selected billing cycle"),priceLabel:formatPlanAmount(Number(line.amount),record!.currency),domain:line.domain}));
   const total=record?formatPlanAmount(Number(record.total),record.currency):"Awaiting quote";
-  const cart:CartView={lines,subtotal:total,tax:record?"Included in quoted total":"Price not confirmed",total,busy:busy||(!record&&!error),error,checkoutAllowed:!!quote&&!purchase};
+  const cart:CartView={lines,subtotal:total,tax:record?formatPlanAmount(0,record.currency):"—",total,busy:busy||(!record&&!error),error,checkoutAllowed:!!quote&&!purchase};
   return <DashboardShell role="client" title="Checkout" description="Review your products and payment.">
     <CommerceCheckoutFrame stage={purchase?.payment_verified?3:purchase?2:1} title={purchase?.payment_verified?"Payment confirmation":purchase?"Complete your payment":"Checkout"} back={()=>router.push("/client/order/checkout?view=cart")}>
       <CartFeedback cart={cart}/>
