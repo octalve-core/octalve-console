@@ -5,6 +5,7 @@ collection, or bypass the authenticated vault lifecycle. It renews only an
 existing current-version verification receipt after genuine provider readback.
 """
 from datetime import timedelta
+from uuid import UUID
 from django.conf import settings
 from django.db import DatabaseError, transaction
 from django.utils import timezone
@@ -35,7 +36,8 @@ def refresh_bound_test_verification():
         version=binding[VERSION_KEY]
         if type(version) is not int or version<1:
             return "held"
-        row=IntegrationConnection.objects.filter(pk=binding[SOURCE_KEY],adapter_key="paystack",
+        connection_id=UUID(str(binding[SOURCE_KEY]))
+        row=IntegrationConnection.objects.filter(pk=connection_id,adapter_key="paystack",
             environment="test",state="draft",current_version=version).first()
         if not row:
             return "held"
