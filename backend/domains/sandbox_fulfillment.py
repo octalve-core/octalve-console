@@ -73,11 +73,12 @@ def _private_context(order):
         return None
     key = keys[0]
     state = order.metadata[key]
-    if not isinstance(state, dict) or state.get("public_payment_test") not in (None, False):
+    if not isinstance(state, dict) or (state.get("public_payment_test") is not None and state.get("public_payment_test") is not False):
         return None
     # Refund rehearsal is a hold, never supplier authority.
     rehearsal = order.metadata.get("test_lifecycle_v1", {})
-    if not isinstance(rehearsal, dict) or rehearsal.get("refund", {}).get("status", "not_requested") != "not_requested":
+    refund = rehearsal.get("refund", {}) if isinstance(rehearsal, dict) else None
+    if not isinstance(refund, dict) or refund.get("status", "not_requested") != "not_requested":
         return None
     return key, state
 
