@@ -99,8 +99,8 @@ jobs:
           User = apps.get_model("accounts","CustomUser")
           Order = apps.get_model("orders","Order")
           Invoice = apps.get_model("billing","Invoice")
-          owner = User.objects.create(username="legacy-owner",email="legacy-owner@example.invalid",password="!unusable")
-          other = User.objects.create(username="legacy-other",email="legacy-other@example.invalid",password="!unusable")
+          owner = User.objects.create(username="legacy-owner",email="legacy-owner@example.invalid",password="!unusable",referral_code="LEGACYOWNER")
+          other = User.objects.create(username="legacy-other",email="legacy-other@example.invalid",password="!unusable",referral_code="LEGACYOTHERS")
           for index,user in enumerate((owner,other),1):
               order=Order.objects.create(client_id=user.pk,order_number=f"ORD-2026-{index:05d}",total="12.00",status="pending_payment")
               Invoice.objects.create(client_id=user.pk,order_id=order.pk,invoice_number=f"INV-2026-{index:05d}",total="12.00",amount_due="12.00",due_date=timezone.now()+timedelta(days=2))
