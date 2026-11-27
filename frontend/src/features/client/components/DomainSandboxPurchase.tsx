@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {useRouter} from "next/navigation";
 import {CommerceCheckoutFrame,CommercePanel} from "@/components/shared-commerce/CommerceUI";
+import type {GatewayOption,GatewayCode} from "@/components/shared-commerce/types";
 import { DomainCart } from "../checkout/DomainCart";
 import { removeFromCart } from "../checkout/cart-selections";
 
@@ -17,7 +18,11 @@ type Purchase = {
   domain: string;
   amount: string;
   state: keyof typeof labels;
-  checkout_state: "available" | "resume" | "uncertain" | "expired";
+  checkout_state: "available" | "resume" | "uncertain" | "expired" | "retry_check";
+  gateway_options?:GatewayOption[];
+  payment_verified?:boolean;
+  verified_at?:string;
+  payment_gateway?:string;
   payment_reference?: string;
   registered_at?: string | null;
   expires_at?: string | null;
@@ -68,7 +73,8 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
     return () => controller.abort();
   }, [requestUrl,invoiceId]);
 
-  async function submit(action: string) {
+  async function submit(action: string, gateway?:GatewayCode, consent=false) {
+    if(action==="checkout"&&(gateway!=="paystack"||!consent))return;
     if(submitting.current || (invoiceId && !["checkout","reconcile"].includes(action)))return;
     submitting.current=true;
     setBusy(true);
@@ -77,19 +83,20 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
       const response = await fetch(requestUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action === "accept" ? { action, quote: quote?.quote } : { action }),
+        body: JSON.stringify(action === "accept" ? { action, quote: quote?.quote } : action==="checkout"?{action,gateway,consent}:{ action }),
       });
       const data = await response.json();
       if (!response.ok) {
-        const message: string = typeof data.detail === "string" ? data.detail : "This step could not be confirmed. Refresh to check the current status.";
-        setError(admin ? message : message.replace(/Paystack Test Mode|Paystack|Cloudflare/gi, name => /paystack/i.test(name) ? "the payment service" : "the registrar"));
+        const detail=typeof data?.detail==="string"?data.detail:Array.isArray(data)&&typeof data[0]==="string"?data[0]:"";
+        setError(admin&&detail?detail:action==="reconcile"?"Your payment has not been confirmed yet. If you have already paid, please do not pay again.": "We couldn’t open secure payment. Your invoice is saved. Please try again or contact support.");
         const status = await fetch(requestUrl, { cache: "no-store" });
         if (status.ok){const refreshed=await status.json();if(!invoiceId||refreshed.purchase?.invoice_id===invoiceId)setOverview(refreshed);}
         return;
       }
       if (action === "quote") setQuote(data);
-      else if (action === "checkout") {const url=new URL(data.checkout_url);if(url.origin!=="https://checkout.paystack.com"||url.username||url.password||url.hash||url.search)throw Error("Unapproved payment destination");window.location.assign(url.href);}
+      else if (action === "checkout") {const url=new URL(data.checkout_url);if(url.origin!=="https://checkout.paystack.com"||url.username||url.password||url.hash||url.search||!/^\/[A-Za-z0-9_-]{8,150}$/.test(url.pathname))throw Error("Unapproved payment destination");window.location.assign(url.href);}
       else {
+        if(invoiceId&&data.invoice_id!==invoiceId)throw Error("Invoice response mismatch");
         setOverview((current) => current ? { ...current, purchase: data } : current);
         if (action === "accept" && domain && data.order && data.domain === domain) {
           void removeFromCart(`domain:${domain}`).catch(()=>{});
@@ -106,7 +113,7 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
   if (!overview) return checkoutPage ? <CommerceCheckoutFrame stage={3} title="Review your order" back={()=>router.push("/client/order/checkout?view=cart")}><CommercePanel><p role="status">{loading ? "Loading domain checkout…" : "Checkout is currently unavailable for this domain or account."}</p></CommercePanel></CommerceCheckoutFrame> : null;
   const purchase = overview.purchase;
   const awaitingPayment = purchase?.state === "awaiting_payment";
-  const canCheckout = awaitingPayment && ["available", "resume"].includes(purchase.checkout_state);
+  const canCheckout = awaitingPayment && ["available", "resume", "retry_check"].includes(purchase.checkout_state);
   const terminal = purchase && ["registered", "registration_rejected", "test_payment_verified"].includes(purchase.state);
   const buttons = !purchase
     ? [
@@ -116,7 +123,7 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
     : [
         ...(canCheckout ? [{
           action: "checkout",
-          text: purchase.checkout_state === "resume" ? "Resume test payment" : "Continue to payment",
+          text: "Pay now",
         }] : []),
         ...(!terminal && (!awaitingPayment || purchase.checkout_state !== "available") ? [{
           action: "reconcile",
@@ -129,8 +136,9 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
   if (checkoutPage) return <DomainCart domain={overview.domain} amount={purchase?.amount ?? quote?.amount}
     status={purchase ? labels[purchase.state] : undefined} order={purchase?.order_reference??purchase?.order} invoice={purchase?.invoice_reference??purchase?.invoice}
     invoiceId={purchase?.invoice_public_id??purchase?.invoice_id}
-    registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={!!purchase && ["registered","registration_uncertain","registration_rejected","registration_action_required","registration_pending","test_payment_verified"].includes(purchase.state)}
-    publicPaymentTest={overview.public_payment_test===true} actions={buttons} busy={busy} error={error} onAction={action => void submit(action)}/>;
+    registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={purchase?.payment_verified===true}
+    gatewayOptions={purchase?.gateway_options??[]} paymentReference={purchase?.payment_reference} verifiedAt={purchase?.verified_at} paymentGateway={purchase?.payment_gateway} checkoutState={purchase?.checkout_state}
+    publicPaymentTest={overview.public_payment_test===true} actions={buttons} busy={busy} error={error} onAction={(action,gateway,consent) => void submit(action,gateway,consent)}/>;
 
   return (
     <section id="sandbox-domain-purchase" className="space-y-3 rounded-xl border border-console-line bg-white p-4 text-sm">
@@ -159,8 +167,8 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
       )}
       {!admin && (
         <div className="flex flex-wrap gap-2">
-          {buttons.map(({ action, text }) => (
-            <button key={action} type="button" disabled={busy} onClick={() => void submit(action)}
+          {buttons.map(({ action, text }) => action==="checkout"&&purchase?.invoice_id?<a key={action} href={`/client/order/checkout?view=invoice&invoice=${purchase.invoice_public_id??purchase.invoice_id}`} className="rounded-lg border border-console-line px-3 py-2 font-medium text-console-primary">{text}</a>:(
+            <button key={action} type="button" disabled={busy} onClick={() => void submit(action, action==="checkout"?"paystack":undefined, false)}
               className="rounded-lg border border-console-line px-3 py-2 font-medium text-console-primary disabled:opacity-50">
               {text}
             </button>

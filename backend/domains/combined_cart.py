@@ -133,10 +133,14 @@ def payment_response(user, invoice):
         return result
     try:
         link = start_cart_payment(user, invoice)
-        result["checkout_url"] = link
-        result["payment_started"] = True
-        result["payment_attempt_state"] = "resumable"
+        invoice.refresh_from_db()
+        result = cart_result(invoice.order, invoice)
+        if result["payment_attempt_state"] == "resumable" and not result["payment_verified"]:
+            result["checkout_url"] = link
+        elif not result["payment_verified"]:
+            result["checkout_error"] = "Your existing payment needs confirmation. No further payment has been started."
     except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError, ValidationError, Throttled):
+        invoice.refresh_from_db()
         refreshed = cart_result(invoice.order, invoice)
         result["payment_started"] = refreshed["payment_started"]
         result["payment_attempt_state"] = refreshed["payment_attempt_state"]

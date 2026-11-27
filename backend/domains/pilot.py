@@ -350,6 +350,10 @@ def reconcile(order):
         locked = Order.objects.select_for_update().get(pk=order.pk)
         if locked.metadata[PILOT]["state"] != "awaiting_payment":
             return
+        from payments.hosted_checkout import payment_history
+        active, _ = payment_history(invoice, lock=True)
+        if not active or active.pk != payment.pk:
+            raise ValidationError("Payment history requires verification.")
         if (not pilot_gateway_allowed(payment.gateway, invoice) or invoice.order_id != locked.pk
                 or payment.invoice_id != invoice.pk or payment.client_id != invoice.client_id
                 or locked.client_id != invoice.client_id or locked.currency != invoice.currency
@@ -479,7 +483,9 @@ def domain_pilot(request):
             reconcile(order)
             order.refresh_from_db()
             return Response(result(order), headers=headers)
-    except (CloudflareINT01Denied, VaultUnavailable, CheckoutRefused, PaymentReadbackRejected,
+    except CheckoutRefused as exc:
+        raise ValidationError("We could not safely open payment. Your invoice is saved. Please check your payment or contact support.") from exc
+    except (CloudflareINT01Denied, VaultUnavailable, PaymentReadbackRejected,
             IntegrationCredentialVersion.DoesNotExist, DjangoValidationError, ValueError) as exc:
         raise ValidationError("We could not confirm your payment. Your invoice is saved. Please try again or contact support.") from exc
     raise ValidationError("This action is unavailable for the current purchase state.")
