@@ -7,7 +7,9 @@ import ipaddress
 import re
 from uuid import uuid4
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, CharField
+from django.db.models.fields.json import KeyTextTransform
+from django.db.models.functions import Cast
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -128,12 +130,13 @@ def sandbox_domains(request):
         wait=_spend("sandbox:domain_sync",str(request.user.pk),1,300)
         if not wait:
             from payments.models import PaymentIntent
-            ids=set(PaymentIntent.objects.filter(invoice__in=invoices(request.user),status="completed",
-                gateway__code="paystack",gateway__test_mode=True).values_list("pk",flat=True)[:100])
+            ids=[str(pk) for pk in PaymentIntent.objects.filter(invoice__in=invoices(request.user),status="completed",
+                gateway__code="paystack",gateway__test_mode=True).order_by("-pk").values_list("pk",flat=True)[:100]]
             from django.db.models import F
             candidates=WebhookEvent.objects.filter(is_verified=True,is_processed=False,
                 gateway__code="paystack",gateway__test_mode=True,event_type="charge.success",
-                payload__intent_id__in=list(ids)).order_by(F("error_message").asc(nulls_first=True),"pk")[:2]
+                ).annotate(intent_key=Cast(KeyTextTransform("intent_id","payload"),CharField())).filter(
+                intent_key__in=ids).order_by(F("error_message").asc(nulls_first=True),"pk")[:2]
             for event in candidates:
                 attempt_event(event.pk)
     return Response({"mode":"sandbox","domains":listing(request.user)},headers={"Cache-Control":"private, no-store"})
