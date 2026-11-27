@@ -18,7 +18,7 @@ import {cartSelectionId, accountCartSnapshot, removePurchasedItems, type Account
 type PricedLine={name:string; amount:string; kind:string; domain?:string; period?:string};
 type Quote = {quote:string; total:string; currency:string; lines:PricedLine[]; public_payment_test?:boolean;gateway_options?:GatewayOption[]};
 type Purchase = {invoice_id:number; invoice_public_id?:string; invoice_reference?:string; order_reference?:string; invoice:string; order:string; total:string; currency:string;
-  payment_verified:boolean; payment_reference?:string|null; payment_gateway?:string|null; verified_at?:string|null; payment_started:boolean; payment_attempt_state?:"verified"|"not_started"|"resumable"|"retry_check"|"reconciliation_required"; gateway_options?:GatewayOption[];checkout_url?:string;checkout_error?:string; public_payment_test?:boolean; lines:PricedLine[]; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
+  payment_verified:boolean; payment_reference?:string|null; payment_gateway?:string|null; verified_at?:string|null; payment_started:boolean; payment_attempt_state?:"verified"|"not_started"|"resumable"|"retry_check"|"reconciliation_required"; gateway_options?:GatewayOption[];checkout_url?:string;checkout_error?:string; checkout_hold?:boolean; public_payment_test?:boolean; lines:PricedLine[]; domains:{id:number; name:string; state:string; registered_at?:string; expires_at?:string}[]};
 
 const actionStyle = primary;
 const statuses: Record<string,string> = {
@@ -119,7 +119,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
       try {
         const next = await request<Purchase>(statusInvoice, {action:"advance"});
         if (active) {
-          setPurchase(old=>({...next,gateway_options:next.gateway_options??old?.gateway_options}));
+          setPurchase(old=>({...next,checkout_hold:old?.checkout_hold&&!next.payment_verified,gateway_options:next.gateway_options??old?.gateway_options}));
           setError("");
           if (next.payment_verified && (next.public_payment_test||!next.domains.some(domain => domain.state === "awaiting_payment"))) {setWaiting(false);return;}
         }
@@ -141,7 +141,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
 
   async function run(action: "pay" | "reconcile", line?: number) {
     if (inFlight.current) return;
-    if(action==="pay"&&(!consent||!gateway||purchase?.payment_attempt_state==="reconciliation_required"||waiting))return;
+    if(action==="pay"&&(!consent||!gateway||(purchase?.payment_attempt_state==="reconciliation_required"||purchase?.checkout_hold===true)||waiting))return;
     inFlight.current = true;
     setBusy(true);
     setError("");
@@ -173,7 +173,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   const address = [account?.address, account?.city, account?.state, account?.country, account?.postal_code].filter(Boolean).join(", ");
   const record=purchase??quote;
   const options=(record?.gateway_options??[]).map(item=>({...item,enabled:item.enabled&&item.code==="paystack"}));
-  const reconciliationRequired=purchase?.payment_attempt_state==="reconciliation_required";
+  const reconciliationRequired=purchase?.payment_attempt_state==="reconciliation_required"||purchase?.checkout_hold===true;
   const canPay=consent&&!!gateway&&options.some(g=>g.code===gateway&&g.enabled)&&!busy&&!reconciliationRequired;
   const lines:CartLine[]=(record?.lines??[]).map((line,index)=>({id:String(index),kind:line.kind==="domain"?"domain":line.kind==="vps"?"vps":"hosting",name:line.kind==="domain"?(line.domain||line.name):line.name,description:"",period:line.period??(line.kind==="domain"?"1 year":"Selected billing cycle"),priceLabel:formatPlanAmount(Number(line.amount),record!.currency),domain:line.domain}));
   const total=record?formatPlanAmount(Number(record.total),record.currency):"Awaiting quote";

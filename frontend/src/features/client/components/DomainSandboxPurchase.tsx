@@ -44,6 +44,7 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
 }) {
   const router=useRouter();
   const submitting=useRef(false);
+  const [paymentHeld,setPaymentHeld]=useState(false);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
@@ -88,7 +89,9 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
       const data = await response.json();
       if (!response.ok) {
         const detail=typeof data?.detail==="string"?data.detail:Array.isArray(data)&&typeof data[0]==="string"?data[0]:"";
-        setError(admin&&detail?detail:action==="reconcile"?"Your payment has not been confirmed yet. If you have already paid, please do not pay again.": "We couldn’t open secure payment. Your invoice is saved. Please try again or contact support.");
+        const hold=response.status===409&&["previous_payment_pending","verification_unavailable"].includes(data?.code);
+        if(hold)setPaymentHeld(true);
+        setError(admin&&detail?detail:hold?"Your previous payment needs confirmation. No new payment was started.":action==="reconcile"?"Your payment has not been confirmed yet. If you have already paid, please do not pay again.": "We couldn’t open secure payment. Your invoice is saved. Please try again or contact support.");
         const status = await fetch(requestUrl, { cache: "no-store" });
         if (status.ok){const refreshed=await status.json();if(!invoiceId||refreshed.purchase?.invoice_id===invoiceId)setOverview(refreshed);}
         return;
@@ -110,10 +113,29 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
     }
   }
 
+  // A return URL is only a signal to request server verification, never proof.
+  useEffect(()=>{
+    if(!invoiceId||!overview?.purchase||overview.purchase.state!=="awaiting_payment")return;
+    const query=new URLSearchParams(window.location.search);
+    if(query.get("returning")!=="1"&&!query.has("reference")&&!query.has("trxref"))return;
+    const controller=new AbortController();let tries=0;let timer:ReturnType<typeof setTimeout>;
+    async function verify(){
+      if(controller.signal.aborted||submitting.current||tries>=3)return;
+      tries++;submitting.current=true;setBusy(true);
+      try{
+        const response=await fetch(requestUrl,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"reconcile"}),signal:controller.signal,cache:"no-store"});
+        const data=await response.json();
+        if(!controller.signal.aborted&&response.ok&&data.invoice_id===invoiceId){setOverview(old=>old?{...old,purchase:data}:old);if(data.payment_verified===true)return;}
+      }catch{/* Keep the original invoice; manual verification remains available. */}
+      finally{submitting.current=false;if(!controller.signal.aborted)setBusy(false);}
+      if(!controller.signal.aborted&&tries<3)timer=setTimeout(verify,3500);
+    }
+    void verify();return()=>{controller.abort();clearTimeout(timer);};
+  },[invoiceId,requestUrl,overview?.purchase?.state]);
   if (!overview) return checkoutPage ? <CommerceCheckoutFrame stage={3} title="Review your order" back={()=>router.push("/client/order/checkout?view=cart")}><CommercePanel><p role="status">{loading ? "Loading domain checkout…" : "Checkout is currently unavailable for this domain or account."}</p></CommercePanel></CommerceCheckoutFrame> : null;
   const purchase = overview.purchase;
   const awaitingPayment = purchase?.state === "awaiting_payment";
-  const canCheckout = awaitingPayment && ["available", "resume", "retry_check"].includes(purchase.checkout_state);
+  const canCheckout = awaitingPayment && !paymentHeld && ["available", "resume", "retry_check"].includes(purchase.checkout_state);
   const terminal = purchase && ["registered", "registration_rejected", "test_payment_verified"].includes(purchase.state);
   const buttons = !purchase
     ? [

@@ -624,7 +624,7 @@ class DomainPilotTests(TestCase):
             def send(_url,**kwargs):
                 return reply({"status":True,"data":{"reference":kwargs["json"]["reference"],"authorization_url":"https://checkout.paystack.com/test_12345"}})
             with patch("payments.readback.verify_gateway_intent",side_effect=PaymentReadbackRejected("fixture")), patch("payments.hosted_checkout.requests.post") as no_post:
-                self.assertEqual(api.post(path,{"action":"checkout","gateway":"paystack","consent":True},format="json").status_code,400)
+                self.assertEqual(api.post(path,{"action":"checkout","gateway":"paystack","consent":True},format="json").status_code,409)
                 no_post.assert_not_called()
             with patch("payments.readback.verify_gateway_intent",return_value="failed"), patch("payments.hosted_checkout.requests.post",side_effect=send) as post:
                 response=api.post(path,{"action":"checkout","gateway":"paystack","consent":True},format="json")

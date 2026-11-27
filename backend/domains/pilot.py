@@ -23,7 +23,7 @@ from billing.contact import billing_contact_snapshot
 from billing.models import Invoice, InvoiceItem
 from orders.models import Order, OrderItem
 from payments.domain_pilot_scope import PILOT, pilot_configuration, pilot_gateway_allowed, pilot_test_gateway, selected_domain_test_allowed, public_domain_payment_test_allowed
-from payments.hosted_checkout import CheckoutRefused, _return_url, reserve_hosted_checkout
+from payments.hosted_checkout import CheckoutRefused, PreviousPaymentHeld, _return_url, reserve_hosted_checkout
 from payments.models import PaymentGateway, PaymentIntent, WebhookEvent
 from payments.readback import PaymentReadbackRejected, verify_gateway_intent
 from payments.test_payment_evidence import consume_matching_test_event
@@ -483,6 +483,8 @@ def domain_pilot(request):
             reconcile(order)
             order.refresh_from_db()
             return Response(result(order), headers=headers)
+    except PreviousPaymentHeld as exc:
+        return Response({"code": exc.code, "detail": "Your previous payment needs confirmation. No new payment was started."}, status=409, headers=headers)
     except CheckoutRefused as exc:
         raise ValidationError("We could not safely open payment. Your invoice is saved. Please check your payment or contact support.") from exc
     except (CloudflareINT01Denied, VaultUnavailable, PaymentReadbackRejected,

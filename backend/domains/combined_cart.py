@@ -21,7 +21,7 @@ from payments.domain_pilot_scope import (
     CART, PILOT, pilot_gateway_allowed, selected_domain_test_account_allowed, selected_domain_test_allowed,
     public_payment_test_account_allowed, public_domain_payment_test_allowed,
 )
-from payments.hosted_checkout import CheckoutRefused, reserve_hosted_checkout, payment_attempt_summary
+from payments.hosted_checkout import CheckoutRefused, PreviousPaymentHeld, reserve_hosted_checkout, payment_attempt_summary
 from django.db import DatabaseError
 from payments.models import PaymentIntent, WebhookEvent
 from payments.test_payment_evidence import consume_matching_test_event
@@ -139,12 +139,14 @@ def payment_response(user, invoice):
             result["checkout_url"] = link
         elif not result["payment_verified"]:
             result["checkout_error"] = "Your existing payment needs confirmation. No further payment has been started."
-    except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError, ValidationError, Throttled):
+    except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError, ValidationError, Throttled) as exc:
         invoice.refresh_from_db()
         refreshed = cart_result(invoice.order, invoice)
         result["payment_started"] = refreshed["payment_started"]
         result["payment_attempt_state"] = refreshed["payment_attempt_state"]
-        result["checkout_error"] = "Payment could not start. Your invoice is saved. Check the existing payment or retry."
+        result["checkout_error"] = ("Your previous payment needs confirmation. No new payment was started." if isinstance(exc, PreviousPaymentHeld) else "We couldn’t open secure payment. Your invoice is saved. Please try again or contact support.")
+        if isinstance(exc, PreviousPaymentHeld):
+            result["checkout_hold"] = True
     return result
 
 

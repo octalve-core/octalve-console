@@ -30,6 +30,13 @@ class CheckoutRefused(ValueError):
     pass
 
 
+class PreviousPaymentHeld(CheckoutRefused):
+    """Safe customer-facing category; no raw gateway response."""
+    def __init__(self, code):
+        self.code = code
+        super().__init__("Previous payment requires verification.")
+
+
 PAYMENT_RETURN_PATHS = frozenset({
     "/client/payments/return", "/client/payments/return/",
     "/client/order/processing", "/client/order/processing/",
@@ -223,9 +230,9 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None, allow_test
                 try:
                     status = verify_gateway_intent(prior, inspect_pilot=True)
                 except PaymentReadbackRejected:
-                    raise CheckoutRefused("We could not verify your previous payment. Your invoice is saved.") from None
+                    raise PreviousPaymentHeld("verification_unavailable") from None
                 if status not in ("abandoned", "failed"):
-                    raise CheckoutRefused("Your previous payment is awaiting confirmation. No new payment has been started.")
+                    raise PreviousPaymentHeld("previous_payment_pending")
                 retry_proof = (prior.pk, prior.reference, status, prior.expires_at)
     with transaction.atomic():
         try:
