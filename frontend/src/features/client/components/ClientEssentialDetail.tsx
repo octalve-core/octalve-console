@@ -29,7 +29,7 @@ export function ClientEssentialDetail({record,resource,actions}:{
        <Icon className="h-7 w-7"/>
       </span>
       <div className="min-w-0">
-       <p className="break-all text-sm text-white/80">{record.id}</p>
+       <p className="break-all text-sm text-white/80">{record.publicReference||record.id}</p>
        <h2 className="mt-2 break-words text-2xl font-medium tracking-tight sm:text-3xl">{record.title}</h2>
        <p className="mt-2 break-words text-sm leading-6 text-white/85">{record.subtitle}</p>
       </div>
