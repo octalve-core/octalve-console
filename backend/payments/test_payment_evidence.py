@@ -2,7 +2,7 @@
 from django.db import connection
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import WebhookEvent
+from .models import Transaction, WebhookEvent
 
 
 def consume_matching_test_event(payment, proof):
@@ -17,7 +17,8 @@ def consume_matching_test_event(payment, proof):
     if (payment.gateway.code != "paystack" or not payment.gateway.test_mode
             or payment.gateway.status != "test" or proof.gateway != "paystack"
             or payment.reference != proof.reference or payment.currency != proof.currency
-            or payment.amount != proof.amount or payment.status not in ("pending", "processing")):
+            or payment.amount != proof.amount or payment.status not in ("pending", "processing")
+            or Transaction.objects.filter(invoice_id=payment.invoice_id).exists()):
         raise ValidationError("Payment evidence changed before confirmation.")
     events = list(WebhookEvent.objects.select_for_update().filter(
         gateway_id=payment.gateway_id, is_verified=True, event_type="charge.success",
