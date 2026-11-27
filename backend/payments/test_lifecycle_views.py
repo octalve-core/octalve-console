@@ -47,6 +47,18 @@ class TestLifecycleAdminView(APIView):
 
     def post(self,request):
         self._guard(request)
+        if isinstance(request.data,dict) and request.data.get("action")=="reconcile_historical":
+            from providers.connection_stepup import check_mutation
+            from .historical_test_reconciliation import reconcile_historical_test
+            data=request.data
+            if set(data)!={"action","event","confirm","confirm_password","totp_code"} or data["confirm"] is not True or type(data["event"]) is not int or data["event"]<1:
+                raise ValidationError("Confirm the exact historical test notification.")
+            wait=_spend("payments:test_historical_reconciliation",str(request.user.pk),10,3600)
+            if wait:
+                raise Throttled(wait=wait)
+            check_mutation(request.user,data["confirm_password"],data["totp_code"])
+            result=reconcile_historical_test(data["event"],request.user)
+            return Response({"reconciliation":result,"historical_review":review_historical_events()},headers={"Cache-Control":"private, no-store"})
         if not isinstance(request.data,dict) or set(request.data)!={"invoice","action","confirm"} or request.data.get("confirm") is not True:
             raise ValidationError("Confirm the sandbox-only exercise.")
         wait=_spend("payments:test_lifecycle_admin",str(request.user.pk),10,300)

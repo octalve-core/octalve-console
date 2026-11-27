@@ -18,6 +18,7 @@ type Purchase = {
   order_reference?:string;
   domain: string;
   amount: string;
+  years?:number;
   state: keyof typeof labels;
   checkout_state: "available" | "resume" | "uncertain" | "expired" | "retry_check";
   gateway_options?:GatewayOption[];
@@ -28,8 +29,8 @@ type Purchase = {
   registered_at?: string | null;
   expires_at?: string | null;
 };
-type Overview = { domain: string; purchase: Purchase | null; public_payment_test?: boolean; readiness_issues?: string[] | null; payment_test_readiness_issues?: string[] | null };
-type Quote = { quote: string; amount: string };
+type Overview = { domain: string; purchase: Purchase | null; private_multi_year?:boolean; public_payment_test?: boolean; readiness_issues?: string[] | null; payment_test_readiness_issues?: string[] | null };
+type Quote = { quote: string; amount: string; years?:number };
 const labels = {
   awaiting_payment: "Awaiting test payment",
   test_payment_verified: "Paystack test payment verified. No domain registration or real charge was made.",
@@ -48,6 +49,8 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
   const [paymentHeld,setPaymentHeld]=useState(false);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [years,setYears]=useState(1);
+  function changeYears(value:number){setYears(value);setQuote(null)}
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -85,7 +88,7 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
       const response = await fetch(requestUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action === "accept" ? { action, quote: quote?.quote } : action==="checkout"?{action,gateway,consent}:{ action }),
+        body: JSON.stringify(action === "accept" ? { action, quote: quote?.quote } : action==="checkout"?{action,gateway,consent}:action==="quote"&&overview?.private_multi_year?{action,years}:{ action }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -156,7 +159,7 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
       ];
 
   if (checkoutPage && invoiceId && !purchase) return <CommerceCheckoutFrame stage={2} title="Existing invoice unavailable" back={()=>router.push("/client/invoices")} backLabel="Back to invoices"><CommercePanel>Review the invoice in your account.</CommercePanel></CommerceCheckoutFrame>;
-  if (checkoutPage) return <DomainCart domain={overview.domain} amount={purchase?.amount ?? quote?.amount}
+  if (checkoutPage) return <DomainCart domain={overview.domain} amount={purchase?.amount ?? quote?.amount} years={purchase?.years??quote?.years??years} onYearsChange={overview.private_multi_year&&!purchase?changeYears:undefined}
     status={purchase ? labels[purchase.state] : undefined} order={purchase?.order_reference??purchase?.order} invoice={purchase?.invoice_reference??purchase?.invoice}
     invoiceId={purchase?.invoice_public_id??purchase?.invoice_id}
     registeredAt={purchase?.registered_at} expiresAt={purchase?.expires_at} paymentVerified={purchase?.payment_verified===true}
@@ -166,7 +169,8 @@ export function DomainSandboxPurchase({ admin = false, domain, invoiceId, checko
   return (
     <section id="sandbox-domain-purchase" className="space-y-3 rounded-xl border border-console-line bg-white p-4 text-sm">
       <h2 className="font-medium">{checkoutPage ? "Review domain registration" : "Sandbox domain purchase"}</h2>
-      <p>{overview.domain} · One year{quote && !purchase ? ` · NGN ${quote.amount}` : ""}</p>
+      <p>{overview.domain} · {purchase?.years??quote?.years??years} year(s){quote && !purchase ? ` · NGN ${quote.amount}` : ""}</p>
+      {overview.private_multi_year&&!purchase&&<label className="block text-sm">Registration term (sandbox)<select value={years} disabled={busy} onChange={e=>changeYears(Number(e.target.value))} className="ml-2 rounded border p-2">{[1,2,5,10].map(n=><option key={n} value={n}>{n} year(s)</option>)}</select></label>}
       {admin && overview.readiness_issues && (
         overview.readiness_issues.length ? (
           <ul className="list-disc space-y-1 pl-5">

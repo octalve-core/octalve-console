@@ -23,6 +23,7 @@ from .cloudflare_int01 import CloudflareINT01, FixedCloudflareTransport, Cloudfl
 from audit.models import AuditLog
 from .public_google import PublicGoogleUnavailable, page_speed, verify_gemini
 from .web_risk import WebRiskUnavailable, lookup as web_risk_lookup
+from .resellerclub_sandbox import ResellerClubUnavailable, verify_sandbox
 
 class ProviderReadbackFailed(ValueError):
     def __str__(self):
@@ -139,11 +140,13 @@ def verify_connection(request,connection_id):
         elif row.adapter_key=="google-web-risk":
             web_risk_lookup(secrets["api_key"], "https://example.com/")
             proof = {"lookup_api": "reachable"}
+        elif row.adapter_key=="resellerclub":
+            proof=verify_sandbox(row.public_settings["reseller_id"],secrets["api_key"],row.environment)
         elif row.adapter_key=="brevo":
             proof=brevo_readback(secrets["api_key"])
         else:
             proof=paystack_readback(secrets["secret_key"],row.environment)
-    except (CloudflareINT01Denied,ProviderReadbackFailed,WebRiskUnavailable,PublicGoogleUnavailable,VaultUnavailable,
+    except (ResellerClubUnavailable,CloudflareINT01Denied,ProviderReadbackFailed,WebRiskUnavailable,PublicGoogleUnavailable,VaultUnavailable,
             IntegrationCredentialVersion.DoesNotExist,KeyError,DatabaseError):
         return Response({"verified":False,"detail":"Credential readback failed or could not be certified."},
             status=503,headers={"Cache-Control":"private, no-store"})

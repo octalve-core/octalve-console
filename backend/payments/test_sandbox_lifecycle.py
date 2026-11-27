@@ -162,3 +162,53 @@ class SandboxLifecycleTests(TestCase):
         self.assertEqual(PaymentIntent.objects.count(),1)
         self.assertEqual(Invoice.objects.count(),1)
         self.assert_no_live_rows()
+
+    def test_historical_reconciliation_fresh_readback_and_no_fulfillment(self):
+        from audit.models import AuditLog
+        self.confirmed()
+        event=WebhookEvent.objects.get()
+        event.is_processed=False
+        event.processed_at=None
+        event.save(update_fields=["is_processed","processed_at"])
+        # Old combined carts did not store the remote ID; do not backfill it.
+        self.order.metadata[CART].pop("payment_remote_id")
+        self.order.save(update_fields=["metadata"])
+        before=self.order.metadata.copy()
+        path="/api/payments/admin/test-lifecycle/"
+        api=APIClient()
+        api.force_authenticate(self.owner)
+        body={"action":"reconcile_historical","event":event.pk,"confirm":True,
+              "confirm_password":"fixture-password-123!","totp_code":"123456"}
+        self.assertEqual(api.post(path,body,format="json").status_code,403)
+        api.force_authenticate(self.admin)
+        with patch("providers.connection_stepup.check_mutation"),patch.object(
+                PaymentGateway,"get_secret_key",return_value=self.secret),patch(
+                "payments.readback.requests.get",return_value=reply(self.packet)) as get:
+            result=api.post(path,body,format="json")
+            self.assertEqual(result.status_code,200,result.data)
+            self.assertEqual(result.data["reconciliation"]["status"],"reconciled")
+            get.assert_called_once()
+            self.assertEqual(api.post(path,body,format="json").status_code,400)
+        event.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertTrue(event.is_processed)
+        self.assertEqual(self.order.metadata,before)
+        self.assertTrue(AuditLog.objects.filter(entity_type="HistoricalTestPayment",
+            entity_id=str(event.pk),details__fulfillment_authorized=False).exists())
+        self.assert_no_live_rows()
+
+    def test_historical_readback_wrong_remote_id_retains_inbox(self):
+        self.confirmed()
+        event=WebhookEvent.objects.get()
+        event.is_processed=False
+        event.save(update_fields=["is_processed"])
+        packet={"status":True,"data":{**self.packet["data"],"id":99999}}
+        from payments.historical_test_reconciliation import reconcile_historical_test
+        from rest_framework.exceptions import ValidationError
+        with patch.object(PaymentGateway,"get_secret_key",return_value=self.secret),patch(
+                "payments.readback.requests.get",return_value=reply(packet)):
+            with self.assertRaises(ValidationError):
+                reconcile_historical_test(event.pk,self.admin)
+        event.refresh_from_db()
+        self.assertFalse(event.is_processed)
+        self.assert_no_live_rows()

@@ -707,3 +707,57 @@ class DomainPilotTests(TestCase):
         order.save(update_fields=["metadata"])
         with transaction.atomic():
             assert_private_domain_unclaimed([self.domain])
+
+    @override_settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=True)
+    def test_private_multi_year_quote_is_published_rate_and_supplier_bound(self):
+        from domains.pilot import quote_domain
+        from rest_framework.exceptions import ValidationError
+        TLDPricing.objects.filter(tld=".com").update(metadata={"published_registrar":{"revision":1}})
+        self.supplier.check.return_value={"name":self.domain,"registrable":True,
+            "currency":"USD","registration_cost":"10.00","renewal_cost":"11.00"}
+        self.supplier.supported_registration_terms.return_value=[1,2,5]
+        with patch("domains.pilot.query_published_registrar",return_value={"registrable":True}):
+            quoted=quote_domain(self.owner.pk,self.domain,selected=True,years=2)
+            self.assertEqual(Decimal(quoted["amount"]),Decimal("26000"))
+            self.assertEqual(quoted["years"],2)
+            with self.assertRaises(ValidationError):
+                quote_domain(self.owner.pk,self.domain,selected=True,years=10)
+            with self.assertRaises(ValidationError):
+                quote_domain(self.owner.pk,self.domain,selected=True,public_payment_test=True,years=2)
+        order=accept_quote(self.owner,self.domain,quoted["quote"],selected=True)
+        self.assertEqual(order.items.get().months,24)
+        self.assertEqual(order.invoices.get().total,Decimal("26000"))
+        self.supplier.submit_pilot_registration.assert_not_called()
+
+    @override_settings(CLOUD_SELECTED_DOMAIN_TEST_CHECKOUT_ENABLED=True)
+    def test_private_multi_year_supplier_post_exact_term_and_confirmation(self):
+        from domains.pilot import quote_domain
+        TLDPricing.objects.filter(tld=".com").update(metadata={"published_registrar":{"revision":1}})
+        self.supplier.check.return_value={"name":self.domain,"registrable":True,
+            "currency":"USD","registration_cost":"10.00","renewal_cost":"11.00"}
+        self.supplier.supported_registration_terms.return_value=[1,2,5]
+        with patch("domains.pilot.query_published_registrar",return_value={"registrable":True}):
+            quoted=quote_domain(self.owner.pk,self.domain,selected=True,years=2)
+        order=accept_quote(self.owner,self.domain,quoted["quote"],selected=True)
+        invoice=order.invoices.get()
+        intent=PaymentIntent.objects.create(invoice=invoice,client=self.owner,gateway=self.gateway,
+            reference="OC-MULTI-YEAR",status="pending",amount=invoice.total,currency="NGN",
+            expires_at=timezone.now()+timezone.timedelta(minutes=5))
+        WebhookEvent.objects.create(gateway=self.gateway,is_verified=True,event_type="charge.success",event_id="multi-year",
+            payload={"intent_id":intent.pk,"reference":intent.reference,"remote_id":"456"})
+        transport=Mock(side_effect=[
+            {"success":True,"result":{"metadata":{"name":"com","tld":"com"},"registration_schema":{"properties":{"years":{"minimum":1,"maximum":10}}}}},
+            {"success":True,"result":{"state":"succeeded","completed":True}},
+        ])
+        self.supplier.submit_pilot_registration.side_effect=CloudflareINT01("a"*32,transport).submit_pilot_registration
+        self.supplier.get_registration.return_value={"domain_name":self.domain,"sandbox_status":"active",
+            "registered_at":"2026-11-27T12:00:00Z","expires_at":"2028-11-27T12:00:00Z"}
+        proof=ConfirmedGatewayPayment("paystack",intent.reference,"NGN",invoice.total,"456")
+        with patch("domains.pilot.verify_gateway_intent",return_value=proof):
+            reconcile(order)
+        order.refresh_from_db()
+        self.assertEqual(order.metadata[PILOT]["state"],"registered")
+        self.assertEqual(transport.call_args_list[-1].args[0],"POST")
+        self.assertEqual(transport.call_args_list[-1].args[2]["years"],2)
+        self.assertFalse(transport.call_args_list[-1].args[2]["auto_renew"])
+        self.assertFalse(Transaction.objects.exists())

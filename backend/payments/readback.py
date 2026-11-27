@@ -49,7 +49,7 @@ def _money(value):
     return amount
 
 
-def verify_gateway_intent(intent, *, getter=None, inspect_pilot=False):
+def verify_gateway_intent(intent, *, getter=None, inspect_pilot=False, historical_test=False):
     """Exactly one bounded read-only GET, fixed HTTPS origin, no redirects.
 
     The caller must lock and revalidate the PaymentIntent/invoice before
@@ -63,10 +63,20 @@ def verify_gateway_intent(intent, *, getter=None, inspect_pilot=False):
     order = invoice.order
     if inspect_pilot and not pilot_gateway_allowed(gateway, invoice):
         raise PaymentReadbackRejected("Only the configured sandbox purchase can be inspected.")
+    if historical_test:
+        from .domain_pilot_scope import pilot_test_gateway, is_pilot_invoice
+        if not (inspect_pilot and pilot_test_gateway(gateway) and is_pilot_invoice(invoice)
+                and intent.status == "completed" and invoice.status == "void"
+                and order and order.status == "needs_review"):
+            raise PaymentReadbackRejected("Historical test verification is ineligible.")
+    else:
+        if (intent.status not in ("pending", "processing")
+                or (intent.is_expired() and not inspect_pilot)
+                or invoice.status not in ("unpaid", "partially_paid")
+                or not order or order.status != "pending_payment"):
+            raise PaymentReadbackRejected("Payment state is ineligible.")
     if (not gateway_can_read(gateway, invoice)
-            or intent.status not in ("pending", "processing")
-            or (intent.is_expired() and not inspect_pilot) or invoice.status not in ("unpaid", "partially_paid")
-            or not order or order.status != "pending_payment"
+            or not order
             or invoice.client_id != intent.client_id or order.client_id != intent.client_id
             or invoice.currency != intent.currency or invoice.currency != order.currency
             or invoice.total <= 0 or invoice.amount_paid != 0

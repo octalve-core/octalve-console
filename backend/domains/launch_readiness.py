@@ -28,7 +28,9 @@ def price_review(row):
     draft=rate_card_draft(row)
     published=row.metadata.get("published_registrar") if isinstance(row.metadata,dict) else None
     published=published if isinstance(published,dict) and type(published.get("revision")) is int and row.status=="active" else None
-    return {"tld":row.tld,"currency":"NGN","published_revision":published["revision"] if published else None,
+    from .supplier_catalogue import KEY
+    catalogue = row.metadata.get(KEY, {}) if isinstance(row.metadata, dict) else {}
+    return {"tld":row.tld,"currency":"NGN","sandbox_catalogue":catalogue,"published_revision":published["revision"] if published else None,
         "draft_revision":draft["revision"],"published": {
             "registration":str(row.register_price),"renewal":str(row.renewal_price),
         } if published else None,
@@ -95,11 +97,28 @@ def registration_review(invoice, domain):
     except CheckoutRefused:
         raise ValidationError("Payment history requires review.") from None
     if (not intent or intent.status!="completed" or not pilot_gateway_allowed(intent.gateway,invoice)
-            or state.get("payment_reference")!=intent.reference or not state.get("payment_remote_id")
-            or not WebhookEvent.objects.filter(gateway_id=intent.gateway_id,is_verified=True,is_processed=True,
-                event_type="charge.success",payload__intent_id=intent.pk,payload__reference=intent.reference,
-                payload__remote_id=state["payment_remote_id"]).exists()):
+            or state.get("payment_reference")!=intent.reference or invoice.amount_paid!=0
+            or invoice.total!=order.total or intent.amount!=invoice.total or intent.currency!=invoice.currency):
         raise ValidationError("Processed independent payment evidence is required.")
+    from payments.models import Transaction
+    if Transaction.objects.filter(invoice=invoice).exists():
+        raise ValidationError("This invoice is not an isolated test invoice.")
+    events=list(WebhookEvent.objects.filter(gateway_id=intent.gateway_id,is_verified=True,is_processed=True,
+        event_type="charge.success",payload__intent_id=intent.pk,payload__reference=intent.reference)[:2])
+    if len(events)!=1 or not events[0].processed_at:
+        raise ValidationError("Exactly one processed signed notification is required.")
+    remote=events[0].payload.get("remote_id")
+    if not isinstance(remote,str) or not remote.isascii() or not remote.isdecimal():
+        raise ValidationError("Remote payment identity is unavailable.")
+    stored=state.get("payment_remote_id")
+    if stored not in (None,"",remote):
+        raise ValidationError("Remote payment identity conflicts.")
+    if not stored:
+        from audit.models import AuditLog
+        if not AuditLog.objects.filter(entity_type="HistoricalTestPayment",entity_id=str(events[0].pk),
+                details__independent_verification=True,details__remote_id=remote,
+                details__reference=intent.reference,details__fulfillment_authorized=False).exists():
+            raise ValidationError("Fresh audited historical evidence is required.")
     adapter,_=registrar(snapshot)
     result=adapter.get_registration(name)
     if result.get("domain_name")!=name:
@@ -109,7 +128,14 @@ def registration_review(invoice, domain):
     except (ValueError,TypeError):
         expiry=None
     days=(expiry-timezone.now()).days if expiry and expiry.utcoffset() is not None else None
+    from dateutil.relativedelta import relativedelta
+    registered=parse_datetime(result.get("registered_at") or "")
+    years=snapshot.get("years",1)
+    term_confirmed=bool(type(years) is int and years in (1,2,5,10) and registered and expiry
+                        and registered.utcoffset() is not None and expiry.utcoffset() is not None
+                        and expiry>=registered+relativedelta(years=years)-timezone.timedelta(days=1))
     return {"mode":"sandbox_readback","domain":name,"registration":result,
+            "external_acceptance":bool(result.get("sandbox_status")=="active" and term_confirmed),"term_confirmed":term_confirmed,
             "days_until_expiry":days,"checked_at":timezone.now().isoformat(),
             "renewal_state":"review_required","transfer_state":"review_required",
             "dns_state":"no_sandbox_dns_zone","execution_enabled":False}

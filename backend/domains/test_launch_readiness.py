@@ -101,3 +101,33 @@ class RegistrarLaunchTests(TestCase):
         self.assertEqual(response.data["state"],"unavailable")
         self.assertIsNone(response.data["expiry_date"])
         self.assertFalse(Invoice.objects.exists())
+
+    def test_supplier_candidate_selection_rejects_unqualified_and_mixed_currency(self):
+        from .supplier_catalogue import choose_candidate
+        base={"adapter":"cloudflare-registrar","environment":"test","available":True,
+              "credential_verified":True,"contract_qualified":True,"terms":[1,2,5],
+              "currency":"USD","registration_cost":"9.00","renewal_cost":"11.00"}
+        other={**base,"adapter":"resellerclub","registration_cost":"8.00","renewal_cost":"10.00"}
+        self.assertEqual(choose_candidate([base,other],years=2)["adapter"],"resellerclub")
+        self.assertEqual(choose_candidate([base,{**other,"contract_qualified":False}],years=2)["adapter"],"cloudflare-registrar")
+        self.assertIsNone(choose_candidate([base,{**other,"currency":"NGN"}],years=2))
+        self.assertIsNone(choose_candidate([base],years=10))
+        self.assertIsNone(choose_candidate([{**base,"registration_cost":"NaN"}],years=1))
+
+    def test_catalogue_import_preserves_public_price_and_creates_audit(self):
+        from providers.connection_models import IntegrationConnection
+        from audit.models import AuditLog
+        connection=IntegrationConnection.objects.create(adapter_key="cloudflare-registrar",
+            label="Fixture",environment="test",state="draft",current_version=1,
+            public_settings={"account_id":"a"*32},created_by=self.admin)
+        self.supplier.supported_registration_terms.return_value=[1,2,5]
+        with patch("domains.launch_views.check_mutation"),patch(
+                "domains.supplier_catalogue.registrar",return_value=(self.supplier,{"connection":str(connection.pk),"version":1})),patch(
+                "domains.supplier_catalogue.safe_verification_status",return_value={"verification_status":"verified"}):
+            result=self.api.post(URL,{**self.payload,"action":"catalogue"},format="json")
+        self.assertEqual(result.status_code,200,result.data)
+        self.rate.refresh_from_db()
+        self.assertEqual(self.rate.register_price,Decimal("17000"))
+        self.assertEqual(self.rate.metadata["sandbox_supplier_catalogue_v1"]["cloudflare-registrar"]["terms"],[1,2,5])
+        self.assertTrue(AuditLog.objects.filter(entity_type="TLDPricing",details__retail_prices_changed=False).exists())
+        self.assertFalse(Domain.objects.exists())

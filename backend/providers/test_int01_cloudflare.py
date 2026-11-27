@@ -215,3 +215,36 @@ class CloudflareINT01ContractTests(SimpleTestCase):
         self.assertEqual(outcome["state"],"in_progress")
         self.assertFalse(outcome["completed"])
         self.assertEqual(len(t.calls),3)
+
+    def test_explicit_extension_term_schema_is_required(self):
+        data = {"metadata":{"name":"com","tld":"com"},"registration_schema":{
+            "properties":{"years":{"type":"integer","minimum":2,"maximum":5}}}}
+        adapter = CloudflareINT01(ACCOUNT,lambda *_:envelope(data))
+        self.assertEqual(adapter.supported_registration_terms("com"),[2,5])
+        data["registration_schema"]={"properties":{"years":{"type":"integer"}}}
+        self.assertEqual(adapter.supported_registration_terms("com"),[])
+        data["metadata"]["name"]="net"
+        with self.assertRaises(CloudflareINT01Denied):
+            adapter.supported_registration_terms("com")
+
+    def test_resellerclub_v2_fixed_sandbox_auth_and_strict_response(self):
+        from providers.resellerclub_sandbox import verify_sandbox, ResellerClubUnavailable
+        session=MagicMock()
+        response=MagicMock()
+        response.__enter__.return_value=response
+        response.status_code=200
+        response.iter_content.return_value=[b'{"totalItems":0,"itemsOnPage":0,"actions":[]}']
+        session.get.return_value=response
+        proof=verify_sandbox("1234","fixture-only-key-012345","test",session_factory=lambda:session)
+        self.assertTrue(proof["authenticated"])
+        self.assertFalse(proof["registration_enabled"])
+        self.assertEqual(session.get.call_args.args[0],"https://api.sandbox.resellerclub.com/v2/actions/search-current")
+        self.assertFalse(session.get.call_args.kwargs["allow_redirects"])
+        self.assertFalse(session.trust_env)
+        session.get.reset_mock()
+        with self.assertRaises(ResellerClubUnavailable):
+            verify_sandbox("1234","fixture-only-key-012345","live",session_factory=lambda:session)
+        session.get.assert_not_called()
+        response.iter_content.return_value=[b'{"totalItems":1,"itemsOnPage":1,"actions":[]}']
+        with self.assertRaises(ResellerClubUnavailable):
+            verify_sandbox("1234","fixture-only-key-012345","test",session_factory=lambda:session)

@@ -16,10 +16,10 @@ export function checkoutDate(value?:string|null){
   const date=new Date(value);
   return Number.isNaN(date.getTime())?"Pending confirmation":new Intl.DateTimeFormat("en-NG",{dateStyle:"medium",timeZone:"Africa/Lagos"}).format(date);
 }
-export function DomainCart({domain,amount,status,order,invoice,invoiceId,registeredAt,expiresAt,paymentVerified,publicPaymentTest=false,actions,busy,error,onAction,gatewayOptions,paymentReference,verifiedAt,paymentGateway,checkoutState,testLifecycle}:{
+export function DomainCart({domain,amount,status,order,invoice,invoiceId,registeredAt,expiresAt,paymentVerified,publicPaymentTest=false,actions,busy,error,onAction,gatewayOptions,paymentReference,verifiedAt,paymentGateway,checkoutState,testLifecycle,years=1,onYearsChange}:{
  domain:string;amount?:string;status?:string;order?:string;invoice?:string;invoiceId?:number|string;registeredAt?:string|null;expiresAt?:string|null;
  paymentVerified:boolean;publicPaymentTest?:boolean;actions:readonly Action[];busy:boolean;error:string;onAction:(action:string,gateway?:GatewayCode,consent?:boolean)=>void;
- testLifecycle?:unknown;
+ testLifecycle?:unknown;years?:number;onYearsChange?:(years:number)=>void;
  gatewayOptions:readonly GatewayOption[];paymentReference?:string;verifiedAt?:string;paymentGateway?:string;checkoutState?:string;
 }){
  const router=useRouter();
@@ -28,7 +28,7 @@ export function DomainCart({domain,amount,status,order,invoice,invoiceId,registe
  const selected=options.some(item=>item.enabled&&item.code===gateway)?gateway:options.find(item=>item.enabled)?.code??null;
  const canPay=actions.some(a=>a.action==="checkout")&&!!selected;
  const price=amount&&Number.isFinite(Number(amount))&&Number(amount)>0?formatPlanAmount(Number(amount),"NGN"):null;
- const cart:CartView={lines:[{id:"domain:"+domain,kind:"domain",name:domain,description:"",period:"1 year",priceLabel:price??"—"}],subtotal:price??"—",tax:price?formatPlanAmount(0,"NGN"):"—",total:price??"—",busy,error,checkoutAllowed:false};
+ const cart:CartView={lines:[{id:"domain:"+domain,kind:"domain",name:domain,description:"",period:years===1?"1 year":`${years} years`,priceLabel:price??"—"}],subtotal:price??"—",tax:price?formatPlanAmount(0,"NGN"):"—",total:price??"—",busy,error,checkoutAllowed:false};
  const stage=paymentVerified?3:order?2:1;
  const details=<PendingInvoiceReferences invoice={invoice} order={order} invoiceId={invoiceId}/>;
  const registration=paymentVerified&&!publicPaymentTest?<CommercePanel><h3 className="font-medium">Domain registration</h3><p className="mt-2 text-sm text-slate-600">{status}</p>{(registeredAt||expiresAt)&&<dl className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-3"><dt className="flex items-center gap-2 text-xs text-slate-500"><CalendarDays size={16} aria-hidden="true"/>Registration date</dt><dd className="mt-1 text-sm">{checkoutDate(registeredAt)}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Expiry date</dt><dd className="mt-1 text-sm">{checkoutDate(expiresAt)}</dd></div></dl>}{actions.filter(a=>a.action!=="checkout").map(a=><button key={a.action} type="button" className={secondary+" mt-3"} disabled={busy} onClick={()=>onAction(a.action)}>{a.text}</button>)}</CommercePanel>:null;
@@ -43,6 +43,7 @@ export function DomainCart({domain,amount,status,order,invoice,invoiceId,registe
    {error&&<p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{error}</p>}
   </CheckoutSummary>}>
    <CartItem line={cart.lines[0]} readOnly remove={()=>{}} configure={()=>{}}/>
+   {onYearsChange&&!order&&<CommercePanel><label className="block text-sm">Registration term (private sandbox)<select value={years} disabled={busy} onChange={e=>onYearsChange(Number(e.target.value))} className="mt-2 block w-full rounded-lg border p-2">{[1,2,5,10].map(n=><option key={n} value={n}>{n} year(s)</option>)}</select></label><p className="mt-2 text-xs text-slate-500">A fresh supplier term and price check is required before creating an invoice.</p></CommercePanel>}
    {order&&<CheckoutPayment><p className="mt-2 text-sm text-slate-600">{checkoutState==="retry_check"?"We’ll verify your previous attempt before opening secure checkout.":canPay?"You’ll be redirected to the secure payment page to complete this invoice.":"Your invoice is saved. Verify any previous payment before trying again."}</p><p className="mt-2 text-xs text-slate-500">Test mode · No real money will be charged.</p></CheckoutPayment>}
    {order&&details}
    {!order&&<><CommercePanel className="flex flex-wrap items-center gap-3"><Server size={20} className="text-[#0064E0]" aria-hidden="true"/><div className="min-w-0 flex-1"><h3 className="text-sm font-medium">Add web hosting</h3><p className="mt-1 text-xs text-slate-600">Optional. Browse plans for this domain.</p></div><Link href={"/client/order?forDomain="+encodeURIComponent(domain)} className={secondary}>Explore hosting</Link></CommercePanel><Link href="/client/domains/register" className="inline-flex min-h-11 items-center text-sm text-[#0064E0]">Choose a different domain</Link></>}
