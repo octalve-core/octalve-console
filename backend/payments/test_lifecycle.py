@@ -323,4 +323,6 @@ def run_due_work():
             counters["renewals"] += int(advance_renewals(invoice.pk,at=now))
         except (ValidationError, DatabaseError, CheckoutRefused):
             counters["held"] += 1
+    from domains.sandbox_fulfillment import advance_approved_order
+    counters["registrar"] = advance_approved_order()
     return counters
