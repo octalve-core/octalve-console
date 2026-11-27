@@ -17,11 +17,11 @@ export function SupportTicketCards({role,tickets,emptyTitle="No tickets in this 
   {tickets.map(ticket=>{
    const target=role==="staff"?"/staff/tickets":role==="admin"?"/admin/support":"/client/support";
    return <li key={ticket.id}>
-    <Link href={target+"/"+encodeURIComponent(String(ticket.id))}
+    <Link href={target+"/"+encodeURIComponent(String(ticket.public_id??ticket.id))}
      className="group flex min-w-0 flex-col gap-3 rounded-2xl border border-console-line bg-white px-4 py-5 transition-colors hover:border-blue-200 hover:bg-blue-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-primary sm:flex-row sm:items-center sm:justify-between sm:px-5">
      <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2 text-xs text-console-muted">
-       <span className="font-medium text-console-primary">{ticket.ticket_number}</span>
+       <span className="font-medium text-console-primary">{ticket.public_reference??ticket.ticket_number}</span>
        <span className="rounded-full bg-slate-100 px-2 py-0.5">{ticket.department_name}</span>
        {role!=="client"?<span className="capitalize">{ticket.priority}</span>:null}
       </div>

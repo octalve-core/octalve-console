@@ -27,6 +27,7 @@ import type {
 } from "./types";
 
 export type AccountProfile = {
+  public_id?:string; public_reference?:string;
   email: string; email_verified: boolean; full_name: string;
   phone_number: string; company_name: string; address: string;
   city: string; state: string; country: string; postal_code: string; tax_id: string;

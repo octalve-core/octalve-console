@@ -31,6 +31,7 @@ export function ClientProfileDetailsForm({profile,draft,name,email,saving,onChan
    <div className="min-w-0">
     <h2 className="break-words text-sm font-medium text-console-ink">{profile?.full_name||name||"Your details"}</h2>
     <p className="break-all text-xs text-console-muted">{profile?.email||email||"Email unavailable"}</p>
+    {profile?.public_reference&&<p className="mt-1 break-words text-xs font-medium text-console-primary">Account reference: {profile.public_reference}</p>}
    </div>
   </div>
   {draft?<form onSubmit={onSubmit} className="mt-5 space-y-5">

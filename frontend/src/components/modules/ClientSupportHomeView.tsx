@@ -16,7 +16,7 @@ export function ClientSupportHomeView(){
       .catch(()=>{if(live)setError("Your support history isn't available right now.");})
       .finally(()=>{if(live)setLoading(false);});
     return()=>{live=false;};},[]);
-  const results=useMemo(()=>tickets.filter(t=>[t.subject,t.ticket_number,t.department_name].join(" ").toLowerCase().includes(query.toLowerCase())),[tickets,query]);
+  const results=useMemo(()=>tickets.filter(t=>[t.subject,t.public_reference,t.ticket_number,t.department_name].join(" ").toLowerCase().includes(query.toLowerCase())),[tickets,query]);
   return <DashboardShell role="client" title="Support" description="Help with your hosting, domains and billing.">
     <DashboardPage eyebrow="Help centre" title="How can we help you today?"
       description="Explore reliable guides or start a private conversation with the right support team.">
