@@ -123,7 +123,8 @@ def result(order):
     proof = verified_payment_details(invoice) or {}
     from .combined_cart import gateway_choices
     choices = gateway_choices(invoice.client, evidence.get("public_payment_test") is True, True) if evidence["state"] == "awaiting_payment" else []
-    return {"gateway_options": choices, "payment_attempt_state": attempt["state"], "payment_verified": proof.get("test") is True, "verified_at": proof.get("verified_at"), "payment_gateway": proof.get("gateway"), "checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
+    from payments.test_lifecycle import safe_snapshot
+    return {"test_lifecycle": safe_snapshot(order), "gateway_options": choices, "payment_attempt_state": attempt["state"], "payment_verified": proof.get("test") is True, "verified_at": proof.get("verified_at"), "payment_gateway": proof.get("gateway"), "checkout_state": checkout_state, "order": order.order_number, "invoice": invoice.invoice_number,
             "invoice_id": invoice.pk, "invoice_public_id": str(invoice.public_id), "invoice_reference": invoice.public_reference, "order_reference": order.public_reference,
             "registered_at": registration.get("registered_at"), "expires_at": registration.get("expires_at"),
             "domain": evidence["domain"], "amount": str(invoice.total), "currency": "NGN",
@@ -369,6 +370,8 @@ def reconcile(order):
         # Reserve before the POST. A crash at any point now requires readback only.
         locked.metadata[PILOT].update(state="test_payment_verified" if public_test else "registration_uncertain", payment_reference=proof.reference,
                                      payment_remote_id=proof.remote_id, payment_verified_at=verified_at.isoformat(), sandbox_submission_reserved=not public_test)
+        from payments.test_lifecycle import record_confirmed_test
+        record_confirmed_test(invoice, payment, locked, proof, verified_at)
         locked.status = "needs_review"
         locked.save(update_fields=["metadata", "status", "updated_at"])
         payment.status = "completed"
