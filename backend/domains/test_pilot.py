@@ -635,3 +635,71 @@ class DomainPilotTests(TestCase):
         self.assertEqual(payment_attempt_summary(invoice)["state"],"resumable")
         self.supplier.submit_pilot_registration.assert_not_called()
         self.assertFalse(Transaction.objects.exists())
+
+    def test_approved_worker_only_advances_exact_private_order_and_never_resubmits(self):
+        from domains.sandbox_fulfillment import advance_approved_order
+        order = accept_quote(self.owner, self.domain, self.token)
+        invoice = order.invoices.get()
+        intent = PaymentIntent.objects.create(
+            invoice=invoice, client=self.owner, gateway=self.gateway, reference="OC-AUTO-TEST",
+            amount=invoice.total, currency="NGN", status="pending",
+            expires_at=timezone.now() + timezone.timedelta(minutes=10),
+        )
+        with patch.dict("os.environ", {"CLOUD_REGISTRAR_SANDBOX_AUTOMATION_ENABLED": "true",
+                                     "CLOUD_REGISTRAR_SANDBOX_ORDER_ID": str(order.public_id)}):
+            self.assertEqual(advance_approved_order(), "waiting_payment")
+            self.supplier.submit_pilot_registration.assert_not_called()
+            WebhookEvent.objects.create(
+                gateway=self.gateway, is_verified=True, event_type="charge.success", event_id="worker-test",
+                payload={"reference": intent.reference, "remote_id": "123", "intent_id": intent.pk},
+            )
+            proof = ConfirmedGatewayPayment("paystack", intent.reference, "NGN", invoice.total, "123")
+            self.supplier.submit_pilot_registration.side_effect = CloudflareINT01Denied
+            with patch("domains.pilot.verify_gateway_intent", return_value=proof):
+                self.assertEqual(advance_approved_order(), "advanced")
+            order.refresh_from_db()
+            self.assertEqual(order.metadata[PILOT]["state"], "registration_uncertain")
+            self.assertTrue(WebhookEvent.objects.get().is_processed)
+            self.supplier.pilot_registration_status.return_value = {"state": "succeeded"}
+            self.supplier.get_registration.return_value = {
+                "domain_name": self.domain, "sandbox_status": "active",
+                "registered_at": "2026-11-22T12:00:00+00:00", "expires_at": "2027-11-22T12:00:00+00:00",
+            }
+            self.assertEqual(advance_approved_order(), "advanced")
+            self.assertEqual(advance_approved_order(), "idle")
+            self.supplier.submit_pilot_registration.assert_called_once()
+            order.refresh_from_db()
+            self.assertEqual(order.metadata[PILOT]["state"], "registered")
+            invoice.refresh_from_db()
+            self.assertEqual(invoice.status, "void")
+            self.assertFalse(Transaction.objects.exists())
+
+    def test_approved_worker_rejects_public_orders_missing_or_invalid_pin(self):
+        from domains.sandbox_fulfillment import advance_approved_order
+        order = accept_quote(self.owner, self.domain, self.token)
+        order.metadata[PILOT]["public_payment_test"] = True
+        order.save(update_fields=["metadata"])
+        with patch.dict("os.environ", {"CLOUD_REGISTRAR_SANDBOX_AUTOMATION_ENABLED": "false",
+                                     "CLOUD_REGISTRAR_SANDBOX_ORDER_ID": str(order.public_id)}):
+            self.assertEqual(advance_approved_order(), "disabled")
+        with patch.dict("os.environ", {"CLOUD_REGISTRAR_SANDBOX_AUTOMATION_ENABLED": "true",
+                                     "CLOUD_REGISTRAR_SANDBOX_ORDER_ID": "not-a-uuid"}):
+            self.assertEqual(advance_approved_order(), "disabled")
+        with patch.dict("os.environ", {"CLOUD_REGISTRAR_SANDBOX_AUTOMATION_ENABLED": "true",
+                                     "CLOUD_REGISTRAR_SANDBOX_ORDER_ID": str(order.public_id)}):
+            self.assertEqual(advance_approved_order(), "held")
+        self.supplier.submit_pilot_registration.assert_not_called()
+
+    def test_private_claim_guard_across_orders_ignores_public_fixtures(self):
+        from django.db import transaction
+        from rest_framework.exceptions import ValidationError
+        from domains.sandbox_fulfillment import assert_private_domain_unclaimed
+        order = accept_quote(self.owner, self.domain, self.token)
+        with transaction.atomic():
+            with self.assertRaises(ValidationError):
+                assert_private_domain_unclaimed([self.domain])
+            assert_private_domain_unclaimed([self.domain], order_id=order.pk)
+        order.metadata[PILOT]["public_payment_test"] = True
+        order.save(update_fields=["metadata"])
+        with transaction.atomic():
+            assert_private_domain_unclaimed([self.domain])
