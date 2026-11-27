@@ -21,7 +21,7 @@ class GatewayReadbackTests(SimpleTestCase):
     def setup_intent(self, code="paystack"):
         gateway = SimpleNamespace(code=code, status="active", test_mode=False,
                                   get_secret_key=lambda: "sk_live_test-fixture-never-deploy-0123456789")
-        order = SimpleNamespace(client_id=7, status="pending_payment", currency="NGN")
+        order = SimpleNamespace(client_id=7, status="pending_payment", currency="NGN", total=Decimal("200.00"))
         invoice = SimpleNamespace(order=order, client_id=7, currency="NGN",
                                   status="unpaid", total=Decimal("200.00"),
                                   amount_paid=Decimal("0.00"))
@@ -71,6 +71,9 @@ class GatewayReadbackTests(SimpleTestCase):
             self.paystack(amount=19999),
             self.paystack(amount=20001),
             self.paystack(domain="test"),
+            self.paystack(domain=None),
+            self.paystack(domain="unexpected"),
+            self.paystack(id="١٢٣"),
             self.paystack(id="other-account"),
             response({"status": False, "data": {"status": "success"}}),
             response({"status": True}, headers={"Content-Length": "1000000"}),
@@ -95,6 +98,12 @@ class GatewayReadbackTests(SimpleTestCase):
                                       getter=Mock(return_value=reply))
 
     def test_preflight_rejects_non_authorised_intents_without_get(self):
+        order_changed = self.setup_intent()
+        order_changed.invoice.order.total = Decimal("199")
+        get = Mock()
+        with self.assertRaises(PaymentReadbackRejected):
+            verify_gateway_intent(order_changed, getter=get)
+        get.assert_not_called()
         changes = [
             ("client_id", 45), ("amount", Decimal("199")), ("currency", "USD"),
             ("status", "completed"), ("reference", "bad/ref"),

@@ -261,6 +261,17 @@ class DomainPilotTests(TestCase):
             gateway=self.gateway, is_verified=True, event_type="charge.success", event_id="cart-test",
             payload={"reference": intent.reference, "remote_id": "234", "intent_id": intent.pk},
         )
+        # A second exact signed inbox row is ambiguous: refuse and leave all state untouched.
+        duplicate = WebhookEvent.objects.create(gateway=self.gateway, is_verified=True, event_type="charge.success", event_id="cart-duplicate-fixture", payload={"reference": intent.reference, "remote_id": "234", "intent_id": intent.pk})
+        with patch("domains.pilot.verify_gateway_intent", return_value=proof):
+            denied = api.post(status_url, {"action":"advance"}, format="json")
+        self.assertEqual(denied.status_code,400)
+        intent.refresh_from_db()
+        invoice.refresh_from_db()
+        self.assertEqual(intent.status,"pending")
+        self.assertEqual(invoice.status,"unpaid")
+        self.assertFalse(WebhookEvent.objects.get(event_id="cart-test").is_processed)
+        duplicate.delete()  # disposable test fixture only
         self.supplier.submit_cart_registration.side_effect = [CloudflareINT01Denied(), {"state": "failed"}]
         with patch("domains.pilot.verify_gateway_intent", return_value=proof):
             paid = api.post(status_url, {"action": "advance"}, format="json")
@@ -530,6 +541,7 @@ class DomainPilotTests(TestCase):
                     self.assertEqual(response.data["invoice_id"], invoice_id)
                     self.assertEqual(response.data["checkout_url"], "https://checkout.paystack.com/test_12345")
                     self.assertTrue(response.data["payment_started"])
+                    self.assertEqual(response.data["payment_attempt_state"], "resumable")
                 post.assert_called_once()
             invoice = Invoice.objects.get(pk=invoice_id)
             self.assertEqual(invoice.total, Decimal("12500.00"))
@@ -537,3 +549,14 @@ class DomainPilotTests(TestCase):
             self.assertEqual(self.owner.orders.count(), 1)
             self.assertEqual(invoice.status, "unpaid")
             self.assertFalse(Transaction.objects.exists())
+
+            # An expired link must be represented as reconciliation-only and never restarted.
+            invoice.payment_intents.update(expires_at=timezone.now()-timezone.timedelta(minutes=1))
+            status = api.get(f"{path}?invoice={invoice_id}")
+            self.assertEqual(status.data["payment_attempt_state"], "reconciliation_required")
+            with patch("payments.hosted_checkout.requests.post") as no_post:
+                retry = api.post(f"{path}?invoice={invoice_id}", {"action":"pay","gateway":"paystack","consent":True}, format="json")
+                self.assertIn("checkout_error", retry.data)
+                self.assertEqual(retry.data["payment_attempt_state"], "reconciliation_required")
+                no_post.assert_not_called()
+            self.assertEqual(invoice.payment_intents.count(),1)

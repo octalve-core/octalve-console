@@ -135,8 +135,11 @@ def payment_response(user, invoice):
         link = start_cart_payment(user, invoice)
         result["checkout_url"] = link
         result["payment_started"] = True
+        result["payment_attempt_state"] = "resumable"
     except (CloudflareINT01Denied, CheckoutRefused, VaultUnavailable, IntegrationCredentialVersion.DoesNotExist, DatabaseError, ValidationError, Throttled):
-        result["payment_started"] = invoice.payment_intents.exists()
+        refreshed = cart_result(invoice.order, invoice)
+        result["payment_started"] = refreshed["payment_started"]
+        result["payment_attempt_state"] = refreshed["payment_attempt_state"]
         result["checkout_error"] = "Payment could not start. Your invoice is saved. Check the existing payment or retry."
     return result
 
@@ -234,14 +237,14 @@ def cart_result(order, invoice=None):
     attempts = list(invoice.payment_intents.all().order_by("pk")[:2])
     attempt = attempts[0] if len(attempts) == 1 else None
     resumable = bool(attempt and attempt.status == "pending" and not attempt.is_expired()
-                     and attempt.metadata.get("checkout_state") == "confirmed" and attempt.authorization_url)
-    attempt_state = ("verified" if evidence else "not_started" if not attempts else
+                     and isinstance(attempt.metadata, dict) and attempt.metadata.get("checkout_state") == "confirmed" and attempt.authorization_url)
+    attempt_state = ("verified" if evidence.get("test") is True else "not_started" if not attempts else
                      "resumable" if resumable else "reconciliation_required")
     return {"invoice_id": invoice.pk, "invoice": invoice.invoice_number, "order": order.order_number,
             "payment_reference": evidence.get("reference"), "payment_gateway": evidence.get("gateway"),
             "verified_at": evidence.get("verified_at"),
             "total": str(invoice.total), "currency": invoice.currency,
-            "payment_verified": invoice.status == "void" and order.status == "needs_review" and bool(order.metadata[CART].get("payment_reference")),
+            "payment_verified": evidence.get("test") is True,
             "public_payment_test": order.metadata[CART].get("public_payment_test") is True,
             "lines": [{"name": line.description, "amount": str(line.subtotal), "kind": line.item_type, "domain": line.domain_name, "period": line.cycle_key} for line in order.items.all()],
             "payment_started": bool(attempts), "payment_attempt_state": attempt_state,
