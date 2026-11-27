@@ -153,7 +153,7 @@ class FixedCloudflareTransport:
                 require_domain(body["domains"][0])
             else:
                 require_domain(body["domain_name"])
-                if body["years"]!=1 or body["auto_renew"] is not False or body["privacy_mode"]!="redaction":
+                if type(body["years"]) is not int or body["years"] not in (1,2,5,10) or body["auto_renew"] is not False or body["privacy_mode"]!="redaction":
                     raise CloudflareINT01Denied()
         headers={"Authorization":"Bearer "+self.token,"Accept":"application/json"}
         if method=="POST": headers["Content-Type"]="application/json"
@@ -375,6 +375,25 @@ class CloudflareINT01:
             raise CloudflareINT01Denied()
         return {"extension":extension,"schema_received":True}
 
+    def supported_registration_terms(self, extension):
+        """Strictly interpret explicit supplier schema bounds; never guess terms."""
+        if extension not in ("com", "net"):
+            raise CloudflareINT01Denied()
+        data = _require_result(self.transport("GET", self._path("extensions/" + extension)))
+        if not isinstance(data, dict) or data.get("metadata") != {"name": extension, "tld": extension}:
+            raise CloudflareINT01Denied()
+        schema = data.get("registration_schema")
+        field = schema.get("properties", {}).get("years") if isinstance(schema, dict) else None
+        if not isinstance(field, dict):
+            return []
+        allowed = field.get("enum")
+        if isinstance(allowed, list) and all(type(x) is int for x in allowed):
+            return [n for n in (1, 2, 5, 10) if n in allowed]
+        minimum, maximum = field.get("minimum"), field.get("maximum")
+        if type(minimum) is int and type(maximum) is int and 1 <= minimum <= maximum <= 10:
+            return [n for n in (1, 2, 5, 10) if minimum <= n <= maximum]
+        return []
+
     def get_registration(self,domain):
         domain=require_domain(domain)
         return _registration(self.transport("GET",self._path("registrations/"+domain)),domain)
@@ -398,7 +417,15 @@ class CloudflareINT01:
                 or snapshot.get("sandbox_submission_reserved") is not True
                 or not payment or not pilot_gateway_allowed(payment.gateway, payment.invoice)):
             raise CloudflareINT01Denied()
-        return self._submit_reserved_registration(domain, contact)
+        years = snapshot.get("years", 1)
+        if type(years) is not int or years not in (1, 2, 5, 10):
+            raise CloudflareINT01Denied()
+        if years != 1:
+            lines = list(order.items.filter(item_type="domain", domain_name=domain)[:2])
+            if (len(lines) != 1 or lines[0].months != years * 12 or lines[0].subtotal != payment.amount
+                    or years not in self.supported_registration_terms(domain.rsplit(".", 1)[1])):
+                raise CloudflareINT01Denied()
+        return self._submit_reserved_registration(domain, contact, years=years)
 
     def submit_cart_registration(self, line, contact):
         from payments.domain_pilot_scope import CART, pilot_gateway_allowed
@@ -417,9 +444,9 @@ class CloudflareINT01:
             raise CloudflareINT01Denied()
         return self._submit_reserved_registration(domain, contact)
 
-    def _submit_reserved_registration(self, domain, contact):
+    def _submit_reserved_registration(self, domain, contact, *, years=1):
         registration = self.transport("POST", self._path("registrations"), {
-            "domain_name": domain, "years": 1, "auto_renew": False,
+            "domain_name": domain, "years": years, "auto_renew": False,
             "privacy_mode": "redaction", "contacts": {"registrant": contact},
         })
         return _workflow(registration, domain)
