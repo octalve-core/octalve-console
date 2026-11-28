@@ -131,3 +131,13 @@ class RegistrarLaunchTests(TestCase):
         self.assertEqual(self.rate.metadata["sandbox_supplier_catalogue_v1"]["cloudflare-registrar"]["terms"],[1,2,5])
         self.assertTrue(AuditLog.objects.filter(entity_type="TLDPricing",details__retail_prices_changed=False).exists())
         self.assertFalse(Domain.objects.exists())
+
+    def test_live_registrar_contact_validation_uses_verified_account_email(self):
+        from .live_registration import validate_contact,RegistrationRefused
+        contact={"name":"Synthetic Registrant","phone":"+234.8012345678","street":"Fixture Road",
+            "city":"Abuja","state":"FCT","country_code":"NG","postal_code":"900001"}
+        result=validate_contact(self.admin,contact)
+        self.assertEqual(result["email"],self.admin.email)
+        self.assertEqual(result["postal_info"]["address"]["country_code"],"NG")
+        with self.assertRaises(RegistrationRefused):
+            validate_contact(self.admin,{**contact,"email":"other@example.test"})

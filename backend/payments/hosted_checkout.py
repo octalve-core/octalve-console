@@ -245,6 +245,8 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None, allow_test
                 or invoice.amount_due != invoice.total or invoice.total <= 0
                 or invoice.total != invoice.order.total or invoice.currency != "NGN"):
             raise CheckoutRefused("Invoice is not eligible for hosted payment.")
+        if invoice.order.metadata.get("live_domain_registration_v1") and gateway_code!="paystack":
+            raise CheckoutRefused("Live registrar orders require Paystack.")
         gateway = PaymentGateway.objects.select_for_update().filter(code=gateway_code).first()
         if not gateway or not gateway_can_read(gateway, invoice):
             raise CheckoutRefused("Approved payment provider unavailable.")

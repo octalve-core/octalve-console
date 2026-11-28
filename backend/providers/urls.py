@@ -1,7 +1,7 @@
 # providers/urls.py
 
 from django.urls import path, include
-from . import mail_policy_views,hosting_policy_views,connection_views,connection_security_views,cloudflare_int01_views,connection_verification,connection_registrar_views
+from . import registrar_live_policy,mail_policy_views,hosting_policy_views,connection_views,connection_security_views,cloudflare_int01_views,connection_verification,connection_registrar_views
 from rest_framework.routers import DefaultRouter
 from .views import ProviderViewSet, ProviderPackageViewSet, ProviderLogViewSet
 
@@ -22,6 +22,7 @@ urlpatterns = [
     path("connections/<uuid:connection_id>/hosting-policy/",hosting_policy_views.configure_execution,name="hosting-policy"),
     path("connections/<uuid:connection_id>/verify/",connection_verification.verify_connection,name="provider-connection-verify"),
     path("connections/<uuid:connection_id>/registrar-registration-status/",connection_registrar_views.live_registration_status,name="provider-live-registration-status"),
+    path("connections/<uuid:connection_id>/registrar-policy/",registrar_live_policy.configure,name="registrar-live-policy"),
     path("connections/<uuid:connection_id>/registrar-quote/",connection_registrar_views.live_registrar_quote,name="provider-live-registrar-quote"),
     path("connections/<uuid:connection_id>/rotate/", connection_views.rotate_connection, name="provider-connection-rotate"),
     path("connections/<uuid:connection_id>/revoke/", connection_views.revoke_connection, name="provider-connection-revoke"),

@@ -15,10 +15,17 @@ def financial_exception_review(request):
     assert_admin(request.user)
     rows=list(WebhookEvent.objects.filter(gateway__code="paystack",is_verified=True,
         payload__mode="live").filter(Q(event_type__in=EVENTS)|Q(event_type="charge.success",is_processed=False,error_message__startswith="live_reconciliation_review:")).order_by("-pk")[:101])
-    return Response({"cases":[{"id":row.pk,"event":row.event_type,
+    from .live_reconciliation import enabled
+    from .models import PaymentGateway,Transaction
+    from .live_binding import resolve_live_key
+    gateway=PaymentGateway.objects.filter(code="paystack",test_mode=False,status="active").first()
+    pending=Transaction.objects.filter(transaction_type="payment",gateway=gateway,
+        metadata__paystack_refund_request_v1__state__in=("uncertain","submitted","processed","failed")).order_by("-updated_at")[:100] if gateway else []
+    return Response({"requests":[{"payment":str(x.public_id),"reference":x.metadata["paystack_refund_request_v1"]["reference"],
+        "amount_minor":x.metadata["paystack_refund_request_v1"]["amount_minor"],"state":x.metadata["paystack_refund_request_v1"]["state"]} for x in pending],"cases":[{"id":row.pk,"event":row.event_type,
         "state":"verified_review" if row.is_processed or row.payload.get("late_payment_review") else "awaiting_readback",
         "case":row.payload.get("verified_case"),"created_at":row.created_at.isoformat()} for row in rows[:100]],
-        "truncated":len(rows)>100,"refund_execution_enabled":False,"dispute_resolution_enabled":False},
+        "truncated":len(rows)>100,"refund_execution_enabled":bool(enabled() and gateway and resolve_live_key(gateway)),"dispute_resolution_enabled":False},
         headers={"Cache-Control":"private, no-store"})
 
 

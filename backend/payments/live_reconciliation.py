@@ -74,6 +74,10 @@ def run_due(limit=5):
         result[outcome]+=1
         if outcome=="held":
             Transaction.objects.filter(pk=pk).update(updated_at=timezone.now())
+    from domains.live_registration import run_due as run_domain
+    domain_result=run_domain()
+    if domain_result in ("processed","held"):
+        result[domain_result]+=1
     return result
 
 class LiveReconciliationCronView(APIView):
