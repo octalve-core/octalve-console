@@ -247,7 +247,7 @@ class FinancialReportViewSet(viewsets.GenericViewSet):
         start = now - timezone.timedelta(days=30)
         
         transactions = Transaction.objects.filter(
-            status='successful',
+            status='successful', transaction_type='payment',
             paid_at__gte=start
         ).values('gateway__name').annotate(
             total=Sum('amount'),

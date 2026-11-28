@@ -131,3 +131,77 @@ class RegistrarLaunchTests(TestCase):
         self.assertEqual(self.rate.metadata["sandbox_supplier_catalogue_v1"]["cloudflare-registrar"]["terms"],[1,2,5])
         self.assertTrue(AuditLog.objects.filter(entity_type="TLDPricing",details__retail_prices_changed=False).exists())
         self.assertFalse(Domain.objects.exists())
+
+    def test_live_registrar_contact_validation_uses_verified_account_email(self):
+        from .live_registration import validate_contact,RegistrationRefused
+        contact={"name":"Synthetic Registrant","phone":"+234.8012345678","street":"Fixture Road",
+            "city":"Abuja","state":"FCT","country_code":"NG","postal_code":"900001"}
+        result=validate_contact(self.admin,contact)
+        self.assertEqual(result["email"],self.admin.email)
+        self.assertEqual(result["postal_info"]["address"]["country_code"],"NG")
+        with self.assertRaises(RegistrationRefused):
+            validate_contact(self.admin,{**contact,"email":"other@example.test"})
+
+    def test_live_registration_paid_fence_and_readback(self):
+        from . import live_registration as live
+        from providers.connection_models import IntegrationConnection
+        from payments.readback import ConfirmedGatewayPayment
+        from payments.live_reconciliation import consume
+        from datetime import timedelta
+        from dateutil.relativedelta import relativedelta
+        route={"connection_id":"00000000-0000-4000-8000-000000000001","credential_version":1,"revision":1}
+        cost={"revision":1,"currency":"USD","registration_cost":"10.00","renewal_cost":"12.00","ngn_per_unit":"1500"}
+        self.rate.metadata={**self.rate.metadata,"published_registrar":route,"published_registrar_cost_v1":cost}
+        self.rate.save(update_fields=["metadata"])
+        row=IntegrationConnection.objects.create(pk=route["connection_id"],adapter_key="cloudflare-registrar-live",
+            state="draft",environment="live",label="Fixture",public_settings={"account_id":"a"*32})
+        self.supplier.live_domain_check.return_value={"name":"launch-test.com","registrable":True,"currency":"USD","registration_cost":"10.00"}
+        contact={"name":"Synthetic Registrant","phone":"+234.8012345678","street":"Fixture Road",
+            "city":"Abuja","state":"FCT","country_code":"NG","postal_code":"900001"}
+        gateway=PaymentGateway.objects.create(code="paystack",name="Live fixture",status="active",test_mode=False,config={"fixture":1})
+        with patch("domains.live_registration.enabled",return_value=True),patch("domains.live_registration.resolve_live_key",return_value="fixture"),patch("domains.live_registration.connector",return_value=(row,"fixture",self.supplier)),patch("domains.live_registration.load",return_value=(row,"fixture")),patch("domains.live_registration.registrar_request") as vendor:
+            quoted=live.quote(self.owner,"launch-test.com")
+            accepted=live.accept(self.owner,quoted["quote"],contact)
+            self.assertEqual(live.accept(self.owner,quoted["quote"],contact),accepted)
+            domain=Domain.objects.get(domain_name="launch-test.com")
+            self.assertFalse(domain.is_active)
+            self.assertEqual(live.transition(domain.pk),"held")
+            vendor.assert_not_called()
+            invoice=Invoice.objects.get(pk=accepted["invoice_id"])
+            intent=PaymentIntent.objects.create(invoice=invoice,client=self.owner,gateway=gateway,
+                reference="LIVE_DOMAIN_FIXTURE",status="pending",amount=invoice.total,currency="NGN",
+                expires_at=timezone.now()+timedelta(minutes=10),metadata={"payment_mode":"live","gateway_binding":gateway.config})
+            event=WebhookEvent.objects.create(gateway=gateway,event_id="live-domain-fixture",event_type="charge.success",is_verified=True,
+                payload={"mode":"live","binding":gateway.config,"intent_id":intent.pk,"reference":intent.reference,"remote_id":"12345"})
+            with patch("payments.live_reconciliation.enabled",return_value=True),patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.live_binding.resolve_live_key",return_value="fixture"),patch("payments.settlement.verify_gateway_intent",return_value=ConfirmedGatewayPayment("paystack",intent.reference,"NGN",intent.amount,"12345")),self.settings(CLOUD_SETTLEMENT_COMMIT_ENABLED=True):
+                self.assertEqual(consume(event.pk),"processed")
+            now=timezone.now()
+            self.supplier.live_registration_readback.return_value={"domain_name":domain.domain_name,"status":"active",
+                "registered_at":now.isoformat(),"expires_at":(now+relativedelta(years=1)).isoformat()}
+            vendor.side_effect=CloudflareINT01Denied()
+            self.assertEqual(live.transition(domain.pk),"held")
+            domain.refresh_from_db()
+            self.assertEqual(domain.metadata[live.KEY]["state"],"uncertain")
+            vendor.side_effect=None
+            vendor.return_value={"domain_name":domain.domain_name,"state":"succeeded","completed":True}
+            self.assertEqual(live.transition(domain.pk),"processed")
+            self.assertEqual([x.args[3] for x in vendor.call_args_list],["create","status"])
+            domain.refresh_from_db()
+            self.assertEqual(domain.status,"active")
+            self.assertEqual(domain.expiry_date,now+relativedelta(years=1))
+            self.assertEqual(domain.order_item.order.status,"provisioned")
+            self.assertEqual(live.transition(domain.pk),"held")
+            self.assertEqual(vendor.call_count,2)
+
+    def test_live_workflow_proof_documented_shapes(self):
+        from providers.registrar_live_transport import workflow_proof
+        from providers.cloudflare_int01 import CloudflareINT01Denied
+        domain="example.com"
+        path="/accounts/"+("a"*32)+"/registrar/registrations/"+domain+"/registration-status"
+        for proof in ({"domain_name":domain},{"context":{"domain_name":domain}}):
+            result=workflow_proof({**proof,"state":"in_progress","completed":False,"links":{"self":path}},domain,path)
+            self.assertEqual(result["domain_name"],domain)
+        with self.assertRaises(CloudflareINT01Denied):
+            workflow_proof({"domain_name":domain,"context":{"domain_name":"other.com"},"state":"succeeded","completed":True},domain,path)
+        with self.assertRaises(CloudflareINT01Denied):
+            workflow_proof({"domain_name":domain,"state":"succeeded","completed":True,"links":{"self":"https://other.example/"}},domain,path)

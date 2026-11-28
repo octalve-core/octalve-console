@@ -229,11 +229,14 @@ def publish_tld_price_card(request):
                 "connection_id": quote["connection_id"], "credential_version": quote["credential_version"],
                 "revision": draft["revision"],
             }
+            metadata["published_registrar_cost_v1"]={"revision":draft["revision"],"currency":quote["currency"],
+                "registration_cost":quote["registration_cost"],"renewal_cost":quote["renewal_cost"],"ngn_per_unit":str(fx)}
             row.register_price = retail["registration"]
             row.renewal_price = retail["renewal"]
             row.status = "active"
         else:
             metadata.pop("published_registrar", None)
+            metadata.pop("published_registrar_cost_v1",None)
             row.status = "inactive"
         row.metadata = metadata
         row.save()

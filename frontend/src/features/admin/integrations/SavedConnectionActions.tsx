@@ -51,7 +51,7 @@ export function SavedConnectionActions({connection,onVerified}:{
    {working?"Verifying…":hosting?"Verify and import packages":"Verify access"}</button>
   {message?<p role={failed?"alert":"status"} className={"text-xs leading-5 "+(failed?"text-rose-700":"text-emerald-700")}>
    {failed?<AlertTriangle aria-hidden="true" className="mr-1 inline h-4 w-4"/>:null}{message}</p>:null}
- </form>{connection.adapter_key==="cloudflare-registrar-live"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarRegistrationReview connection={connection}/>:null}{connection.adapter_key==="paystack"&&connection.environment==="live"&&connection.verification_status==="verified"?<PaystackLiveBinding connection={connection} onSaved={onVerified}/>:null}{["brevo","resend"].includes(connection.adapter_key)&&connection.environment==="live"&&connection.verification_status==="verified"?<MailSenderPolicy connection={connection} onSaved={onVerified}/>:null}{hosting&&connection.hosting_policy_available===true&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
+ </form>{connection.adapter_key==="cloudflare-registrar-live"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarExecutionPolicy connection={connection}/>:null}{connection.adapter_key==="cloudflare-registrar-live"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarRegistrationReview connection={connection}/>:null}{connection.adapter_key==="paystack"&&connection.environment==="live"&&connection.verification_status==="verified"?<PaystackLiveBinding connection={connection} onSaved={onVerified}/>:null}{["brevo","resend"].includes(connection.adapter_key)&&connection.environment==="live"&&connection.verification_status==="verified"?<MailSenderPolicy connection={connection} onSaved={onVerified}/>:null}{hosting&&connection.hosting_policy_available===true&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
 }
 
 function RegistrarRegistrationReview({connection}:{connection:DraftConnection}){
@@ -74,5 +74,29 @@ function RegistrarRegistrationReview({connection}:{connection:DraftConnection}){
   <button type="submit" disabled={working} className="min-h-11 rounded-lg border border-console-line px-3 text-xs">{working?"Checking…":"Read registration status"}</button>
   {error?<p role="alert" className="text-xs text-rose-700">Registration could not be verified.</p>:null}
   {result?<div role="status" className="break-words text-xs"><p>{result.domain_name} · {result.status.replaceAll("_"," ")}</p>{result.expires_at?<p>Registrar expiry: {new Date(result.expires_at).toLocaleDateString("en-GB")}</p>:null}</div>:null}
+ </form>
+}
+
+function RegistrarExecutionPolicy({connection}:{connection:DraftConnection}){
+ const [working,setWorking]=useState(false),[message,setMessage]=useState(""),[failed,setFailed]=useState(false);
+ async function save(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();if(working)return;const form=event.currentTarget,fields=new FormData(form);
+  const data={registration:fields.get("operation")==="enable",dedicated_account:fields.get("dedicated")==="on",
+    confirm_password:String(fields.get("password")||""),totp_code:String(fields.get("totp")||"")};
+  form.reset();setWorking(true);setFailed(false);setMessage("");
+  try{const result=await api.post<{registration_enabled:boolean}>("/providers/connections/"+encodeURIComponent(connection.id)+"/registrar-policy/",data);
+   setMessage(result.registration_enabled?"Live registration authority saved for this credential version. Publish current TLD rates before accepting orders.":"Live registration authority revoked.");
+  }catch{setFailed(true);setMessage("Registrar policy could not be approved. Check security prerequisites.");}finally{setWorking(false)}
+ }
+ const field="mt-1 min-h-11 w-full rounded-lg border border-console-line px-3 text-sm";
+ return <form onSubmit={save} className="mt-3 space-y-2 rounded-lg border border-console-line bg-white p-3">
+ <h4 className="text-sm font-medium">Live registration authority</h4>
+ <p className="text-xs text-console-muted">One-year standard .com and .net orders only. Supplier billing and customer contact accuracy must be qualified. Enabling this allows independently paid orders to purchase real domains.</p>
+ <label className="block text-xs">Registration policy<select name="operation" required className={field}><option value="disable">Disabled</option><option value="enable">Enable paid registration</option></select></label>
+ <label className="flex gap-2 text-xs"><input name="dedicated" type="checkbox" required/>This is a dedicated registrar account controlled by Octalve; no competing out-of-band registration requests.</label>
+ <label className="block text-xs">Current password<input type="password" name="password" required autoComplete="current-password" className={field}/></label>
+ <label className="block text-xs">Authenticator code<input name="totp" required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" className={field}/></label>
+ <button type="submit" disabled={working} className="min-h-11 rounded-lg border border-console-line px-3 text-xs">{working?"Saving…":"Save registrar authority"}</button>
+ {message?<p role={failed?"alert":"status"} className="text-xs">{message}</p>:null}
  </form>
 }
