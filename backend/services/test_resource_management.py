@@ -336,7 +336,7 @@ class ResourceAuthorityTests(TestCase):
 
     def test_autoresponder_inventory_route_owner_and_capability(self):
         path=self.base+"/resources/autoresponders/"
-        with patch.object(ResourceProtocol,"autoresponders",return_value=["sales@example.test"]) as read:
+        with patch.object(ResourceProtocol,"autoresponders",return_value=["sales@example.test"]) as read,patch.object(ResourceProtocol,"mailboxes",return_value=[{"address":"sales@example.test"}]):
             self.assertEqual(self.api.get(path).status_code,409)
             self.policy["resource_capabilities"].append("autoresponder_read")
             self.api.force_authenticate(self.other)

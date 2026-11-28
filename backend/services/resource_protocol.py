@@ -78,6 +78,7 @@ def reply_text(subject, body):
             or not subject.strip() or not body.strip()
             or any(ord(ch)<32 or ord(ch)==127 for ch in subject)
             or any((ord(ch)<32 and ch not in "\n\t") or ord(ch)==127 for ch in body)
+            or any(0xD800<=ord(ch)<=0xDFFF for ch in subject+body)
             or "%" in subject or "%" in body):
         raise ResourceRefused("Invalid plain-text autoresponder.")
     return subject,body

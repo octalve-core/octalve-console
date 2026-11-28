@@ -6,6 +6,7 @@ supplier write blocks further mutations until an independent reconciliation.
 """
 import uuid
 import hashlib
+import json
 import hmac
 from providers.connection_audit import audit_keyring
 from datetime import timedelta
@@ -254,6 +255,10 @@ def _same_password(pending,password):
     return hmac.compare_digest(current["mac"],receipt.get("mac",""))
 
 
+def _reply_digest(subject,body):
+    return hashlib.sha256(json.dumps(["native-reply-v1",subject,body],ensure_ascii=False,separators=(",",":")).encode("utf-8")).hexdigest()
+
+
 OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password","database_user_create","database_user_delete","database_grants","forwarder_create","forwarder_delete","autoresponder_delete","autoresponder_create","autoresponder_edit"}
 
 
@@ -267,7 +272,7 @@ def _observed(protocol, pending, password=None):
         if target not in protocol.autoresponders():
             return False
         subject,body=protocol.autoresponder_content(target.split("@")[0])
-        return _same_password(pending,subject+"\n"+body)
+        return _same_password(pending,_reply_digest(subject,body))
     if operation.startswith("forwarder_"):
         rows=[x for x in protocol.forwarders() if x["address"]==target]
         return (len(rows)==1 and rows[0]["managed"] and rows[0]["destination"]==pending["destination"]) if operation=="forwarder_create" else not rows
@@ -428,7 +433,7 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
     pending={"id":event,"operation":operation,"address":target,"binding":a.digest,
              "state":"dispatched_uncertain","created_at":timezone.now().isoformat()}
     if operation in ("autoresponder_create","autoresponder_edit"):
-        pending["password_receipt"]=_password_receipt(event,reply_subject+"\n"+reply_body)
+        pending["password_receipt"]=_password_receipt(event,_reply_digest(reply_subject,reply_body))
     if forwarder:
         pending["destination"]=destination
     if operation=="database_create" and initial_user is not None:
