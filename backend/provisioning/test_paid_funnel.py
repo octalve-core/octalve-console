@@ -479,17 +479,17 @@ class PaidHostingFunnelTests(TestCase):
 
 
     def test_mixed_order_stages_hosting_independently_of_domain_lines(self):
-        from billing.models import InvoiceItem
         domain=OrderItem.objects.create(order=self.order,product_id=0,plan_id=0,
             billing_cycle_id=0,item_type="domain",description="Domain",
             domain_name="another.example.test",quantity=1,unit_price=Decimal("1000.00"),
             cycle_key="1yr",months=12)
+        reference=self.intent.reference
         self.invoice.delete()
         self.order.refresh_from_db()
         self.invoice=Invoice.create_from_order(self.order)
-        self.intent.invoice=self.invoice
-        self.intent.amount=self.invoice.total
-        self.intent.save(update_fields=["invoice","amount"])
+        self.intent=PaymentIntent.objects.create(invoice=self.invoice,client=self.order.client,
+            gateway=self.gateway,reference=reference,amount=self.invoice.total,currency="NGN",
+            status="pending",expires_at=timezone.now()+timedelta(hours=1))
         self.getter.return_value=vendor_payment({"status":True,"data":{
             "id":987654321,"domain":"live","status":"success","reference":self.intent.reference,
             "currency":"NGN","amount":350000}})
