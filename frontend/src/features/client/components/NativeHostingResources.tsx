@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import {api} from "@/lib/api/client";
 
-type ResourceTab="email"|"subdomains"|"databases"|"credentials"|"db_users"|"forwarders";
+type ResourceTab="email"|"subdomains"|"databases"|"credentials"|"db_users"|"forwarders"|"autoresponders";
 type Mailbox={address:string;quota_mb?:number|null;unlimited?:boolean;destination?:string|null;managed?:boolean};
 type Inventory={resource:string;domain:string;items:Array<Mailbox|string>;verified_at:string;pending_operation:boolean;pending_password_verification?:boolean;databases?:string[];mailboxes?:string[]};
 type Result={state:"confirmed"|"pending_verification";operation_id?:string;address?:string;password_status?:string};
@@ -14,7 +14,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
  const [passwordRecovery,setPasswordRecovery]=useState(false);
  const [action,setAction]=useState<"mailbox_delete"|"mailbox_quota"|"mailbox_password"|"subdomain_create"|"subdomain_delete"|"database_create"|"database_delete"|"hosting_password"|"database_user_create"|"database_user_delete"|"database_grants"|"forwarder_create"|"forwarder_delete"|null>(null);
  const sequence=useRef(0);
- const selected:ResourceTab=capabilities[tab]?tab:capabilities.email?"email":capabilities.subdomains?"subdomains":capabilities.databases?"databases":capabilities.db_users?"db_users":capabilities.forwarders?"forwarders":"credentials";
+ const selected:ResourceTab=capabilities[tab]?tab:capabilities.email?"email":capabilities.subdomains?"subdomains":capabilities.databases?"databases":capabilities.db_users?"db_users":capabilities.forwarders?"forwarders":capabilities.autoresponders?"autoresponders":"credentials";
  const activeAction=action&&capabilities[action]&&((selected==="email"&&action.startsWith("mailbox"))||(selected==="subdomains"&&action.startsWith("subdomain"))||(selected==="databases"&&(action==="database_create"||action==="database_delete"))||(selected==="db_users"&&(action==="database_user_create"||action==="database_user_delete"||action==="database_grants"))||(selected==="credentials"&&action==="hosting_password")||(selected==="forwarders"&&action.startsWith("forwarder_")))?action:null;
  const base="/services/opanel/"+encodeURIComponent(serviceId);
  async function load(resource:ResourceTab=selected){
@@ -36,7 +36,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   // Do not poll supplier resources on background dashboard refresh.
   return ()=>{sequence.current++};
  // eslint-disable-next-line react-hooks/exhaustive-deps
- },[serviceId,domain,selected,capabilities.email,capabilities.subdomains,capabilities.databases,capabilities.credentials,capabilities.db_users,capabilities.forwarders]);
+ },[serviceId,domain,selected,capabilities.email,capabilities.subdomains,capabilities.databases,capabilities.credentials,capabilities.db_users,capabilities.forwarders,capabilities.autoresponders]);
  async function create(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(busy||pending||!capabilities.mailbox_create||selected!=="email")return;
   const form=event.currentTarget,fields=new FormData(form);
@@ -92,7 +92,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   }catch{setError("No eligible pending operation could be confirmed. Refresh inventory or contact support.");}
   finally{setBusy(false)}
  }
- if(!capabilities.email&&!capabilities.subdomains&&!capabilities.databases&&!capabilities.credentials&&!capabilities.db_users&&!capabilities.forwarders)return null;
+ if(!capabilities.email&&!capabilities.subdomains&&!capabilities.databases&&!capabilities.credentials&&!capabilities.db_users&&!capabilities.forwarders&&!capabilities.autoresponders)return null;
  return <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="Native hosting resources">
   <div className="flex flex-wrap items-center justify-between gap-3">
    <h2 className="text-lg font-medium text-slate-950">Hosting resources</h2>
@@ -101,6 +101,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Resource type">
    {capabilities.email&&<button type="button" aria-pressed={selected==="email"} disabled={busy} onClick={()=>{setTab("email");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="email"?"bg-[#0064E0] text-white":"border border-slate-200")}>Email accounts</button>}
    {capabilities.forwarders&&<button type="button" aria-pressed={selected==="forwarders"} disabled={busy} onClick={()=>{setTab("forwarders");setAction(null);setNotice("")}} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm">Forwarders</button>}
+   {capabilities.autoresponders&&<button type="button" aria-pressed={selected==="autoresponders"} disabled={busy} onClick={()=>{setTab("autoresponders");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="autoresponders"?"bg-[#0064E0] text-white":"border border-slate-200")}>Autoresponders</button>}
    {capabilities.subdomains&&<button type="button" aria-pressed={selected==="subdomains"} disabled={busy} onClick={()=>{setTab("subdomains");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="subdomains"?"bg-[#0064E0] text-white":"border border-slate-200")}>Subdomains</button>}
    {capabilities.databases&&<button type="button" aria-pressed={selected==="databases"} disabled={busy} onClick={()=>{setTab("databases");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="databases"?"bg-[#0064E0] text-white":"border border-slate-200")}>Databases</button>}
    {capabilities.db_users&&<button type="button" aria-pressed={selected==="db_users"} disabled={busy} onClick={()=>{setTab("db_users");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="db_users"?"bg-[#0064E0] text-white":"border border-slate-200")}>Database users</button>}
@@ -113,6 +114,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
    {selected==="credentials"?<p className="text-sm text-slate-600">Set or reset your hosting control-panel password. This is separate from your Octalve Console password.</p>:data.items.length===0?<p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-500">No resources returned by the supplier.</p>:<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
     {data.items.map(item=>typeof item==="string"?<li key={item} className="break-all p-3 text-sm">{item}</li>:<li key={item.address+":"+String(item.destination??"")} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><span className="break-all font-medium">{item.address}</span><span className="text-slate-500">{selected==="forwarders"?(item.managed?item.destination:"Unmanaged route"):item.unlimited?"Unlimited":item.quota_mb===null?"Unknown":item.quota_mb+" MB"}</span></li>)}
    </ul>}
+   {selected==="autoresponders"&&<p className="mt-2 text-xs text-slate-500">Configured autoresponder addresses only. Delivery, schedule and message settings are not verified by this inventory.</p>}
    <p className="mt-2 text-xs text-slate-500">Verified at {new Date(data.verified_at).toLocaleString()}</p>
   </div>}
   {selected==="email"&&capabilities.mailbox_create&&<form onSubmit={create} autoComplete="off" className="mt-5 space-y-3 border-t border-slate-100 pt-5">
@@ -126,7 +128,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   </form>}
   {data&&data.resource===selected&&<div className="mt-5 border-t border-slate-100 pt-5">
    <div className="flex flex-wrap gap-2">
-    {([["mailbox_quota","Change quota"],["mailbox_password","Change password"],["mailbox_delete","Delete mailbox"],["subdomain_create","Create subdomain"],["subdomain_delete","Remove subdomain"],["database_create","Create database"],["database_delete","Delete database"],["hosting_password","Set or reset hosting password"],["database_user_create","Create database user"],["database_user_delete","Remove database user"],["database_grants","Set database privileges"],["forwarder_create","Create forwarder"],["forwarder_delete","Remove forwarder"]] as const).filter(([key])=>capabilities[key]&&(selected==="email"?key.startsWith("mailbox"):selected==="subdomains"?key.startsWith("subdomain"):selected==="databases"?(key==="database_create"||key==="database_delete"):selected==="db_users"?(key==="database_user_create"||key==="database_user_delete"||key==="database_grants"):selected==="forwarders"?key.startsWith("forwarder_"):key==="hosting_password")).map(([key,label])=><button type="button" key={key} disabled={busy||pending} aria-pressed={activeAction===key} onClick={()=>{setAction(key);setNotice("");setError("")}} className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">{label}</button>)}
+    {([["mailbox_quota","Change quota"],["mailbox_password","Change password"],["mailbox_delete","Delete mailbox"],["subdomain_create","Create subdomain"],["subdomain_delete","Remove subdomain"],["database_create","Create database"],["database_delete","Delete database"],["hosting_password","Set or reset hosting password"],["database_user_create","Create database user"],["database_user_delete","Remove database user"],["database_grants","Set database privileges"],["forwarder_create","Create forwarder"],["forwarder_delete","Remove forwarder"]] as const).filter(([key])=>capabilities[key]&&(selected==="email"?key.startsWith("mailbox"):selected==="subdomains"?key.startsWith("subdomain"):selected==="databases"?(key==="database_create"||key==="database_delete"):selected==="db_users"?(key==="database_user_create"||key==="database_user_delete"||key==="database_grants"):selected==="forwarders"?key.startsWith("forwarder_"):selected==="credentials"&&key==="hosting_password")).map(([key,label])=><button type="button" key={key} disabled={busy||pending} aria-pressed={activeAction===key} onClick={()=>{setAction(key);setNotice("");setError("")}} className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">{label}</button>)}
    </div>
    {activeAction&&<form key={activeAction} onSubmit={mutate} autoComplete="off" className="mt-4 space-y-3">
     {activeAction.startsWith("forwarder_")?<><label className="block text-sm">Owned mailbox<select name="local" required defaultValue="" className="mt-1 w-full rounded-lg border border-slate-200 p-2"><option value="" disabled>Choose mailbox</option>{(data.mailboxes||[]).map(name=><option key={name} value={name.split("@")[0]}>{name}</option>)}</select></label><label className="block text-sm">External destination email<input name="destination" type="email" maxLength={253} required className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label></>:activeAction==="hosting_password"?<input type="hidden" name="local" value=""/>:(activeAction==="database_create"||activeAction==="database_user_create")?<label className="block text-sm">{activeAction==="database_create"?"Database name":"Database user"} (your account prefix is added automatically)<input name="local" required maxLength={24} pattern="[a-z][a-z0-9]{0,23}" placeholder="website" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>:activeAction==="subdomain_create"?<label className="block text-sm">Subdomain name<div className="mt-1 flex flex-wrap items-center gap-2"><input name="local" required maxLength={63} pattern="[a-zA-Z0-9](?:[a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?" placeholder="shop" className="min-w-0 flex-1 rounded-lg border border-slate-200 p-2"/><span className="break-all text-slate-500">.{domain}</span></div></label>:

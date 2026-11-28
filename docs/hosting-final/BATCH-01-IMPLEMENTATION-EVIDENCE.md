@@ -63,3 +63,9 @@ References: https://docs.directadmin.com/changelog/version-1.22.3.html ; https:/
 | Release | Latest head all CI, full end-to-end acceptance and security review, merge, both production deployments READY and smoke evidence |
 
 Do not generate Batch 2 prompt until the complete Batch 1 release gate passes. PR #180 remains separate. No real supplier mutation, production schema change, commercial activation or deployment is authorized by this draft.
+
+## Continuation: read-only autoresponder inventory
+
+Added a signed, separately authorized autoresponder inventory for both hosting adapters, wired into the existing owning-service API and customer resource tab. Only addresses are returned; message text, subjects and CC destinations are not exposed. Fixed transport disallows writes and out-of-domain queries. DirectAdmin empty raw replies are refused until qualified. cPanel uses Email::list_auto_responders. Synthetic tests cover invalid domain, duplicated identities, malformed legacy replies and permission dependencies. Latest CI and supported supplier version qualification remain outstanding. Creation, editing, deletion, schedule/message verification and webmail remain incomplete; this is not a release.
+
+References: https://docs.directadmin.com/changelog/version-1.21.3.html ; https://api.docs.cpanel.net/specifications/cpanel.openapi/email-accounts/email-list_auto_responders .

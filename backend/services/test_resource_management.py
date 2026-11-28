@@ -105,6 +105,38 @@ class ProtocolTests(SimpleTestCase):
         with patch.object(cp,"_request",return_value=reply(payload)),self.assertRaises(ResourceRefused):
             cp.forwarders()
 
+    def test_autoresponder_inventory_omits_message_and_cc_and_requires_exact_domain(self):
+        da=self.adapter("directadmin")
+        with patch.object(da,"_request",return_value=SupplierReadResponse(200,b"sales=private%40external.test&support=")):
+            self.assertEqual(da.autoresponders(),["sales@example.test","support@example.test"])
+        for payload in (b"",b"sales=a&sales=b",b"error=1"):
+            with patch.object(da,"_request",return_value=SupplierReadResponse(200,payload)),self.assertRaises(ResourceRefused):
+                da.autoresponders()
+        cp=self.adapter("cpanel-whm")
+        with patch.object(cp,"_request",return_value=whm("Email","list_auto_responders",[{"email":"sales@example.test","subject":"private","body":"private"}])):
+            self.assertEqual(cp.autoresponders(),["sales@example.test"])
+        with patch.object(cp,"_request",return_value=whm("Email","list_auto_responders",[])):
+            self.assertEqual(cp.autoresponders(),[])
+        for rows in ([{"email":"sales@other.test"}],[{"email":"sales@example.test"},{"email":"sales@example.test"}]):
+            with patch.object(cp,"_request",return_value=whm("Email","list_auto_responders",rows)),self.assertRaises(ResourceRefused):
+                cp.autoresponders()
+
+    def test_autoresponder_transport_is_read_only_and_account_scoped(self):
+        da=self.adapter("directadmin")
+        da._check_request("GET","/CMD_API_EMAIL_AUTORESPONDER",{"domain":"example.test"},False)
+        for method,fields in (("POST",{"domain":"example.test"}),("GET",{"domain":"other.test"}),("GET",{"domain":"example.test","action":"delete"})):
+            with self.assertRaises(ResourceRefused):
+                da._check_request(method,"/CMD_API_EMAIL_AUTORESPONDER",fields,False)
+        cp=self.adapter("cpanel-whm")
+        fields={"api.version":"1","cpanel.user":"checkhost","cpanel.module":"Email","cpanel.function":"list_auto_responders","domain":"example.test"}
+        cp._check_request("GET","/json-api/uapi_cpanel",fields,False)
+        for change in ({"domain":"other.test"},{"cpanel.user":"other"},{"cpanel.function":"delete_auto_responder"}):
+            with self.assertRaises(ResourceRefused):
+                cp._check_request("GET","/json-api/uapi_cpanel",{**fields,**change},False)
+        with self.assertRaises(VaultUnavailable):
+            validate_resource_capabilities(["autoresponder_read"])
+        self.assertEqual(validate_resource_capabilities(["mailbox_read","autoresponder_read"]),["autoresponder_read","mailbox_read"])
+
     def test_forwarder_transport_disallows_unowned_source_and_pipe(self):
         cp=self.adapter("cpanel-whm")
         base={"api.version":"1","cpanel.user":"checkhost","cpanel.module":"Email","cpanel.function":"add_forwarder","domain":"example.test","email":"sales@example.test","fwdopt":"fwd","fwdemail":"person@external.test"}

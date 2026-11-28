@@ -192,6 +192,8 @@ class ResourceProtocol:
                          (method == "POST" and set(fields)=={"action","domain","user","passwd","passwd2","quota"} and fields["action"]=="create" and fields["domain"]==self.domain and fields["passwd"]==fields["passwd2"]) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="delete" and set(fields)=={"action","domain","user"}) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="modify" and set(fields) in ({"action","domain","user","quota"},{"action","domain","user","quota","passwd","passwd2"}) and ("passwd" not in fields or fields["passwd"]==fields["passwd2"])))
+            elif path=="/CMD_API_EMAIL_AUTORESPONDER":
+                valid=method=="GET" and fields=={"domain":self.domain}
             elif path=="/CMD_API_EMAIL_FORWARDERS":
                 valid=method=="GET" and fields=={"domain":self.domain}
                 if method=="POST" and fields.get("domain")==self.domain:
@@ -258,6 +260,7 @@ class ResourceProtocol:
                 op=(method,fields.get("cpanel.module"),fields.get("cpanel.function"))
                 allowed={("GET","Email","list_pops_with_disk"):{"domain","no_validate"},
                          ("GET","DomainInfo","list_domains"):set(),
+                         ("GET","Email","list_auto_responders"):{"domain"},
                          ("POST","SubDomain","addsubdomain"):{"domain","rootdomain","dir","disallowdot"},
                          ("GET","Mysql","list_databases"):set(),
                          ("POST","Mysql","create_database"):{"name"},
@@ -893,3 +896,29 @@ class ResourceProtocol:
             _form(self._request("POST","/CMD_API_EMAIL_FORWARDERS",{"action":"delete","domain":self.domain,"select0":local}))
         else:
             self._whm("POST","Email","delete_forwarder",{"address":local+"@"+self.domain,"forwarder":destination})
+
+    def autoresponders(self):
+        """List configured primary-domain responders, without message or CC data.
+
+        An empty legacy response is not accepted as proof of absence until the
+        supported DirectAdmin server versions have been qualified.
+        """
+        if self.adapter=="directadmin":
+            fields=_form(self._request("GET","/CMD_API_EMAIL_AUTORESPONDER",{"domain":self.domain}))
+            addresses=[]
+            for local,values in fields.items():
+                if local=="error" and values==["0"]:
+                    continue
+                if not LOCAL.fullmatch(local) or len(values)!=1:
+                    raise ResourceRefused("Ambiguous autoresponder inventory.")
+                addresses.append(local+"@"+self.domain)
+        else:
+            data=self._whm("GET","Email","list_auto_responders",{"domain":self.domain})
+            if not isinstance(data,list) or len(data)>2000 or any(not isinstance(row,dict) for row in data):
+                raise ResourceRefused("Invalid autoresponder inventory.")
+            addresses=_list_names([row.get("email") for row in data])
+        for address in addresses:
+            local,sep,domain=address.partition("@")
+            if not sep or domain!=self.domain or not LOCAL.fullmatch(local) or ".." in local or local.endswith("."):
+                raise ResourceRefused("Unexpected autoresponder identity.")
+        return sorted(_list_names(addresses))
