@@ -202,3 +202,32 @@ class SecureConsoleCredentialTests(TestCase):
   with self.assertRaises(InventoryError):
    stage_inventory(snapshot,[{"provider_package_id":"starter","name":"starter","specs":{"quota":"1024"}}],self.admin)
   self.assertFalse(Provider.objects.exists())
+
+
+ @override_settings(CLOUD_HOSTING_CONFIGURED_EGRESS_ENABLED=True)
+ def test_configured_hosting_credentials_are_bound_to_the_exact_network_destination(self):
+  from providers.connection_vault import unseal_version,VaultUnavailable
+  from providers.connection_models import IntegrationCredentialVersion
+  secret="fixture-only-hosting-token-012345"
+  public={"server_url":"https://panel.example.invalid:2087","username":"reseller","server_ip":"8.8.8.8"}
+  with patch.dict("os.environ",{"CLOUD_CONNECTION_ALLOWED_HOSTS":""}),patch(
+      "providers.connection_views.connection_database_qualified",return_value=True),patch(
+      "providers.connection_views.check_mutation",return_value=None):
+   saved=self.c.post("/api/providers/connections/",{**self.payload,"adapter_key":"cpanel-whm",
+      "public_settings":public,"secrets":{"api_token":secret}},format="json")
+  self.assertEqual(saved.status_code,201,saved.data)
+  connection=IntegrationConnection.objects.get(pk=saved.data["id"])
+  def decrypt():
+   version=IntegrationCredentialVersion.objects.select_related("connection").get(connection=connection,version=1)
+   return unseal_version(version)
+  self.assertEqual(decrypt(),{"api_token":secret})
+  for changed in ({**public,"server_ip":"1.1.1.1"},{**public,"server_url":"https://other.example.invalid:2087"},
+                  {**public,"username":"other"},{"server_url":public["server_url"],"username":"reseller"}):
+   IntegrationConnection.objects.filter(pk=connection.pk).update(public_settings=changed)
+   with self.assertRaises(VaultUnavailable):
+    decrypt()
+  IntegrationConnection.objects.filter(pk=connection.pk).update(public_settings=public,environment="live")
+  # The fixture is a test connection; environment cannot be edited in the database.
+  if self.payload["environment"]=="test":
+   with self.assertRaises(VaultUnavailable):
+    decrypt()
