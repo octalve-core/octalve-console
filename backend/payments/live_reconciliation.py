@@ -74,6 +74,12 @@ def run_due(limit=5):
         result[outcome]+=1
         if outcome=="held":
             Transaction.objects.filter(pk=pk).update(updated_at=timezone.now())
+    from .dispute_authority import reconcile as reconcile_dispute
+    for pk in Transaction.objects.filter(transaction_type="payment",metadata__paystack_dispute_request_v1__state="uncertain").order_by("updated_at","pk").values_list("pk",flat=True)[:1]:
+        outcome=reconcile_dispute(pk)
+        result[outcome]+=1
+        if outcome=="held":
+            Transaction.objects.filter(pk=pk).update(updated_at=timezone.now())
     from domains.live_registration import run_due as run_domain
     domain_result=run_domain()
     if domain_result in ("processed","held"):

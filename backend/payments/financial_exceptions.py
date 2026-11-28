@@ -167,7 +167,9 @@ def consume(event_id):
                 (proof["amount_minor"] is not None and Decimal(proof["amount_minor"])/100>original.amount)):
                 return "held"
             if proof["kind"]=="refund" and proof["state"]=="processed":
-                from .refund_authority import record_processed
+                from .refund_authority import record_processed,original_authorized
+                if not original_authorized(original,gateway):
+                    return "held"
                 record_processed(original,proof,event_id=fresh.pk)
             # A confirmed case puts new fulfillment on review; no existing service
             # is remotely suspended, deleted, or refunded automatically.

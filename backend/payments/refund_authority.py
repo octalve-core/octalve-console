@@ -13,7 +13,7 @@ from django.db.models import Sum
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 from audit.models import AuditLog
-from .models import Transaction,PaymentGateway,PaymentIntent
+from .models import Transaction,PaymentGateway,PaymentIntent,WebhookEvent
 from .live_binding import resolve_live_key
 from .financial_exceptions import ExceptionRefused,numeric_id,remote_transaction,_read,fetch_case
 
@@ -22,6 +22,8 @@ REF=re.compile(r"^OCRF[0-9a-f]{32}$")
 STATES=("pending","processing","processed","failed","needs-attention")
 
 def original_authorized(original,gateway):
+    if not isinstance(original.metadata,dict):
+        return False
     return (original.gateway_id==gateway.pk and original.transaction_type=="payment"
         and original.status=="successful" and original.currency=="NGN" and original.invoice_id
         and original.metadata.get("payment_mode")=="live"
@@ -30,7 +32,10 @@ def original_authorized(original,gateway):
         and original.webhook_verified and PaymentIntent.objects.filter(reference=original.reference,
             invoice_id=original.invoice_id,client_id=original.client_id,gateway=gateway,status="completed",
             amount=original.amount,currency=original.currency,metadata__payment_mode="live",
-            metadata__gateway_binding=gateway.config).exists())
+            metadata__gateway_binding=gateway.config).exists()
+        and WebhookEvent.objects.filter(pk=original.metadata.get("signed_event_id"),gateway=gateway,
+            is_verified=True,is_processed=True,event_type="charge.success",payload__reference=original.reference,
+            payload__remote_id=original.provider_reference,payload__binding=gateway.config,payload__mode="live").exists())
 
 def refund_rows(original):
     return Transaction.objects.filter(gateway_id=original.gateway_id,transaction_type="refund",
@@ -70,6 +75,14 @@ def record_processed(original,proof,*,event_id=None):
         entity_id=str(row.pk),entity_name="Paystack refund ledger",details={"original_payment_id":original.pk,
         "refund_id":case,"amount_minor":proof["amount_minor"],"currency":original.currency})
     return row
+
+def remote_disputes(original,key):
+    rows=_read("dispute",key,{"transaction":numeric_id(original.provider_reference),"perPage":50,"page":1})
+    if not isinstance(rows,list) or len(rows)>=50:
+        raise ExceptionRefused("Dispute inventory unavailable.")
+    if any(not isinstance(x,dict) or x.get("domain")!="live" or remote_transaction(x.get("transaction"))!=original.provider_reference for x in rows):
+        raise ExceptionRefused("Dispute inventory identity mismatch.")
+    return rows
 
 def remote_refunds(original,key):
     rows=_read("refund",key,{"transaction":numeric_id(original.provider_reference),"perPage":50,"page":1})
@@ -137,6 +150,8 @@ def request_refund(user,public_id,amount_minor,password,totp):
         if not key:
             raise ExceptionRefused("Live gateway unavailable.")
         inventory=remote_refunds(original,key)
+        if remote_disputes(original,key):
+            raise ExceptionRefused("A dispute requires independent review before refund.")
         # Require every prior nonfailed remote case to be recorded and terminal.
         verified=[x for x in inventory if x["state"]=="processed"]
         if any(x["state"] not in ("processed","failed") for x in inventory):
@@ -146,9 +161,16 @@ def request_refund(user,public_id,amount_minor,password,totp):
             locked=Transaction.objects.select_for_update().get(pk=original.pk)
             if (gateway.config!=original.gateway.config or not resolve_live_key(gateway)
                 or not original_authorized(locked,gateway) or locked.metadata.get(KEY,{}).get("state") in ("uncertain","submitted")
-                or locked.metadata.get("financial_exception_review_required") is True):
+                or locked.metadata.get("paystack_dispute_request_v1")):
                 raise ExceptionRefused("Existing payment exception requires review.")
+            from domains.models import Domain
+            if Domain.objects.filter(order_item__order_id=locked.invoice.order_id,
+                metadata__live_domain_registration_v1__state="uncertain").exists():
+                raise ExceptionRefused("Registrar dispatch outcome is unresolved.")
             local={x.metadata.get("provider_refund_id"):int(x.amount*100) for x in refund_rows(locked)}
+            if (locked.metadata.get("financial_exception_review_required") is True and not local
+                and locked.metadata.get(KEY,{}).get("state")!="failed"):
+                raise ExceptionRefused("Existing financial review is unresolved.")
             if local!={x["id"]:x["amount_minor"] for x in verified} or total_refunded(locked)+Decimal(amount_minor)/100>locked.amount:
                 raise ExceptionRefused("Refund balance requires reconciliation.")
             entry={"reference":"OCRF"+uuid.uuid4().hex,"amount_minor":amount_minor,

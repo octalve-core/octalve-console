@@ -251,6 +251,23 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None, allow_test
         if not gateway or not gateway_can_read(gateway, invoice):
             raise CheckoutRefused("Approved payment provider unavailable.")
         live_binding = gateway.code=="paystack" and not gateway.test_mode and "provider_vault_connection_id" in gateway.config
+        if invoice.order.metadata.get("live_domain_registration_v1"):
+            from domains.live_registration import enabled as registrar_enabled,KEY,SALT
+            from domains.models import Domain
+            from django.core import signing
+            from providers.registrar_live_policy import load
+            from providers.connection_vault import VaultUnavailable
+            try:
+                domain=Domain.objects.select_for_update().get(pk=invoice.order.metadata[KEY]["domain_id"],
+                    client_id=invoice.client_id,order_item__order_id=invoice.order_id,status="pending")
+                grant=signing.loads(domain.metadata[KEY]["grant"],salt=SALT)
+                if (not live_binding or not registrar_enabled() or domain.metadata[KEY]["state"]!="queued"
+                    or grant["order"]!=invoice.order_id or grant["owner"]!=invoice.client_id
+                    or Decimal(grant["retail"])!=invoice.total):
+                    raise CheckoutRefused("Live registration payment is unavailable.")
+                load(grant["route"])
+            except (Domain.DoesNotExist,VaultUnavailable,signing.BadSignature,ValueError,KeyError,TypeError):
+                raise CheckoutRefused("Live registrar authority changed.") from None
         if live_binding:
             from .live_reconciliation import enabled as live_enabled
             from .live_binding import resolve_live_key

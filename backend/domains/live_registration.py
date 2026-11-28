@@ -6,6 +6,8 @@ uncertainty fence precedes the supplier request. No blind resubmission.
 from decimal import Decimal,InvalidOperation
 from datetime import timedelta
 import re
+import hashlib
+import json
 from uuid import UUID
 from django.conf import settings
 from django.core import signing
@@ -57,7 +59,7 @@ def cost_snapshot(price,domain):
         raise RegistrationRefused("Republish verified registrar pricing.")
     row,secret,adapter=connector(route)
     proof=adapter.live_domain_check(domain)
-    if (proof.get("registrable") is not True or proof.get("currency")!=cost["currency"]
+    if (proof.get("name")!=domain or proof.get("registrable") is not True or proof.get("currency")!=cost["currency"]
         or Decimal(proof["registration_cost"])>Decimal(cost["registration_cost"])
         or Decimal(proof["registration_cost"])*Decimal(cost["ngn_per_unit"])>price.register_price):
         raise RegistrationRefused("Availability or supplier price changed.")
@@ -67,6 +69,8 @@ def quote(user,name):
     if not enabled() or user.role!="client" or not user.is_active or not user.email_verified_at:
         raise RegistrationRefused("Verified customer and live checkout required.")
     name=require_domain(name)
+    if name.count(".")!=1:
+        raise RegistrationRefused("Only registrable .com/.net names are supported.")
     gateway=PaymentGateway.objects.filter(code="paystack",status="active",test_mode=False).first()
     if not gateway or not resolve_live_key(gateway):
         raise RegistrationRefused("Live payment gateway unavailable.")
@@ -77,6 +81,9 @@ def quote(user,name):
     grant={"owner":user.pk,"domain":name,"route":route,"cost":cost,"retail":str(price.register_price),
         "supplier_amount":proof["registration_cost"],"currency":"NGN","years":1}
     return {"quote":signing.dumps(grant,salt=SALT),"domain":name,"amount":grant["retail"],"currency":"NGN","years":1}
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(",",":")).encode()).hexdigest()
 
 def validate_contact(user,data):
     if not isinstance(data,dict) or set(data)!={"name","phone","street","city","state","country_code","postal_code"}:
@@ -105,7 +112,15 @@ def accept(user,token,contact):
         or str(price.register_price)!=grant["retail"]):
         raise RegistrationRefused("Price changed. Request a new quote.")
     row,_=load(grant["route"])
-    if Domain.objects.filter(domain_name__iexact=name).exists():
+    prior=Domain.objects.select_for_update().filter(domain_name__iexact=name).first()
+    if prior:
+        if prior.client_id==user.pk and prior.status=="pending" and prior.order_item_id:
+            saved=signing.loads(prior.metadata.get(KEY,{}).get("grant",""),salt=SALT)
+            if all(saved.get(k)==v for k,v in grant.items()) and saved.get("contact_digest")==digest(contact):
+                invoices=list(Invoice.objects.filter(order_id=prior.order_item.order_id,client=user)[:2])
+                if len(invoices)==1:
+                    invoice=invoices[0]
+                    return {"invoice_id":invoice.pk,"invoice_public_id":str(invoice.public_id),"domain":name,"state":"pending_payment"}
         raise RegistrationRefused("Domain already has an order.")
     order=Order.objects.create(client=user,status="pending_payment",currency="NGN",
         metadata={"billing_contact":billing_contact_snapshot(user)})
@@ -114,7 +129,7 @@ def accept(user,token,contact):
     order.refresh_from_db()
     domain=Domain.objects.create(client=user,domain_name=name,tld=price.tld,order_item=item,registration_type="register",
         registrar="cloudflare-registrar-live",status="pending",is_active=False,registration_date=None,
-        auto_renew=False,registrant_contact=contact,metadata={KEY:{"state":"queued","grant":signing.dumps({**grant,"order":order.pk,"item":item.pk},salt=SALT)}})
+        auto_renew=False,registrant_contact=contact,metadata={KEY:{"state":"queued","grant":signing.dumps({**grant,"order":order.pk,"item":item.pk,"account_id":row.public_settings["account_id"],"contact_digest":digest(contact)},salt=SALT)}})
     order.metadata={**order.metadata,KEY:{"domain_id":domain.pk,"item":item.pk}}
     order.save(update_fields=["metadata","updated_at"])
     invoice=Invoice.create_from_order(order)
@@ -124,7 +139,7 @@ def authority(domain,*,lock=False):
     entry=domain.metadata[KEY]
     grant=signing.loads(entry["grant"],salt=SALT)
     item=domain.order_item
-    if (domain.management_kind!="registrar" or domain.registrar!="cloudflare-registrar-live" or domain.status!="pending"
+    if (digest(domain.registrant_contact)!=grant.get("contact_digest") or domain.management_kind!="registrar" or domain.registrar!="cloudflare-registrar-live" or domain.status!="pending"
         or not item or item.pk!=grant["item"] or item.order_id!=grant["order"] or item.item_type!="domain"
         or item.domain_name!=domain.domain_name or domain.domain_name!=grant["domain"] or domain.client_id!=grant["owner"]
         or item.order.client_id!=domain.client_id or item.months!=12 or item.quantity!=1 or str(item.subtotal)!=grant["retail"]
@@ -153,10 +168,12 @@ def transition(domain_id):
         domain=Domain.objects.select_related("order_item__order").get(pk=domain_id)
         entry,grant,invoice=authority(domain)
         row,secret,adapter=connector(grant["route"])
+        if row.public_settings["account_id"]!=grant.get("account_id"):
+            return "held"
         state=entry["state"]
         if state=="queued":
             proof=adapter.live_domain_check(domain.domain_name)
-            if (proof.get("registrable") is not True or proof.get("currency")!=grant["cost"]["currency"]
+            if (proof.get("name")!=domain.domain_name or proof.get("registrable") is not True or proof.get("currency")!=grant["cost"]["currency"]
                 or Decimal(proof["registration_cost"])>Decimal(grant["supplier_amount"])):
                 return "held"
             with transaction.atomic():
@@ -164,7 +181,8 @@ def transition(domain_id):
                 Invoice.objects.select_for_update().get(pk=invoice.pk)
                 locked=Domain.objects.select_for_update().get(pk=domain.pk)
                 fresh,g,inv=authority(locked,lock=True)
-                if fresh!=entry or g!=grant or load(grant["route"])[0].pk!=row.pk:
+                IntegrationConnection.objects.select_for_update().get(pk=row.pk)
+                if fresh!=entry or g!=grant or load(grant["route"])[1]!=secret:
                     raise RegistrationRefused("Registration authority changed.")
                 entry={**entry,"state":"uncertain","reserved_at":timezone.now().isoformat()}
                 locked.metadata={**locked.metadata,KEY:entry}
@@ -207,7 +225,8 @@ def transition(domain_id):
             locked.status="active"
             locked.is_active=True
             locked.provider_domain_id=locked.domain_name
-            locked.metadata={**locked.metadata,KEY:{**entry,"state":"confirmed","confirmed_at":timezone.now().isoformat()}}
+            locked.metadata={**locked.metadata,KEY:{**entry,"state":"confirmed","confirmed_at":timezone.now().isoformat(),
+                "registrant_verification":"supplier_confirmation_required"}}
             locked.save()
             order=Order.objects.select_for_update().get(pk=grant["order"])
             order.mark_provisioned()

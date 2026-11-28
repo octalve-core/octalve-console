@@ -154,10 +154,28 @@ class LiveReconciliationTests(TestCase):
         with patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.live_binding.resolve_live_key",return_value="fixture"),patch("payments.settlement.verify_gateway_intent",return_value=proof):
             self.assertEqual(consume(self.event.pk),"processed")
         original=Transaction.objects.get(invoice=self.invoice,transaction_type="payment")
-        with patch("providers.connection_stepup.check_mutation"),patch("payments.refund_authority.resolve_live_key",return_value="fixture"),patch("payments.refund_authority.remote_refunds",return_value=[]),patch("payments.refund_authority.submit",side_effect=ExceptionRefused("uncertain")) as post:
+        with patch("providers.connection_stepup.check_mutation"),patch("payments.refund_authority.resolve_live_key",return_value="fixture"),patch("payments.refund_authority.remote_refunds",return_value=[]),patch("payments.refund_authority.remote_disputes",return_value=[]),patch("payments.refund_authority.submit",side_effect=ExceptionRefused("uncertain")) as post:
             self.assertEqual(request_refund(original.client,original.public_id,5000,"fixture","123456")["state"],"uncertain")
             original.refresh_from_db()
             self.assertEqual(original.metadata[KEY]["amount_minor"],5000)
             with self.assertRaises(ExceptionRefused):
                 request_refund(original.client,original.public_id,5000,"fixture","123456")
             post.assert_called_once()
+
+    def test_dispute_resolution_uncertain_is_not_resubmitted(self):
+        from .dispute_authority import resolve,ExceptionRefused,KEY
+        proof=ConfirmedGatewayPayment("paystack",self.intent.reference,"NGN",Decimal("100"),"12345")
+        with patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.live_binding.resolve_live_key",return_value="fixture"),patch("payments.settlement.verify_gateway_intent",return_value=proof):
+            self.assertEqual(consume(self.event.pk),"processed")
+        original=Transaction.objects.get(invoice=self.invoice,transaction_type="payment")
+        event=WebhookEvent.objects.create(gateway=self.intent.gateway,event_id="dispute-resolve-fixture",event_type="charge.dispute.create",is_verified=True,is_processed=True,
+            payload={"mode":"live","binding":self.intent.gateway.config,"verified_case":{"case_id":"99","transaction_id":"12345"}})
+        data={"id":99,"transaction":{"id":12345},"domain":"live","currency":"NGN","status":"awaiting-merchant-feedback","refund_amount":5000}
+        with patch("providers.connection_stepup.check_mutation"),patch("payments.dispute_authority.resolve_live_key",return_value="fixture"),patch("payments.dispute_authority.remote_refunds",return_value=[]),patch("payments.dispute_authority.fetch_case",return_value=data),patch("payments.dispute_authority.provider_write",side_effect=ExceptionRefused("uncertain")) as post:
+            self.assertEqual(resolve(original.client,event.pk,"merchant-accepted",5000,"Fixture reason","fixture","123456")["state"],"uncertain")
+            with self.assertRaises(ExceptionRefused):
+                resolve(original.client,event.pk,"merchant-accepted",5000,"Fixture reason","fixture","123456")
+            post.assert_called_once()
+        original.refresh_from_db()
+        self.assertEqual(original.metadata[KEY]["state"],"uncertain")
+        self.assertFalse(Transaction.objects.filter(transaction_type="refund").exists())

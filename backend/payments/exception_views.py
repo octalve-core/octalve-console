@@ -25,7 +25,7 @@ def financial_exception_review(request):
         "amount_minor":x.metadata["paystack_refund_request_v1"]["amount_minor"],"state":x.metadata["paystack_refund_request_v1"]["state"]} for x in pending],"cases":[{"id":row.pk,"event":row.event_type,
         "state":"verified_review" if row.is_processed or row.payload.get("late_payment_review") else "awaiting_readback",
         "case":row.payload.get("verified_case"),"created_at":row.created_at.isoformat()} for row in rows[:100]],
-        "truncated":len(rows)>100,"refund_execution_enabled":bool(enabled() and gateway and resolve_live_key(gateway)),"dispute_resolution_enabled":False},
+        "truncated":len(rows)>100,"refund_execution_enabled":bool(enabled() and gateway and resolve_live_key(gateway)),"dispute_resolution_enabled":bool(enabled() and gateway and resolve_live_key(gateway))},
         headers={"Cache-Control":"private, no-store"})
 
 
@@ -42,4 +42,30 @@ def refund_request(request):
         result=request_refund(request.user,data["transaction_public_id"],data["amount_minor"],data["confirm_password"],data["totp_code"])
     except ExceptionRefused as exc:
         raise ValidationError(str(exc)) from None
+    return Response(result,status=202,headers={"Cache-Control":"private, no-store"})
+
+
+@api_view(["POST"])
+@permission_classes([InternalSupplierAuthority])
+@throttle_classes([VaultMutationThrottle])
+def dispute_response(request):
+    from .dispute_authority import resolve,ExceptionRefused
+    from .models import Transaction
+    from django.db import DatabaseError
+    assert_admin(request.user)
+    data=request.data
+    required={"event_id","resolution","amount_minor","message","confirm_password","totp_code","confirm_resolution"}
+    if not required<=set(data) or set(data)-required-{"receipt","service_details"} or data["confirm_resolution"] not in (True,"true"):
+        raise ValidationError("Explicit dispute resolution authorization is required.")
+    try:
+        raw=str(data["amount_minor"])
+        if not raw.isascii() or not raw.isdecimal() or len(raw)>12:
+            raise ValueError()
+        event_id=int(data["event_id"])
+        if event_id<1:
+            raise ValueError()
+        result=resolve(request.user,event_id,data["resolution"],int(raw),data["message"],
+            data["confirm_password"],data["totp_code"],request.FILES.get("receipt"),data.get("service_details",""))
+    except (ExceptionRefused,ValueError,TypeError,DatabaseError,WebhookEvent.DoesNotExist,Transaction.DoesNotExist,Transaction.MultipleObjectsReturned):
+        raise ValidationError("Dispute response could not be qualified. Review the case before another request.") from None
     return Response(result,status=202,headers={"Cache-Control":"private, no-store"})
