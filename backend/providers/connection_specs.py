@@ -128,7 +128,7 @@ for key, name, fields, secrets, ports, guide in (
 ):
     SCHEMAS[key] = {"name": name, "fields": fields, "secrets": secrets, "ports": ports, "guide": guide}
 
-READBACK_ADAPTERS = frozenset({"directadmin", "cpanel-whm", "resellerclub", "cloudflare-dns", "cloudflare-registrar", "cloudflare-registrar-live", "brevo", "resend", "paystack", "google-web-risk", "google-gemini", "google-pagespeed"})
+READBACK_ADAPTERS = frozenset({"digitalocean", "hetzner", "vultr", "directadmin", "cpanel-whm", "resellerclub", "cloudflare-dns", "cloudflare-registrar", "cloudflare-registrar-live", "brevo", "resend", "paystack", "google-web-risk", "google-gemini", "google-pagespeed"})
 
 
 def public_catalog():
