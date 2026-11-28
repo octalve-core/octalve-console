@@ -237,3 +237,71 @@ class SecureConsoleCredentialTests(TestCase):
   if self.payload["environment"]=="test":
    with self.assertRaises(VaultUnavailable):
     decrypt()
+
+
+ @override_settings(CLOUD_HOSTING_VENDOR_CREATE_ENABLED=True,
+    CLOUD_HOSTING_CONFIGURED_EGRESS_ENABLED=True,CLOUD_SUPPLIER_PINNED_READBACK_ENABLED=True)
+ def test_hosting_policy_requires_exact_current_credential_and_mfa(self):
+  from providers.models import Provider
+  from providers.hosting_runtime import load_hosting_connection,POLICY
+  from providers.connection_vault import VaultUnavailable
+  payload={**self.payload,"adapter_key":"cpanel-whm","environment":"live",
+      "public_settings":{"server_url":"https://panel.example.invalid:2087","username":"reseller","server_ip":"8.8.8.8"},
+      "secrets":{"api_token":"fixture-only-hosting-token-012345"}}
+  inventory=[{"provider_package_id":"starter","name":"Starter","specs":{"quota":"1024"}}]
+  with patch("providers.connection_views.connection_database_qualified",return_value=True),patch(
+      "providers.connection_views.check_mutation",return_value=None),patch(
+      "providers.connection_verification.connection_database_qualified",return_value=True),patch(
+      "providers.connection_verification.check_mutation",return_value=None),patch(
+      "providers.hosting_runtime.connection_database_qualified",return_value=True),patch(
+      "providers.hosting_inventory.fetch_inventory",return_value=inventory):
+   saved=self.c.post("/api/providers/connections/",payload,format="json")
+   self.assertEqual(saved.status_code,201,saved.data)
+   root="/api/providers/connections/"+saved.data["id"]+"/"
+   auth={"confirm_password":PASSWORD,"totp_code":"123456"}
+   verified=self.c.post(root+"verify/",auth,format="json")
+   self.assertEqual(verified.status_code,200,verified.data)
+   provider=Provider.objects.get(pk=verified.data["evidence"]["provider_id"])
+   self.assertEqual(provider.status,"inactive")
+   with self.assertRaises(VaultUnavailable):
+    load_hosting_connection(provider)
+   body={**auth,"fulfillment_model":"owned_server","shared_ip":None,"accept":True}
+   foreign=APIClient();foreign.force_authenticate(self.client)
+   self.assertEqual(foreign.post(root+"hosting-policy/",body,format="json").status_code,403)
+   denied=self.c.post(root+"hosting-policy/",{**body,"accept":False},format="json")
+   self.assertEqual(denied.status_code,400,denied.data)
+   approved=self.c.post(root+"hosting-policy/",body,format="json")
+   self.assertEqual(approved.status_code,200,approved.data)
+   provider.refresh_from_db()
+   self.assertEqual(provider.status,"active")
+   self.assertEqual(load_hosting_connection(provider)[0].current_version,1)
+   self.assertNotIn(payload["secrets"]["api_token"],json.dumps(approved.data))
+   original=provider.config.copy()
+   provider.config={**original,"fulfillment_model":"partner_reseller"}
+   with self.assertRaises(VaultUnavailable):
+    load_hosting_connection(provider)
+   provider.config=original
+   rotated=self.c.post(root+"rotate/",{**auth,"secrets":{"api_token":"rotated-hosting-fixture-012345"}},format="json")
+   self.assertEqual(rotated.status_code,200,rotated.data)
+   provider.refresh_from_db()
+   self.assertEqual(provider.status,"inactive")
+   with self.assertRaises(VaultUnavailable):
+    load_hosting_connection(provider)
+
+ def test_generic_readback_rejects_connection_changed_during_network(self):
+  from audit.models import AuditLog
+  with patch("providers.connection_views.connection_database_qualified",return_value=True),patch(
+      "providers.connection_views.check_mutation",return_value=None):
+   saved=self.c.post("/api/providers/connections/",{**self.payload,"adapter_key":"paystack",
+       "public_settings":{},"secrets":{"secret_key":"sk_test_fixture_only_0123456789"}},format="json")
+  self.assertEqual(saved.status_code,201,saved.data)
+  def changed(*args,**kwargs):
+   IntegrationConnection.objects.filter(pk=saved.data["id"]).update(state="revoked")
+   return {"authenticated":True,"read_only":True}
+  with patch("providers.connection_verification.connection_database_qualified",return_value=True),patch(
+      "providers.connection_verification.check_mutation",return_value=None),patch(
+      "providers.connection_verification.paystack_readback",side_effect=changed):
+   result=self.c.post("/api/providers/connections/"+saved.data["id"]+"/verify/",
+       {"confirm_password":PASSWORD,"totp_code":"123456"},format="json")
+  self.assertEqual(result.status_code,503,result.data)
+  self.assertFalse(AuditLog.objects.filter(action="provider_connection_test",entity_id=saved.data["id"]).exists())
