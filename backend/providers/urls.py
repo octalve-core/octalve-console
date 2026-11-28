@@ -1,7 +1,7 @@
 # providers/urls.py
 
 from django.urls import path, include
-from . import hosting_policy_views,connection_views,connection_security_views,cloudflare_int01_views,connection_verification,connection_registrar_views
+from . import mail_policy_views,hosting_policy_views,connection_views,connection_security_views,cloudflare_int01_views,connection_verification,connection_registrar_views
 from rest_framework.routers import DefaultRouter
 from .views import ProviderViewSet, ProviderPackageViewSet, ProviderLogViewSet
 
@@ -18,6 +18,7 @@ urlpatterns = [
     path("connections/schemas/", connection_views.connection_schemas, name="provider-connection-schemas"),
     path("connections/", connection_views.connections, name="provider-connections"),
     path("connections/<uuid:connection_id>/", connection_views.connection_detail, name="provider-connection-detail"),
+    path("connections/<uuid:connection_id>/mail-policy/",mail_policy_views.configure_sender,name="mail-sender-policy"),
     path("connections/<uuid:connection_id>/hosting-policy/",hosting_policy_views.configure_execution,name="hosting-policy"),
     path("connections/<uuid:connection_id>/verify/",connection_verification.verify_connection,name="provider-connection-verify"),
     path("connections/<uuid:connection_id>/registrar-quote/",connection_registrar_views.live_registrar_quote,name="provider-live-registrar-quote"),
