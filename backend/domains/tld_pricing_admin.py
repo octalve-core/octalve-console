@@ -231,6 +231,12 @@ def publish_tld_price_card(request):
             }
             metadata["published_registrar_cost_v1"]={"revision":draft["revision"],"currency":quote["currency"],
                 "registration_cost":quote["registration_cost"],"renewal_cost":quote["renewal_cost"],"ngn_per_unit":str(fx)}
+            if "transfer_cost" in quote:
+                transfer=_money(draft.get("transfer_price"))
+                if transfer<Decimal(quote["transfer_cost"])*fx:
+                    raise ValidationError("Transfer price cannot be lower than supplier cost.")
+                metadata["published_registrar_cost_v1"]["transfer_cost"]=quote["transfer_cost"]
+                row.transfer_price=transfer
             row.register_price = retail["registration"]
             row.renewal_price = retail["renewal"]
             row.status = "active"

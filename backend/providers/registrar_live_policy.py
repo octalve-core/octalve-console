@@ -81,7 +81,7 @@ def configure(request,connection_id):
     if request.method=="GET":
         return Response({"available":ready(),"registration_enabled":bool(ready() and approved(row)),
             "supported_tlds":[".com",".net"],"manual_renewal":bool(row.adapter_key=="resellerclub" and ready() and approved(row)),"custom_nameservers":bool(row.adapter_key=="resellerclub" and ready() and approved(row)),
-            "contact_updates":False,"transfer_execution":False},headers=headers)
+            "contact_updates":False,"transfer_execution":bool(row.adapter_key=="resellerclub" and ready() and approved(row))},headers=headers)
     data=request.data
     fields={"confirm_password","totp_code","registration","dedicated_account"}
     if row.adapter_key=="resellerclub": fields.add("nameservers")

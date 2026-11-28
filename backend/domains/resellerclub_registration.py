@@ -69,15 +69,20 @@ def advance(domain,entry,grant,invoice,row,secret,adapter):
             return "held"
         if adapter.customer(contact)!=entry["rc_customer"] or adapter.find_contact(entry["rc_customer"],contact)!=entry["rc_contact"]:
             return "held"
-        fresh=adapter.live_domain_check(domain.domain_name)
+        transfer=grant.get("operation")=="transfer"
+        fresh=adapter.standard_transfer(domain.domain_name) if transfer else adapter.live_domain_check(domain.domain_name)
         if (fresh.get("registrable") is not True or fresh.get("name")!=domain.domain_name
             or fresh.get("currency")!=grant["cost"]["currency"]
-            or Decimal(fresh["registration_cost"])>Decimal(grant["supplier_amount"])):
+            or Decimal(fresh["transfer_cost" if transfer else "registration_cost"])>Decimal(grant["supplier_amount"])):
             return "held"
         entry=update(domain,entry,grant,invoice,row,secret,{"rc_stage":"registration_reserved","reserved_at":timezone.now().isoformat(),
             "rc_nameservers":config["nameservers"]})
         if load(grant["route"])[1]==secret:
-            adapter.register(domain.domain_name,entry["rc_customer"],entry["rc_contact"],entry["rc_nameservers"])
+            if transfer:
+                from .transfer_secret import open_code
+                adapter.transfer(domain.domain_name,entry["rc_customer"],entry["rc_contact"],open_code(domain),entry["rc_nameservers"])
+            else:
+                adapter.register(domain.domain_name,entry["rc_customer"],entry["rc_contact"],entry["rc_nameservers"])
         return "processed"
     if stage!="registration_reserved":
         return "held"
@@ -101,6 +106,7 @@ def advance(domain,entry,grant,invoice,row,secret,adapter):
         locked.registration_date=created;locked.expiry_date=expires;locked.next_due_date=expires
         locked.status="active" if proof["status"]=="Active" else ("pending" if proof["status"]=="Pending Verification" else "suspended")
         locked.is_active=locked.status=="active";locked.provider_domain_id=proof["order_id"]
+        locked.epp_code=None;locked.epp_code_encrypted=None
         locked.metadata={**locked.metadata,KEY:{**entry,"state":"confirmed","rc_stage":"confirmed",
             "registrant_verification":proof["registrant_verification"],"confirmed_at":timezone.now().isoformat()}}
         locked.save()

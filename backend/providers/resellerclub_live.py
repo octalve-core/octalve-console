@@ -253,6 +253,17 @@ class ResellerClub:
     def resend_verification(self,order):
         return self._call("POST","/domains/"+ident(order)+"/raa-verification/resend-email").get("success") is True
 
+    def standard_transfer(self,domain):
+        domain=require_domain(domain)
+        if not self.transfer_eligibility(domain) or self._call("GET","/domains/premium-check",params={"domainName":domain}).get("premium") is not False:
+            raise ResellerClubUnavailable()
+        import secrets
+        sample="oc-transfer-"+secrets.token_hex(10)+"."+domain.rsplit(".",1)[1]
+        quote=self.live_domain_check(sample)
+        if quote.get("registrable") is not True or "transfer_cost" not in quote:
+            raise ResellerClubUnavailable()
+        return {**quote,"name":domain}
+
     def transfer_eligibility(self,domain):
         return self._call("GET","/domains/"+require_domain(domain)+"/validate-transfer-in").get("success") is True
 

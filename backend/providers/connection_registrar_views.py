@@ -60,12 +60,14 @@ def live_registrar_quote(request, connection_id):
 
     try:
         row = IntegrationConnection.objects.get(
-            pk=connection_id, adapter_key__in=("cloudflare-registrar-live","resellerclub"), state="draft", environment="live"
+            pk=connection_id, adapter_key__in=("cloudflare-registrar-live","resellerclub"), state="draft"
         )
     except IntegrationConnection.DoesNotExist:
         return Response({"detail": "Approved registrar connection not found."}, status=404)
 
     try:
+        if row.adapter_key=="resellerclub" and row.environment!="live":
+            raise ResellerClubUnavailable()
         verify_chain(row)
         version = IntegrationCredentialVersion.objects.select_related("connection").get(
             connection=row, version=row.current_version, revoked_at__isnull=True
@@ -114,6 +116,7 @@ def live_registrar_quote(request, connection_id):
             "currency": quote["currency"],
             "registration_cost": quote["registration_cost"],
             "renewal_cost": quote["renewal_cost"],
+            **({"transfer_cost":quote["transfer_cost"]} if row.adapter_key=="resellerclub" and "transfer_cost" in quote else {}),
         }, salt=TLD_SUPPLIER_QUOTE_SALT)
     return Response({
         "verified": True,
