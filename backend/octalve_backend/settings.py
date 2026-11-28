@@ -581,6 +581,7 @@ CLOUD_PAYMENT_RETURN_URL = env("CLOUD_PAYMENT_RETURN_URL", default="")
 # B1 draft vault is inert by default. Never turn on live supplier operations here.
 # DNS-01 is independently released only after backup, migration and acceptance.
 CLOUD_DNS01_READONLY_ENABLED = env.bool("CLOUD_DNS01_READONLY_ENABLED", default=False)
+CLOUD_DNS_WRITE_ENABLED = env.bool("CLOUD_DNS_WRITE_ENABLED", default=False)
 # Separate default-off gate for customer DNS-only TXT ownership onboarding.
 CLOUD_DNS01_EXTERNAL_CLAIMS_ENABLED = env.bool("CLOUD_DNS01_EXTERNAL_CLAIMS_ENABLED", default=False)
 CLOUD_PAYSTACK_TEST_BINDING_ENABLED = env.bool("CLOUD_PAYSTACK_TEST_BINDING_ENABLED", default=True)

@@ -99,3 +99,7 @@ Added independent, bounded TLS-only Google and Cloudflare public recursive NS ob
 ### Native website directory metadata
 
 Added signed `file_root_read` capability and bounded fixed-root inventory for DA and cPanel. No browser-provided path, no traversal, no hidden file disclosure, no content or mutations. DA verifies the owned real path, directory chain and absence of links; cPanel checks exact root, POSIX mode, UID and returned paths and repeats root proof. Custom home layouts fail closed. Advanced mutations and transfers remain in supplier control panel because current cPanel UAPI upload cannot use the WHM bridge and no atomic supplier-side no-follow mutation guarantee is established. This is a native top-level inventory, not a full native file manager. References: https://docs.directadmin.com/changelog/version-1.27.2.html and https://api.docs.cpanel.net/specifications/cpanel.openapi/manage-files/fileman-list_files .
+
+### Separate DNS write runtime
+
+Added default-off, separate signed write consent and MFA approval bound to the exact read binding and distinct saved Cloudflare credential. Fixed record mutations with zone-bound HTTPS, strict record validation, protected infrastructure names, public resolver agreement and live zone preflight, exact snapshot confirmation, durable reservation and independently matched post-operation inventory. This is not enabled by a read-only token. Non-Cloudflare DNS remains supplier-managed pending an equivalent qualified authoritative adapter. No production write or live qualification has been performed.
