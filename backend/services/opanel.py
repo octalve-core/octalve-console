@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Service, ServiceUsage
-from opanel_bridge.policy import enabled, eligible
+from opanel_bridge.policy import enabled, eligible, refresh_candidate
 
 
 def opanel_overview(service):
@@ -38,6 +38,7 @@ def opanel_overview(service):
         "backups": False,
         "email": False,
         "panel_sso": panel_allowed,
+        "panel_recheck": bool(not verified and enabled() and refresh_candidate(service.client_id, service.pk)),
     }
     now_due = service.next_due_date
     return {
