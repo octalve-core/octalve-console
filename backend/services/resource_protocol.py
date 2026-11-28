@@ -72,6 +72,17 @@ def strong_password(value):
     return value
 
 
+def reply_text(subject, body):
+    if (not isinstance(subject,str) or not 1<=len(subject)<=150
+            or not isinstance(body,str) or not 1<=len(body)<=4000
+            or not subject.strip() or not body.strip()
+            or any(ord(ch)<32 or ord(ch)==127 for ch in subject)
+            or any((ord(ch)<32 and ch not in "\n\t") or ord(ch)==127 for ch in body)
+            or "%" in subject or "%" in body):
+        raise ResourceRefused("Invalid plain-text autoresponder.")
+    return subject,body
+
+
 def _form(response, *, empty=False):
     if response.status_code != 200 or len(response.content) > 200000:
         raise ResourceRefused("Supplier response unavailable.")
@@ -196,6 +207,14 @@ class ResourceProtocol:
                 valid=method=="GET" and fields=={"domain":self.domain}
                 if method=="POST" and set(fields)=={"action","domain","select0"} and fields["action"]=="delete" and fields["domain"]==self.domain:
                     valid=bool(mailbox_name(fields["select0"]) and fields["select0"]!=self.account.lower())
+                if method=="POST" and set(fields)=={"action","domain","user","subject","reply_encoding","reply_content_type","reply_once_time","text","cc","create"}:
+                    valid=bool(fields["action"] in ("create","modify") and fields["domain"]==self.domain
+                        and mailbox_name(fields["user"]) and fields["user"]!=self.account.lower()
+                        and reply_text(fields["subject"],fields["text"])
+                        and fields["reply_encoding"]=="UTF-8" and fields["reply_content_type"]=="text/plain"
+                        and fields["reply_once_time"]=="2d" and fields["cc"]=="OFF" and fields["create"]=="Create")
+            elif path=="/CMD_API_EMAIL_AUTORESPONDER_MODIFY":
+                valid=method=="GET" and set(fields)=={"domain","user"} and fields["domain"]==self.domain and bool(mailbox_name(fields["user"])) and fields["user"]!=self.account.lower()
             elif path=="/CMD_API_EMAIL_FORWARDERS":
                 valid=method=="GET" and fields=={"domain":self.domain}
                 if method=="POST" and fields.get("domain")==self.domain:
@@ -264,6 +283,8 @@ class ResourceProtocol:
                          ("GET","DomainInfo","list_domains"):set(),
                          ("GET","Email","list_auto_responders"):{"domain"},
                          ("POST","Email","delete_auto_responder"):{"email"},
+                         ("GET","Email","get_auto_responder"):{"email","temp_charset"},
+                         ("POST","Email","add_auto_responder"):{"email","domain","from","subject","body","charset","interval","is_html","start","stop"},
                          ("POST","SubDomain","addsubdomain"):{"domain","rootdomain","dir","disallowdot"},
                          ("GET","Mysql","list_databases"):set(),
                          ("POST","Mysql","create_database"):{"name"},
@@ -290,6 +311,16 @@ class ResourceProtocol:
                                and forwarding_destination(destination)
                                and destination.split("@")[1]!=self.domain
                                and (op[2]!="add_forwarder" or fields["fwdopt"]=="fwd"))
+                if valid and op==("GET","Email","get_auto_responder"):
+                    local,sep,domain=fields["email"].partition("@")
+                    valid=bool(sep and domain==self.domain and mailbox_name(local) and local!=self.account.lower()
+                               and fields["temp_charset"]=="utf-8")
+                if valid and op==("POST","Email","add_auto_responder"):
+                    valid=bool(mailbox_name(fields["email"]) and fields["email"]!=self.account.lower()
+                        and fields["domain"]==self.domain and fields["from"]==fields["email"]+"@"+self.domain
+                        and reply_text(fields["subject"],fields["body"])
+                        and fields["charset"]=="UTF-8" and fields["interval"]=="48"
+                        and fields["is_html"]=="0" and fields["start"]=="0" and fields["stop"]=="0")
                 if valid and fields.get("cpanel.module")=="Mysql":
                     for key in ("name","database","user"):
                         if key in fields:
@@ -934,3 +965,41 @@ class ResourceProtocol:
             self._da_ack("/CMD_API_EMAIL_AUTORESPONDER",{"action":"delete","domain":self.domain,"select0":local})
         else:
             self._whm("POST","Email","delete_auto_responder",{"email":local+"@"+self.domain})
+
+    def autoresponder_content(self,local):
+        mailbox_name(local)
+        if local==self.account.lower():
+            raise ResourceRefused("Reserved account name.")
+        if self.adapter=="directadmin":
+            fields=_form(self._request("GET","/CMD_API_EMAIL_AUTORESPONDER_MODIFY",{"domain":self.domain,"user":local}))
+            if (fields.get("user")!=[local] or fields.get("email")!=[""]
+                    or fields.get("reply_encoding",[""])[0].lower()!="utf-8"
+                    or fields.get("reply_content_type")!=["text/plain"] or fields.get("reply_once_time")!=["2d"]
+                    or any(len(v)!=1 for v in fields.values()) or not fields.get("subject") or not fields.get("text")):
+                raise ResourceRefused("Autoresponder settings not independently confirmed.")
+            return reply_text(fields["subject"][0],fields["text"][0])
+        data=self._whm("GET","Email","get_auto_responder",{"email":local+"@"+self.domain,"temp_charset":"utf-8"})
+        if (not isinstance(data,dict) or data.get("from")!=local+"@"+self.domain
+                or str(data.get("is_html"))!="0" or str(data.get("interval"))!="48"
+                or str(data.get("start"))!="0" or str(data.get("stop"))!="0"
+                or str(data.get("charset")).lower()!="utf-8"):
+            raise ResourceRefused("Autoresponder settings not independently confirmed.")
+        return reply_text(data.get("subject"),data.get("body"))
+
+    def save_autoresponder(self,local,subject,body,*,edit=False):
+        mailbox_name(local)
+        reply_text(subject,body)
+        if local==self.account.lower():
+            raise ResourceRefused("Reserved account name.")
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_EMAIL_AUTORESPONDER",{"action":"modify" if edit else "create",
+                "domain":self.domain,"user":local,"subject":subject,"reply_encoding":"UTF-8",
+                "reply_content_type":"text/plain","reply_once_time":"2d","text":body,"cc":"OFF","create":"Create"})
+        elif edit:
+            # cPanel does not document an atomic replacement API. Never
+            # silently delete an existing responder to emulate an edit.
+            raise ResourceRefused("This supplier requires explicit remove and create.")
+        else:
+            self._whm("POST","Email","add_auto_responder",{"email":local,"domain":self.domain,
+                "from":local+"@"+self.domain,"subject":subject,"body":body,"charset":"UTF-8",
+                "interval":"48","is_html":"0","start":"0","stop":"0"})

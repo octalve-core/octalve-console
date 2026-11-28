@@ -25,7 +25,7 @@ from providers.hosting_runtime import load_hosting_connection
 from providers.models import Provider
 from providers.pinned_egress import SupplierEgressDenied
 from .models import Service
-from .resource_protocol import DB_PROFILES,  ResourceProtocol, ResourceRefused, mailbox_name, subdomain_label, database_suffix, strong_password, forwarding_destination
+from .resource_protocol import DB_PROFILES,  ResourceProtocol, ResourceRefused, mailbox_name, subdomain_label, database_suffix, strong_password, forwarding_destination, reply_text
 
 FENCE = "native_resource_mutation_v1"
 
@@ -118,7 +118,7 @@ def list_resources(subject,service_id,resource):
     a=_current(a,operation)
     rows={"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[],"db_users":a.protocol.all_database_users,"forwarders":a.protocol.forwarders,"autoresponders":a.protocol.autoresponders}[resource]()
     owned_databases=a.protocol.databases() if resource=="db_users" else None
-    owned_mailboxes=[x["address"] for x in a.protocol.mailboxes()] if resource=="forwarders" else None
+    owned_mailboxes=[x["address"] for x in a.protocol.mailboxes()] if resource in ("forwarders","autoresponders") else None
     fresh=_current(a,operation)
     return {"resource":resource,**({"mailboxes":owned_mailboxes} if owned_mailboxes is not None else {}),**({"databases":owned_databases} if owned_databases is not None else {}),"domain":a.service.domain_name,"items":rows,
             "pending_operation":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain",
@@ -254,7 +254,7 @@ def _same_password(pending,password):
     return hmac.compare_digest(current["mac"],receipt.get("mac",""))
 
 
-OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password","database_user_create","database_user_delete","database_grants","forwarder_create","forwarder_delete","autoresponder_delete"}
+OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password","database_user_create","database_user_delete","database_grants","forwarder_create","forwarder_delete","autoresponder_delete","autoresponder_create","autoresponder_edit"}
 
 
 @sensitive_variables("password")
@@ -263,6 +263,11 @@ def _observed(protocol, pending, password=None):
     target=pending["address"]
     if operation=="autoresponder_delete":
         return target not in protocol.autoresponders()
+    if operation in ("autoresponder_create","autoresponder_edit"):
+        if target not in protocol.autoresponders():
+            return False
+        subject,body=protocol.autoresponder_content(target.split("@")[0])
+        return _same_password(pending,subject+"\n"+body)
     if operation.startswith("forwarder_"):
         rows=[x for x in protocol.forwarders() if x["address"]==target]
         return (len(rows)==1 and rows[0]["managed"] and rows[0]["destination"]==pending["destination"]) if operation=="forwarder_create" else not rows
@@ -295,12 +300,12 @@ def _observed(protocol, pending, password=None):
     return protocol.subdomain_created(target) if operation=="subdomain_create" else target not in protocol.subdomains()
 
 
-@sensitive_variables("password")
-def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_target=None,password=None,initial_user=None,database_name=None,profile=None,destination=None):
+@sensitive_variables("password","reply_subject","reply_body")
+def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_target=None,password=None,initial_user=None,database_name=None,profile=None,destination=None,reply_subject=None,reply_body=None):
     if operation not in OBSERVABLE_MUTATIONS:
         raise ResourceRefused("Unknown resource operation.")
     forwarder=operation.startswith("forwarder_")
-    autoresponder=operation=="autoresponder_delete"
+    autoresponder=operation.startswith("autoresponder_")
     mailbox=operation.startswith("mailbox_") or forwarder or autoresponder
     database=operation.startswith("database_")
     hosting=operation=="hosting_password"
@@ -337,8 +342,20 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
     if hosting:
         pass
     elif autoresponder:
-        if target not in a.protocol.autoresponders():
+        rows=a.protocol.autoresponders()
+        if operation=="autoresponder_create":
+            if target in rows:
+                raise ResourceRefused("Autoresponder already exists.")
+        elif target not in rows:
             raise ResourceRefused("Autoresponder not independently identified.")
+        if operation!="autoresponder_delete":
+            reply_text(reply_subject,reply_body)
+            if target not in [x["address"] for x in a.protocol.mailboxes()]:
+                raise ResourceRefused("Mailbox not independently identified.")
+            if operation=="autoresponder_edit":
+                if a.protocol.adapter!="directadmin":
+                    raise ResourceRefused("This supplier requires explicit remove and create.")
+                a.protocol.autoresponder_content(local)
     elif forwarder:
         if target not in [x["address"] for x in a.protocol.mailboxes()]:
             raise ResourceRefused("Forwarding mailbox not independently identified.")
@@ -410,6 +427,8 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
     event=str(uuid.uuid4())
     pending={"id":event,"operation":operation,"address":target,"binding":a.digest,
              "state":"dispatched_uncertain","created_at":timezone.now().isoformat()}
+    if operation in ("autoresponder_create","autoresponder_edit"):
+        pending["password_receipt"]=_password_receipt(event,reply_subject+"\n"+reply_body)
     if forwarder:
         pending["destination"]=destination
     if operation=="database_create" and initial_user is not None:
@@ -440,7 +459,10 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
         if hosting:
             a.protocol.reset_hosting_password(password)
         elif autoresponder:
-            a.protocol.delete_autoresponder(local)
+            if operation=="autoresponder_delete":
+                a.protocol.delete_autoresponder(local)
+            else:
+                a.protocol.save_autoresponder(local,reply_subject,reply_body,edit=operation=="autoresponder_edit")
         elif operation=="forwarder_create":
             a.protocol.create_forwarder(local,destination)
         elif operation=="forwarder_delete":

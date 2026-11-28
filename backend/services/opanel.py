@@ -41,6 +41,8 @@ def opanel_overview(service):
         "forwarders": "forwarder_read" in resource_caps,
         "autoresponders": "autoresponder_read" in resource_caps,
         "autoresponder_delete": "autoresponder_delete" in resource_caps,
+        "autoresponder_create": "autoresponder_create" in resource_caps,
+        "autoresponder_edit": "autoresponder_edit" in resource_caps and resource_management.database_initial_user_required(service),
         "forwarder_create": "forwarder_create" in resource_caps,
         "forwarder_delete": "forwarder_delete" in resource_caps,
         "credentials": "hosting_password" in resource_caps,

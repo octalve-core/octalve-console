@@ -73,3 +73,7 @@ References: https://docs.directadmin.com/changelog/version-1.21.3.html ; https:/
 ## Continuation: exact autoresponder removal
 
 Added explicitly confirmed removal on both supplier adapters, behind a separate signed capability and the existing durable service fence. No mailbox deletion or responder creation is sent. The resource must appear in supplier inventory before removal; confirmed absence is required afterward. A DirectAdmin empty response without explicit status stays uncertain rather than falsely reporting the last responder removed. Added customer removal form, negative transport tests and service API regression. Creation and editing remain unfinished. Supplier version acceptance and latest CI remain release gates.
+
+## Autoresponder write continuation
+
+Both suppliers have bounded plain-text create operations with fixed 48-hour interval, no CC, HTML, template substitution or customer-chosen schedule; DirectAdmin has a narrowly scoped edit contract. Content readback must match an event-keyed receipt, not just address existence. cPanel support confirms no documented atomic edit API (https://support.cpanel.net/hc/en-us/community/posts/30365048362903-Autoresponder-via-CLI); no silent delete/recreate is performed. cPanel edit and supplier-version qualification remain outstanding. DirectAdmin contract: https://docs.directadmin.com/changelog/version-1.49.0.html ; cPanel readback: https://api.docs.cpanel.net/openapi/cpanel/operation/get_auto_responder/ .

@@ -148,6 +148,24 @@ class ProtocolTests(SimpleTestCase):
                 cp._check_request("POST","/json-api/uapi_cpanel",{**{k:v for k,v in fields.items() if k!="domain"},"cpanel.function":"delete_auto_responder","email":email},False)
         self.assertEqual(validate_resource_capabilities(["mailbox_read","autoresponder_read"]),["autoresponder_read","mailbox_read"])
 
+    def test_autoresponder_write_contract_and_exact_content_readback(self):
+        da=self.adapter("directadmin")
+        with patch.object(da,"_request",side_effect=[SupplierReadResponse(200,b"error=0"),SupplierReadResponse(200,b"user=sales&email=&subject=Away&text=Back+soon&reply_encoding=UTF-8&reply_content_type=text%2Fplain&reply_once_time=2d")]) as send:
+            da.save_autoresponder("sales","Away","Back soon")
+            self.assertEqual(send.call_args.args[2]["cc"],"OFF")
+            self.assertEqual(da.autoresponder_content("sales"),("Away","Back soon"))
+        cp=self.adapter("cpanel-whm")
+        with patch.object(cp,"_request",side_effect=[whm("Email","add_auto_responder",None),whm("Email","get_auto_responder",{"subject":"Away","body":"Back soon","from":"sales@example.test","charset":"UTF-8","interval":48,"start":0,"stop":0,"is_html":0})]) as send:
+            cp.save_autoresponder("sales","Away","Back soon")
+            self.assertEqual(send.call_args.args[2]["interval"],"48")
+            self.assertEqual(cp.autoresponder_content("sales"),("Away","Back soon"))
+        with patch.object(cp,"_request") as send:
+            with self.assertRaises(ResourceRefused):
+                cp.save_autoresponder("sales","Away","Back soon",edit=True)
+            with self.assertRaises(ResourceRefused):
+                cp.save_autoresponder("sales","Away\nBcc: bad","Back soon")
+            send.assert_not_called()
+
     def test_forwarder_transport_disallows_unowned_source_and_pipe(self):
         cp=self.adapter("cpanel-whm")
         base={"api.version":"1","cpanel.user":"checkhost","cpanel.module":"Email","cpanel.function":"add_forwarder","domain":"example.test","email":"sales@example.test","fwdopt":"fwd","fwdemail":"person@external.test"}
@@ -330,6 +348,17 @@ class ResourceAuthorityTests(TestCase):
             self.assertEqual(response.data["items"],["sales@example.test"])
             self.assertEqual(response.data["resource"],"autoresponders")
             read.assert_called_once()
+
+    def test_autoresponder_creation_requires_exact_content_readback(self):
+        self.policy["resource_capabilities"].extend(["autoresponder_read","autoresponder_create"])
+        data={"local":"sales","reply_subject":"Away","reply_body":"Back soon","confirm_password":"SyntheticConsolePassword"}
+        with patch("services.resource_management.audit_keyring",return_value=("fixture",{"fixture":b"x"*32})),patch.object(ResourceProtocol,"autoresponders",side_effect=[[],["sales@example.test"]]),patch.object(ResourceProtocol,"mailboxes",return_value=[{"address":"sales@example.test"}]),patch.object(ResourceProtocol,"autoresponder_content",return_value=("Away","Back soon")),patch.object(ResourceProtocol,"save_autoresponder") as write:
+            response=self.api.post(self.base+"/resource-actions/autoresponder_create/",data,format="json")
+            self.assertEqual(response.status_code,200,response.data)
+            write.assert_called_once_with("sales","Away","Back soon",edit=False)
+        self.service.refresh_from_db()
+        self.assertNotIn("Back soon",str(self.service.metadata))
+        self.assertEqual(self.service.metadata[management.FENCE]["state"],"confirmed")
 
     def test_autoresponder_removal_requires_capability_confirmation_and_absence(self):
         path=self.base+"/resource-actions/autoresponder_delete/"
