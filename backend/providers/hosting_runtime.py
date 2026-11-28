@@ -18,13 +18,13 @@ from providers.pinned_egress import public_ip
 from rest_framework.exceptions import ValidationError
 
 POLICY="hosting_execution_policy_v1"
-RESOURCE_CAPABILITIES=frozenset(("mailbox_read","mailbox_create","mailbox_delete","mailbox_quota","subdomain_read","subdomain_create","subdomain_delete"))
+RESOURCE_CAPABILITIES=frozenset(("mailbox_read","mailbox_create","mailbox_delete","mailbox_quota","mailbox_password","subdomain_read","subdomain_create","subdomain_delete"))
 
 
 def validate_resource_capabilities(value):
     if (not isinstance(value,list) or len(value)>len(RESOURCE_CAPABILITIES)
             or any(not isinstance(x,str) or x not in RESOURCE_CAPABILITIES for x in value)
-            or len(set(value))!=len(value) or (any(x in value for x in ("mailbox_create","mailbox_delete","mailbox_quota")) and "mailbox_read" not in value)
+            or len(set(value))!=len(value) or (any(x in value for x in ("mailbox_create","mailbox_delete","mailbox_quota","mailbox_password")) and "mailbox_read" not in value)
             or (any(x in value for x in ("subdomain_create","subdomain_delete")) and "subdomain_read" not in value)):
         raise VaultUnavailable()
     return sorted(value)
