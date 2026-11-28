@@ -551,6 +551,7 @@ CLOUD_PROVISIONING_WORKER_ENABLED = env.bool("CLOUD_PROVISIONING_WORKER_ENABLED"
 CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED = env.bool("CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED", default=False)
 # Queue only (not delivery) after independently verified hosting activation.
 CLOUD_HOSTING_READY_QUEUE_ENABLED = env.bool("CLOUD_HOSTING_READY_QUEUE_ENABLED", default=False)
+CLOUD_TRANSACTIONAL_MAIL_ENABLED = env.bool("CLOUD_TRANSACTIONAL_MAIL_ENABLED", default=False)
 # Hosted payment initiation and signature-authenticated inbox are separate
 # opt-ins. Never enable for real money without isolated browser acceptance.
 CLOUD_PRIVILEGED_PASSKEY_ENROLLMENT_ENABLED = env.bool("CLOUD_PRIVILEGED_PASSKEY_ENROLLMENT_ENABLED", default=False)
