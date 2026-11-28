@@ -113,6 +113,7 @@ def list_resources(subject,service_id,resource):
     fresh=_current(a,operation)
     return {"resource":resource,"domain":a.service.domain_name,"items":rows,
             "pending_operation":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain",
+            "pending_password_verification":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain" and fresh.service.metadata.get(FENCE,{}).get("operation")=="mailbox_password",
             "verified_at":timezone.now().isoformat()}
 
 
@@ -346,7 +347,7 @@ def reconcile_resource(subject,service_id,*,password=None):
         return {"state":"pending_verification","operation_id":pending["id"]}
     verify_existing_account(a.service,a.provider)
     a=_current(a,operation)
-    if not _observed(a.protocol,pending):
+    if not _observed(a.protocol,pending,password):
         return {"state":"pending_verification","operation_id":pending["id"]}
     _finish(a,pending["id"],"confirmed",operation)
     return {"state":"confirmed","operation_id":pending["id"],"address":pending["address"]}
