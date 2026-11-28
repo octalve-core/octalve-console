@@ -145,8 +145,9 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
         service.provider_identifier = account
         service.activated_at = result.checked_at
         service.next_due_date = result.checked_at + relativedelta(months=item.months)
+        service.metadata={**service.metadata,"renewal_calendar_anchor":result.checked_at.day}
         service.save(update_fields=[
-            "status", "provider_identifier", "activated_at", "next_due_date", "updated_at"])
+            "status", "provider_identifier", "activated_at", "next_due_date", "metadata", "updated_at"])
         line = invoice.items.select_for_update().filter(metadata__order_item_id=item.pk).first()
         if line:
             line.metadata["confirmed_period"] = {

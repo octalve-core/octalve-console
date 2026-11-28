@@ -39,7 +39,7 @@ class SettingViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_active and user.is_staff and user.is_superuser and user.role == 'admin':
-            return Setting.objects.all()
+            return Setting.objects.exclude(key__startswith="commercial_worker_v1_")
         return Setting.objects.filter(is_public=True, is_deprecated=False, is_encrypted=False).exclude(data_type='password')
     
     @action(detail=True, methods=["post"], url_path="validate-change")

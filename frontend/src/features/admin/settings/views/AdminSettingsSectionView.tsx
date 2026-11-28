@@ -11,6 +11,7 @@ import {ProviderVaultEnrollment} from "../../integrations/ProviderVaultEnrollmen
 import {ConsoleTaxEditor} from "../components/ConsoleTaxEditor";
 import {DomainRateCardSettings} from "../components/DomainRateCardSettings";
 import {DomainSandboxPurchase} from "@/features/client/components/DomainSandboxPurchase";
+import {HostingRenewalPolicy} from "../components/HostingRenewalPolicy";
 import {OperationalSettingsStatus} from "../components/OperationalSettingsStatus";
 import {getAdminSettingsItem,type AdminSettingsKey} from "../data/admin-settings-config";
 export function AdminSettingsSectionView({section}:{section:AdminSettingsKey}){
@@ -26,6 +27,7 @@ export function AdminSettingsSectionView({section}:{section:AdminSettingsKey}){
       section==="tax"?<ConsoleTaxEditor/>:
       section==="domain-pricing"?<DomainRateCardSettings/>:
       section==="notifications"?null:<OperationalSettingsStatus section={section}/>}
+    {(section==="cron-jobs"||section==="invoices")?<HostingRenewalPolicy/>:null}
     {(section==="mail"||section==="notifications")?<MailTemplateWorkbench/>:null}
     {(section==="mail"||section==="security")?<AccountEmailVerificationPanel/>:null}
     {section==="security"?<PrivilegedPasskeyPanel/>:null}

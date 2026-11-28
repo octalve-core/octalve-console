@@ -59,8 +59,11 @@ class PaymentGateway(models.Model):
             # A verified draft is NOT permission to charge money. The only
             # allowed vault-backed gateway here is TEST, gated again by
             # payments.sandbox and independent checkout feature switches.
-            from .vault_binding import resolve_paystack_test_key
-            return resolve_paystack_test_key(self)
+            if self.test_mode:
+                from .vault_binding import resolve_paystack_test_key
+                return resolve_paystack_test_key(self)
+            from .live_binding import resolve_live_key
+            return resolve_live_key(self)
         if not self.encrypted_secret_key:
             return None
         try:

@@ -124,7 +124,7 @@ def admin_paystack_test_binding(request):
         gateway=PaymentGateway.objects.select_for_update().filter(code="paystack").first()
         if gateway:
             prior = gateway.config if isinstance(gateway.config,dict) else {}
-            if gateway.encrypted_secret_key or (prior.get(SOURCE_KEY) not in (None,str(row.pk))):
+            if not gateway.test_mode or gateway.encrypted_secret_key or (prior.get(SOURCE_KEY) not in (None,str(row.pk))):
                 raise PermissionDenied("A separately controlled gateway configuration exists.")
         else:
             gateway = PaymentGateway(code="paystack",name="Paystack (test only)")

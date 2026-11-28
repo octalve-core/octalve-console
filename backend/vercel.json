@@ -19,6 +19,18 @@
     {
       "path": "/api/provisioning/hosting-usage/cron/",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/settings/console-mail/delivery/cron/",
+      "schedule": "45 3 * * *"
+    },
+    {
+      "path": "/api/payments/live-reconciliation/cron/",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/services/renewals/cron/",
+      "schedule": "15 4 * * *"
     }
   ]
 }

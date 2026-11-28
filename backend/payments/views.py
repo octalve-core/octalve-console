@@ -244,7 +244,11 @@ class WebhookView(APIView):
             from .hosted_checkout import CheckoutRefused
             from .readback import PaymentReadbackRejected
             try:
-                result = attempt_event(event.pk)
+                if event.gateway.code=="paystack" and not event.gateway.test_mode:
+                    from .live_reconciliation import attempt
+                    result=attempt(event.pk)
+                else:
+                    result = attempt_event(event.pk)
                 if result == "held":
                     return Response({"accepted": True, "processing": "pending"}, status=503)
             except (ValidationError, DatabaseError, CheckoutRefused, PaymentReadbackRejected):

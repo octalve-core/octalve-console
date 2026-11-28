@@ -153,6 +153,13 @@ def verify_connection(request,connection_id):
             proof=verify_sandbox(row.public_settings["reseller_id"],secrets["api_key"],row.environment)
         elif row.adapter_key=="brevo":
             proof=brevo_readback(secrets["api_key"])
+        elif row.adapter_key=="resend":
+            from settings_registry.resend_transport import verify_domain,SenderRefused
+            try:
+                verify_domain(row.public_settings["sending_domain"],secrets["api_key"])
+            except SenderRefused:
+                raise ProviderReadbackFailed() from None
+            proof={"authenticated":True,"domain_verified":True,"delivery_enabled":False,"read_only":True}
         elif row.adapter_key=="paystack":
             proof=paystack_readback(secrets["secret_key"],row.environment)
         else:

@@ -15,6 +15,9 @@ class HostingStagingCronView(APIView):
         header=request.headers.get("Authorization","")
         if len(key)<32 or not secrets.compare_digest(header.encode(),("Bearer "+key).encode()):
             return Response({"detail":"Unauthorized."},status=401)
+        from services.commercial_scheduler import enabled as commercial_enabled
+        if commercial_enabled():
+            return Response({"enabled":False,"state":"commercial_scheduler"},headers={"Cache-Control":"no-store"})
         if not enabled():
             return Response({"detail":"Hosting staging disabled."},status=503)
         from .automatic_dispatch import run_due_dispatch

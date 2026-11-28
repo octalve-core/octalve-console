@@ -72,6 +72,9 @@ def queue_templated_message(*,event_key,template_key,recipient,context,marketing
     })
     if not created and (outbox.template_id!=template.pk or outbox.recipient!=recipient):
         raise ValueError("Conflicting idempotency key.")
+    if created and audience=="transactional":
+        from services.commercial_scheduler import wake
+        wake("mail")
     return outbox,created
 
 

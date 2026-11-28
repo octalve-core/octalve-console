@@ -62,7 +62,9 @@ def _bound_entitlement(subject_id, service_id, *, permit_stale=False):
     user = service.client
     if not user.is_active or user.role != "client" or getattr(user, "is_locked", False):
         return None
-    if service.service_type != "hosting" or service.status != "active":
+    if (service.metadata.get("hosting_cancellation_v1",{}).get("state") in ("suspend_uncertain","terminate_uncertain")
+            or service.metadata.get("hosting_lifecycle_v1",{}).get("state")=="dispatched_uncertain"
+            or service.service_type != "hosting" or service.status != "active"):
         return None
     if not service.provider_id or not service.provider_identifier or not service.activated_at:
         return None

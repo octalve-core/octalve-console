@@ -30,7 +30,7 @@ def due_items(limit=10, *, order_id=None):
     existing = ProvisioningTask.objects.filter(order_item_id=OuterRef("pk"),
         action="provision",metadata__authority="verified_paid_order")
     # No repeated scanning of staged lines or unlimited traversal of held lines.
-    rows=OrderItem.objects.filter(item_type="hosting",order__status="paid")
+    rows=OrderItem.objects.filter(item_type="hosting",order__status="paid").exclude(order__source="renewal")
     if order_id is not None:
         rows=rows.filter(order_id=order_id)
     return list(rows

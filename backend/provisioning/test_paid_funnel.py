@@ -612,6 +612,15 @@ class PaidHostingFunnelTests(TestCase):
         CLOUD_HOSTING_VENDOR_CREATE_ENABLED=True,CLOUD_HOSTING_CONFIGURED_EGRESS_ENABLED=True,
         CLOUD_SUPPLIER_PINNED_READBACK_ENABLED=True)
     def test_vault_dispatch_never_repeats_an_uncertain_create(self):
+        for adapter in ('cpanel-whm','directadmin'):
+            with self.subTest(adapter=adapter):
+                with __import__('django.db',fromlist=['transaction']).transaction.atomic():
+                    self._exercise_vault_dispatch(adapter)
+                    __import__('django.db',fromlist=['transaction']).transaction.set_rollback(True)
+                self.provider.refresh_from_db()
+
+    def _exercise_vault_dispatch(self,adapter):
+        self.getter.reset_mock()
         from django.db import connection
         from cryptography.fernet import Fernet
         from providers.connection_models import IntegrationConnection,IntegrationCredentialVersion
@@ -630,17 +639,21 @@ class PaidHostingFunnelTests(TestCase):
             CLOUD_PROVIDER_VAULT_KEY_ID="host-test",CLOUD_PROVIDER_AUDIT_KEY=Fernet.generate_key().decode(),
             CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED=True,CLOUD_PROVIDER_CUSTODY_VERIFIED=True),patch(
                 "providers.hosting_runtime.connection_database_qualified",return_value=True):
-            row=IntegrationConnection.objects.create(adapter_key="cpanel-whm",label="Synthetic hosting",
+            if adapter=="directadmin":
+                self.provider.adapter_type="DirectAdminAdapter"
+                self.provider.base_url="https://da.synthetic-provider.test:2222"
+                self.provider.save(update_fields=["adapter_type","base_url"])
+            row=IntegrationConnection.objects.create(adapter_key=adapter,label="Synthetic hosting",
                 environment="live",public_settings={"server_url":self.provider.base_url,
                     "username":self.provider.username,"server_ip":"8.8.8.8"})
             IntegrationCredentialVersion.objects.create(connection=row,version=1,key_id="host-test",
-                ciphertext=seal(row.adapter_key,row.pk,1,{"api_token":"fixture-token-only-012345"},
+                ciphertext=seal(row.adapter_key,row.pk,1,{("login_key" if adapter=="directadmin" else "api_token"):"fixture-token-only-012345"},
                     public_settings=row.public_settings,environment="live"))
             append_event(row,actor,"draft_created",1)
             self.provider.config={"hosting_account_owner":self.provider.username,
                 "hosting_vault_connection_id":str(row.pk),"hosting_vault_version":1,
                 "fulfillment_model":"owned_server"}
-            self.provider.config[POLICY]=sign_policy(self.provider,row,None)
+            self.provider.config[POLICY]=sign_policy(self.provider,row,"8.8.8.8" if adapter=="directadmin" else None)
             self.provider.save(update_fields=["config"])
             ProviderPackage.objects.create(provider=self.provider,provider_package_id="verified_starter",
                 name="Starter",specs={"quota":"1024"},is_active=True,

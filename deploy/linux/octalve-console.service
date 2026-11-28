@@ -1,0 +1,17 @@
+[Unit]
+Description=Octalve Next.js Console
+After=network-online.target
+
+[Service]
+User=octalve
+Group=octalve
+WorkingDirectory=/srv/octalve/frontend
+EnvironmentFile=/etc/octalve/frontend.env
+ExecStart=/usr/bin/node /srv/octalve/frontend/node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

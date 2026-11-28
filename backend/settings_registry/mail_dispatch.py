@@ -71,12 +71,20 @@ def deliver_queued_once(outbox_id, *, senders):
         except Exception:
             # Failure may have happened AFTER provider accepted. Never guess.
             result=DeliveryResult("unknown",error_code="transport_uncertain")
-        if not isinstance(result,DeliveryResult) or result.outcome not in ("accepted","refused","unknown"):
+        if not isinstance(result,DeliveryResult) or result.outcome not in ("accepted","refused","unknown","suppressed"):
             result=DeliveryResult("unknown",error_code="invalid_provider_response")
         with transaction.atomic():
             record=ConsoleMailOutbox.objects.select_for_update().get(pk=msg.pk)
             # A competing administrative resolution or revocation wins.
             if record.status!="processing":
+                return False
+            if result.outcome=="suppressed":
+                record.status="suppressed"
+                record.provider=sender.name
+                record.last_error_code="recipient_suppressed"
+                record.next_attempt_at=None
+                record.save(update_fields=["status","provider","last_error_code","next_attempt_at"])
+                ConsoleMailAttempt.objects.create(outbox=record,provider=sender.name,outcome="refused",receipt="")
                 return False
             if result.outcome=="unknown":
                 _mark_ambiguous(record,sender.name,result.error_code or "unconfirmed_result")

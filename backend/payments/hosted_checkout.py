@@ -245,15 +245,23 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None, allow_test
                 or invoice.amount_due != invoice.total or invoice.total <= 0
                 or invoice.total != invoice.order.total or invoice.currency != "NGN"):
             raise CheckoutRefused("Invoice is not eligible for hosted payment.")
-        gateway = PaymentGateway.objects.filter(code=gateway_code).first()
+        gateway = PaymentGateway.objects.select_for_update().filter(code=gateway_code).first()
         if not gateway or not gateway_can_read(gateway, invoice):
             raise CheckoutRefused("Approved payment provider unavailable.")
+        live_binding = gateway.code=="paystack" and not gateway.test_mode and "provider_vault_connection_id" in gateway.config
+        if live_binding:
+            from .live_reconciliation import enabled as live_enabled
+            from .live_binding import resolve_live_key
+            if not live_enabled() or not resolve_live_key(gateway):
+                raise CheckoutRefused("Live reconciliation and credential authority are unavailable.")
         _return_url()
         prior, archived = payment_history(invoice, lock=True)
         if prior:
             if (prior.gateway_id != gateway.pk or prior.client_id != invoice.client_id
                     or prior.amount != invoice.total or prior.currency != invoice.currency):
                 raise CheckoutRefused("Existing payment attempt requires reconciliation.")
+            if live_binding and (prior.metadata.get("payment_mode")!="live" or prior.metadata.get("gateway_binding")!=gateway.config):
+                raise CheckoutRefused("Existing payment attempt belongs to another authority.")
             state = prior.metadata.get("checkout_state")
             if prior.status == "pending" and not prior.is_expired() and state == "confirmed" and prior.authorization_url:
                 _checkout_url(prior.authorization_url, gateway.code)
@@ -273,7 +281,7 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None, allow_test
             reference="OC" + secrets.token_hex(15).upper(),
             status="processing", amount=invoice.total, currency=invoice.currency,
             expires_at=timezone.now() + timezone.timedelta(minutes=30),
-            metadata={"checkout_state": "reserved"},
+            metadata={"checkout_state": "reserved", **({"payment_mode":"live","gateway_binding":gateway.config} if live_binding else {})},
         )
     # POST is external and may have succeeded even when a timeout occurs.
     # NEVER retry or initiate another merchant ref automatically.
@@ -288,7 +296,7 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None, allow_test
                 or inv.total != locked.amount or inv.client_id != locked.client_id):
             raise CheckoutRefused("Invoice changed during gateway initialization.")
         locked.authorization_url = link
-        locked.metadata = {"checkout_state": "confirmed"}
+        locked.metadata = {**locked.metadata,"checkout_state": "confirmed"}
         locked.status = "pending"
         locked.save(update_fields=["authorization_url", "metadata", "status"])
         return locked, True

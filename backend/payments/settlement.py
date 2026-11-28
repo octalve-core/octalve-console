@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from billing.models import Invoice
 from orders.models import Order
-from payments.models import PaymentIntent, Transaction
+from payments.models import PaymentIntent, Transaction, PaymentGateway, WebhookEvent
 from payments.readback import PaymentReadbackRejected, verify_gateway_intent
 
 
@@ -21,7 +21,26 @@ class SettlementRefused(ValueError):
     pass
 
 
-def settle_verified_intent(intent_id, *, getter=None):
+def _signed_event(event_id,intent,remote_id):
+    if event_id is None:
+        return None
+    event=WebhookEvent.objects.select_for_update().filter(pk=event_id,is_verified=True,event_type="charge.success",gateway_id=intent.gateway_id).first()
+    if (not event or not isinstance(event.payload,dict) or event.payload.get("mode")!="live"
+            or event.payload.get("intent_id")!=intent.pk or event.payload.get("reference")!=intent.reference
+            or event.payload.get("remote_id")!=remote_id or event.payload.get("binding")!=intent.gateway.config
+            or intent.metadata.get("payment_mode")!="live" or intent.metadata.get("gateway_binding")!=intent.gateway.config
+            or intent.gateway.test_mode or intent.gateway.code!="paystack"):
+        raise SettlementRefused("Signed event does not match independent verification.")
+    return event
+
+def _mark_event(event):
+    if event and not event.is_processed:
+        event.is_processed=True
+        event.error_message=""
+        event.processed_at=timezone.now()
+        event.save(update_fields=["is_processed","error_message","processed_at"])
+
+def settle_verified_intent(intent_id, *, getter=None, signed_event_id=None):
     if not getattr(settings, "CLOUD_SETTLEMENT_COMMIT_ENABLED", False):
         raise SettlementRefused("Gateway settlement commit is disabled.")
     try:
@@ -51,6 +70,7 @@ def settle_verified_intent(intent_id, *, getter=None):
                     and proof.get("provider_api_verified") is True
                     and proof.get("verified_remote_id") == prior.provider_reference
                     and prior.provider_reference):
+                _mark_event(_signed_event(signed_event_id,seen,prior.provider_reference))
                 return prior, False
             raise SettlementRefused("Completed payment has inconsistent financial authority.")
 
@@ -61,6 +81,15 @@ def settle_verified_intent(intent_id, *, getter=None):
     with db_transaction.atomic():
         locked = PaymentIntent.objects.select_for_update().select_related("gateway").get(pk=intent.pk)
         invoice = Invoice.objects.select_for_update().get(pk=locked.invoice_id)
+        current_gateway=PaymentGateway.objects.select_for_update().get(pk=locked.gateway_id)
+        if current_gateway.config!=intent.gateway.config or current_gateway.status!=intent.gateway.status or current_gateway.test_mode!=intent.gateway.test_mode:
+            raise SettlementRefused("Gateway authority changed.")
+        locked.gateway=current_gateway
+        if signed_event_id is not None:
+            from .live_binding import resolve_live_key
+            if not resolve_live_key(current_gateway):
+                raise SettlementRefused("Live gateway authority changed.")
+        event=_signed_event(signed_event_id,locked,verified.remote_id)
         if not invoice.order_id:
             raise SettlementRefused("Invoice has no linked order.")
         order = Order.objects.select_for_update().get(pk=invoice.order_id)
@@ -77,6 +106,7 @@ def settle_verified_intent(intent_id, *, getter=None):
                     existing.provider_reference == verified.remote_id and
                     existing.currency == verified.currency and
                     existing.amount == verified.amount):
+                _mark_event(event)
                 return existing, False
             raise SettlementRefused("Conflicting payment reference; manual review required.")
 
@@ -109,10 +139,10 @@ def settle_verified_intent(intent_id, *, getter=None):
             transaction_type="payment", status="successful",
             currency=verified.currency, amount=verified.amount, fee=Decimal("0"),
             net_amount=verified.amount,
-            webhook_verified=False,
+            webhook_verified=event is not None,
             metadata={"verification_source": "provider_api_verified",
                       "provider_api_verified": True,
-                      "verified_remote_id": verified.remote_id},
+                      "verified_remote_id": verified.remote_id, **({"signed_event_id":event.pk,"payment_mode":"live"} if event else {})},
             paid_at=now,
         )
         invoice.status = "paid"
@@ -125,11 +155,15 @@ def settle_verified_intent(intent_id, *, getter=None):
         order.save(update_fields=["status", "paid_at", "updated_at"])
         locked.status = "completed"
         locked.save(update_fields=["status"])
+        _mark_event(event)
         from settings_registry.mail_authority import queue_payment_confirmed
         queue_payment_confirmed(invoice, saved)
         # The committed financial ledger, not the browser or supplier, is the
         # durable source of hosting work. Failure leaves the payment intact.
         from provisioning.automatic_staging import enabled, stage_order_after_payment
-        if enabled():
+        if order.source=="renewal":
+            from services.renewals import apply
+            db_transaction.on_commit(lambda invoice_id=invoice.pk: apply(invoice_id),robust=True)
+        elif enabled():
             db_transaction.on_commit(lambda order_id=order.pk: stage_order_after_payment(order_id))
         return saved, True

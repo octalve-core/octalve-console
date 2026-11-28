@@ -56,6 +56,8 @@ def issue_challenge(task_id,owner_id):
                     hashlib.sha256).hexdigest()
     task.metadata={**task.metadata,KEY:{"payload":payload,"key_id":active,"mac":digest}}
     task.save(update_fields=["metadata","updated_at"])
+    from services.commercial_scheduler import wake
+    wake("provisioning")
     return payload
 
 

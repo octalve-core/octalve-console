@@ -107,3 +107,20 @@ class HostingVendorProtocolTests(SimpleTestCase):
             with self.assertRaises(SupplierEgressDenied):
                 client.absent()
             pool.assert_not_called()
+
+
+class LifecycleContractTests(SimpleTestCase):
+    def test_explicit_directadmin_operations_do_not_toggle(self):
+        from unittest.mock import patch
+        from django.test import override_settings
+        from provisioning.hosting_vendor_protocol import PinnedHostingProtocol
+        from provisioning.account_creation_plan import AccountCreationPlan
+        plan=AccountCreationPlan(1,1,1,"DirectAdminAdapter","oc000001","example.test","starter","reseller","user@example.test")
+        protocol=PinnedHostingProtocol(plan,"https://supplier.example.test:2222","reseller","fixture-token-only")
+        marker="octalve-nonpayment-"+"a"*32
+        with override_settings(CLOUD_HOSTING_LIFECYCLE_ENABLED=True),patch.object(protocol,"_request") as request:
+            protocol.lifecycle_write("suspend",marker,dispatch_authorized=True)
+            self.assertEqual(request.call_args.args[2]["dosuspend"],"yes")
+            self.assertNotIn("suspend",request.call_args.args[2])
+            protocol.lifecycle_write("restore",marker,dispatch_authorized=True)
+            self.assertEqual(request.call_args.args[2]["dounsuspend"],"yes")

@@ -50,12 +50,12 @@ function dateLabel(value?:string|null){
   return Number.isNaN(date.valueOf())?"Unavailable":new Intl.DateTimeFormat("en-NG",{day:"numeric",month:"short",year:"numeric"}).format(date);
 }
 function money(amount?:string,currency?:string){
-  if(!amount||!currency||!/^\\d+(?:\\.\\d{1,2})?$/.test(amount)||!/^[A-Z]{3}$/.test(currency))return "Unavailable";
+  if(!amount||!currency||!/^\d+(?:\.\d{1,2})?$/.test(amount)||!/^[A-Z]{3}$/.test(currency))return "Unavailable";
   try{return new Intl.NumberFormat("en-NG",{style:"currency",currency}).format(Number(amount));}catch{return "Unavailable";}
 }
 const cycles:Record<string,string>={"1mo":"Monthly","3mo":"Quarterly","6mo":"Semi-annually","12mo":"Annually","24mo":"Every two years","once":"One time"};
 function website(domain:string|null){
-  if(!domain||!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(domain))return null;
+  if(!domain||!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(domain))return null;
   return "https://"+domain;
 }
 

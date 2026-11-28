@@ -128,11 +128,20 @@ class OutboxDashboardView(APIView):
     total={key:ConsoleMailOutbox.objects.filter(status=key).count() for key in
            ("queued","processing","sent","needs_review","failed","suppressed")}
     rows=ConsoleMailOutbox.objects.order_by("-created_at")[:50]
+    from .mail_runtime import enabled,configured_sender,_mail_settings
+    from .brevo_transport import SenderRefused
+    from providers.connection_vault import VaultUnavailable
+    from django.db import DatabaseError
+    try:
+        ready=bool(enabled() and configured_sender(_mail_settings()["primary_sender"]))
+    except (SenderRefused,VaultUnavailable,DatabaseError,KeyError):
+        ready=False
     return Response({"counts":total,"results":[{
       "id":i.pk,"recipient":i.recipient,"subject":i.subject,"audience":i.audience,
       "status":i.status,"attempts":i.attempts,"provider":i.provider,
       "created_at":i.created_at,"sent_at":i.sent_at,
-    } for i in rows],"sender_ready":False,"message":"Delivery requires verified sender certification."},
+      "delivery_state":("delivered" if i.last_error_code=="delivery_delivered" else "suppressed" if i.status=="suppressed" else "accepted_unconfirmed" if i.status=="sent" else i.status),
+    } for i in rows],"sender_ready":ready,"message":"Accepted messages are not confirmed delivery. Suppressed recipients are never retried."},
     headers={"Cache-Control":"private, no-store"})
 
 
