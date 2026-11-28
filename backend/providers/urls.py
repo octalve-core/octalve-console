@@ -21,6 +21,7 @@ urlpatterns = [
     path("connections/<uuid:connection_id>/mail-policy/",mail_policy_views.configure_sender,name="mail-sender-policy"),
     path("connections/<uuid:connection_id>/hosting-policy/",hosting_policy_views.configure_execution,name="hosting-policy"),
     path("connections/<uuid:connection_id>/verify/",connection_verification.verify_connection,name="provider-connection-verify"),
+    path("connections/<uuid:connection_id>/registrar-registration-status/",connection_registrar_views.live_registration_status,name="provider-live-registration-status"),
     path("connections/<uuid:connection_id>/registrar-quote/",connection_registrar_views.live_registrar_quote,name="provider-live-registrar-quote"),
     path("connections/<uuid:connection_id>/rotate/", connection_views.rotate_connection, name="provider-connection-rotate"),
     path("connections/<uuid:connection_id>/revoke/", connection_views.revoke_connection, name="provider-connection-revoke"),

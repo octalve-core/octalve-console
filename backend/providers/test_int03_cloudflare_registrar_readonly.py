@@ -236,3 +236,5 @@ class LiveRegistrationReadbackTests(SimpleTestCase):
         transport.assert_called_once_with("GET","/accounts/"+"a"*32+"/registrar/registrations/example.com")
         with self.assertRaises(CloudflareINT01Denied):
             connector.live_registration_readback("different.com")
+
+    # No external call is made by these fixture tests.

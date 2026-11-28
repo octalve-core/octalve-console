@@ -99,3 +99,21 @@ class LiveReconciliationTests(TestCase):
         self.assertEqual(event.payload["reference"],self.intent.reference)
         self.assertEqual(event.payload["amount_minor"],5000)
         self.assertNotIn("customer",event.payload)
+
+    def test_refund_reference_reconciliation_uses_unique_provider_case(self):
+        from .financial_exceptions import record_signed,consume as consume_exception
+        proof=ConfirmedGatewayPayment("paystack",self.intent.reference,"NGN",Decimal("100"),"12345")
+        with patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.live_binding.resolve_live_key",return_value="fixture"),patch("payments.settlement.verify_gateway_intent",return_value=proof):
+            self.assertEqual(consume(self.event.pk),"processed")
+        body={"domain":"live","transaction_reference":self.intent.reference,"amount":"5000","currency":"NGN"}
+        data={"id":99,"transaction":12345,"domain":"live","status":"processed","amount":5000,"currency":"NGN"}
+        with patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"):
+            event,_=record_signed(self.intent.gateway,"refund.processed",body)
+            with patch("payments.financial_exceptions.fetch_refund_candidates",return_value=[data,{**data,"id":100}]),patch("payments.financial_exceptions.fetch_case") as read:
+                self.assertEqual(consume_exception(event.pk),"held")
+                read.assert_not_called()
+            with patch("payments.financial_exceptions.fetch_refund_candidates",return_value=[data]),patch("payments.financial_exceptions.fetch_case",return_value=data) as read:
+                self.assertEqual(consume_exception(event.pk),"processed")
+                read.assert_called_once_with("refund","99","fixture")
+        event.refresh_from_db()
+        self.assertEqual(event.payload["verified_case"]["case_id"],"99")
