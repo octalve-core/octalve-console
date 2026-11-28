@@ -33,7 +33,7 @@ TOKEN = re.compile(r"^[A-Za-z0-9_+./=-]{20,512}$")
 
 def _policy(provider):
     row, key, policy = load_hosting_connection(provider)
-    if policy.get("native_panel_access") is not True:
+    if not isinstance(policy, dict) or policy.get("native_panel_access") is not True:
         raise NativePanelRefused("Native panel access is not authorized.")
     return row, key
 
@@ -73,7 +73,7 @@ def _safe_url(value, origin, *, directadmin, account, session=None, security_tok
         if (target.scheme != "https" or target.hostname != source.hostname
                 or target.username is not None or target.password is not None
                 or target.fragment or target.netloc.lower() != target.netloc
-                or target.port != ((source.port or 443) if directadmin else 2083)):
+                or (target.port or 443) != ((source.port or 443) if directadmin else 2083)):
             raise ValueError()
         fields = parse_qs(target.query, keep_blank_values=True, max_num_fields=2)
         if directadmin:
