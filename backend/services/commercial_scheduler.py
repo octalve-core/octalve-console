@@ -96,7 +96,10 @@ def status():
     result=[]
     for lane in LANES:
         state=rows.get(PREFIX+lane,{})
-        completed=parse_datetime(state.get("completed_at","")) if state.get("completed_at") else None
+        try:
+            completed=parse_datetime(state.get("completed_at","")) if state.get("completed_at") else None
+        except (TypeError,ValueError):
+            completed=None
         age=(now-completed).total_seconds() if completed and not timezone.is_naive(completed) else None
         maximum=1800 if lane in ("renewals","lifecycle","cancellation") else 300
         result.append({"lane":lane,"healthy":bool(enabled() and age is not None and 0<=age<=maximum and not state.get("failed")),

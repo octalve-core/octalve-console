@@ -265,8 +265,8 @@ def reconcile_delivery(senders,limit=2):
     count=0
     for sender in senders:
         rows=ConsoleMailOutbox.objects.filter(status="sent",provider=sender.name,
-            sent_at__gte=timezone.now()-timedelta(days=30)).exclude(provider_receipt="").exclude(
-            last_error_code__in=("delivery_delivered","delivery_failed")).order_by("sent_at","pk")[:limit]
+            sent_at__gte=timezone.now()-timedelta(days=30)).exclude(provider_receipt="").filter(
+            Q(next_attempt_at__isnull=True)|Q(next_attempt_at__lte=timezone.now())).order_by("next_attempt_at","sent_at","pk")[:limit]
         for message in rows:
             try:
                 row=IntegrationConnection.objects.get(pk=sender.row_id)
@@ -274,20 +274,24 @@ def reconcile_delivery(senders,limit=2):
                     continue
                 transport=brevo_transport if row.adapter_key=="brevo" else resend_transport
                 state=transport.delivery_state(message.recipient,message.provider_receipt,_key(row))
-                if state=="pending":
-                    continue
                 with transaction.atomic():
                     current=ConsoleMailOutbox.objects.select_for_update().get(pk=message.pk)
                     if current.status!="sent" or current.provider!=message.provider or current.provider_receipt!=message.provider_receipt or current.recipient!=message.recipient:
                         continue
-                    current.last_error_code="delivery_"+state
+                    if state!="pending":
+                        current.last_error_code="delivery_"+state
+                    # Do not starve later receipts when an old one is still pending.
+                    current.next_attempt_at=timezone.now()+timedelta(hours=12 if state=="delivered" else 1)
                     if state=="suppressed":
                         current.status="suppressed"
                     elif state=="failed":
                         current.status="needs_review"
-                    current.save(update_fields=["status","last_error_code"])
+                    if state in ("suppressed","failed"):
+                        current.next_attempt_at=None
+                    current.save(update_fields=["status","last_error_code","next_attempt_at"])
                     count+=1
             except (SenderRefused,VaultUnavailable,DatabaseError,IntegrationConnection.DoesNotExist,ConsoleMailOutbox.DoesNotExist,KeyError,ValueError,TypeError):
+                ConsoleMailOutbox.objects.filter(pk=message.pk,status="sent",provider_receipt=message.provider_receipt).update(next_attempt_at=timezone.now()+timedelta(hours=1))
                 continue
     return count
 
@@ -337,6 +341,7 @@ def run_due_mail(limit=2):
         try:
             blocked=_known_suppressed(message.recipient) or any(_suppression_readback(s,message.recipient) for s in senders)
         except (SenderRefused,VaultUnavailable,DatabaseError,IntegrationConnection.DoesNotExist,KeyError,ValueError,TypeError):
+            ConsoleMailOutbox.objects.filter(pk=pk,status="queued").update(next_attempt_at=timezone.now()+timedelta(minutes=15))
             result["held"]+=1
             continue
         if blocked or not current_message(message):

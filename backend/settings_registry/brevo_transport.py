@@ -132,7 +132,7 @@ def delivery_state(recipient,receipt,key,*,request=None):
         raise SenderRefused("Delivery evidence unavailable.")
     states=set()
     for row in rows:
-        if not isinstance(row,dict) or row.get("messageId")!=receipt or row.get("email","").casefold()!=recipient.casefold():
+        if not isinstance(row,dict) or row.get("messageId")!=receipt or not isinstance(row.get("email"),str) or row["email"].casefold()!=recipient.casefold():
             raise SenderRefused("Delivery evidence identity mismatch.")
         states.add(row.get("event"))
     if states & {"hardBounce","hardBounces","hard_bounce","spam","unsubscribed","blocked","invalid"}:
