@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 
 from .models import Service, ServiceUsage
 from opanel_bridge.policy import enabled, eligible, refresh_candidate
-from . import native_panel
+from . import native_panel, resource_management
 
 
 def opanel_overview(service):
@@ -31,15 +31,17 @@ def opanel_overview(service):
     }
     # No writable adapter, DNS, TLS or live HTTP evidence exists at this
     # boundary. Statuses stay unverified regardless of service.status.
+    resource_caps = resource_management.capabilities(service)
     capabilities = {
         "overview": True,
         "files": False,
-        "subdomains": False,
+        "subdomains": "subdomain_read" in resource_caps,
         "dns": False,
         "databases": False,
         "ssl": False,
         "backups": False,
-        "email": False,
+        "email": "mailbox_read" in resource_caps,
+        "mailbox_create": "mailbox_create" in resource_caps,
         "panel_sso": panel_allowed,
         "native_panel": native_panel.available(service),
         "panel_recheck": bool(not verified and enabled() and refresh_candidate(service.client_id, service.pk)),
