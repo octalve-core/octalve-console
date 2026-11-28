@@ -43,3 +43,28 @@ class RenewalCronView(APIView):
             return Response({"detail":"Unauthorized."},status=401)
         from .hosting_lifecycle import run_due
         return Response({**renewals.run_due(),"lifecycle":run_due()},headers={"Cache-Control":"no-store"})
+
+class LifecyclePolicyView(APIView):
+    permission_classes=[IsAuthenticated]
+    throttle_classes=[VaultMutationThrottle]
+    def get(self,request):
+        assert_admin(request.user)
+        from . import hosting_lifecycle as lifecycle
+        try:
+            return Response({"available":lifecycle.enabled(),"policy":lifecycle.policy()},headers=HEADERS)
+        except (renewals.RenewalRefused,VaultUnavailable):
+            return Response({"available":False,"policy":None},headers=HEADERS)
+    def post(self,request):
+        assert_admin(request.user)
+        from . import hosting_lifecycle as lifecycle
+        if not lifecycle.enabled():
+            return Response({"detail":"Lifecycle authority is disabled."},status=503,headers=HEADERS)
+        data=request.data
+        if not isinstance(data,dict) or set(data)!={"policy","confirm_password","totp_code"}:
+            return Response({"detail":"Invalid policy confirmation."},status=400,headers=HEADERS)
+        try:
+            value=lifecycle.validate_policy(data["policy"])
+            check_mutation(request.user,data["confirm_password"],data["totp_code"])
+            return Response({"available":True,"policy":lifecycle.save_policy(value,request.user)},headers=HEADERS)
+        except (renewals.RenewalRefused,VaultUnavailable):
+            return Response({"detail":"Lifecycle policy could not be approved."},status=409,headers=HEADERS)

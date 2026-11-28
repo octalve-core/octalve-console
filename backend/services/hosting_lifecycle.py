@@ -92,7 +92,7 @@ def _invoice(service,invoice,operation,p):
                 or invoice.total<=0 or invoice.order.status!="pending_payment"
                 or PaymentIntent.objects.filter(invoice=invoice,status__in=("pending","processing")).exists()
                 or Transaction.objects.filter(invoice=invoice).exclude(status__in=("failed","cancelled")).exists()
-                or WebhookEvent.objects.filter(is_verified=True,is_processed=False,payload__intent_id__in=PaymentIntent.objects.filter(invoice=invoice).values("pk")).exists()):
+                or WebhookEvent.objects.filter(is_verified=True,is_processed=False,payload__intent_id__in=list(PaymentIntent.objects.filter(invoice=invoice).values_list("pk",flat=True))).exists()):
             raise RenewalRefused("Unpaid period or payment uncertainty prevents suspension.")
     else:
         if (service.status!="suspended" or service.suspension_reason!="Octalve verified nonpayment"
