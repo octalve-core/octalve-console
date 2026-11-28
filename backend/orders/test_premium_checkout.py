@@ -160,3 +160,17 @@ class PremiumCheckoutTests(TestCase):
         self.assertEqual(self.client.post("/api/orders/orders/quote/",data,format="json").status_code,400)
         self.assertEqual(self.client.post("/api/orders/orders/",data,format="json").status_code,400)
         self.assertFalse(Invoice.objects.exists())
+
+
+    def test_final_checkout_requires_one_distinct_hostname_per_hosting_account(self):
+        for domain, quantity in (("",1),("example.com",2)):
+            payload=self.payload(domain=domain)
+            payload["items"][0]["quantity"]=quantity
+            denied=self.client.post("/api/orders/orders/",payload,format="json")
+            self.assertEqual(denied.status_code,400,denied.data)
+        payload=self.payload()
+        payload["items"].append(dict(payload["items"][0]))
+        denied=self.client.post("/api/orders/orders/",payload,format="json")
+        self.assertEqual(denied.status_code,400,denied.data)
+        self.assertFalse(Order.objects.exists())
+        self.assertFalse(Invoice.objects.exists())
