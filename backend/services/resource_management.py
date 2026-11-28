@@ -5,6 +5,9 @@ identity store. Only redacted operation identity is persisted. An uncertain
 supplier write blocks further mutations until an independent reconciliation.
 """
 import uuid
+import hashlib
+import hmac
+from providers.connection_audit import audit_keyring
 from datetime import timedelta
 from django.utils.dateparse import parse_datetime
 from dataclasses import dataclass
@@ -141,7 +144,7 @@ def _finish(expected,event,state,operation="mailbox_create"):
         pending=metadata.get(FENCE,{})
         if pending.get("id")!=event or pending.get("operation")!=operation or pending.get("state")!="dispatched_uncertain":
             raise ResourceRefused("Resource reservation changed.")
-        service.metadata={**metadata,FENCE:{**pending,"state":state,"updated_at":timezone.now().isoformat()}}
+        service.metadata={**metadata,FENCE:{**{k:v for k,v in pending.items() if k!="password_receipt"},"state":state,"updated_at":timezone.now().isoformat()}}
         service.save(update_fields=["metadata"])
         _record(service,operation,state,event,actor_id=service.client_id)
 
@@ -225,6 +228,26 @@ def reconcile_mailbox(subject,service_id):
 
 # Mutations with objectively observable resource state. Password changes
 # require a distinct authentication proof; existence alone is insufficient.
+@sensitive_variables("password","keys")
+def _password_receipt(event,password,*,key_id=None):
+    active,keys=audit_keyring()
+    key_id=key_id or active
+    try:
+        digest=hmac.new(keys[key_id],("native-mailbox-password-v1:"+event+":"+password).encode(),hashlib.sha256).hexdigest()
+    except (KeyError,TypeError,ValueError):
+        raise ResourceRefused("Password verification authority unavailable.") from None
+    return {"key_id":key_id,"mac":digest}
+
+
+@sensitive_variables("password")
+def _same_password(pending,password):
+    receipt=pending.get("password_receipt")
+    if not isinstance(receipt,dict) or not isinstance(password,str):
+        return False
+    current=_password_receipt(pending["id"],password,key_id=receipt.get("key_id"))
+    return hmac.compare_digest(current["mac"],receipt.get("mac",""))
+
+
 OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password"}
 
 
@@ -240,7 +263,7 @@ def _observed(protocol, pending, password=None):
         if operation=="mailbox_password":
             return (len(matching)==1 and matching[0]["quota_mb"]==pending["quota_mb"]
                     and matching[0]["unlimited"]==pending["unlimited"]
-                    and password is not None and protocol.verify_mailbox_password(target.split("@")[0],password))
+                    and _same_password(pending,password) and protocol.verify_mailbox_password(target.split("@")[0],password))
         return len(matching)==1 and matching[0]["quota_mb"]==pending["quota_mb"] and not matching[0]["unlimited"]
     rows=protocol.subdomains()
     return (target in rows) if operation=="subdomain_create" else (target not in rows)
@@ -297,6 +320,7 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
     elif operation=="mailbox_password":
         pending["quota_mb"]=matches[0]["quota_mb"]
         pending["unlimited"]=matches[0]["unlimited"]
+        pending["password_receipt"]=_password_receipt(event,password)
         if not pending["unlimited"] and (type(pending["quota_mb"]) is not int or not 1<=pending["quota_mb"]<=1000000):
             raise ResourceRefused("Mailbox quota cannot be safely preserved.")
     with transaction.atomic():
