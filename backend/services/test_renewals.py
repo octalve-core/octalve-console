@@ -67,6 +67,7 @@ from catalog.models import ProductCategory,Product,Plan,PlanBillingCycle,Publish
 from orders.models import Order,OrderItem
 from payments.models import PaymentGateway,Transaction
 from providers.models import Provider
+from providers.connection_models import IntegrationConnection
 from opanel_bridge.models import VerifiedHostingBinding
 from settings_registry.models import EmailTemplate,ConsoleMailOutbox
 from services.models import Service
@@ -79,6 +80,7 @@ class RenewalLifecycleDatabaseTests(TestCase):
         self.user=get_user_model().objects.create_user(username="renewal-fixture",email="renewal@example.test",role="client")
         self.provider=Provider.objects.create(name="Fixture",adapter_type="CpanelAdapter",
             base_url="https://supplier.example.test:2087",username="reseller",status="active",health_status="healthy",test_mode=False)
+        self.connection=IntegrationConnection.objects.create(adapter_key="cpanel",label="Fixture lifecycle",environment="live")
         self.gateway=PaymentGateway.objects.create(code="paystack",name="Fixture",status="active",test_mode=False)
         category=ProductCategory.objects.create(name="Fixture hosting")
         product=Product.objects.create(category=category,name="Fixture hosting")
@@ -145,7 +147,7 @@ class RenewalLifecycleDatabaseTests(TestCase):
                           reason=marker if operation=="suspend" else "")
         protocol.lifecycle_state.side_effect=lambda:remote.copy()
         protocol.lifecycle_write.side_effect=change
-        row=SimpleNamespace(pk="fixture",current_version=1)
+        row=self.connection
         with patch("services.hosting_lifecycle._authority",return_value=(self.proof,self.provider,row,protocol)):
             self.assertEqual(lifecycle.advance(self.service.pk,invoice.pk,"suspend"),"confirmed")
             self.service.refresh_from_db()
@@ -166,7 +168,7 @@ class RenewalLifecycleDatabaseTests(TestCase):
         cancel.save_policy({"enabled":True,"retention_days":30,"termination_enabled":False},self.user)
         request,_=request_service_cancellation(self.service.pk,actor=self.user)
         protocol=Mock()
-        row=SimpleNamespace(pk="fixture",current_version=1)
+        row=self.connection
         with patch("services.hosting_lifecycle._authority",return_value=(self.proof,self.provider,row,protocol)):
             state=cancel.approve(self.service.pk,request.pk,self.user)
             self.assertEqual(state["state"],"scheduled")

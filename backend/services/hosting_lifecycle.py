@@ -106,6 +106,10 @@ def _invoice(service,invoice,operation,p):
             raise RenewalRefused("Independent payment evidence unavailable.")
     return term
 
+def _lock_supplier(expected):
+    IntegrationConnection.objects.select_for_update().get(pk=expected["connection"])
+    Provider.objects.select_for_update().get(pk=expected["provider"])
+
 def _snapshot(service,invoice,operation,p):
     term=_invoice(service,invoice,operation,p)
     proof,provider,row,protocol=_authority(service,operation)
@@ -121,6 +125,7 @@ def _reserve(service_id,invoice_id,operation,p,expected,marker):
         raise RenewalRefused("Lifecycle policy changed.")
     if service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain":
         raise RenewalRefused("Prior lifecycle outcome uncertain.")
+    _lock_supplier(expected)
     current,protocol=_snapshot(service,invoice,operation,p)
 
     if current!=expected:
@@ -137,6 +142,7 @@ def _complete(service_id,invoice_id,expected,observed):
     pending=service.metadata.get(FENCE,{})
     if pending.get("state")!="dispatched_uncertain" or unseal(pending["grant"],FENCE)!=expected:
         raise RenewalRefused("Lifecycle reservation changed.")
+    _lock_supplier(expected)
     proof,provider,row,_=_authority(service,expected["operation"])
     if (proof.account_digest!=expected["digest"] or str(proof.binding_ref)!=expected["binding"]
             or provider.pk!=expected["provider"] or str(row.pk)!=expected["connection"] or row.current_version!=expected["version"]):
@@ -199,7 +205,7 @@ def advance(service_id,invoice_id,operation):
             pass
         return "confirmed" if _complete(service_id,invoice_id,{**snapshot,"marker":marker},protocol.lifecycle_state()) else "held"
     except (RenewalRefused,VendorProtocolRefused,SupplierEgressDenied,VaultUnavailable,DatabaseError,
-            Service.DoesNotExist,Invoice.DoesNotExist,Provider.DoesNotExist,ProvisioningTask.DoesNotExist,
+            Service.DoesNotExist,Invoice.DoesNotExist,Provider.DoesNotExist,IntegrationConnection.DoesNotExist,ProvisioningTask.DoesNotExist,
             ProvisioningTask.MultipleObjectsReturned,KeyError,ValueError,TypeError):
         return "held"
 

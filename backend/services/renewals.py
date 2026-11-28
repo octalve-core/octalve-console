@@ -258,7 +258,7 @@ def apply(invoice_id):
         entity_name="Verified hosting renewal",details={"invoice_id":invoice.pk,"end":p["end"]})
     return True
 
-def reminder_context(invoice, *, now=None):
+def reminder_context(invoice, *, now=None, issuance=False):
     """Only current signed unpaid renewal terms within the approved window."""
     now=now or timezone.now()
     p=policy()
@@ -277,7 +277,7 @@ def reminder_context(invoice, *, now=None):
                 or term["owner"]!=service.client_id or term["start"]!=service.next_due_date.isoformat()
                 or invoice.due_date!=service.next_due_date or invoice.currency!=term["currency"]
                 or invoice.total!=Decimal(term["total"])
-                or not now<=invoice.due_date<=now+timedelta(days=p["reminder_days"])):
+                or not now<=invoice.due_date<=now+timedelta(days=p["invoice_lead_days"] if issuance else p["reminder_days"])):
             return None
         _original(service)
         return {"invoice.number":str(invoice.invoice_number),

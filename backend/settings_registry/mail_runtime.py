@@ -40,7 +40,7 @@ def _transport(adapter):
 
 ACTION = "mail_sender_policy_v1"
 ADAPTER = "brevo"
-KEYS = ("payment_confirmed", "hosting_ready", "invoice_due", "hosting_cancellation_notice", "hosting_termination_notice")
+KEYS = ("payment_confirmed", "hosting_ready", "invoice_issued", "invoice_due", "hosting_cancellation_notice", "hosting_termination_notice")
 ID_PATTERN = re.compile(r"(?:invoice:([1-9][0-9]{0,18}):payment_confirmed|hosting_ready:v1:([1-9][0-9]{0,18}))\Z")
 
 
@@ -160,13 +160,13 @@ def current_message(message):
     if message.template.key in ("hosting_cancellation_notice","hosting_termination_notice"):
         from services.hosting_cancellation import current_notice
         return current_notice(message)
-    renewal=re.fullmatch(r"invoice:([1-9][0-9]{0,18}):renewal_reminder",message.idempotency_key)
+    renewal=re.fullmatch(r"invoice:([1-9][0-9]{0,18}):(renewal_reminder|issued)",message.idempotency_key)
     if renewal:
         invoice=Invoice.objects.select_related("client","order").filter(pk=int(renewal[1]),metadata__has_key="hosting_renewal_v1").first()
         if not invoice or not invoice.client.is_active or invoice.client.email!=message.recipient:
             return False
         from services.renewals import reminder_context
-        return message.template.key=="invoice_due" and reminder_context(invoice) is not None
+        return message.template.key==("invoice_issued" if renewal[2]=="issued" else "invoice_due") and reminder_context(invoice,issuance=renewal[2]=="issued") is not None
     match=ID_PATTERN.fullmatch(message.idempotency_key)
     if not match:
         return False

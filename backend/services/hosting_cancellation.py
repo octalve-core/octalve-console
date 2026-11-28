@@ -7,6 +7,7 @@ the supplier account suspended until a separately authorized retention review.
 from datetime import timedelta
 import uuid
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction,DatabaseError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -128,6 +129,7 @@ def _reserve(service_id,expected,state,next_state,expected_policy):
     entry,record=_entry(service)
     if entry!=expected or record["state"]!=state:
         raise RenewalRefused("Cancellation reservation changed.")
+    lifecycle._lock_supplier(entry)
     proof,provider,row,protocol=_identity(service,entry)
     if policy()!=expected_policy:
         raise RenewalRefused("Cancellation policy changed.")
@@ -157,9 +159,10 @@ def _finish(service_id,expected,operation,observed):
     entry,record=_entry(service)
     if entry!=expected or record["state"]!=("suspend_uncertain" if operation=="cancel" else "terminate_uncertain"):
         raise RenewalRefused("Cancellation reservation changed.")
+    lifecycle._lock_supplier(entry)
     proof,provider,row,_=_identity(service,entry)
     if operation=="cancel":
-        if observed!={"state":"suspended","reason":"octalve-nonpayment-"+entry["event"]}:
+        if observed!={"state":"suspended","reason":"octalve-cancellation-"+entry["event"]}:
             raise RenewalRefused("Cancellation suspension unconfirmed.")
         service.status="cancelled"
         service.cancelled_at=timezone.now()
@@ -229,7 +232,7 @@ def advance(service_id):
         service=Service.objects.get(pk=service_id)
         entry,record=_entry(service)
         _,provider,row,protocol=_identity(service,entry)
-        marker="octalve-nonpayment-"+entry["event"]
+        marker="octalve-cancellation-"+entry["event"]
         state=record["state"]
         if state=="scheduled":
             _notice(service,entry,"cancel")

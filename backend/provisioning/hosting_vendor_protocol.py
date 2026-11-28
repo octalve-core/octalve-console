@@ -250,7 +250,7 @@ class PinnedHostingProtocol:
         """Fixed explicit desired-state operation; never use a toggle."""
         if dispatch_authorized is not True or not getattr(settings,"CLOUD_HOSTING_LIFECYCLE_ENABLED",False):
             raise VendorProtocolRefused("Lifecycle writes are disabled.")
-        if operation not in ("suspend","restore") or not isinstance(marker,str) or not re.fullmatch(r"octalve-nonpayment-[a-f0-9]{32}",marker):
+        if operation not in ("suspend","restore") or not isinstance(marker,str) or not re.fullmatch(r"octalve-(?:nonpayment|cancellation)-[a-f0-9]{32}",marker) or (operation=="restore" and not marker.startswith("octalve-nonpayment-")):
             raise VendorProtocolRefused("Invalid lifecycle operation.")
         if self._da:
             fields={"select0":self.plan.username,"location":"CMD_RESELLER_SHOW",
