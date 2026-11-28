@@ -54,7 +54,7 @@ def _hold(item_id):
     # Never persist exception text, provider credentials, or customer data.
     item.metadata={**item.metadata,KEY:{"attempts":tries,"next_at":retry.isoformat(),
         "reason":"hosting_authority_or_supplier_unavailable"}}
-    item.save(update_fields=["metadata","updated_at"])
+    OrderItem.objects.filter(pk=item.pk).update(metadata=item.metadata,updated_at=timezone.now())
 
 
 def run_due_staging(limit=10, *, order_id=None):
