@@ -8,6 +8,7 @@ egress policy are additionally required before enabling external deployments.
 """
 import base64
 import os
+from time import monotonic
 from urllib.parse import parse_qs, urlsplit
 
 import requests
@@ -103,10 +104,11 @@ def _endpoint(provider):
     return provider.base_url.rstrip("/")
 
 
-def fetch_inventory(provider, *, getter=None):
+def fetch_inventory(provider, *, getter=None, max_packages=100, total_timeout=None):
     """Fetch inventory only; never mutate provider or Django records here."""
     origin = _endpoint(provider)
     getter = getter or pinned_get
+    deadline = monotonic() + total_timeout if total_timeout is not None else None
     key = provider.get_api_key()
     if not provider.username or not key:
         raise InventoryError("Provider account name and encrypted API token are required.")
@@ -118,12 +120,20 @@ def fetch_inventory(provider, *, getter=None):
         headers["Authorization"] = f"whm {provider.username}:{key}"
 
     def fetch(path, params):
+        timeout = min(max(provider.timeout_seconds or 10, 1), 15)
+        if deadline is not None:
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise InventoryError("Supplier inventory exceeded its time budget.")
+            timeout = min(timeout, remaining)
         try:
             response = getter(origin + path, params=params, headers=headers,
-                              timeout=min(max(provider.timeout_seconds or 10, 1), 15),
+                              timeout=timeout,
                               allow_redirects=False, verify=True)
         except requests.RequestException:
             raise InventoryError("Provider inventory connection failed.")
+        if deadline is not None and monotonic() > deadline:
+            raise InventoryError("Supplier inventory exceeded its time budget.")
         if response.status_code != 200 or len(response.content) > 1000000:
             raise InventoryError("Provider rejected inventory request.")
         return response
@@ -133,12 +143,17 @@ def fetch_inventory(provider, *, getter=None):
             body = fetch("/json-api/listpkgs", {"api.version": "1", "want": "creatable"}).json()
         except ValueError:
             raise InventoryError("WHM returned invalid JSON.")
-        return normalize_whm_packages(body)
+        offers = normalize_whm_packages(body)
+        if len(offers) > max_packages:
+            raise InventoryError("Supplier inventory exceeds the supported batch size.")
+        return offers
 
     response = fetch("/CMD_API_PACKAGES_USER", {})
     raw = response.text
     # DirectAdmin's canonical legacy endpoint returns url-encoded arrays.
     names = normalize_directadmin_list(raw)
+    if len(names) > max_packages:
+        raise InventoryError("Supplier inventory exceeds the supported batch size.")
     if not names:
         raise InventoryError("DirectAdmin returned no eligible packages; sync was not applied.")
     offers = []
