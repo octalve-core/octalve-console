@@ -8,7 +8,7 @@ export function HostingSupplierPolicy({connection,onSaved}:{connection:DraftConn
  async function save(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(busy||!accept)return;
   const form=event.currentTarget,fields=new FormData(form);
-  const payload={confirm_password:String(fields.get("password")||""),totp_code:String(fields.get("totp")||""),fulfillment_model:String(fields.get("model")),shared_ip:da?String(fields.get("ip")||"").trim():null,native_panel_access:fields.get("native-panel")==="on",...(fields.getAll("resources").length?{resource_capabilities:fields.getAll("resources").map(String)}:{}),accept:true};
+  const payload={confirm_password:String(fields.get("password")||""),totp_code:String(fields.get("totp")||""),fulfillment_model:String(fields.get("model")),shared_ip:da?String(fields.get("ip")||"").trim():null,native_panel_access:fields.get("native-panel")==="on",resource_capabilities:fields.getAll("resources").map(String),accept:true};
   form.reset();setAccept(false);setBusy(true);setNotice("");
   try{const response=await api.post<{configured:boolean;commercial_payment_enabled:boolean}>("/providers/connections/"+encodeURIComponent(connection.id)+"/hosting-policy/",payload);if(response.configured!==true||response.commercial_payment_enabled!==false)throw Error();setNotice("Supplier policy saved. Review imported packages and configure prices. Commercial payment activation is separate.");onSaved?.()}
   catch{setNotice("Supplier policy is unavailable or could not be verified. Check the release qualification, account and credential status.");}
