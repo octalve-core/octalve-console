@@ -127,6 +127,8 @@ def safe_connection(row,receipts=None):
         "state":row.state,"credential_configured":row.state=="draft",
         "credential_version":row.current_version,
         "supports_verification":row.adapter_key in READBACK_ADAPTERS,
+        "hosting_policy_available": bool(row.adapter_key in ("directadmin","cpanel-whm")
+            and row.environment=="live" and getattr(settings,"CLOUD_HOSTING_VENDOR_CREATE_ENABLED",False)),
         **safe_verification_status(row,receipts or {}),
         "created_at":row.created_at.isoformat(),
         "updated_at":row.updated_at.isoformat(),
