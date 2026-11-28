@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.core import signing
 from django.db import transaction,DatabaseError
 from django.utils import timezone
+from django.utils.crypto import salted_hmac,constant_time_compare
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.debug import sensitive_variables
 from rest_framework.exceptions import ValidationError,NotFound,Throttled
@@ -49,6 +50,7 @@ def local_status(proof):
     if proof["status"] in ("Deleted","Archived","Pending Delete Restorable"): return "expired"
     return "suspended"
 
+@sensitive_variables("proof","secret")
 def reconcile(domain):
     entry,grant,row,secret,adapter=managed(domain)
     pending_protection=domain.metadata.get(PROTECTION,{})
@@ -73,7 +75,7 @@ def reconcile(domain):
             if pending.get("state")=="uncertain" and set(pending["nameservers"])==set(proof["nameservers"]):
                 locked.metadata[NS]={**pending,"state":"confirmed","confirmed_at":timezone.now().isoformat()}
         if pending_protection.get("state")=="uncertain":
-            done=(pending_protection.get("operation")=="transfer-lock" and locks and locks["transferLock"] is pending_protection.get("enabled")) or (pending_protection.get("operation")=="change-auth-code" and __import__("django.utils.crypto",fromlist=["salted_hmac"]).salted_hmac("octalve.epp.confirm."+pending_protection["nonce"],proof.get("auth_code",""),algorithm="sha256").hexdigest()==pending_protection.get("digest"))
+            done=(pending_protection.get("operation")=="transfer-lock" and locks and locks["transferLock"] is pending_protection.get("enabled")) or (pending_protection.get("operation")=="change-auth-code" and constant_time_compare(salted_hmac("octalve.epp.confirm."+pending_protection["nonce"],proof.get("auth_code",""),algorithm="sha256").hexdigest(),pending_protection.get("digest","")))
             if done: locked.metadata[PROTECTION]={"state":"confirmed","operation":pending_protection["operation"],"confirmed_at":timezone.now().isoformat()}
         locked.save(update_fields=["metadata","status","is_active","expiry_date","next_due_date","updated_at"])
     return "processed"
@@ -127,13 +129,14 @@ def handle(request,domain):
                 raise RegistrationRefused()
             if not adapter.resend_verification(domain.provider_domain_id): raise RegistrationRefused()
             return Response({"state":"requested"},headers=HEADERS)
+        adapter.otp_fields(otp)
         desired=nameservers(data["nameservers"])
         if proof["status"]!="Active": raise RegistrationRefused()
         if set(desired)==set(proof["nameservers"]): return Response({"state":"confirmed"},headers=HEADERS)
         with transaction.atomic():
             locked=Domain.objects.select_for_update().get(pk=domain.pk)
             IntegrationConnection.objects.select_for_update().get(pk=row.pk)
-            if locked.metadata!=domain.metadata or locked.metadata.get(NS,{}).get("state")=="uncertain" or load(grant["route"])[1]!=secret:
+            if locked.metadata!=domain.metadata or locked.metadata.get(NS,{}).get("state")=="uncertain" or locked.metadata.get(PROTECTION,{}).get("state")=="uncertain" or load(grant["route"])[1]!=secret:
                 raise RegistrationRefused()
             locked.metadata={**locked.metadata,NS:{"state":"uncertain","nameservers":desired,"reserved_at":timezone.now().isoformat()},
                 KEY:{**entry,"reconcile_after":timezone.now().isoformat()}}

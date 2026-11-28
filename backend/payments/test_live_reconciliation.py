@@ -179,3 +179,19 @@ class LiveReconciliationTests(TestCase):
         original.refresh_from_db()
         self.assertEqual(original.metadata[KEY]["state"],"uncertain")
         self.assertFalse(Transaction.objects.filter(transaction_type="refund").exists())
+
+    def test_accepted_dispute_closure_preserves_fulfillment_hold(self):
+        from .exception_clearance import close
+        proof=ConfirmedGatewayPayment("paystack",self.intent.reference,"NGN",Decimal("100"),"12345")
+        with patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.live_binding.resolve_live_key",return_value="fixture"),patch("payments.settlement.verify_gateway_intent",return_value=proof):
+            self.assertEqual(consume(self.event.pk),"processed")
+        original=Transaction.objects.get(invoice=self.invoice,transaction_type="payment")
+        original.metadata={**original.metadata,"financial_exception_review_required":True}
+        original.save(update_fields=["metadata"])
+        dispute={"id":99,"transaction":{"id":12345},"domain":"live","currency":"NGN","status":"resolved","refund_amount":5000,"resolution":"merchant-accepted"}
+        with patch("payments.exception_clearance.check_mutation"),patch("payments.exception_clearance.resolve_live_key",return_value="fixture"),patch("payments.exception_clearance.remote_refunds",return_value=[]),patch("payments.exception_clearance.remote_disputes",return_value=[dispute]),patch("payments.exception_clearance.fetch_case",return_value=dispute):
+            self.assertEqual(close(original.client,str(original.public_id),"fixture","123456"),{"state":"closed","fulfillment_hold_retained":True})
+        original.refresh_from_db()
+        self.assertEqual(original.metadata["financial_exception_closure_v1"]["dispute_liability_minor"],5000)
+        self.assertTrue(original.metadata["financial_exception_review_required"])
+        self.assertFalse(Transaction.objects.filter(transaction_type="refund").exists())

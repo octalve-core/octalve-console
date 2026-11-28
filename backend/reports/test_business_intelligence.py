@@ -130,3 +130,14 @@ class BusinessSnapshotTests(TestCase):
         self.assertEqual(totals["refunded_this_month"],"20.00")
         self.assertEqual(totals["net_collections_this_month"],"100.00")
         self.assertEqual(result.data["finance"]["payment_months"][-1]["net"],"100.00")
+
+    def test_dispute_liability_separate_from_net_and_reopened_review(self):
+        original=Transaction.objects.get(reference="biz02-real-verified")
+        original.metadata={"financial_exception_review_required":True,"financial_exception_closure_v1":{"closed_at":timezone.now().isoformat(),"dispute_liability_minor":5000,"reopened":True}}
+        original.save(update_fields=["metadata"])
+        result=self.api(self.admin).get("/api/reports/business-intelligence/")
+        self.assertEqual(result.status_code,200)
+        finance=result.data["finance"]
+        self.assertEqual(finance["accepted_dispute_liability"],"50.00")
+        self.assertEqual(finance["open_financial_reviews"],1)
+        self.assertEqual(finance["payment_amounts"]["net_collections_this_month"],"120.00")

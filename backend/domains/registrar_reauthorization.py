@@ -4,6 +4,7 @@ Readback-only, exact owner/resource identity. Never move resources between
 accounts, re-sign an unpaid quote, or bypass an uncertain supplier operation.
 """
 from django.core import signing
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction,DatabaseError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -64,5 +65,5 @@ def reauthorize_view(request,connection_id):
     if not isinstance(data,dict) or set(data)!={"domain_public_id","confirm_password","totp_code"}:raise ValidationError("Provide the exact domain UUID and fresh authenticator.")
     check_mutation(request.user,data["confirm_password"],data["totp_code"])
     try:return Response(reauthorize(request.user,connection_id,data["domain_public_id"]),headers=HEADERS)
-    except (RegistrationRefused,ValueError,KeyError,TypeError,AttributeError,DatabaseError,signing.BadSignature,VaultUnavailable,Domain.DoesNotExist,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):
+    except (RegistrationRefused,DjangoValidationError,ValueError,KeyError,TypeError,AttributeError,DatabaseError,signing.BadSignature,VaultUnavailable,Domain.DoesNotExist,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):
         raise ValidationError("Resource could not be reauthorized. Resolve uncertain operations and verify the same supplier account.") from None
