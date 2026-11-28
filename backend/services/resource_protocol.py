@@ -157,7 +157,11 @@ class ResourceProtocol:
                 valid = ((method == "GET" and fields == {"action":"full_list","domain":self.domain,"json":"yes"}) or
                          (method == "POST" and set(fields)=={"action","domain","user","passwd","passwd2","quota"} and fields["action"]=="create" and fields["domain"]==self.domain and fields["passwd"]==fields["passwd2"]) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="delete" and set(fields)=={"action","domain","user"}) or
-                         (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="modify" and set(fields)=={"action","domain","user","quota"}))
+                         (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="modify" and set(fields) in ({"action","domain","user","quota"},{"action","domain","user","quota","passwd","passwd2"}) and ("passwd" not in fields or fields["passwd"]==fields["passwd2"])))
+            elif path=="/CMD_API_EMAIL_AUTH":
+                valid=method=="POST" and set(fields)=={"email","passwd"} and fields["email"].endswith("@"+self.domain)
+                if valid:
+                    mailbox_name(fields["email"].split("@")[0])
             else:
                 valid = path=="/CMD_API_SUBDOMAINS" and (
                     (method=="GET" and fields=={"domain":self.domain}) or
@@ -174,6 +178,8 @@ class ResourceProtocol:
                          ("POST","Email","add_pop"):{"email","domain","password","quota"},
                          ("POST","Email","delete_pop"):{"email","domain"},
                          ("POST","Email","edit_pop_quota"):{"email","domain","quota"},
+                         ("POST","Email","passwd_pop"):{"email","password"},
+                         ("POST","Email","verify_password"):{"email","password"},
                          ("GET","StatsBar","get_stats"):{"display"}}
                 valid=op in allowed and set(fields)==common|allowed[op]
                 if "domain" in fields:
@@ -185,6 +191,11 @@ class ResourceProtocol:
         if valid and method=="POST":
             target=fields.get("user",fields.get("email"))
             if target is not None:
+                if "@" in target:
+                    local,sep,domain=target.partition("@")
+                    if not sep or domain!=self.domain or (path!="/CMD_API_EMAIL_AUTH" and fields.get("cpanel.function") not in ("passwd_pop","verify_password")):
+                        raise ResourceRefused("Unexpected mailbox target.")
+                    target=local
                 mailbox_name(target)
                 if target==self.account.lower():
                     raise ResourceRefused("Reserved account name.")
@@ -400,3 +411,30 @@ class ResourceProtocol:
         if any(len(v)!=1 for v in cfg.values()) or any(len(v)!=1 for v in used.values()):
             raise ResourceRefused("Ambiguous account usage.")
         return _count(used.get("nsubdomains",[None])[0]),_count(cfg.get("nsubdomains",[None])[0],unlimited=True)
+
+
+    @sensitive_variables("password")
+    def change_mailbox_password(self, local, password, quota):
+        mailbox_name(local)
+        if (local==self.account.lower() or not isinstance(password,str)
+                or not 16<=len(password)<=128 or any(ord(c)<33 or ord(c)>126 for c in password)
+                or (quota is not None and (type(quota) is not int or not 1<=quota<=1000000))):
+            raise ResourceRefused("Invalid mailbox password change.")
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_POP",{"action":"modify","domain":self.domain,
+                "user":local,"quota":"0" if quota is None else str(quota)+"MB",
+                "passwd":password,"passwd2":password})
+        else:
+            self._whm("POST","Email","passwd_pop",{"email":local+"@"+self.domain,"password":password})
+
+    @sensitive_variables("password","result")
+    def verify_mailbox_password(self, local, password):
+        mailbox_name(local)
+        if (local==self.account.lower() or not isinstance(password,str)
+                or not 16<=len(password)<=128 or any(ord(c)<33 or ord(c)>126 for c in password)):
+            raise ResourceRefused("Invalid mailbox verification.")
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_EMAIL_AUTH",{"email":local+"@"+self.domain,"passwd":password})
+            return True
+        result=self._whm("POST","Email","verify_password",{"email":local+"@"+self.domain,"password":password})
+        return type(result) in (int,str) and str(result)=="1"
