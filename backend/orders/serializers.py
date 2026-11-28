@@ -98,6 +98,20 @@ class CreateOrderItemSerializer(serializers.Serializer):
         return name
 
 
+def require_hosting_domains(items):
+    """Final checkout requires a selected hostname; DNS ownership is a separate gate."""
+    seen=set()
+    for item in items:
+        if item.get('item_type')!='hosting':
+            continue
+        name=item.get('domain_name') or ''
+        if not HOSTNAME.fullmatch(name) or item.get('quantity')!=1:
+            raise serializers.ValidationError('Choose a domain for each hosting account; add separate hosting lines for multiple accounts.')
+        if name in seen:
+            raise serializers.ValidationError('Choose a different domain for each hosting account.')
+        seen.add(name)
+
+
 class CreateOrderSerializer(serializers.Serializer):
     """Serializer for creating an order from cart"""
     
