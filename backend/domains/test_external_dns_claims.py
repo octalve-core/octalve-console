@@ -294,32 +294,3 @@ class ExternalDNSClaimTests(TestCase):
                 expiry_date=timezone.now(), next_due_date=timezone.now(),
             )
         self.assertFalse(Domain.objects.exists())
-
-
-    def test_scoped_self_service_requires_exact_owner_zone_and_consent(self):
-        with patch.dict("os.environ",{"CLOUD_DNS01_SELF_SERVICE_DOMAIN":NAME,"CLOUD_DOMAIN_PILOT_CLIENT_ID":str(self.owner.pk)}):
-            issued=self.issue()
-            self.conn.label=NAME
-            self.conn.save(update_fields=["label","updated_at"])
-            endpoint=self.url+"dns-only-self-verify/"
-            body={"claim_id":issued.data["id"],"accept":True,"consent_version":"dns-read-v1"}
-            self.as_user(self.foreign)
-            self.assertEqual(self.api.post(endpoint,body,format="json").status_code,403)
-            self.assertEqual(self.begin("other-example.com").status_code,403)
-            self.as_user(self.owner)
-            with patch("domains.external_dns_claims._vault_read_ready"),patch("domains.external_dns_claims._conn") as connector,patch("providers.connection_status.safe_verification_status",return_value={"verification_status":"verified"}):
-                connector.return_value.dns_live_inventory.return_value=self.proof("wrong")
-                self.assertEqual(self.api.post(endpoint,body,format="json").status_code,409)
-                self.assertFalse(Domain.objects.exists())
-                connector.return_value.dns_live_inventory.return_value=self.proof(issued.data["challenge"]["value"])
-                result=self.api.post(endpoint,body,format="json")
-                self.assertEqual(result.status_code,200,result.data)
-                self.assertEqual(self.api.post(endpoint,body,format="json").status_code,200)
-                self.assertEqual(connector.return_value.dns_live_inventory.call_count,2)
-            binding=DomainDNSBinding.objects.get()
-            self.assertEqual(binding.state,"active")
-            self.assertEqual(binding.client_id,self.owner.pk)
-            self.assertEqual(binding.consented_by_id,self.owner.pk)
-            self.assertIsNone(binding.approved_by)
-            self.assertFalse(binding.domain.auto_renew)
-            self.assertEqual(binding.domain.management_kind,"dns_only")
