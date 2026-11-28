@@ -110,8 +110,9 @@ def list_resources(subject,service_id,resource):
     verify_existing_account(a.service,a.provider)
     a=_current(a,operation)
     rows=a.protocol.mailboxes() if resource=="email" else a.protocol.subdomains()
-    _current(a,operation)
+    fresh=_current(a,operation)
     return {"resource":resource,"domain":a.service.domain_name,"items":rows,
+            "pending_operation":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain",
             "verified_at":timezone.now().isoformat()}
 
 
