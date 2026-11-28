@@ -161,7 +161,7 @@ def check_supplier_offer(package, offer, product_type):
     provider = package.provider
     if provider.status != 'active' or provider.health_status != 'healthy':
         raise serializers.ValidationError('Supplier must be active and connection-tested healthy.')
-    if not package.is_active or package.raw_data.get('origin') != 'adapter_verified':
+    if not package.is_active or package.raw_data.get('origin') != 'adapter_verified' or package.raw_data.get('available') is False:
         raise serializers.ValidationError('Supplier package must be imported and individually approved.')
     model = provider.config.get('fulfillment_model')
     if model not in ('owned_server', 'partner_reseller'):
