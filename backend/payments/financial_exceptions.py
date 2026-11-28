@@ -15,7 +15,7 @@ from audit.models import AuditLog
 from .models import Transaction,WebhookEvent,PaymentGateway
 from .live_binding import resolve_live_key
 
-EVENTS=frozenset(("refund.pending","refund.processing","refund.processed","refund.failed",
+EVENTS=frozenset(("refund.pending","refund.processing","refund.processed","refund.failed","refund.needs-attention",
     "charge.dispute.create","charge.dispute.remind","charge.dispute.resolve"))
 REFUND_STATES=frozenset(("pending","processing","processed","failed","needs-attention"))
 DISPUTE_STATES=frozenset(("awaiting-merchant-feedback","awaiting-bank-feedback","pending","resolved","archived"))
@@ -37,11 +37,26 @@ def record_signed(gateway,event,body):
         raise ExceptionRefused("Live gateway authority required.")
     if event not in EVENTS or body.get("domain")!="live":
         raise ExceptionRefused("Unapproved financial event.")
-    remote=numeric_id(body.get("id"))
-    original=remote_transaction(body.get("transaction"))
-    # A status notification is evidence of a case, not proof of money movement.
-    payload={"mode":"live","binding":gateway.config,"case_id":remote,"transaction_id":original}
-    fingerprint=hashlib.sha256(json.dumps([gateway.pk,event,remote,original],separators=(",",":")).encode()).hexdigest()
+    # Paystack refund webhooks may omit both numeric IDs. Resolve the
+    # original transaction from our ledger, then independently list refunds.
+    if event.startswith("refund.") and body.get("id") is None:
+        reference=body.get("transaction_reference")
+        if not isinstance(reference,str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{3,119}",reference):
+            raise ExceptionRefused("Invalid payment reference.")
+        amount=body.get("amount")
+        if type(amount) not in (str,int) or not re.fullmatch(r"[0-9]{1,12}",str(amount)) or int(amount)<=0:
+            raise ExceptionRefused("Invalid refund notification amount.")
+        currency=body.get("currency")
+        if not isinstance(currency,str) or not re.fullmatch(r"[A-Z]{3}",currency):
+            raise ExceptionRefused("Invalid refund notification currency.")
+        payload={"mode":"live","binding":gateway.config,"reference":reference,
+                 "amount_minor":int(amount),"currency":currency}
+    else:
+        remote=numeric_id(body.get("id"))
+        original=remote_transaction(body.get("transaction"))
+        payload={"mode":"live","binding":gateway.config,"case_id":remote,"transaction_id":original}
+    # A notification is evidence of a case, not proof of money movement.
+    fingerprint=hashlib.sha256(json.dumps([gateway.pk,event,payload],sort_keys=True,separators=(",",":")).encode()).hexdigest()
     with transaction.atomic():
         saved,created=WebhookEvent.objects.get_or_create(event_id="cloud_exception_"+fingerprint,
             defaults={"gateway":gateway,"event_type":event,"payload":payload,"is_verified":True,"headers":{}})
@@ -50,14 +65,13 @@ def record_signed(gateway,event,body):
     return saved,created
 
 @sensitive_variables("key")
-def fetch_case(kind,case_id,key):
-    case_id=numeric_id(case_id)
-    if kind not in ("refund","dispute") or not key:
+def _read(path,key,params=None):
+    if not key:
         raise ExceptionRefused("Case authority unavailable.")
     session=requests.Session()
     session.trust_env=False
     try:
-        with session.get("https://api.paystack.co/"+kind+"/"+case_id,
+        with session.get("https://api.paystack.co/"+path,params=params,
              headers={"Authorization":"Bearer "+key,"Accept":"application/json"},
              timeout=(3,8),allow_redirects=False,verify=True,stream=True) as response:
             if response.status_code!=200:
@@ -68,7 +82,7 @@ def fetch_case(kind,case_id,key):
                 if len(raw)>131072:
                     raise ExceptionRefused("Case response too large.")
             packet=json.loads(raw)
-        if not isinstance(packet,dict) or packet.get("status") is not True or not isinstance(packet.get("data"),dict):
+        if not isinstance(packet,dict) or packet.get("status") is not True or not isinstance(packet.get("data"),(dict,list)):
             raise ExceptionRefused("Invalid case response.")
         return packet["data"]
     except (requests.RequestException,ValueError,TypeError):
@@ -76,11 +90,27 @@ def fetch_case(kind,case_id,key):
     finally:
         session.close()
 
-def verified_case(event,data):
+def fetch_case(kind,case_id,key):
+    if kind not in ("refund","dispute"):
+        raise ExceptionRefused("Invalid case type.")
+    result=_read(kind+"/"+numeric_id(case_id),key)
+    if not isinstance(result,dict):
+        raise ExceptionRefused("Invalid case response.")
+    return result
+
+def fetch_refund_candidates(transaction_id,key):
+    result=_read("refund",key,{"transaction":numeric_id(transaction_id),"perPage":50,"page":1})
+    # Do not infer a unique refund from a truncated inventory.
+    if not isinstance(result,list) or not 1<=len(result)<50 or any(not isinstance(x,dict) for x in result):
+        raise ExceptionRefused("Refund inventory unavailable or incomplete.")
+    return result
+
+def verified_case(event,data,*,identity=None):
+    identity=identity or event.payload
     kind="refund" if event.event_type.startswith("refund.") else "dispute"
     if (not isinstance(data,dict) or data.get("domain")!="live"
-        or numeric_id(data.get("id"))!=event.payload["case_id"]
-        or remote_transaction(data.get("transaction"))!=event.payload["transaction_id"]):
+        or numeric_id(data.get("id"))!=identity["case_id"]
+        or remote_transaction(data.get("transaction"))!=identity["transaction_id"]):
         raise ExceptionRefused("Case identity mismatch.")
     state=data.get("status")
     if state not in (REFUND_STATES if kind=="refund" else DISPUTE_STATES):
@@ -91,7 +121,7 @@ def verified_case(event,data):
     currency=data.get("currency")
     if currency is not None and (not isinstance(currency,str) or not re.fullmatch(r"[A-Z]{3}",currency)):
         raise ExceptionRefused("Invalid case currency.")
-    return {"kind":kind,"case_id":event.payload["case_id"],"transaction_id":event.payload["transaction_id"],
+    return {"kind":kind,"case_id":identity["case_id"],"transaction_id":identity["transaction_id"],
             "state":state,"amount_minor":amount,"currency":currency}
 
 def consume(event_id):
@@ -104,7 +134,23 @@ def consume(event_id):
         if not key or event.payload.get("mode")!="live" or event.payload.get("binding")!=event.gateway.config:
             return "held"
         kind="refund" if event.event_type.startswith("refund.") else "dispute"
-        proof=verified_case(event,fetch_case(kind,event.payload["case_id"],key))
+        identity=event.payload
+        if kind=="refund" and "case_id" not in identity:
+            originals=list(Transaction.objects.filter(gateway=event.gateway,transaction_type="payment",status="successful",
+                reference=identity["reference"],metadata__provider_api_verified=True)[:2])
+            if len(originals)!=1:
+                return "held"
+            remote=numeric_id(originals[0].provider_reference)
+            candidates=fetch_refund_candidates(remote,key)
+            matches=[x for x in candidates if x.get("domain")=="live"
+                and remote_transaction(x.get("transaction"))==remote
+                and x.get("amount")==identity["amount_minor"] and x.get("currency")==identity["currency"]]
+            if len(matches)!=1:
+                return "held"
+            identity={"case_id":numeric_id(matches[0].get("id")),"transaction_id":remote}
+        proof=verified_case(event,fetch_case(kind,identity["case_id"],key),identity=identity)
+        if "reference" in event.payload and (proof["amount_minor"]!=event.payload["amount_minor"] or proof["currency"]!=event.payload["currency"]):
+            return "held"
         with transaction.atomic():
             fresh=WebhookEvent.objects.select_for_update().get(pk=event.pk)
             gateway=PaymentGateway.objects.select_for_update().get(pk=event.gateway_id)

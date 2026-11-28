@@ -88,3 +88,14 @@ class LiveReconciliationTests(TestCase):
             self.assertFalse(created)
             self.assertEqual(replay.pk,event.pk)
             self.assertTrue(replay.is_processed)
+
+    def test_documented_refund_webhook_without_numeric_id_is_preserved(self):
+        from .financial_exceptions import record_signed
+        body={"domain":"live","transaction_reference":self.intent.reference,"refund_reference":None,
+            "amount":"5000","currency":"NGN","customer":{"email":"must-not-store@example.test"}}
+        with patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"):
+            event,created=record_signed(self.intent.gateway,"refund.pending",body)
+        self.assertTrue(created)
+        self.assertEqual(event.payload["reference"],self.intent.reference)
+        self.assertEqual(event.payload["amount_minor"],5000)
+        self.assertNotIn("customer",event.payload)

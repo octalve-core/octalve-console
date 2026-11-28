@@ -224,3 +224,15 @@ class LiveRegistrarQuoteEndpointTests(TestCase):
                     result=self.client.post(self.path,body,format="json")
                     self.assertIn(result.status_code,(400,503),result.data)
             outbound.assert_not_called()
+
+class LiveRegistrationReadbackTests(SimpleTestCase):
+    def test_live_registration_is_read_only_and_exact_domain(self):
+        from providers.cloudflare_int01 import CloudflareINT01,CloudflareINT01Denied
+        from unittest.mock import Mock
+        transport=Mock(return_value={"success":True,"errors":[],"result":{"domain_name":"example.com",
+            "status":"active","created_at":"2026-01-01T00:00:00Z","expires_at":"2027-01-01T00:00:00Z"}})
+        connector=CloudflareINT01("a"*32,transport)
+        self.assertEqual(connector.live_registration_readback("example.com")["status"],"active")
+        transport.assert_called_once_with("GET","/accounts/"+"a"*32+"/registrar/registrations/example.com")
+        with self.assertRaises(CloudflareINT01Denied):
+            connector.live_registration_readback("different.com")
