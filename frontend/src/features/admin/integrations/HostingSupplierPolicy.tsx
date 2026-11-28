@@ -8,7 +8,7 @@ export function HostingSupplierPolicy({connection,onSaved}:{connection:DraftConn
  async function save(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(busy||!accept)return;
   const form=event.currentTarget,fields=new FormData(form);
-  const payload={confirm_password:String(fields.get("password")||""),totp_code:String(fields.get("totp")||""),fulfillment_model:String(fields.get("model")),shared_ip:da?String(fields.get("ip")||"").trim():null,accept:true};
+  const payload={confirm_password:String(fields.get("password")||""),totp_code:String(fields.get("totp")||""),fulfillment_model:String(fields.get("model")),shared_ip:da?String(fields.get("ip")||"").trim():null,native_panel_access:fields.get("native-panel")==="on",accept:true};
   form.reset();setAccept(false);setBusy(true);setNotice("");
   try{const response=await api.post<{configured:boolean;commercial_payment_enabled:boolean}>("/providers/connections/"+encodeURIComponent(connection.id)+"/hosting-policy/",payload);if(response.configured!==true||response.commercial_payment_enabled!==false)throw Error();setNotice("Supplier policy saved. Review imported packages and configure prices. Commercial payment activation is separate.");onSaved?.()}
   catch{setNotice("Supplier policy is unavailable or could not be verified. Check the release qualification, account and credential status.");}
@@ -17,6 +17,7 @@ export function HostingSupplierPolicy({connection,onSaved}:{connection:DraftConn
  return <details className="mt-3 rounded-lg border border-console-line p-3"><summary className="cursor-pointer text-sm font-medium">Hosting execution policy</summary><form onSubmit={save} autoComplete="off" className="mt-3 space-y-3 text-sm"><p className="text-xs text-console-muted">One-time supplier setup after platform qualification. Only verified payments and independently authorized hosting domains may create accounts.</p>
  <label className="block">Supplier model<select name="model" className="mt-1 w-full rounded-lg border border-console-line p-2"><option value="owned_server">Owned server</option><option value="partner_reseller">Partner reseller</option></select></label>
  {da&&<label className="block">Shared hosting public IP<input name="ip" required className="mt-1 w-full rounded-lg border border-console-line p-2"/></label>}
+ <label className="flex items-start gap-2 text-xs"><input type="checkbox" name="native-panel"/>Authorize customer-only native control-panel sessions after confirming the restricted reseller account supports this operation. DirectAdmin requires login keys and one-time URL permission; WHM requires Create User Session.</label>
  <label className="block">Current password<input name="password" required type="password" autoComplete="off" className="mt-1 w-full rounded-lg border border-console-line p-2"/></label>
  <label className="block">Fresh authenticator code<input name="totp" required pattern="[0-9]{6}" maxLength={6} inputMode="numeric" autoComplete="one-time-code" className="mt-1 w-full rounded-lg border border-console-line p-2"/></label>
  <label className="flex gap-2 text-xs"><input type="checkbox" checked={accept} onChange={e=>setAccept(e.target.checked)}/>Authorize automated hosting provisioning for this supplier after the platform execution gate is qualified.</label>

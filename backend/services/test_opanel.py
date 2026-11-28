@@ -126,3 +126,119 @@ class OPanelIsolationTests(TestCase):
         self.api.force_authenticate(self.owner)
         result=self.api.get(f'/api/services/opanel/{self.service.pk}/overview/')
         self.assertEqual(result.status_code,404)
+
+
+class NativePanelProtocolTests(TestCase):
+    def whm_response(self, **changes):
+        import json
+        from providers.pinned_egress import SupplierReadResponse
+        session = "checkhost:session123:create_user_session,abc"
+        from urllib.parse import urlencode
+        data = {
+            "service": "cpaneld",
+            "session": session,
+            "cp_security_token": "/cpsess1234567890",
+            "expires": int(timezone.now().timestamp()) + 120,
+            "url": "https://supplier.example.test:2083/cpsess1234567890/login?" + urlencode({"session": session}),
+        }
+        data.update(changes)
+        return SupplierReadResponse(200, json.dumps({
+            "metadata": {"command": "create_user_session", "result": 1}, "data": data,
+        }).encode())
+
+    def test_whm_accepts_only_customer_session_on_pinned_origin(self):
+        from services.native_panel import parse_session, NativePanelRefused
+        origin = "https://supplier.example.test:2087"
+        self.assertTrue(parse_session(self.whm_response(), origin, "cpanel-whm", "checkhost").startswith("https://supplier.example.test:2083/"))
+        for changes in (
+            {"url": "https://evil.example.test:2083/cpsess1234567890/login?session=wrong"},
+            {"service": "whostmgrd"}, {"session": "root:session123"},
+            {"expires": int(timezone.now().timestamp()) - 1},
+        ):
+            with self.subTest(changes=changes), self.assertRaises(NativePanelRefused):
+                parse_session(self.whm_response(**changes), origin, "cpanel-whm", "checkhost")
+
+    def test_directadmin_rejects_redirect_and_non_session_path(self):
+        from urllib.parse import urlencode
+        from providers.pinned_egress import SupplierReadResponse
+        from services.native_panel import parse_session, NativePanelRefused
+        origin = "https://supplier.example.test:2222"
+        valid = origin + "/api/login/url?key=" + "x" * 40
+        def reply(url):
+            return SupplierReadResponse(200, urlencode({"error": "0", "details": url}).encode())
+        self.assertEqual(parse_session(reply(valid), origin, "directadmin", "checkhost"), valid)
+        for url in (valid.replace("supplier.example.test", "evil.example.test"),
+                    valid.replace("https:", "http:"), valid + "&next=evil",
+                    valid.replace("/api/login/url", "/CMD_ADMIN_SETTINGS")):
+            with self.subTest(url=url), self.assertRaises(NativePanelRefused):
+                parse_session(reply(url), origin, "directadmin", "checkhost")
+
+    def test_native_launch_cannot_use_unverified_or_unowned_service(self):
+        from unittest.mock import patch
+        from services.native_panel import launch, NativePanelRefused
+        with patch("services.native_panel.eligible", return_value=None), patch(
+                "services.native_panel.refresh_candidate", return_value=None), patch(
+                "services.native_panel._session_request") as sender:
+            with self.assertRaises(NativePanelRefused):
+                launch(1, 2)
+            sender.assert_not_called()
+
+    def test_native_policy_must_explicitly_allow(self):
+        from unittest.mock import patch
+        from services.native_panel import _policy, NativePanelRefused
+        with patch("services.native_panel.load_hosting_connection", return_value=(None, "test-token", {})):
+            with self.assertRaises(NativePanelRefused):
+                _policy(None)
+
+
+    def test_whm_session_strips_optional_vendor_navigation(self):
+        from urllib.parse import parse_qs, urlsplit
+        from services.native_panel import parse_session
+        response = self.whm_response()
+        original = response.json()["data"]["url"]
+        output = parse_session(self.whm_response(url=original + "&locale=en&goto_uri=%2Ffrontend%2Fjupiter"),
+                               "https://supplier.example.test:2087", "cpanel-whm", "checkhost")
+        self.assertEqual(set(parse_qs(urlsplit(output).query)), {"session"})
+
+    def test_concurrent_revocation_discards_already_minted_url(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from services.native_panel import launch, NativePanelRefused
+        service = SimpleNamespace(pk=2, provider_id=3, provider_identifier="checkhost",
+                                  provider_package_id="basic", domain_name="example.test")
+        proof = SimpleNamespace(pk=4, confirmed_at=timezone.now(), account_digest="same")
+        provider = SimpleNamespace(config={})
+        row = SimpleNamespace(pk="connection", current_version=1, adapter_key="cpanel-whm",
+                              public_settings={"server_url": "https://supplier.example.test:2087"})
+        with patch("services.native_panel.eligible", side_effect=[(service, proof), (service, proof), None]), patch(
+                "services.native_panel.refresh_owned_entitlement", return_value=(service, proof)), patch(
+                "services.native_panel.Provider.objects.get", return_value=provider), patch(
+                "services.native_panel._policy", return_value=(row, "synthetic-token")), patch(
+                "services.native_panel._spend", return_value=False), patch(
+                "services.native_panel.verify_existing_account"), patch(
+                "services.native_panel._session_request", return_value=self.whm_response()) as mint:
+            with self.assertRaises(NativePanelRefused):
+                launch(1, 2)
+            mint.assert_called_once()
+
+    def test_http_launch_refuses_unverified_and_cross_tenant_customers(self):
+        from unittest.mock import patch
+        user = get_user_model()
+        owner = user.objects.create_user(email="native-owner@example.test", username="nativeowner",
+                                         password="TestPassword_123", role="client")
+        other = user.objects.create_user(email="native-other@example.test", username="nativeother",
+                                         password="TestPassword_123", role="client")
+        service = Service.objects.create(client=owner, product_id=1, plan_id=2, provider_id=3,
+            status="active", label="Unverified hosting", service_type="hosting",
+            domain_name="example.test", provider_identifier="checkhost",
+            billing_cycle="1mo", amount=Decimal("3000"), currency="NGN",
+            next_due_date=timezone.now()+timedelta(days=30))
+        api = APIClient()
+        url = f"/api/services/opanel/{service.pk}/native-launch/"
+        with patch("services.native_panel._session_request") as mint:
+            for customer in (other, owner):
+                api.force_authenticate(customer)
+                response = api.post(url, {}, format="json")
+                self.assertEqual(response.status_code, 403, response.data)
+                self.assertIn("no-store", response["Cache-Control"])
+            mint.assert_not_called()
