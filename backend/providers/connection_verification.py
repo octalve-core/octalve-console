@@ -165,6 +165,11 @@ def verify_connection(request,connection_id):
             except SenderRefused:
                 raise ProviderReadbackFailed() from None
             proof={"authenticated":True,"domain_verified":True,"delivery_enabled":False,"read_only":True}
+        elif row.adapter_key in ("digitalocean","hetzner","vultr"):
+            from .cloud_vps_readback import verify_cloud_access
+            if row.environment!="live":
+                raise ProviderReadbackFailed()
+            proof=verify_cloud_access(row.adapter_key,secrets["api_key" if row.adapter_key=="vultr" else "api_token"])
         elif row.adapter_key=="paystack":
             proof=paystack_readback(secrets["secret_key"],row.environment)
         else:
