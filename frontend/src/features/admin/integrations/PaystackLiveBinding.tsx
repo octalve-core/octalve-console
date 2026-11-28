@@ -8,7 +8,7 @@ function FinancialExceptionReview(){
  async function refresh(){setLoading(true);setError(false);try{const r=await api.get<{cases:ExceptionCase[]}>("/payments/admin/financial-exceptions/");setRows(r.cases)}catch{setError(true);setRows(null)}finally{setLoading(false)}}
  return <section className="space-y-2 rounded-lg border border-console-line p-3">
   <h4 className="text-sm font-medium">Financial exception review</h4>
-  <p className="text-xs text-console-muted">Verified refund and dispute evidence. No money is moved from this view.</p>
+  <p className="text-xs text-console-muted">Verified refund, dispute and payment exception evidence. No money is moved from this view.</p>
   <button type="button" disabled={loading} onClick={()=>void refresh()} className="min-h-10 rounded-lg border border-console-line px-3 text-xs">{loading?"Loading…":"Load financial cases"}</button>
   {error?<p role="alert" className="text-xs text-rose-700">Review unavailable.</p>:null}
   {rows?.length===0?<p className="text-xs text-console-muted">No recorded live cases.</p>:null}

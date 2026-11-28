@@ -12,7 +12,7 @@ from django.db import transaction,DatabaseError
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 from audit.models import AuditLog
-from .models import Transaction,WebhookEvent,PaymentGateway
+from .models import Transaction,WebhookEvent,PaymentGateway,PaymentIntent
 from .live_binding import resolve_live_key
 
 EVENTS=frozenset(("refund.pending","refund.processing","refund.processed","refund.failed","refund.needs-attention",
@@ -35,7 +35,7 @@ def remote_transaction(value):
 def record_signed(gateway,event,body):
     if gateway.code!="paystack" or gateway.test_mode or not resolve_live_key(gateway):
         raise ExceptionRefused("Live gateway authority required.")
-    if event not in EVENTS or body.get("domain")!="live":
+    if not isinstance(event,str) or event not in EVENTS or not isinstance(body,dict) or body.get("domain")!="live":
         raise ExceptionRefused("Unapproved financial event.")
     # Paystack refund webhooks may omit both numeric IDs. Resolve the
     # original transaction from our ledger, then independently list refunds.
@@ -180,4 +180,52 @@ def consume(event_id):
             fresh.save(update_fields=["payload","is_processed","processed_at","error_message"])
         return "processed"
     except (ExceptionRefused,WebhookEvent.DoesNotExist,PaymentGateway.DoesNotExist,DatabaseError,KeyError,TypeError,ValueError):
+        return "held"
+
+
+def verify_late_payment(event,intent):
+    """Preserve independent proof of late money without granting settlement."""
+    from .readback import REFERENCE
+    from .domain_pilot_scope import is_pilot_invoice
+    if (not event.is_verified or event.is_processed or event.event_type!="charge.success"
+            or event.gateway.code!="paystack" or event.gateway.test_mode or event.gateway.status!="active"
+            or event.gateway_id!=intent.gateway_id or is_pilot_invoice(intent.invoice)
+            or not (intent.is_expired() or intent.status in ("expired","failed"))
+            or intent.status=="completed" or not REFERENCE.fullmatch(intent.reference)
+            or event.payload.get("intent_id")!=intent.pk or event.payload.get("reference")!=intent.reference
+            or event.payload.get("binding")!=intent.gateway.config or event.payload.get("mode")!="live"
+            or intent.metadata.get("payment_mode")!="live"
+            or intent.metadata.get("gateway_binding")!=intent.gateway.config):
+        return "held"
+    if event.payload.get("late_payment_review"):
+        return "held"
+    try:
+        remote=numeric_id(event.payload.get("remote_id"))
+        data=_read("transaction/verify/"+intent.reference,resolve_live_key(intent.gateway))
+        minor=data.get("amount") if isinstance(data,dict) else None
+        if (not isinstance(data,dict) or data.get("domain")!="live" or data.get("status")!="success"
+                or data.get("reference")!=intent.reference or numeric_id(data.get("id"))!=remote
+                or type(minor) is not int or not 0<minor<=999999999999
+                or data.get("currency")!=intent.currency or Decimal(minor)/100!=intent.amount):
+            return "held"
+        with transaction.atomic():
+            locked=PaymentIntent.objects.select_for_update().get(pk=intent.pk)
+            gateway=PaymentGateway.objects.select_for_update().get(pk=event.gateway_id)
+            fresh=WebhookEvent.objects.select_for_update().get(pk=event.pk)
+            if (fresh.is_processed or fresh.payload!=event.payload or locked.reference!=intent.reference
+                    or locked.amount!=intent.amount or locked.currency!=intent.currency
+                    or locked.gateway_id!=gateway.pk or locked.metadata!=intent.metadata
+                    or locked.status=="completed" or not (locked.is_expired() or locked.status in ("expired","failed"))
+                    or gateway.config!=intent.gateway.config or not resolve_live_key(gateway)):
+                return "held"
+            proof={"kind":"late_payment","case_id":remote,"state":"verified_review_required",
+                   "amount_minor":minor,"currency":intent.currency}
+            AuditLog.objects.create(actor=None,action="late_payment_verified",entity_type="PaymentIntent",
+                entity_id=str(locked.pk),entity_name="Paystack late payment exception",
+                details={**proof,"event_id":fresh.pk,"invoice_id":locked.invoice_id,"review_required":True})
+            fresh.payload={**fresh.payload,"late_payment_review":True,"verified_case":proof}
+            fresh.save(update_fields=["payload"])
+        return "held"
+    except (ExceptionRefused,DatabaseError,KeyError,TypeError,ValueError,PaymentIntent.DoesNotExist,
+            PaymentGateway.DoesNotExist,WebhookEvent.DoesNotExist):
         return "held"

@@ -38,6 +38,9 @@ def consume(event_id):
             or payload.get("binding")!=event.gateway.config
             or intent.metadata.get("payment_mode")!="live" or intent.metadata.get("gateway_binding")!=event.gateway.config):
         return "held"
+    if intent.status!="completed" and (intent.is_expired() or intent.status in ("expired","failed")):
+        from .financial_exceptions import verify_late_payment
+        return verify_late_payment(event,intent)
     try:
         settle_verified_intent(intent.pk,signed_event_id=event.pk)
         return "processed" if WebhookEvent.objects.filter(pk=event.pk,is_processed=True).exists() else "held"
@@ -58,7 +61,7 @@ def run_due(limit=5):
     from .financial_exceptions import EVENTS
     ids=list(WebhookEvent.objects.filter(is_verified=True,is_processed=False,event_type__in=["charge.success",*EVENTS],
         gateway__code="paystack",gateway__test_mode=False,gateway__status="active",payload__mode="live")
-        .order_by(F("error_message").asc(nulls_first=True),"pk").values_list("pk",flat=True)[:min(max(int(limit),1),10)])
+        .exclude(payload__late_payment_review=True).order_by(F("error_message").asc(nulls_first=True),"pk").values_list("pk",flat=True)[:min(max(int(limit),1),10)])
     for pk in ids:
         outcome=attempt(pk)
         if outcome in ("processed","held"):

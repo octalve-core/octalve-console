@@ -43,7 +43,7 @@ def accept_signed_event(gateway_code, raw_body, headers):
         raise WebhookRejected("Webhook payload is invalid.")
     event = packet.get("event")
     from .financial_exceptions import EVENTS,record_signed,ExceptionRefused
-    if gateway_code=="paystack" and event in EVENTS and not gateway.test_mode:
+    if gateway_code=="paystack" and isinstance(event,str) and event in EVENTS and not gateway.test_mode:
         try:
             return record_signed(gateway,event,packet["data"])
         except ExceptionRefused:

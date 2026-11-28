@@ -117,3 +117,23 @@ class LiveReconciliationTests(TestCase):
                 read.assert_called_once_with("refund","99","fixture")
         event.refresh_from_db()
         self.assertEqual(event.payload["verified_case"]["case_id"],"99")
+
+
+    def test_late_payment_is_verified_without_settlement_and_not_retried(self):
+        from audit.models import AuditLog
+        from .live_reconciliation import attempt,run_due
+        self.intent.expires_at=timezone.now()-timedelta(minutes=1)
+        self.intent.save(update_fields=["expires_at"])
+        data={"id":12345,"reference":self.intent.reference,"domain":"live","status":"success","amount":10000,"currency":"NGN"}
+        with patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"),patch("payments.financial_exceptions._read",return_value=data) as read:
+            self.assertEqual(attempt(self.event.pk),"held")
+            self.assertEqual(run_due()["processed"],0)
+            self.assertEqual(run_due()["held"],0)
+            read.assert_called_once()
+        self.event.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertTrue(self.event.payload["late_payment_review"])
+        self.assertFalse(self.event.is_processed)
+        self.assertEqual(self.invoice.status,"unpaid")
+        self.assertFalse(Transaction.objects.exists())
+        self.assertEqual(AuditLog.objects.filter(action="late_payment_verified").count(),1)
