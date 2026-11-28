@@ -22,6 +22,7 @@ from providers.hosting_runtime import load_hosting_connection
 from providers.models import Provider
 from providers.pinned_egress import pinned_get, SupplierEgressDenied
 from services.models import Service, ServiceUsage
+from services.resource_protocol import _count, ResourceRefused
 
 ATTEMPT = "hosting_usage_attempt_v1"
 PERIOD = timedelta(hours=24)
@@ -68,10 +69,26 @@ def _form(response):
     return {k: v[0] for k, v in values.items()}
 
 
+def _add_resource_count(values, kind, used, limit):
+    """Missing/invalid counts stay explicitly unknown, never fabricate zero."""
+    try:
+        count = _count(used)
+        maximum = _count(limit, unlimited=True)
+    except ResourceRefused:
+        return
+    values[kind+"_used"] = count
+    values[kind+"_limit"] = maximum if maximum is not None else 0
+    values["raw_data"].setdefault("resource_counts", {})[kind] = {
+        "used": count, "limit": maximum, "unlimited": maximum is None}
+
+
 def _directadmin(config, response):
     usage = _form(response)
-    return _metrics(usage.get("quota"), config.get("quota"),
-                    usage.get("bandwidth"), config.get("bandwidth"))
+    values = _metrics(usage.get("quota"), config.get("quota"),
+                      usage.get("bandwidth"), config.get("bandwidth"))
+    for kind, field in (("email","nemails"),("database","mysql"),("subdomains","nsubdomains")):
+        _add_resource_count(values, kind, usage.get(field), config.get(field))
+    return values
 
 
 def _metrics(disk, disk_max, bandwidth, bandwidth_max, *, units=False):
@@ -99,13 +116,17 @@ def _whm(response):
                 or str(result["status"]) != "1" or result.get("errors")):
             raise UsageRefused("Supplier stats not confirmed.")
         entries = result["data"]
-        if not isinstance(entries, list) or len(entries) != 2:
+        if not isinstance(entries, list) or len(entries) not in (2,5):
             raise UsageRefused("Missing or ambiguous stats.")
         by_id = {entry["id"]: entry for entry in entries}
-        if set(by_id) != {"diskusage", "bandwidthusage"}:
+        if len(by_id) != len(entries) or set(by_id) not in ({"diskusage", "bandwidthusage"}, {"diskusage", "bandwidthusage", "emailaccounts", "sqldatabases", "subdomains"}):
             raise UsageRefused("Unexpected stats.")
         d, b = by_id["diskusage"], by_id["bandwidthusage"]
-        return _metrics(d["count"], d["max"], b["count"], b["max"], units=True)
+        values = _metrics(d["count"], d["max"], b["count"], b["max"], units=True)
+        for kind, field in (("email","emailaccounts"),("database","sqldatabases"),("subdomains","subdomains")):
+            row=by_id.get(field,{})
+            _add_resource_count(values,kind,row.get("_count"),row.get("_max"))
+        return values
     except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
         raise UsageRefused("Invalid supplier stats.") from None
 
@@ -150,7 +171,9 @@ def synchronize(service_id):
             path = "/json-api/uapi_cpanel"
             params = {"api.version": "1", "cpanel.user": service.provider_identifier,
                       "cpanel.module": "StatsBar", "cpanel.function": "get_stats",
-                      "display": "bandwidthusage|diskusage"}
+                      "display": ("bandwidthusage|diskusage|emailaccounts|sqldatabases|subdomains"
+                                  if getattr(settings,"CLOUD_HOSTING_NATIVE_RESOURCES_ENABLED",False)
+                                  else "bandwidthusage|diskusage")}
             auth = "whm "+provider.username+":"+key
         else:
             return False

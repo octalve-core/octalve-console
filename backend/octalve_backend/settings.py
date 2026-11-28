@@ -581,6 +581,7 @@ CLOUD_PAYMENT_RETURN_URL = env("CLOUD_PAYMENT_RETURN_URL", default="")
 # B1 draft vault is inert by default. Never turn on live supplier operations here.
 # DNS-01 is independently released only after backup, migration and acceptance.
 CLOUD_DNS01_READONLY_ENABLED = env.bool("CLOUD_DNS01_READONLY_ENABLED", default=False)
+CLOUD_DNS_WRITE_ENABLED = env.bool("CLOUD_DNS_WRITE_ENABLED", default=False)
 # Separate default-off gate for customer DNS-only TXT ownership onboarding.
 CLOUD_DNS01_EXTERNAL_CLAIMS_ENABLED = env.bool("CLOUD_DNS01_EXTERNAL_CLAIMS_ENABLED", default=False)
 CLOUD_PAYSTACK_TEST_BINDING_ENABLED = env.bool("CLOUD_PAYSTACK_TEST_BINDING_ENABLED", default=True)
@@ -625,6 +626,7 @@ CLOUD_PROVIDER_VAULT_REWRAP_ENABLED = env.bool("CLOUD_PROVIDER_VAULT_REWRAP_ENAB
 CLOUD_SUPPLIER_PINNED_READBACK_ENABLED = env.bool("CLOUD_SUPPLIER_PINNED_READBACK_ENABLED",default=False)
 CLOUD_HOSTING_CONFIGURED_EGRESS_ENABLED = env.bool("CLOUD_HOSTING_CONFIGURED_EGRESS_ENABLED",default=False)
 CLOUD_HOSTING_VENDOR_CREATE_ENABLED = env.bool("CLOUD_HOSTING_VENDOR_CREATE_ENABLED",default=False)
+CLOUD_HOSTING_NATIVE_RESOURCES_ENABLED = env.bool("CLOUD_HOSTING_NATIVE_RESOURCES_ENABLED",default=False)
 CLOUD_SUPPLIER_PINNED_IPS_JSON = env("CLOUD_SUPPLIER_PINNED_IPS_JSON",default="")
 
 # Dedicated 32-byte HMAC integrity key. Keep outside Neon/source; no fallback to JWT/vault.

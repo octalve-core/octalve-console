@@ -4,6 +4,8 @@ No generic proxy, passwords in browser, root access or persistent session URLs.
 The MFA-approved supplier policy must explicitly authorize this operation.
 """
 import base64
+import json
+from django.views.decorators.debug import sensitive_variables
 import re
 import secrets
 from urllib.parse import parse_qs, urlencode, urlsplit
@@ -63,7 +65,8 @@ def _fields(body):
     return {key: values[0] for key, values in parsed.items()}
 
 
-def _safe_url(value, origin, *, directadmin, account, session=None, security_token=None):
+@sensitive_variables("value","session","security_token","fields")
+def _safe_url(value, origin, *, directadmin, account, session=None, security_token=None, service='cpaneld'):
     if (not isinstance(value, str) or not 1 <= len(value) <= 2500
             or any(ord(ch) < 33 or ord(ch) > 126 for ch in value)
             or "\\" in value):
@@ -73,7 +76,7 @@ def _safe_url(value, origin, *, directadmin, account, session=None, security_tok
         if (target.scheme != "https" or target.hostname != source.hostname
                 or target.username is not None or target.password is not None
                 or target.fragment or target.netloc.lower() != target.netloc
-                or (target.port or 443) != ((source.port or 443) if directadmin else 2083)):
+                or (target.port or 443) != ((source.port or 443) if directadmin else (2096 if service=='webmaild' else 2083))):
             raise ValueError()
         fields = parse_qs(target.query, keep_blank_values=True, max_num_fields=4)
         if directadmin:
@@ -91,7 +94,7 @@ def _safe_url(value, origin, *, directadmin, account, session=None, security_tok
                     or any(len(v) != 1 for v in fields.values())
                     or not isinstance(session, str) or len(session) > 1000
                     or not session.startswith(account+":")
-                    or not re.fullmatch(r"[A-Za-z0-9_:, .-]+", session)):
+                    or not re.fullmatch(r"[A-Za-z0-9_@:, .-]+" if service=="webmaild" else r"[A-Za-z0-9_:, .-]+", session)):
                 raise ValueError()
             # Ignore vendor-provided optional navigation and locale parameters;
             # only the validated session is forwarded to the customer.
@@ -101,7 +104,8 @@ def _safe_url(value, origin, *, directadmin, account, session=None, security_tok
     return value
 
 
-def parse_session(response, origin, adapter, account):
+@sensitive_variables('response','body','data','fields','urls')
+def parse_session(response, origin, adapter, account, *, service='cpaneld'):
     if response.status_code != 200 or len(response.content) > 65536:
         raise NativePanelRefused("Supplier session could not be confirmed.")
     if adapter == "directadmin":
@@ -114,20 +118,28 @@ def parse_session(response, origin, adapter, account):
     if adapter != "cpanel-whm":
         raise NativePanelRefused("Unsupported native panel.")
     try:
-        body = response.json()
+        def unique_pairs(pairs):
+            result={}
+            for key,value in pairs:
+                if key in result:
+                    raise ValueError("Duplicate session field.")
+                result[key]=value
+            return result
+        body = json.loads(response.content,object_pairs_hook=unique_pairs)
         meta, data = body["metadata"], body["data"]
         expiry = int(data["expires"])
         now = int(timezone.now().timestamp())
         if (meta["command"] != "create_user_session" or str(meta["result"]) != "1"
-                or data["service"] != "cpaneld" or not now < expiry <= now + 3600):
+                or data["service"] != service or not now < expiry <= now + 3600):
             raise ValueError()
         return _safe_url(data["url"], origin, directadmin=False, account=account,
-                         session=data["session"], security_token=data["cp_security_token"])
+                         session=data["session"], security_token=data["cp_security_token"],service=service)
     except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
         raise NativePanelRefused("WHM session was not confirmed.") from None
 
 
-def _session_request(row, provider, account, key):
+@sensitive_variables('key','auth','headers','fields','response','body')
+def _session_request(row, provider, account, key, *, webmail_address=None):
     """Fixed operation, pinned TLS, no redirects, retries, or browser parameters."""
     if (not ACCOUNT.fullmatch(account or "") or account.lower() in ("root", "admin")
             or account.lower() == provider.username.lower()
@@ -137,6 +149,8 @@ def _session_request(row, provider, account, key):
         raise NativePanelRefused("Invalid supplier account identity.")
     origin = row.public_settings["server_url"]
     da = row.adapter_key == "directadmin"
+    if webmail_address is not None and (da or not isinstance(webmail_address,str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}@[a-z0-9.-]{3,253}",webmail_address)):
+        raise NativePanelRefused("Unsupported mailbox identity.")
     if da:
         path, method = "/CMD_API_LOGIN_KEYS", "POST"
         auth = "Basic " + base64.b64encode(
@@ -148,7 +162,7 @@ def _session_request(row, provider, account, key):
     elif row.adapter_key == "cpanel-whm":
         path, method = "/json-api/create_user_session", "GET"
         auth = "whm " + provider.username + ":" + key
-        fields = {"api.version": "1", "user": account, "service": "cpaneld"}
+        fields = {"api.version": "1", "user": webmail_address or account, "service": "webmaild" if webmail_address else "cpaneld"}
     else:
         raise NativePanelRefused("Unsupported native panel.")
     host, port, ip, checked_path = approved_origin(origin+path,
@@ -184,6 +198,7 @@ def _session_request(row, provider, account, key):
         pool.close()
 
 
+@sensitive_variables('key','current_key','final_key','response','url')
 def launch(subject_id, service_id):
     """Only a currently entitled owner can request a one-time customer session."""
     candidate = eligible(subject_id, service_id) or refresh_candidate(subject_id, service_id)
@@ -225,6 +240,12 @@ def launch(subject_id, service_id):
                 or final[0].provider_identifier != service.provider_identifier
                 or final[0].provider_package_id != service.provider_package_id
                 or final[0].domain_name != service.domain_name):
+            raise NativePanelRefused("Hosting authority changed.")
+        final_provider=Provider.objects.get(pk=final[0].provider_id)
+        final_row,final_key=_policy(final_provider)
+        if (final_provider.pk!=current_provider.pk or final_provider.config!=current_provider.config
+                or final_row.pk!=current_row.pk or final_row.current_version!=current_row.current_version
+                or final_key!=current_key or final_row.public_settings!=current_row.public_settings):
             raise NativePanelRefused("Hosting authority changed.")
         return url
     except (Provider.DoesNotExist, VaultUnavailable, SupplierEgressDenied,

@@ -18,6 +18,23 @@ from providers.pinned_egress import public_ip
 from rest_framework.exceptions import ValidationError
 
 POLICY="hosting_execution_policy_v1"
+RESOURCE_CAPABILITIES=frozenset(("mailbox_read","mailbox_create","mailbox_delete","mailbox_quota","mailbox_password","subdomain_read","subdomain_create","subdomain_delete","database_read","database_create","database_delete","hosting_password","database_user_read","database_user_create","database_user_delete","database_grants","forwarder_read","forwarder_create","forwarder_delete","autoresponder_read","autoresponder_delete","autoresponder_create","autoresponder_edit","mail_client_settings","webmail_launch","file_root_read","database_user_password","ssl_readiness","backup_read"))
+
+
+def validate_resource_capabilities(value):
+    if (not isinstance(value,list) or len(value)>len(RESOURCE_CAPABILITIES)
+            or any(not isinstance(x,str) or x not in RESOURCE_CAPABILITIES for x in value)
+            or len(set(value))!=len(value) or (any(x in value for x in ("mailbox_create","mailbox_delete","mailbox_quota","mailbox_password")) and "mailbox_read" not in value)
+            or (any(x in value for x in ("subdomain_create","subdomain_delete")) and "subdomain_read" not in value)
+            or (any(x in value for x in ("database_create","database_delete")) and "database_read" not in value)
+            or (any(x in value for x in ("forwarder_read","autoresponder_read","mail_client_settings","webmail_launch")) and "mailbox_read" not in value)
+            or (any(x in value for x in ("forwarder_create","forwarder_delete")) and "forwarder_read" not in value)
+            or (any(x in value for x in ("autoresponder_delete","autoresponder_create","autoresponder_edit")) and "autoresponder_read" not in value)
+            or ("database_user_read" in value and "database_read" not in value)
+            or (any(x in value for x in ("database_user_create","database_user_delete","database_grants","database_user_password")) and "database_user_read" not in value)):
+        raise VaultUnavailable()
+    return sorted(value)
+
 
 
 def qualified_vault():
@@ -42,6 +59,8 @@ def policy_payload(provider,row,shared_ip):
         if type(native) is not bool:
             raise VaultUnavailable()
         payload["native_panel_access"]=native
+    if "resource_capabilities" in provider.config:
+        payload["resource_capabilities"]=validate_resource_capabilities(provider.config["resource_capabilities"])
     return payload
 
 

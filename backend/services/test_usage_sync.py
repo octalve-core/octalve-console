@@ -34,6 +34,23 @@ class UsageProtocolTests(SimpleTestCase):
         with self.assertRaises(UsageRefused):
             _directadmin({"quota":"1000","bandwidth":"2000"},SupplierReadResponse(200,b"quota=1&quota=2&bandwidth=3"))
 
+    def test_optional_resource_counts_distinguish_unknown_zero_and_unlimited(self):
+        result=_directadmin({"quota":"1000","bandwidth":"1000","nemails":"unlimited","mysql":"0"},
+                            form(quota="10",bandwidth="1",nemails="2",mysql="0",nsubdomains="0"))
+        counts=result["raw_data"]["resource_counts"]
+        self.assertEqual(counts["email"],{"used":2,"limit":None,"unlimited":True})
+        self.assertEqual(counts["database"],{"used":0,"limit":0,"unlimited":False})
+        self.assertNotIn("subdomains",counts)
+        result=_whm(whm([{"id":"diskusage","count":"1 MB","max":"2 MB"},
+                         {"id":"bandwidthusage","count":"1 MB","max":"unlimited"},
+                         {"id":"emailaccounts","_count":"3","_max":"5"},
+                         {"id":"sqldatabases","_count":"0","_max":"unlimited"},
+                         {"id":"subdomains","_count":"1","_max":"unknown"}]))
+        self.assertEqual(result["email_used"],3)
+        self.assertEqual(result["database_used"],0)
+        self.assertTrue(result["raw_data"]["resource_counts"]["database"]["unlimited"])
+        self.assertNotIn("subdomains",result["raw_data"]["resource_counts"])
+
     def test_whm_usage_requires_both_result_envelopes_and_units(self):
         rows=[{"id":"diskusage","count":"1.5 GB","max":"2 GB"},
               {"id":"bandwidthusage","count":"7 MB","max":"unlimited"}]

@@ -10,8 +10,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Service, ServiceUsage
+from domains.models import Domain
 from opanel_bridge.policy import enabled, eligible, refresh_candidate
-from . import native_panel
+from . import native_panel, resource_management
 
 
 def opanel_overview(service):
@@ -28,25 +29,60 @@ def opanel_overview(service):
         "disk_unlimited": latest.raw_data.get("disk_unlimited") is True if isinstance(latest.raw_data, dict) else False,
         "bandwidth_unlimited": latest.raw_data.get("bandwidth_unlimited") is True if isinstance(latest.raw_data, dict) else False,
         "recorded_at": latest.recorded_at.isoformat(),
+        "resource_counts": {kind: latest.raw_data.get("resource_counts",{}).get(kind)
+                            for kind in ("email","database","subdomains")}
+                           if isinstance(latest.raw_data,dict) and isinstance(latest.raw_data.get("resource_counts"),dict)
+                           and latest.raw_data.get("source")=="verified_supplier_usage_v1" else {},
     }
     # No writable adapter, DNS, TLS or live HTTP evidence exists at this
     # boundary. Statuses stay unverified regardless of service.status.
+    resource_caps = resource_management.capabilities(service)
     capabilities = {
         "overview": True,
-        "files": False,
-        "subdomains": False,
+        "forwarders": "forwarder_read" in resource_caps,
+        "autoresponders": "autoresponder_read" in resource_caps,
+        "autoresponder_delete": "autoresponder_delete" in resource_caps,
+        "autoresponder_create": "autoresponder_create" in resource_caps,
+        "autoresponder_edit": "autoresponder_edit" in resource_caps and resource_management.database_initial_user_required(service),
+        "forwarder_create": "forwarder_create" in resource_caps,
+        "forwarder_delete": "forwarder_delete" in resource_caps,
+        "credentials": "hosting_password" in resource_caps,
+        "hosting_password": "hosting_password" in resource_caps,
+        "files": "file_root_read" in resource_caps,
+        "subdomains": "subdomain_read" in resource_caps,
         "dns": False,
-        "databases": False,
-        "ssl": False,
-        "backups": False,
-        "email": False,
+        "databases": "database_read" in resource_caps,
+        "database_create": "database_create" in resource_caps,
+        "database_delete": "database_delete" in resource_caps,
+        "db_users": "database_user_read" in resource_caps,
+        "database_user_create": "database_user_create" in resource_caps,
+        "database_user_delete": "database_user_delete" in resource_caps,
+        "database_user_password": "database_user_password" in resource_caps,
+        "database_grants": "database_grants" in resource_caps,
+        "database_user_requires_database": "database_user_read" in resource_caps and resource_management.database_initial_user_required(service),
+        "database_initial_user_required": "database_create" in resource_caps and service.provider_id is not None and resource_management.database_initial_user_required(service),
+        "ssl": "ssl_readiness" in resource_caps,
+        "backups": "backup_read" in resource_caps,
+        "email": "mailbox_read" in resource_caps,
+        "mail_client_settings": "mail_client_settings" in resource_caps and not resource_management.database_initial_user_required(service),
+        "webmail_launch": "webmail_launch" in resource_caps and not resource_management.database_initial_user_required(service),
+        "mailbox_create": "mailbox_create" in resource_caps,
+        "mailbox_delete": "mailbox_delete" in resource_caps,
+        "mailbox_quota": "mailbox_quota" in resource_caps,
+        "mailbox_password": "mailbox_password" in resource_caps,
+        "subdomain_create": "subdomain_create" in resource_caps,
+        "subdomain_delete": "subdomain_delete" in resource_caps,
         "panel_sso": panel_allowed,
         "native_panel": native_panel.available(service),
         "panel_recheck": bool(not verified and enabled() and refresh_candidate(service.client_id, service.pk)),
     }
     now_due = service.next_due_date
+    domain_id = Domain.objects.filter(client_id=service.client_id,domain_name=service.domain_name,is_active=True).values_list('pk',flat=True).first() if service.domain_name else None
     return {
         "service_id": service.pk,
+        "domain_id": domain_id,
+        "billing": {"amount":str(service.amount),"currency":service.currency,"cycle":service.billing_cycle,
+                    "created_at":service.created_at.isoformat(),"auto_renew":service.auto_renew},
         "label": service.label,
         "domain_name": service.domain_name,
         "service_type": service.service_type,
