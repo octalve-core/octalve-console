@@ -262,3 +262,16 @@ class OfferPublicationTests(TestCase):
         self.assertFalse(self.supplier_package.is_active)
         self.assertEqual(self.supplier_package.specs['quota'],'10240')
         self.assertEqual(Plan.objects.count(),0)
+
+
+    def test_imported_technical_capacity_cannot_be_rewritten_by_approval(self):
+        endpoint=f"/api/providers/packages/{self.supplier_package.pk}/"
+        denied=self.api.patch(endpoint,{"specs":{"quota":"999999999"},"is_active":True},format="json")
+        self.assertEqual(denied.status_code,400,denied.data)
+        self.supplier_package.refresh_from_db()
+        self.assertEqual(self.supplier_package.specs["quota"],"20480")
+        self.supplier_package.raw_data={**self.supplier_package.raw_data,"available":False}
+        self.supplier_package.is_active=False
+        self.supplier_package.save(update_fields=["raw_data","is_active"])
+        denied=self.api.patch(endpoint,{"is_active":True},format="json")
+        self.assertEqual(denied.status_code,400,denied.data)
