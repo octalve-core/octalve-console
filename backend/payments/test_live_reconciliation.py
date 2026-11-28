@@ -137,3 +137,10 @@ class LiveReconciliationTests(TestCase):
         self.assertEqual(self.invoice.status,"unpaid")
         self.assertFalse(Transaction.objects.exists())
         self.assertEqual(AuditLog.objects.filter(action="late_payment_verified").count(),1)
+
+
+    def test_regular_pending_events_without_late_marker_are_still_polled(self):
+        from .live_reconciliation import run_due
+        with patch("payments.live_reconciliation.attempt",return_value="held") as attempt:
+            self.assertEqual(run_due()["held"],1)
+            attempt.assert_called_once_with(self.event.pk)

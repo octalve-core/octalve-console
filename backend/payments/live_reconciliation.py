@@ -3,7 +3,7 @@ import os
 import secrets
 from django.conf import settings
 from django.db import DatabaseError
-from django.db.models import F
+from django.db.models import F,Q
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -61,7 +61,7 @@ def run_due(limit=5):
     from .financial_exceptions import EVENTS
     ids=list(WebhookEvent.objects.filter(is_verified=True,is_processed=False,event_type__in=["charge.success",*EVENTS],
         gateway__code="paystack",gateway__test_mode=False,gateway__status="active",payload__mode="live")
-        .exclude(payload__late_payment_review=True).order_by(F("error_message").asc(nulls_first=True),"pk").values_list("pk",flat=True)[:min(max(int(limit),1),10)])
+        .filter(Q(payload__late_payment_review__isnull=True)|Q(payload__late_payment_review=False)).order_by(F("error_message").asc(nulls_first=True),"pk").values_list("pk",flat=True)[:min(max(int(limit),1),10)])
     for pk in ids:
         outcome=attempt(pk)
         if outcome in ("processed","held"):
