@@ -30,6 +30,15 @@ def account_digest(service):
     if not isinstance(owner, str) or not owner:
         return ""
     domain = (service.domain_name or "").strip().rstrip(".").lower()
+    if config.get("hosting_vault_connection_id"):
+        from providers.hosting_runtime import load_hosting_connection
+        from providers.connection_vault import VaultUnavailable
+        try:
+            row,_,policy=load_hosting_connection(provider)
+        except VaultUnavailable:
+            return ""
+        return hashlib.sha256(repr((service.provider_id,service.provider_identifier,domain,
+            str(row.pk),row.current_version,config.get("hosting_execution_policy_v1",{}).get("mac"))).encode()).hexdigest()
     key = "|".join((
         str(service.provider_id),
         str(service.provider_identifier or "").lower(),
