@@ -4,6 +4,7 @@ Vendor write acknowledgement is never a success receipt. The service authority
 must reserve a mutation and independently read back the resource.
 """
 import base64
+import json
 import re
 from urllib.parse import parse_qs, urlencode
 
@@ -53,11 +54,22 @@ def _form(response, *, empty=False):
         raise ResourceRefused("Invalid supplier response.") from None
 
 
+def _unique_json(response):
+    def pairs(items):
+        value={}
+        for key,item in items:
+            if key in value:
+                raise ValueError("Duplicate supplier JSON field.")
+            value[key]=item
+        return value
+    return json.loads(response.content,object_pairs_hook=pairs)
+
+
 def _uapi(response, module, function):
     if response.status_code != 200 or len(response.content) > 200000:
         raise ResourceRefused("Supplier response unavailable.")
     try:
-        body = response.json()
+        body = _unique_json(response)
         meta, uapi = body["metadata"], body["data"]["uapi"]
         result = uapi["result"]
         if (meta["command"] != "uapi_cpanel" or str(meta["result"]) != "1"
@@ -209,7 +221,7 @@ class ResourceProtocol:
             if response.status_code!=200 or len(response.content)>200000:
                 raise ResourceRefused("Supplier response unavailable.")
             try:
-                fields=response.json()
+                fields=_unique_json(response)
             except (ValueError,TypeError):
                 raise ResourceRefused("Invalid mailbox inventory.") from None
             if not isinstance(fields,dict) or len(fields)>2000:
@@ -258,7 +270,7 @@ class ResourceProtocol:
         for name in names:
             if domain_name(name)!=name or not name.endswith("."+self.domain):
                 raise ResourceRefused("Unexpected subdomain.")
-        return sorted(names)
+        return sorted(_list_names(names))
 
     def create_mailbox(self, local, password, quota):
         """Call only after the durable service mutation reservation."""
