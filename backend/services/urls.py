@@ -4,7 +4,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import ServiceViewSet, ServiceChangeRequestViewSet
 from .opanel import OPanelOverviewView, NativePanelLaunchView
-from .resource_views import ResourceInventoryView, MailboxCreateView, MailboxReconcileView
+from .resource_views import ResourceInventoryView, MailboxCreateView, MailboxReconcileView, ResourceMutationView, ResourceReconcileView
 
 router = DefaultRouter()
 router.register(r'services', ServiceViewSet, basename='service')
@@ -16,5 +16,7 @@ urlpatterns = [
     path('opanel/<int:service_id>/resources/<str:resource>/', ResourceInventoryView.as_view(), name='hosting-resource-list'),
     path('opanel/<int:service_id>/mailboxes/create/', MailboxCreateView.as_view(), name='hosting-mailbox-create'),
     path('opanel/<int:service_id>/mailboxes/reconcile/', MailboxReconcileView.as_view(), name='hosting-mailbox-reconcile'),
+    path('opanel/<int:service_id>/resource-actions/reconcile/', ResourceReconcileView.as_view(), name='hosting-resource-reconcile'),
+    path('opanel/<int:service_id>/resource-actions/<str:operation>/', ResourceMutationView.as_view(), name='hosting-resource-mutation'),
     path('', include(router.urls)),
 ]
