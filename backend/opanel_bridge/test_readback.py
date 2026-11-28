@@ -67,7 +67,7 @@ class VerifiedAccountReadbackTests(TestCase):
 
     def _vault_fixture(self, *, directadmin=False):
         from providers.connection_models import IntegrationConnection
-        adapter = "directadmin" if directadmin else "cpanel"
+        adapter = "directadmin" if directadmin else "cpanel-whm"
         origin = "https://supplier.example.test:2222" if directadmin else "https://supplier.example.test:2087"
         row = IntegrationConnection.objects.create(
             adapter_key=adapter, label="Synthetic supplier", environment="live",
