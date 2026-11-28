@@ -1,6 +1,7 @@
 "use client";
 import {useState,type FormEvent} from "react";
 import {api} from "@/lib/api/client";
+import {HostingSupplierPolicy} from "./HostingSupplierPolicy";
 import {ShieldCheck,AlertTriangle} from "lucide-react";
 import type {DraftConnection} from "./connection-readback";
 
@@ -24,7 +25,7 @@ export function SavedConnectionActions({connection,onVerified}:{
    if(result.verified!==true||result.execution_enabled!==false||
       result.adapter_key!==connection.adapter_key)throw Error("Invalid provider evidence");
    if(hosting){
-    if(typeof result.evidence.package_count!=="number"||result.evidence.supplier_active!==false||result.evidence.provisioning_enabled!==false)throw Error("Invalid hosting inventory evidence");
+    if(typeof result.evidence.package_count!=="number"||typeof result.evidence.supplier_active!=="boolean"||result.evidence.provisioning_enabled!==false)throw Error("Invalid hosting inventory evidence");
     setMessage(result.evidence.package_count+" hosting packages imported into Catalogue → Suppliers & Inventory. Review pricing and capabilities there. No hosting accounts were created.");
    }else setMessage("Provider access verified on "+new Date(result.checked_at).toLocaleString("en-GB")+
     ". No changes were made to the provider account.");
@@ -34,7 +35,7 @@ export function SavedConnectionActions({connection,onVerified}:{
   }finally{setWorking(false);}
  }
  if(!supported||connection.state==="revoked")return null;
- return <form autoComplete="off" onSubmit={check} className="mt-3 space-y-2 rounded-lg border border-console-line bg-white p-3">
+ return <><form autoComplete="off" onSubmit={check} className="mt-3 space-y-2 rounded-lg border border-console-line bg-white p-3">
   <p className="flex items-center gap-2 text-xs font-medium text-console-ink"><ShieldCheck className="h-4 w-4 text-console-primary" aria-hidden="true"/>Verify provider access</p>
   <p className="text-xs leading-5 text-console-muted">{hosting?"Verify the hosting API and automatically import its technical packages for review. This does not create accounts or publish products.":"Confirm that Octalve Cloud can securely access this account. This check does not change settings or make purchases."}</p>
   <label className="block text-xs text-console-ink">Current account password
@@ -48,5 +49,5 @@ export function SavedConnectionActions({connection,onVerified}:{
    {working?"Verifying…":hosting?"Verify and import packages":"Verify access"}</button>
   {message?<p role={failed?"alert":"status"} className={"text-xs leading-5 "+(failed?"text-rose-700":"text-emerald-700")}>
    {failed?<AlertTriangle aria-hidden="true" className="mr-1 inline h-4 w-4"/>:null}{message}</p>:null}
- </form>;
+ </form>{hosting&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
 }
