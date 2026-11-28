@@ -10,6 +10,7 @@ export function SavedConnectionActions({connection,onVerified}:{
  connection:DraftConnection;onVerified?:()=>void;
 }){
  const [working,setWorking]=useState(false),[message,setMessage]=useState(""),[failed,setFailed]=useState(false);
+ const hosting=["directadmin","cpanel-whm"].includes(connection.adapter_key);
  const supported=connection.supports_verification??["cloudflare-dns","cloudflare-registrar","brevo","paystack"].includes(connection.adapter_key);
  async function check(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(working||!supported||connection.state!=="draft")return;
@@ -22,7 +23,10 @@ export function SavedConnectionActions({connection,onVerified}:{
     "/providers/connections/"+encodeURIComponent(connection.id)+"/verify/",payload);
    if(result.verified!==true||result.execution_enabled!==false||
       result.adapter_key!==connection.adapter_key)throw Error("Invalid provider evidence");
-   setMessage("Provider access verified on "+new Date(result.checked_at).toLocaleString("en-GB")+
+   if(hosting){
+    if(typeof result.evidence.package_count!=="number"||result.evidence.supplier_active!==false||result.evidence.provisioning_enabled!==false)throw Error("Invalid hosting inventory evidence");
+    setMessage(result.evidence.package_count+" hosting packages imported into Catalogue → Suppliers & Inventory. Review pricing and capabilities there. No hosting accounts were created.");
+   }else setMessage("Provider access verified on "+new Date(result.checked_at).toLocaleString("en-GB")+
     ". No changes were made to the provider account.");
    onVerified?.();
   }catch{
@@ -32,7 +36,7 @@ export function SavedConnectionActions({connection,onVerified}:{
  if(!supported||connection.state==="revoked")return null;
  return <form autoComplete="off" onSubmit={check} className="mt-3 space-y-2 rounded-lg border border-console-line bg-white p-3">
   <p className="flex items-center gap-2 text-xs font-medium text-console-ink"><ShieldCheck className="h-4 w-4 text-console-primary" aria-hidden="true"/>Verify provider access</p>
-  <p className="text-xs leading-5 text-console-muted">Confirm that Octalve Cloud can securely access this account. This check does not change settings or make purchases.</p>
+  <p className="text-xs leading-5 text-console-muted">{hosting?"Verify the hosting API and automatically import its technical packages for review. This does not create accounts or publish products.":"Confirm that Octalve Cloud can securely access this account. This check does not change settings or make purchases."}</p>
   <label className="block text-xs text-console-ink">Current account password
    <input type="password" name="password" autoComplete="off" required
     className="mt-1 min-h-11 w-full rounded-lg border border-console-line px-3"/></label>
@@ -41,7 +45,7 @@ export function SavedConnectionActions({connection,onVerified}:{
     autoComplete="one-time-code" required
     className="mt-1 min-h-11 w-full rounded-lg border border-console-line px-3"/></label>
   <button type="submit" disabled={working} className="min-h-11 rounded-lg border border-console-line px-3 text-xs font-medium text-console-primary disabled:opacity-50">
-   {working?"Verifying…":"Verify access"}</button>
+   {working?"Verifying…":hosting?"Verify and import packages":"Verify access"}</button>
   {message?<p role={failed?"alert":"status"} className={"text-xs leading-5 "+(failed?"text-rose-700":"text-emerald-700")}>
    {failed?<AlertTriangle aria-hidden="true" className="mr-1 inline h-4 w-4"/>:null}{message}</p>:null}
  </form>;

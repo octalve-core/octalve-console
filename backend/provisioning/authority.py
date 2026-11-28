@@ -39,7 +39,7 @@ def evaluate_payment_to_provisioning(invoice, transaction):
         return decline('Invoice and order are not settled.')
     if invoice.paid_at is None or order.paid_at is None:
         return decline('Settlement timestamps are missing.')
-    if Decimal(str(invoice.amount_due)) != 0 or Decimal(str(invoice.amount_paid)) < Decimal(str(invoice.total)):
+    if Decimal(str(invoice.amount_due)) != 0 or Decimal(str(invoice.amount_paid)) != Decimal(str(invoice.total)):
         return decline('Invoice is not fully settled.')
     if not invoice.total or Decimal(str(invoice.total)) <= 0:
         return decline('Invalid invoice amount.')
@@ -65,8 +65,8 @@ def evaluate_payment_to_provisioning(invoice, transaction):
         return decline('Payment gateway is inactive or in test mode.')
     if transaction.gateway.code not in ELIGIBLE_GATEWAYS:
         return decline('This gateway has no approved automatic-settlement adapter.')
-    if Decimal(str(transaction.amount)) < Decimal(str(invoice.total)):
-        return decline('Verified transaction does not cover the invoice.')
+    if Decimal(str(transaction.amount)) != Decimal(str(invoice.total)):
+        return decline('Verified transaction does not exactly match the invoice.')
     return ProvisioningDecision(True, 'Eligible for a separately authorised provisioning worker.')
 
 

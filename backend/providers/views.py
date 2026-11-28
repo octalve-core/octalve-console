@@ -71,6 +71,8 @@ class ProviderViewSet(viewsets.ModelViewSet):
     def test_connection(self, request, pk=None):
         """Read-only verified inventory request; never provision a test account."""
         provider = self.get_object()
+        if provider.config.get('hosting_vault_connection_id'):
+            return Response({'detail':'Verify this encrypted hosting connection in the Integration Store.'},status=409)
         try:
             packages = fetch_inventory(provider)
         except InventoryError as exc:
@@ -90,6 +92,8 @@ class ProviderViewSet(viewsets.ModelViewSet):
         not publish customer retail offers or create hosting accounts.
         """
         provider = self.get_object()
+        if provider.config.get('hosting_vault_connection_id'):
+            return Response({'detail':'Refresh encrypted hosting inventory in the Integration Store.'},status=409)
         try:
             offers = fetch_inventory(provider)
         except InventoryError as exc:
@@ -194,6 +198,28 @@ class ProviderPackageViewSet(viewsets.ModelViewSet):
             return ProviderPackage.objects.all()
         return ProviderPackage.objects.none()
     
+    def create(self, request, *args, **kwargs):
+        return Response({"detail":"Supplier packages must originate from verified inventory."},status=405)
+
+    def destroy(self, request, *args, **kwargs):
+        return Response({"detail":"Supplier inventory history is retained."},status=405)
+
+    def update(self, request, *args, **kwargs):
+        # Commercial approval cannot rewrite imported technical facts or identity.
+        from rest_framework.exceptions import ValidationError
+        if not isinstance(request.data,dict) or not request.data or set(request.data)-{"pricing","is_active"}:
+            raise ValidationError("Only supplier cost and inventory approval may be changed.")
+        original=self.get_object()
+        with transaction.atomic():
+            row=ProviderPackage.objects.select_for_update().get(pk=original.pk)
+            serializer=self.get_serializer(row,data=request.data,partial=True)
+            serializer.is_valid(raise_exception=True)
+            if serializer.validated_data.get("is_active") is True and (
+                    row.raw_data.get("origin")!="adapter_verified" or row.raw_data.get("available") is False or not row.specs):
+                raise ValidationError("Only available, independently imported inventory may be approved.")
+            serializer.save()
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'])
     def by_provider(self, request):
         """

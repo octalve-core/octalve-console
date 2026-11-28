@@ -24,7 +24,10 @@ class ProviderSerializer(serializers.ModelSerializer):
     def get_config(self, instance):
         source = instance.config if isinstance(instance.config, dict) else {}
         mode = source.get('fulfillment_model')
-        return {'fulfillment_model':mode} if mode in ('owned_server','partner_reseller') else {}
+        result={'fulfillment_model':mode} if mode in ('owned_server','partner_reseller') else {}
+        if source.get('hosting_vault_connection_id'):
+            result['vault_managed_inventory']=True
+        return result
 
     def get_metadata(self, instance):
         return {}
@@ -79,12 +82,16 @@ class ProviderPackageSerializer(serializers.ModelSerializer):
     """Serializer for ProviderPackage model"""
     
     provider_name = serializers.CharField(source='provider.name', read_only=True)
-    
+    available = serializers.SerializerMethodField()
+
+    def get_available(self,instance):
+        return instance.raw_data.get('origin')=='adapter_verified' and instance.raw_data.get('available') is not False
+
     class Meta:
         model = ProviderPackage
         fields = [
             'id', 'provider', 'provider_name', 'provider_package_id', 'name',
-            'description', 'specs', 'pricing', 'is_active', 'last_synced_at',
+            'description', 'specs', 'pricing', 'is_active', 'available', 'last_synced_at',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['last_synced_at', 'created_at', 'updated_at']

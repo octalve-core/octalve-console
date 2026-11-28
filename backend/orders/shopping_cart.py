@@ -151,6 +151,11 @@ def checkout_issue(items):
         return f"Test checkout supports up to {MAX_CHECKOUT_DOMAINS} domains per order. Remove {len(domains) - MAX_CHECKOUT_DOMAINS} domain(s) to continue."
     if any(not name.endswith(".com") for name in domains):
         return "Test checkout currently supports .com registrations only. Remove other domain extensions to continue."
+    service_domains=[item.get("domain") for item in items if item["kind"]=="service"]
+    if any(not name for name in service_domains):
+        return "Choose an existing domain or register a new domain for each hosting package."
+    if len(set(service_domains))!=len(service_domains):
+        return "Choose a different domain for each hosting account."
     return None
 
 

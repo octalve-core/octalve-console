@@ -433,7 +433,7 @@ class DomainPilotTests(TestCase):
         api = APIClient()
         api.force_authenticate(customer)
         path = "/api/domains/combined-cart/"
-        service = {"plan_id": plan.pk, "offer_revision": 1, "cycle_key": "1mo", "quantity": 1}
+        service = {"plan_id": plan.pk, "offer_revision": 1, "cycle_key": "1mo", "quantity": 1, "domain_name": "customer-owned.com"}
         with patch("domains.combined_cart.registrar") as supplier, patch("domains.pilot.registrar") as single_supplier, patch("domains.pilot.spend_durable_attempt", return_value=0):
             for domains, services, amount in [
                 (["a-test.com"], [], Decimal("12500.00")),

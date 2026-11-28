@@ -162,6 +162,8 @@ def quote_cart(user, data):
                for name in names]
     with transaction.atomic():
         items = services_for(services)
+        from orders.serializers import require_hosting_domains
+        require_hosting_domains(items)
         lines = lines_for(domains, items)
     return {"lines": lines, "total": str(basket_total(lines)), "currency": "NGN", "public_payment_test": public_test,
             "gateway_options": gateway_choices(user, public_test, bool(names)),
@@ -212,6 +214,8 @@ def accept_cart(user, data):
         from .sandbox_fulfillment import assert_private_domain_unclaimed
         assert_private_domain_unclaimed(names)
     items = services_for(services)
+    from orders.serializers import require_hosting_domains
+    require_hosting_domains(items)
     lines = lines_for(domains, items)
     if lines != snapshot["lines"]:
         raise ValidationError("Service pricing changed. Review the current prices.")
