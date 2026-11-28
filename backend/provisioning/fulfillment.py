@@ -108,6 +108,12 @@ def stage_paid_order(order_id, *, item_id=None):
             require_verified_settlement(invoice, payment)
         except SettlementNotVerified as exc:
             raise FulfillmentRefused(str(exc)) from None
+        if order.metadata.get("live_domain_registration_v1"):
+            from domains.live_cart import all_domains_confirmed
+            try:
+                if not all_domains_confirmed(order): raise FulfillmentRefused("Awaiting confirmed domain registration.")
+            except (ValueError,KeyError,TypeError):
+                raise FulfillmentRefused("Domain order authority changed.") from None
         rows = OrderItem.objects.select_for_update().filter(order=order,item_type="hosting")
         if item_id is not None:
             rows=rows.filter(pk=item_id)

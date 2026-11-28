@@ -113,7 +113,9 @@ def advance(domain,entry,grant,invoice,row,secret,adapter):
         if proof["nameservers"]:
             DomainNameserver.objects.filter(domain=locked).delete()
             DomainNameserver.objects.bulk_create([DomainNameserver(domain=locked,hostname=ns,sort_order=i) for i,ns in enumerate(proof["nameservers"])])
-        order=Order.objects.select_for_update().get(pk=grant["order"]);order.mark_provisioned()
+        order=Order.objects.select_for_update().get(pk=grant["order"])
+        from .live_cart import finish_domain_order
+        finish_domain_order(order)
         AuditLog.objects.create(actor=None,action="live_domain_registration_confirmed",entity_type="Domain",
             entity_id=str(locked.pk),entity_name=locked.domain_name,details={"order":order.pk,"provider_order":proof["order_id"],"expires_at":expires.isoformat()})
     return "processed"

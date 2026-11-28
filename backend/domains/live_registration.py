@@ -171,11 +171,12 @@ def authority(domain,*,lock=False):
     entry=domain.metadata[KEY]
     grant=signing.loads(entry["grant"],salt=SALT)
     item=domain.order_item
+    from .live_cart import claims_for
     if (digest(domain.registrant_contact)!=grant.get("contact_digest") or domain.management_kind!="registrar" or domain.registrar not in ("cloudflare-registrar-live","resellerclub") or domain.status!="pending"
         or not item or item.pk!=grant["item"] or item.order_id!=grant["order"] or item.item_type!="domain"
         or domain.registration_type!=grant.get("operation","register") or item.domain_name!=domain.domain_name or domain.domain_name!=grant["domain"] or domain.client_id!=grant["owner"]
         or item.order.client_id!=domain.client_id or item.months!=12 or item.quantity!=1 or str(item.subtotal)!=grant["retail"]
-        or item.order.metadata.get(KEY)!={"domain_id":domain.pk,"item":item.pk} or item.order.items.count()!=1):
+        or {"domain_id":domain.pk,"item":item.pk} not in claims_for(item.order)):
         raise RegistrationRefused("Registration authority changed.")
     invoices=Invoice.objects.filter(order_id=item.order_id,client_id=domain.client_id)
     if lock: invoices=invoices.select_for_update()
@@ -189,7 +190,7 @@ def authority(domain,*,lock=False):
     if len(payments)!=1 or payments[0].gateway.code!="paystack" or not payments[0].webhook_verified or payments[0].metadata.get("payment_mode")!="live":
         raise RegistrationRefused("Verified live Paystack payment required.")
     require_verified_settlement(invoice,payments[0])
-    if invoice.total!=item.subtotal or invoice.order.total!=item.subtotal:
+    if invoice.total!=invoice.order.total or invoice.total!=sum(i.subtotal for i in invoice.order.items.all()):
         raise RegistrationRefused("Domain invoice changed.")
     return entry,grant,invoice
 
@@ -264,7 +265,8 @@ def transition(domain_id):
                 "registrant_verification":"supplier_confirmation_required"}}
             locked.save()
             order=Order.objects.select_for_update().get(pk=grant["order"])
-            order.mark_provisioned()
+            from .live_cart import finish_domain_order
+            finish_domain_order(order)
             AuditLog.objects.create(actor=None,action="live_domain_registration_confirmed",entity_type="Domain",
                 entity_id=str(locked.pk),entity_name=locked.domain_name,details={"order":order.pk,"expires_at":expires.isoformat()})
         return "processed"

@@ -259,14 +259,9 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None, allow_test
             from providers.connection_vault import VaultUnavailable
             from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion
             try:
-                domain=Domain.objects.select_for_update().get(pk=invoice.order.metadata[KEY]["domain_id"],
-                    client_id=invoice.client_id,order_item__order_id=invoice.order_id,status="pending")
-                grant=signing.loads(domain.metadata[KEY]["grant"],salt=SALT)
-                if (not live_binding or not registrar_enabled() or domain.metadata[KEY]["state"]!="queued"
-                    or grant["order"]!=invoice.order_id or grant["owner"]!=invoice.client_id
-                    or Decimal(grant["retail"])!=invoice.total):
+                from domains.live_cart import payment_ready
+                if not live_binding or not registrar_enabled() or not payment_ready(invoice):
                     raise CheckoutRefused("Live registration payment is unavailable.")
-                load(grant["route"])
             except (Domain.DoesNotExist,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist,VaultUnavailable,signing.BadSignature,ValueError,KeyError,TypeError):
                 raise CheckoutRefused("Live registrar authority changed.") from None
         if invoice.order.metadata.get("registrar_renewal_v1"):
