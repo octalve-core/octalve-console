@@ -46,7 +46,6 @@ def _mark_dispatched(task_id,plan,snapshot):
     with connection.cursor() as cursor:
         cursor.execute("SELECT pg_advisory_xact_lock(%s)",[number])
     fresh=ProvisioningTask.objects.select_for_update().get(pk=task_id)
-    from providers.connection_models import IntegrationConnection
     connection_id=fresh.provider.config.get("hosting_vault_connection_id")
     IntegrationConnection.objects.select_for_update().get(pk=connection_id)
     provider=Provider.objects.select_for_update().get(pk=fresh.provider_id)
@@ -88,6 +87,7 @@ def advance(task_id):
             reconcile_verified_hosting(task.pk,apply=True)
             return "completed"
         plan=plan_account_creation(task.pk,allow_reserved=True)
+        challenge=task.metadata.get(KEY)
         if not verified_domain(task):
             return "awaiting_domain_proof"
         protocol,_=_protocol(task,plan)
@@ -97,7 +97,7 @@ def advance(task_id):
         if task.metadata.get("remote_create",{}).get("state")!="reserved_no_network":
             return "held"
         # Compare the exact challenge used for the successful DNS lookup.
-        if not verified_domain(task):
+        if task.metadata.get(KEY)!=challenge:
             return "awaiting_domain_proof"
         protocol,policy=_mark_dispatched(task.pk,plan,task.metadata)
         try:
