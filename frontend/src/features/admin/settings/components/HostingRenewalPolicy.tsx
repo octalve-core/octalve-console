@@ -37,4 +37,31 @@ function LifecyclePolicyEditor(){
  </form>}
  {notice&&<p role="status" className="text-sm">{notice}</p>}</section>
 }
-export function HostingRenewalPolicy(){return <><RenewalPolicyEditor/><LifecyclePolicyEditor/></>}
+export function HostingRenewalPolicy(){return <><RenewalPolicyEditor/><LifecyclePolicyEditor/><CancellationPolicyEditor/></>}
+
+type CancelState={available:boolean;policy:{enabled:boolean;retention_days:number;termination_enabled:boolean}|null;pending:{pk:number;service_id:number;service__domain_name:string;service__next_due_date:string}[];retained:{pk:number;domain_name:string;cancelled_at:string}[]};
+function CancellationPolicyEditor(){
+ const [state,setState]=useState<CancelState|null>(null),[busy,setBusy]=useState(false),[notice,setNotice]=useState("");
+ const [mode,setMode]=useState<"policy"|"approve"|"terminate">("policy");
+ const [requestId,setRequestId]=useState(""),[serviceId,setServiceId]=useState("");
+ async function refresh(){try{setState(await api.get<CancelState>("/services/cancellation-policy/"))}catch{setState(null);setNotice("Cancellation status unavailable.")}}
+ useEffect(()=>{void refresh()},[]);
+ const field="mt-1 block w-full rounded border border-console-line p-2";
+ return <section className="rounded-xl border border-console-line bg-white p-5 space-y-3 xl:col-span-2">
+ <h2 className="font-medium">Cancellation and retention</h2><p className="text-sm text-console-muted">Keep customer access through the paid term. Permanent deletion stays separately disabled unless approved. An administrator must confirm a recoverable offsite backup and the exact domain after retention.</p>
+ {!state?.available?<p className="text-sm text-console-muted">Cancellation release not enabled.</p>:<form key={mode} className="space-y-3" onSubmit={async e=>{e.preventDefault();if(busy)return;const form=e.currentTarget,f=new FormData(form);const common={action:mode,confirm_password:String(f.get("password")||""),totp_code:String(f.get("totp")||"")};const selected=state.pending.find(x=>String(x.pk)===requestId);if(mode==="approve"&&!selected)return;const payload=mode==="policy"?{...common,policy:{enabled:f.get("enabled")==="on",retention_days:Number(f.get("retention")),termination_enabled:f.get("termination")==="on"}}:mode==="approve"?{...common,service_id:selected?.service_id,request_id:Number(requestId)}:{...common,service_id:Number(serviceId),confirmed_domain:String(f.get("domain")||""),backup_reference:String(f.get("backup")||"")};setBusy(true);setNotice("");try{await api.post("/services/cancellation-policy/",payload);setNotice("Approval recorded. Supplier state will be independently reconciled by the worker.");await refresh()}catch{setNotice("Approval refused. Check paid invoices, retention, notice, supplier authorization and authenticator.")}finally{for(const name of ["password","totp"]){const input=form.elements.namedItem(name);if(input instanceof HTMLInputElement)input.value=""}setBusy(false)}}}>
+ <label className="block text-sm">Action<select value={mode} onChange={e=>setMode(e.target.value as typeof mode)} className={field}><option value="policy">Configure retention policy</option><option value="approve">Approve customer cancellation</option><option value="terminate">Authorize permanent removal</option></select></label>
+ {mode==="policy"?<>
+ <label className="flex gap-2 text-sm"><input name="enabled" type="checkbox" defaultChecked={state.policy?.enabled??false}/>Enable paid-term cancellation</label>
+ <label className="block text-sm">Retention days<input name="retention" type="number" min={30} max={365} required defaultValue={state.policy?.retention_days??30} className={field}/></label>
+ <label className="flex gap-2 text-sm"><input name="termination" type="checkbox" defaultChecked={state.policy?.termination_enabled??false}/>Allow separately approved permanent removal</label>
+ </>:mode==="approve"?<label className="block text-sm">Customer request<select required value={requestId} onChange={e=>setRequestId(e.target.value)} className={field}><option value="">Select pending request</option>{state.pending.map(x=><option value={x.pk} key={x.pk}>{x.service__domain_name} · {new Date(x.service__next_due_date).toLocaleDateString("en-GB")}</option>)}</select></label>:<>
+ <label className="block text-sm">Retained hosting account<select required value={serviceId} onChange={e=>setServiceId(e.target.value)} className={field}><option value="">Select retained account</option>{state.retained.map(x=><option value={x.pk} key={x.pk}>{x.domain_name}</option>)}</select></label>
+ <label className="block text-sm">Type the exact domain to confirm<input name="domain" required autoComplete="off" className={field}/></label>
+ <label className="block text-sm">Verified offsite restore-test reference<input name="backup" required minLength={8} maxLength={100} className={field}/></label>
+ <label className="flex gap-2 text-sm"><input type="checkbox" required/>I have independently verified a recoverable offsite backup, retention and customer notice. This action can permanently remove hosting data.</label>
+ </>}
+ <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">Current password<input name="password" type="password" autoComplete="current-password" required className={field}/></label><label className="text-sm">Authenticator code<input name="totp" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" required className={field}/></label></div>
+ <button disabled={busy||(mode==="approve"&&!requestId)||(mode==="terminate"&&!serviceId)} type="submit" className="min-h-11 rounded bg-console-primary px-4 text-sm font-medium text-white disabled:opacity-50">{busy?"Approving…":"Confirm approval"}</button>
+ </form>}{notice&&<p role="status" className="text-sm">{notice}</p>}</section>
+}

@@ -44,3 +44,12 @@ class LifecyclePolicyTests(SimpleTestCase):
         for bad in ({**p,"grace_days":0},{**p,"restore_enabled":1},{**p,"terminate":True}):
             with self.assertRaises(RenewalRefused):
                 validate_policy(bad)
+
+class CancellationPolicyTests(SimpleTestCase):
+    def test_retention_policy_is_explicit_and_bounded(self):
+        from services.hosting_cancellation import validate_policy
+        value={"enabled":True,"retention_days":30,"termination_enabled":False}
+        self.assertEqual(validate_policy(value),value)
+        for bad in ({**value,"retention_days":29},{**value,"termination_enabled":1},{**value,"retention_days":366}):
+            with self.assertRaises(RenewalRefused):
+                validate_policy(bad)

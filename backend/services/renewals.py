@@ -115,7 +115,7 @@ def _original(service, *, allow_suspended=False):
         raise RenewalRefused("Original supplier account proof is unavailable.")
     if Service.objects.filter(provider_id=service.provider_id,provider_identifier__iexact=service.provider_identifier).exclude(pk=service.pk).exists():
         raise RenewalRefused("Ambiguous hosting account.")
-    if ServiceActionLog.objects.filter(service=service,action="cancel",details__state="pending_review").exists():
+    if service.metadata.get("hosting_cancellation_v1") or ServiceActionLog.objects.filter(service=service,action="cancel",details__state="pending_review").exists():
         raise RenewalRefused("Cancellation is awaiting review.")
     return proof
 

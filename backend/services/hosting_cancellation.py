@@ -74,6 +74,9 @@ def _protected(service):
 
 def _unresolved(service):
     invoices=Invoice.objects.filter(client_id=service.client_id,metadata__type="renewal",metadata__service_id=service.pk)
+    original=Transaction.objects.filter(invoice_id=service.invoice_id)
+    if original.filter(status__in=("manual_review","pending","refunded")).exists() or original.filter(transaction_type="refund").exists():
+        return True
     return (invoices.filter(status__in=("unpaid","partially_paid","overdue")).exists()
         or invoices.filter(status="paid",order__status="paid").exists()
         or PaymentIntent.objects.filter(invoice__in=invoices,status__in=("pending","processing")).exists()
@@ -120,12 +123,30 @@ def approve(service_id,request_id,actor):
     return {"state":"scheduled","effective_at":entry["term"],"retention_days":entry["retention_days"]}
 
 @transaction.atomic
-def _reserve(service_id,expected,state,next_state):
+def _reserve(service_id,expected,state,next_state,expected_policy):
     service=Service.objects.select_for_update().get(pk=service_id)
     entry,record=_entry(service)
     if entry!=expected or record["state"]!=state:
         raise RenewalRefused("Cancellation reservation changed.")
     proof,provider,row,protocol=_identity(service,entry)
+    if policy()!=expected_policy:
+        raise RenewalRefused("Cancellation policy changed.")
+    if state=="scheduled":
+        if service.status!="active" or timezone.now()<service.next_due_date or not _notice_accepted(service,entry,"cancel"):
+            raise RenewalRefused("Paid term or cancellation notice prevents suspension.")
+    elif state=="termination_approved":
+        approval=unseal(record["approval"],KEY+":removal")
+        expiry=parse_datetime(approval["expires"])
+        _,_,supplier_policy=lifecycle.load_hosting_connection(provider)
+        if (not expected_policy["termination_enabled"] or not getattr(settings,"CLOUD_HOSTING_TERMINATION_ENABLED",False)
+                or not expiry or expiry<=timezone.now() or approval["service"]!=service.pk or approval["domain"]!=service.domain_name
+                or approval["event"]!=entry["event"] or "lifecycle_terminate" not in supplier_policy.get("resource_capabilities",[])
+                or service.status!="cancelled" or not service.cancelled_at
+                or timezone.now()<service.cancelled_at+timedelta(days=max(entry["retention_days"],expected_policy["retention_days"]))
+                or not _notice_accepted(service,entry,"terminate")):
+            raise RenewalRefused("Removal approval changed.")
+    else:
+        raise RenewalRefused("Unapproved cancellation operation.")
     service.metadata={**service.metadata,KEY:{**record,"state":next_state}}
     service.save(update_fields=["metadata","updated_at"])
     return protocol
@@ -169,7 +190,7 @@ def authorize_removal(service_id,actor,confirmed_domain,backup_reference):
         raise RenewalRefused("Permanent removal policy disabled.")
     service=Service.objects.select_for_update().get(pk=service_id)
     entry,record=_entry(service)
-    if (service.status!="cancelled" or record["state"]!="retained" or confirmed_domain!=service.domain_name
+    if (service.status!="cancelled" or record["state"] not in ("retained","termination_approved") or confirmed_domain!=service.domain_name
             or not isinstance(backup_reference,str) or not 8<=len(backup_reference)<=100
             or any(not (ch.isalnum() or ch in "-_.:") for ch in backup_reference)
             or not service.cancelled_at or timezone.now()<service.cancelled_at+timedelta(days=max(entry["retention_days"],p["retention_days"]))
@@ -216,7 +237,7 @@ def advance(service_id):
                 return "waiting"
             if protocol.lifecycle_state()!={"state":"active","reason":""}:
                 return "held"
-            protocol=_reserve(service.pk,entry,state,"suspend_uncertain")
+            protocol=_reserve(service.pk,entry,state,"suspend_uncertain",p)
             try:
                 protocol.lifecycle_write("suspend",marker,dispatch_authorized=True)
             except (VendorProtocolRefused,SupplierEgressDenied):
@@ -239,7 +260,7 @@ def advance(service_id):
                     or not service.cancelled_at or timezone.now()<service.cancelled_at+timedelta(days=max(entry["retention_days"],p["retention_days"]))
                     or not _notice_accepted(service,entry,"terminate") or protocol.lifecycle_state()!={"state":"suspended","reason":marker}):
                 return "held"
-            protocol=_reserve(service.pk,entry,state,"terminate_uncertain")
+            protocol=_reserve(service.pk,entry,state,"terminate_uncertain",p)
             try:
                 protocol.terminate_account(dispatch_authorized=True)
             except (VendorProtocolRefused,SupplierEgressDenied):
@@ -256,8 +277,9 @@ def run_due(limit=2):
     result={"enabled":enabled(),"cancelled":0,"terminated":0,"held":0}
     if not result["enabled"]:
         return result
-    for pk in Service.objects.filter(metadata__hosting_cancellation_v1__state__in=("scheduled","suspend_uncertain",
-            "retained","termination_approved","terminate_uncertain")).order_by("updated_at","pk").values_list("pk",flat=True)[:min(max(int(limit),1),4)]:
+    from django.db.models import Q
+    due=Service.objects.filter(Q(metadata__hosting_cancellation_v1__state="scheduled",next_due_date__lte=timezone.now()) | Q(metadata__hosting_cancellation_v1__state__in=("suspend_uncertain","termination_approved","terminate_uncertain")))
+    for pk in due.order_by("updated_at","pk").values_list("pk",flat=True)[:min(max(int(limit),1),4)]:
         state=advance(pk)
         if state in ("cancelled","terminated","held"):
             result[state]+=1

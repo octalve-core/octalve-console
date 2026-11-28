@@ -87,6 +87,7 @@ class CancellationPolicyView(APIView):
     def post(self,request):
         assert_admin(request.user)
         from . import hosting_cancellation as cancel
+        from .models import Service,ServiceActionLog
         if not cancel.enabled():
             return Response({"detail":"Cancellation disabled."},status=503,headers=HEADERS)
         data=request.data
@@ -102,6 +103,6 @@ class CancellationPolicyView(APIView):
                 return Response(cancel.approve(data["service_id"],data["request_id"],request.user),headers=HEADERS)
             if action=="terminate" and set(data)==common|{"service_id","confirmed_domain","backup_reference"} and type(data["service_id"]) is int:
                 return Response(cancel.authorize_removal(data["service_id"],request.user,data["confirmed_domain"],data["backup_reference"]),headers=HEADERS)
-        except (renewals.RenewalRefused,VaultUnavailable,ValueError,TypeError,KeyError):
+        except (renewals.RenewalRefused,VaultUnavailable,ValueError,TypeError,KeyError,Service.DoesNotExist,ServiceActionLog.DoesNotExist):
             return Response({"detail":"Cancellation authority not confirmed."},status=409,headers=HEADERS)
         return Response({"detail":"Unsupported cancellation action."},status=400,headers=HEADERS)
