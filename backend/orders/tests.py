@@ -35,6 +35,7 @@ class HostingCheckoutTests(TestCase):
     def payload(self, key=None):
         return {"checkout_id": str(key or uuid4()), "items": [{
             "plan_id": self.plan.id, "cycle_key": "1mo", "offer_revision": 1, "quantity": 1,
+            "domain_name": "customer-hosting.example.com",
         }]}
 
     def test_client_can_browse_active_public_hosting_catalog(self):
