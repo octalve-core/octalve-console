@@ -19,7 +19,6 @@ import { ClientRecordList } from "../components/ClientRecordList";
 
 import {ClientEssentialRecords} from "../components/ClientEssentialRecords";
 import {BillingRecordDirectory} from "../components/commerce/BillingRecordDirectory";
-import {ClientDNSClaimPanel} from "../components/ClientDNSClaimPanel";
 
 type ClientResourceListViewProps = {
   resource: ClientResourceKey;
@@ -80,7 +79,7 @@ export function ClientResourceListView({ resource }: ClientResourceListViewProps
     onClick={()=>{void loadRecords(false);}}>Try again</ActionButton>;
   const recovery=issue?.signIn?<ActionLink href="/login" size="sm" variant="outline">Sign in</ActionLink>:retry;
   const body=<div className="space-y-5">
-    {resource==="domains"?<><SandboxDomainWorkspace/><details className="rounded-xl border border-console-line bg-white p-4"><summary className="cursor-pointer text-sm font-medium">Connect an external DNS zone</summary><div className="mt-4"><ClientDNSClaimPanel/></div></details></>:null}
+    {resource==="domains"?<SandboxDomainWorkspace/>:null}
 
     {isLoading?<LoadingState title={`Loading your ${config.title.toLowerCase()}`} description="Checking your latest account records."/>:
      error&&(!records.length||issue?.signIn)?<ErrorState title={issue?.title} description={issue?.description??error} action={recovery}/>:

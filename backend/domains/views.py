@@ -71,11 +71,6 @@ class DomainViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
         from .external_dns_claims import verify_claim
         return verify_claim(request)
 
-    @action(detail=False, methods=['post'], url_path='dns-only-self-verify')
-    def dns_only_self_verify(self, request):
-        from .external_dns_claims import verify_self_service
-        return verify_self_service(request)
-
     @action(detail=True, methods=['get'], url_path='dns-access')
     def dns_access(self, request, pk=None):
         from . import dns_readonly
