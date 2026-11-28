@@ -16,7 +16,8 @@ from orders.shopping_cart import MAX_CHECKOUT_DOMAINS
 from providers.registrar_live_policy import load
 from providers.connection_vault import VaultUnavailable
 from providers.connection_models import IntegrationConnection,IntegrationCredentialVersion
-from providers.cloudflare_int01 import CloudflareINT01Denied,require_domain
+from providers.cloudflare_int01 import CloudflareINT01Denied
+from providers.registrar_names import require_standard_domain as require_domain
 from .models import Domain,TLDPricing
 from .live_registration import KEY,SALT,HEADERS,quote,validate_contact,account_id,digest,enabled,RegistrationRefused
 from .combined_cart import services_for
@@ -81,7 +82,10 @@ def accept_cart(user,token,contact,checkout_id):
     for g in basket["domains"]:
         p=rates["."+g["domain"].rsplit(".",1)[1]]
         if g["owner"]!=user.pk or g["operation"]!="register" or g["years"]!=1 or str(p.register_price)!=g["retail"] or p.metadata.get("published_registrar")!=g["route"] or p.metadata.get("published_registrar_cost_v1")!=g["cost"]:raise RegistrationRefused()
-        row,_=load(g["route"]);rows.append((g,p,row))
+        row,_=load(g["route"])
+        require_domain(g["domain"],row.adapter_key)
+        if p.is_premium or p.local_presence_required or p.requires_id_protection or p.requires_dnssec: raise RegistrationRefused()
+        rows.append((g,p,row))
     if Domain.objects.filter(domain_name__in=names).exists():raise RegistrationRefused("Resume the existing domain invoice.")
     items=services_for(basket["services"]);require_hosting_domains(items);snaps=service_snapshot(items)
     if snaps!=basket["snapshots"]:raise RegistrationRefused()

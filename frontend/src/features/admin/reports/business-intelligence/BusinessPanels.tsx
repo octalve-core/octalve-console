@@ -78,10 +78,18 @@ export function FinancePanel({data}:{data:BIZSnapshot}){
  const paymentColumns:ResponsiveColumn<MonthlyMoney>[]=[
   {key:"month",heading:"Month",cell:r=>monthLabel(r.month)},
   {key:"count",heading:"Verified payments",cell:r=>fmt(r.count)},
-  {key:"amount",heading:"Amount · "+c,cell:r=>formatMoney(r.amount,c)}];
+  {key:"amount",heading:"Gross · "+c,cell:r=>formatMoney(r.amount,c)},
+  {key:"refunds",heading:"Refunds · "+c,cell:r=>r.refunds===undefined?"Unavailable":formatMoney(r.refunds,c)},
+  {key:"net",heading:"Net collections · "+c,cell:r=>r.net===undefined?"Unavailable":formatMoney(r.net,c)}];
  return <div className="space-y-5">
   <KPIs items={[
-   {title:"This month · gateway verified",value:formatMoney(x.payment_amounts.this_month,c),note:"Not bank-settled revenue",icon:CircleDollarSign},
+   {title:"Gross collections · this month",value:formatMoney(x.payment_amounts.this_month,c),note:"Gateway verified; not bank-settled revenue",icon:CircleDollarSign},
+   {title:"Verified refunds · this month",value:formatMoney(x.payment_amounts.refunded_this_month,c),note:"Independently verified reversals",icon:ReceiptText,tone:"rose"},
+   {title:"Net collections · this month",value:x.payment_amounts.net_collections_this_month===undefined?"Unavailable":formatMoney(x.payment_amounts.net_collections_this_month,c),note:"Gross less verified refunds, before fees",icon:WalletCards,tone:"green"},
+   {title:"Net collections · last month",value:x.payment_amounts.net_collections_last_month===undefined?"Unavailable":formatMoney(x.payment_amounts.net_collections_last_month,c),note:"Same basis, prior calendar month",icon:TrendingUp},
+   {title:"Net collections · year to date",value:x.payment_amounts.net_collections_year_to_date===undefined?"Unavailable":formatMoney(x.payment_amounts.net_collections_year_to_date,c),note:"Gross less verified refunds",icon:CircleDollarSign,tone:"green"},
+   {title:"Accepted dispute liabilities",value:x.accepted_dispute_liability===undefined?"Unavailable":formatMoney(x.accepted_dispute_liability,c),note:"Lifetime verified case amount; not deducted again from cash collections",icon:ShieldCheck,tone:"amber"},
+   {title:"Open financial reviews",value:x.open_financial_reviews===undefined?"Unavailable":fmt(x.open_financial_reviews),note:"Unclosed verified-payment review cases",icon:Activity,tone:"amber"},
    {title:"Verified payment records",value:fmt(data.overview.verified_payment_count_this_month),note:"Month to date vs previous full calendar month",icon:CreditCard,tone:"green",trend:metricTrend(data.overview.verified_payment_count_this_month,data.overview.verified_payment_count_last_month)},
    {title:"Last month · gateway verified",value:formatMoney(x.payment_amounts.last_month,c),note:"Direct month-to-month basis",icon:TrendingUp,tone:"violet"},
    {title:"Paid on/before invoice due date",value:fmt(x.paid_before_due_this_month),note:"Invoice timestamps only",icon:FileCheck2,tone:"green"},
@@ -97,7 +105,7 @@ export function FinancePanel({data}:{data:BIZSnapshot}){
   <Panel><h2 className="mb-4 text-sm font-medium">Gateway-verified payment history</h2>
    <ResponsiveTable caption="Gateway verified payments by month" rows={x.payment_months}
      columns={paymentColumns} getRowKey={r=>r.month} emptyDescription="No verified payment records in this period."/></Panel>
-  <Explanation warning title="Payment and profit qualification" body="Successful gateway evidence does not prove bank settlement. Invoice paid status is separate; supplier cost and actual profit are deliberately not calculated. Currencies are never combined or converted implicitly."/>
+  <Explanation warning title="Payment and profit qualification" body="Net collections subtract verified refunds, not unverified liabilities or bank fees. Accepted disputes are displayed separately to avoid duplicate deductions. Supplier costs, bank settlement and accounting profit require separate evidence. Currencies are never combined or converted implicitly."/>
  </div>;
 }
 export function CustomersPanel({data}:{data:BIZSnapshot}){

@@ -24,3 +24,21 @@ class ResellerClubTransportTests(SimpleTestCase):
             self.assertEqual(self.rc.domain_details("alpha.com",order="5",include_secret=True)["auth_code"],"fixture-epp-123")
             with self.assertRaises(ResellerClubUnavailable):self.rc.domain_details("alpha.com",customer="99")
         with self.assertRaises(ResellerClubUnavailable):nameservers(["ns1.example.com","ns1.example.com"])
+
+    def test_expanded_standard_domain_and_otp_contract(self):
+        from .registrar_names import require_standard_domain
+        from .cloudflare_int01 import CloudflareINT01Denied
+        self.assertEqual(require_standard_domain("example.org","resellerclub"),"example.org")
+        for name,adapter in (("example.org","cloudflare-registrar-live"),("example.ng","resellerclub"),("xn--example.com","resellerclub")):
+            with self.assertRaises(CloudflareINT01Denied):require_standard_domain(name,adapter)
+        with patch.object(self.rc,"_call",return_value={"entityId":"5","eaqId":"6"}) as vendor:
+            self.assertEqual(self.rc.change_transfer_lock("5",True,"123456"),"6")
+            self.assertEqual(vendor.call_args.kwargs["body"],{"enabled":True,"otp":"123456","twoFactorType":"EMAIL"})
+            self.rc.change_nameservers("5",["ns1.example.com","ns2.example.com"],"123456")
+            self.assertEqual(vendor.call_args.kwargs["body"]["twoFactorType"],"email")
+            self.rc.change_auth_code("5","Fixture!123","123456")
+            self.assertEqual(vendor.call_args.kwargs["body"]["authCode"],"Fixture!123")
+        with patch.object(self.rc,"_call",return_value={"success":True}) as vendor:
+            self.assertTrue(self.rc.email_otp("5","modify-ns"))
+            vendor.assert_called_once_with("POST","/domains/5/domain-protection/modify-ns/email-otp")
+            with self.assertRaises(ResellerClubUnavailable):self.rc.email_otp("5","unknown")

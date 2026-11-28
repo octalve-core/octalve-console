@@ -19,6 +19,7 @@ from catalog.permissions import InternalSupplierAuthority
 from .cloudflare_int01 import CloudflareINT01, CloudflareINT01Denied, FixedCloudflareTransport, require_domain
 from .connection_audit import verify_chain
 from .resellerclub_live import ResellerClub,ResellerClubUnavailable
+from .registrar_names import require_standard_domain
 from .connection_models import IntegrationConnection, IntegrationCredentialVersion
 from .connection_stepup import assert_admin, check_mutation
 from .connection_views import VaultMutationThrottle, connection_database_qualified
@@ -50,9 +51,9 @@ def live_registrar_quote(request, connection_id):
         raise VaultUnavailable()
 
     try:
-        domain = require_domain(request.data["domain"])
+        domain = require_standard_domain(request.data["domain"])
     except CloudflareINT01Denied:
-        raise ValidationError({"domain": "Only a valid lowercase .com or .net domain is supported."}) from None
+        raise ValidationError({"domain": "Only a reviewed standard lowercase domain is supported."}) from None
 
     # Password and one-use RFC6238 code are checked server-side against the
     # owner before ANY supplier call or encrypted credential access.
@@ -66,6 +67,7 @@ def live_registrar_quote(request, connection_id):
         return Response({"detail": "Approved registrar connection not found."}, status=404)
 
     try:
+        require_standard_domain(domain,row.adapter_key)
         if row.adapter_key=="resellerclub" and row.environment!="live":
             raise ResellerClubUnavailable()
         verify_chain(row)

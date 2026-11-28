@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.core import signing
 from django.db import transaction,DatabaseError
 from django.utils import timezone
+from django.utils.crypto import salted_hmac,constant_time_compare
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.debug import sensitive_variables
 from rest_framework.exceptions import ValidationError,NotFound,Throttled
@@ -16,6 +17,8 @@ from .models import Domain,DomainNameserver
 from .live_registration import KEY,SALT,HEADERS,connector,digest,enabled,account_id,RegistrationRefused
 
 NS="registrar_nameserver_change_v1"
+PROTECTION="registrar_protection_change_v1"
+OTP="registrar_protection_otp_v1"
 
 def managed(domain):
     entry=domain.metadata[KEY]
@@ -47,9 +50,12 @@ def local_status(proof):
     if proof["status"] in ("Deleted","Archived","Pending Delete Restorable"): return "expired"
     return "suspended"
 
+@sensitive_variables("proof","secret")
 def reconcile(domain):
     entry,grant,row,secret,adapter=managed(domain)
-    proof=read(domain,entry,adapter)
+    pending_protection=domain.metadata.get(PROTECTION,{})
+    proof=read(domain,entry,adapter,include_secret=pending_protection.get("state")=="uncertain" and pending_protection.get("operation")=="change-auth-code")
+    locks=adapter.locks(domain.provider_domain_id) if pending_protection.get("state")=="uncertain" and pending_protection.get("operation")=="transfer-lock" else None
     with transaction.atomic():
         locked=Domain.objects.select_for_update().get(pk=domain.pk)
         IntegrationConnection.objects.select_for_update().get(pk=row.pk)
@@ -68,6 +74,9 @@ def reconcile(domain):
             DomainNameserver.objects.bulk_create([DomainNameserver(domain=locked,hostname=n,sort_order=i) for i,n in enumerate(proof["nameservers"])])
             if pending.get("state")=="uncertain" and set(pending["nameservers"])==set(proof["nameservers"]):
                 locked.metadata[NS]={**pending,"state":"confirmed","confirmed_at":timezone.now().isoformat()}
+        if pending_protection.get("state")=="uncertain":
+            done=(pending_protection.get("operation")=="transfer-lock" and locks and locks["transferLock"] is pending_protection.get("enabled")) or (pending_protection.get("operation")=="change-auth-code" and constant_time_compare(salted_hmac("octalve.epp.confirm."+pending_protection["nonce"],proof.get("auth_code",""),algorithm="sha256").hexdigest(),pending_protection.get("digest","")))
+            if done: locked.metadata[PROTECTION]={"state":"confirmed","operation":pending_protection["operation"],"confirmed_at":timezone.now().isoformat()}
         locked.save(update_fields=["metadata","status","is_active","expiry_date","next_due_date","updated_at"])
     return "processed"
 
@@ -75,7 +84,7 @@ def owner(user,domain):
     if user.role!="client" or not user.is_active or not user.email_verified_at or domain.client_id!=user.pk:
         raise NotFound()
 
-@sensitive_variables("password","proof")
+@sensitive_variables("password","proof","data","otp","secret","code")
 def handle(request,domain):
     owner(request.user,domain)
     try:
@@ -85,13 +94,15 @@ def handle(request,domain):
                 "registrant_verification":entry.get("registrant_verification","unknown"),
                 "nameservers":list(domain.nameservers.order_by("sort_order").values_list("hostname",flat=True)),
                 "nameserver_state":domain.metadata.get(NS,{}).get("state","idle"),
+                "protection_state":domain.metadata.get(PROTECTION,{}).get("state","idle"),
                 "last_reconciled_at":entry.get("last_reconciled_at",entry.get("confirmed_at"))},headers=HEADERS)
         data=request.data
         if not isinstance(data,dict): raise RegistrationRefused()
         op=data.get("operation")
-        fields={"operation","password"}|({"nameservers"} if op=="nameservers" else {"enabled"} if op=="auto-renew" else set())
-        password=data.get("password")
-        if set(data)!=fields or not isinstance(password,str) or not request.user.check_password(password):
+        fields={"operation","password"}|({"nameservers"} if op=="nameservers" else {"enabled"} if op in ("auto-renew","transfer-lock") else {"action"} if op=="request-otp" else {"code"} if op=="change-auth-code" else set())
+        optional={"otp"} if op in ("nameservers","transfer-lock","change-auth-code") else set()
+        password=data.get("password");otp=data.get("otp")
+        if not fields<=set(data) or set(data)-fields-optional or not isinstance(password,str) or not request.user.check_password(password):
             raise RegistrationRefused()
         if op=="renew":
             from .resellerclub_renewals import create_invoice
@@ -104,6 +115,9 @@ def handle(request,domain):
                 locked.auto_renew=data["enabled"];locked.save(update_fields=["auto_renew","updated_at"])
                 AuditLog.objects.create(actor=request.user,action="domain_renewal_preference",entity_type="Domain",entity_id=str(domain.pk),entity_name=domain.domain_name,details={"enabled":locked.auto_renew})
             return Response({"auto_renew":locked.auto_renew},headers=HEADERS)
+        if op in ("request-otp","transfer-lock","change-auth-code","lock-status"):
+            from .registrar_protection import perform
+            return Response(perform(request.user,domain,entry,grant,row,secret,adapter,data),headers=HEADERS)
         if op not in ("auth-code","nameservers","resend-verification"): raise RegistrationRefused()
         proof=read(domain,entry,adapter,include_secret=op=="auth-code")
         if op=="auth-code":
@@ -115,20 +129,21 @@ def handle(request,domain):
                 raise RegistrationRefused()
             if not adapter.resend_verification(domain.provider_domain_id): raise RegistrationRefused()
             return Response({"state":"requested"},headers=HEADERS)
+        adapter.otp_fields(otp)
         desired=nameservers(data["nameservers"])
         if proof["status"]!="Active": raise RegistrationRefused()
         if set(desired)==set(proof["nameservers"]): return Response({"state":"confirmed"},headers=HEADERS)
         with transaction.atomic():
             locked=Domain.objects.select_for_update().get(pk=domain.pk)
             IntegrationConnection.objects.select_for_update().get(pk=row.pk)
-            if locked.metadata!=domain.metadata or locked.metadata.get(NS,{}).get("state")=="uncertain" or load(grant["route"])[1]!=secret:
+            if locked.metadata!=domain.metadata or locked.metadata.get(NS,{}).get("state")=="uncertain" or locked.metadata.get(PROTECTION,{}).get("state")=="uncertain" or load(grant["route"])[1]!=secret:
                 raise RegistrationRefused()
             locked.metadata={**locked.metadata,NS:{"state":"uncertain","nameservers":desired,"reserved_at":timezone.now().isoformat()},
                 KEY:{**entry,"reconcile_after":timezone.now().isoformat()}}
             locked.save(update_fields=["metadata","updated_at"])
             AuditLog.objects.create(actor=request.user,action="domain_nameservers_reserved",entity_type="Domain",entity_id=str(domain.pk),entity_name=domain.domain_name,details={"nameservers":desired})
         if load(grant["route"])[1]==secret:
-            adapter.change_nameservers(domain.provider_domain_id,desired)
+            adapter.change_nameservers(domain.provider_domain_id,desired,otp)
         return Response({"state":"uncertain"},status=202,headers=HEADERS)
     except (RegistrationRefused,ResellerClubUnavailable,VaultUnavailable,DatabaseError,KeyError,ValueError,TypeError,signing.BadSignature,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):
         raise ValidationError("Registrar operation unavailable or requires independent reconciliation. Do not repeat uncertain changes.") from None

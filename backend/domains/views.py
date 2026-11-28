@@ -120,7 +120,9 @@ class DomainViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
     def registrar_lifecycle(self,request,pk=None):
         from .resellerclub_lifecycle import handle
         from .pilot import DomainPurchaseThrottle
-        DomainPurchaseThrottle().allow_request(request,self)
+        if not DomainPurchaseThrottle().allow_request(request,self):
+            from rest_framework.exceptions import Throttled
+            raise Throttled()
         return handle(request,self.get_object())
 
     @action(detail=True, methods=['get'])

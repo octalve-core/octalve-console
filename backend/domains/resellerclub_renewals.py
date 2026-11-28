@@ -164,6 +164,10 @@ def run_due():
         outcome=advance(due.pk)
         if outcome=="held": Invoice.objects.filter(pk=due.pk).update(updated_at=timezone.now())
         return outcome
+    return None
+
+def run_due_invoice():
+    if not enabled():return None
     domain=Domain.objects.filter(registrar="resellerclub",status="active",auto_renew=True,expiry_date__gt=timezone.now(),
         expiry_date__lte=timezone.now()+timedelta(days=30),metadata__live_domain_registration_v1__state="confirmed").exclude(
             metadata__registrar_renewal_v1__state__in=("queued","uncertain")).filter(
