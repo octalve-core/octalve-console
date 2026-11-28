@@ -154,8 +154,11 @@ def validate_public_settings(adapter, data):
         if not isinstance(v,str) or not (1 <= len(v.strip()) <= 220) or v != v.strip():
             raise ValidationError({"public_settings":"One or more required fields are invalid."})
         if kind=="url":
-            parts=urlsplit(v)
-            if parts.scheme!="https" or not parts.hostname or parts.username or parts.password or parts.path not in ("","/") or parts.query or parts.fragment:
+            try:
+                parts=urlsplit(v)
+            except ValueError:
+                raise ValidationError({"public_settings":"A valid HTTPS panel origin is required."}) from None
+            if any(ord(ch)<33 for ch in v) or parts.scheme!="https" or not parts.hostname or parts.username or parts.password or parts.path not in ("","/") or parts.query or parts.fragment:
                 raise ValidationError({"public_settings":"A clean HTTPS panel origin is required."})
             hostname=parts.hostname.lower().rstrip(".")
             try:
@@ -163,7 +166,7 @@ def validate_public_settings(adapter, data):
                 raise ValidationError({"public_settings":"Raw IP addresses are not accepted."})
             except ValueError:
                 pass
-            if not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?",hostname) or ".." in hostname:
+            if not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?",hostname) or ".." in hostname or (configured and ("." not in hostname or hostname.endswith(".local"))):
                 raise ValidationError({"public_settings":"Invalid panel hostname."})
             try:
                 port=parts.port or 443
