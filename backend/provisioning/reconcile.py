@@ -100,7 +100,7 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
             IntegrationConnection.objects.select_for_update().get(pk=task.provider.config["hosting_vault_connection_id"])
         provider = Provider.objects.select_for_update().get(pk=fresh.provider_id)
         payment = Transaction.objects.select_for_update().filter(pk=fresh.metadata.get(
-            "settlement_transaction_id")).select_related("gateway").first()
+            "settlement_transaction_id"), gateway__isnull=False).select_related("gateway").first()
         if not payment:
             raise ReconciliationRefused("No recorded verified settlement.")
         try:
