@@ -1,0 +1,1061 @@
+{
+  "repository": "octalve-core/octalve-console",
+  "audited_at": "2026-11-28",
+  "main_sha": "942bfaf3723550794a286a64a2e7ac1923267059",
+  "scope": "GitHub only; no Neon or Vercel branch deletion",
+  "note": "Read-only audit. Recheck each remote SHA, merge ancestry, open PRs, and branch protection immediately before deleting. No branches deleted at audit time. New documentation branch not counted.",
+  "branches": [
+    {
+      "branch": "audit/batch-e1-e6-canonical-authority-20261028",
+      "sha": "54217ec17c1335e131bc267b0342030fa5dbb7d6",
+      "decision": "delete_candidate",
+      "pr": 80,
+      "merge_sha": "462ebe56c4afd3363a430e2f11f631c1b10537e6",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/auth-01-privileged-webauthn-hardening",
+      "sha": "55d83914f3ebf00e7ba3538e610e76e7b62df830",
+      "decision": "delete_candidate",
+      "pr": 156,
+      "merge_sha": "ea9b05dade1a13892050855cd534770a15f0c46d",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/auth-02-guarded-webauthn-migration",
+      "sha": "ce09754feea3141dda8e2621ea4976e589de9912",
+      "decision": "delete_candidate",
+      "pr": 157,
+      "merge_sha": "47b0bd592e66a191c2430d559e99d49e6812dc92",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/auth-03b-passkey-management",
+      "sha": "452635b7bb5e91beb2340e0f1f64243eb204e3fc",
+      "decision": "delete_candidate",
+      "pr": 158,
+      "merge_sha": "dab5b8d6f4edd87d3e18ad8c39a511f5997ac35c",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/auth-03c-recovery-readiness",
+      "sha": "bb8c773f87f4b78a9e184000b4e33b5068f2c763",
+      "decision": "delete_candidate",
+      "pr": 159,
+      "merge_sha": "b6805c88be02ce2dd782e1db0cdb2435d018a531",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/automatic-payment-reconciliation",
+      "sha": "2d746fb23e823b972d80f0d79525bc27b8c4c46f",
+      "decision": "delete_candidate",
+      "pr": 167,
+      "merge_sha": "77a87aafb054e1fcf67cdb10c1274cbb8320a46e",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/cart-activation",
+      "sha": "bdb1350fd231c4ab6c7fc9d0c7a5c0a818ba7220",
+      "decision": "delete_candidate",
+      "pr": 139,
+      "merge_sha": "e6a510fb0e2cb914c760a2669a20ea1f541c3ae7",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/cart-shortcuts-checkout",
+      "sha": "dd043c62aea3b693aa224d85862420b1eba06468",
+      "decision": "delete_candidate",
+      "pr": 153,
+      "merge_sha": "f361f48f7b0901f5e4fe21d01253b9abbff06c82",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/commerce-handoff",
+      "sha": "547bfe73c94c75b3a6212d66204fe8752f5b7469",
+      "decision": "delete_candidate",
+      "pr": 149,
+      "merge_sha": "1f7da966aed37988359a94b24b3a05249ab013b8",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/console-checkout-refinement",
+      "sha": "9f05ba8b1b4bece7e4b3279bb40de475f1a0469b",
+      "decision": "delete_candidate",
+      "pr": 134,
+      "merge_sha": "c37060ad140238870791f845146606f1b0fac863",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/console-prototype-refinement",
+      "sha": "bd836a2a88c2494dd2af0c6385b43db762b4ae6b",
+      "decision": "delete_candidate",
+      "pr": 132,
+      "merge_sha": "b8e72903aa46b9b49833cceebabd1403f5acac14",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/defer-external-dns-enrollment",
+      "sha": "8de1172b38d0fbce56eb4c46b7bf09a3de1f8c7b",
+      "decision": "delete_candidate",
+      "pr": 170,
+      "merge_sha": "8407f8d2be4fe0299c48f3aa30562dac44f5b95e",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/domain-registrar-routing",
+      "sha": "e4b65730b29bfa7fda3b07bb6b3f11110f019c17",
+      "decision": "delete_candidate",
+      "pr": 131,
+      "merge_sha": "d9ab82ca7d99583f3f8e77a970052aa5bce60606",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/hosting-automation-qualified",
+      "sha": "aa26e0962faec16e906da0f3348d934bf270f8a6",
+      "decision": "delete_candidate",
+      "pr": 173,
+      "merge_sha": "fa457b457ee41af32783a140b593f1bcef0274fa",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/hosting-config-driven",
+      "sha": "7cdc3748894b8fad771fa7e78087976523f91b75",
+      "decision": "delete_candidate",
+      "pr": 174,
+      "merge_sha": "60571607c4132de0472dbad412c2420e19e1c9ea",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/hosting-execution-authority",
+      "sha": "c114eaec5493fa40fc193cb6893ee4104aee2315",
+      "decision": "delete_candidate",
+      "pr": 175,
+      "merge_sha": "b543c050a4000109901b7725d4a4473ca84d8006",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/hosting-lifecycle-access-notices",
+      "sha": "02b96307de8c5bdf8dd269e34664a0e4b1523fea",
+      "decision": "delete_candidate",
+      "pr": 177,
+      "merge_sha": "a5f6371039241d97d44b9b8a02d45f9ebacd6d88",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/hosting-native-panel-authority",
+      "sha": "29e57686468928d02f023ce2d1ffedf953c76b9d",
+      "decision": "delete_candidate",
+      "pr": 178,
+      "merge_sha": "02b96307de8c5bdf8dd269e34664a0e4b1523fea",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/hosting-transactional-delivery",
+      "sha": "bfea33f18e469c6b619098a963891f8bdea43aa3",
+      "decision": "retain",
+      "reason": "Open draft PR #180; Batch 2 work"
+    },
+    {
+      "branch": "codex/hosting-usage-and-worker-recovery",
+      "sha": "8a43b935b2c21fbf33cefa03b15981001111e32b",
+      "decision": "delete_candidate",
+      "pr": 179,
+      "merge_sha": "942bfaf3723550794a286a64a2e7ac1923267059",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/hosting-vault-readback-continuity",
+      "sha": "2d1cca7dcc95bbed56942aaa9fa1a2b9349d68d1",
+      "decision": "delete_candidate",
+      "pr": 176,
+      "merge_sha": "a0adc344006a328171540f17b7bf0a89742fabc2",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/hosting-vendor-execution",
+      "sha": "f61b80f55425c9e5ed44c403f796ecf68fe9aa83",
+      "decision": "retain",
+      "reason": "2 divergent commits; compare vendor protocol and tests before retirement"
+    },
+    {
+      "branch": "codex/launch-02b-guarded-registrar-worker",
+      "sha": "f3d88df76599bcd00a5afccb357a3eecae301c11",
+      "decision": "delete_candidate",
+      "pr": 165,
+      "merge_sha": "e28a241f5a8421db16c4c321e15107591819d4ca",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/launch-02b-supplier-evidence",
+      "sha": "39eda4b454296562af0bc86bc024aa01a8c00963",
+      "decision": "delete_candidate",
+      "pr": 166,
+      "merge_sha": "8d2850bde4a162b4f0ca6e8cd36f37be1c415d0f",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/launch-02c-final-queue-dns",
+      "sha": "b6109b60bd2ae517169189f475f7d10227ce9e91",
+      "decision": "delete_candidate",
+      "pr": 169,
+      "merge_sha": "cef8a2be3a9303db053d9be0dad6c911cc706345",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/launch-03-automation-core",
+      "sha": "5e3e6bfab8cbda58b46fc7339e94290eb796d2ef",
+      "decision": "retain",
+      "reason": "Closed unmerged PR #172; 35 divergent commits; compare and reconcile first"
+    },
+    {
+      "branch": "codex/launch-03-hosting-foundation",
+      "sha": "d1a29fa566ab7693f67138cc57e0ffafeda756bd",
+      "decision": "delete_candidate",
+      "pr": 171,
+      "merge_sha": "b71575b06b27474f4a2fc03ed6c9dd6f16ca7d4b",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/launch-domain-qualification",
+      "sha": "527adbf96930e3e6b75da509cbd64210f51565e0",
+      "decision": "delete_candidate",
+      "pr": 164,
+      "merge_sha": "2023c9fca27196203c0aea769f0ade02190a2044",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/launch-test-lifecycle",
+      "sha": "6fc5d11937c03ddc8288651eb378ca3ab3cb706d",
+      "decision": "delete_candidate",
+      "pr": 163,
+      "merge_sha": "a29c4079486ea814b354e91c1b97c6664dbc6a75",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/p0-commerce-payment-integrity",
+      "sha": "355a9850bc5514d62f28262120268939f2c3eea2",
+      "decision": "delete_candidate",
+      "pr": 160,
+      "merge_sha": "71955eee0a1f4820dd1d31437a9521cb548163bb",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/p0-identity-foundation",
+      "sha": "03b2aed37edfacb77745dea57f57f2eb13ff2abe",
+      "decision": "delete_candidate",
+      "pr": 161,
+      "merge_sha": "5f73ae7b96b7c2365c82f34469f6fcc560bcbba4",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/privileged-webauthn",
+      "sha": "a06ff020a63b4d7fa9a8fb9beb16c741a1049ea5",
+      "decision": "delete_candidate",
+      "pr": 155,
+      "merge_sha": "d9abbf24b8b6cca585e2e531e9098170cc260310",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/public-integration-phase-2",
+      "sha": "08388b4373e22cb08b3073007c9634cdc26c50eb",
+      "decision": "delete_candidate",
+      "pr": 137,
+      "merge_sha": "f595b4beb6859faa7d6a0d5ee52356f47f4b26ec",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/public-integration-qualification",
+      "sha": "c1bdc5775a9ce603f0b7bf1648c7b27389f3dae5",
+      "decision": "delete_candidate",
+      "pr": 136,
+      "merge_sha": "e23214c4a2bcc42d6594d38690f6fa40a0bd436c",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/scope-domain-extensions",
+      "sha": "52c5a5f748b9e81f959878968296027d8be32c90",
+      "decision": "delete_candidate",
+      "pr": 152,
+      "merge_sha": "a741b707f05cda3c260b3762011d0b6144fa49fc",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/session-revocation",
+      "sha": "3a7431f4bfb9289d2f9080bfead59e1116268c39",
+      "decision": "delete_candidate",
+      "pr": 154,
+      "merge_sha": "cbfb10fe9b47ef037b6facaf853552d4fc187daa",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/shared-mobile-records-navigation",
+      "sha": "1ae6f4191f1a859da7ab1eeda08631adc52c5ae1",
+      "decision": "delete_candidate",
+      "pr": 133,
+      "merge_sha": "db59982d3a47871961bf45b9ae570d606cdfc470",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/test-domain-customer-workspace",
+      "sha": "37161dc819f59cf1c75d74d6c58ae564ff9ae54d",
+      "decision": "delete_candidate",
+      "pr": 168,
+      "merge_sha": "39dda1f8c00a36121ed6c218d0809298d91049cc",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/unified-commerce",
+      "sha": "a14dd66808998346e66db90d8656464a9638eac5",
+      "decision": "delete_candidate",
+      "pr": 138,
+      "merge_sha": "73a54270c36cd8afe11c8944701ade72c4a9902d",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "codex/unified-pending-payment-recovery",
+      "sha": "273560fbc0b17c8ae4fe770b664aac97c5032181",
+      "decision": "delete_candidate",
+      "pr": 162,
+      "merge_sha": "31b8aa04d523fbc09cdee095012df8cb00c8e0dd",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "commerce-checkout-continuity",
+      "sha": "817e578f0e3c1eea6b1580586c51b3b8c1956de5",
+      "decision": "delete_candidate",
+      "pr": 143,
+      "merge_sha": "eeb31ce74ec97659cf35a18d5de0be6449fe6d02",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "commerce-domain-discovery",
+      "sha": "2b3df737573c0e64e1184e1b944ad55ef2939c0b",
+      "decision": "delete_candidate",
+      "pr": 151,
+      "merge_sha": "fc8ec78c296b8a306f30c3e68890d2f3a68b661a",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "commerce-experience-hardening",
+      "sha": "90fc47404f194cc536b639a7bb60b8a898c38d43",
+      "decision": "delete_candidate",
+      "pr": 145,
+      "merge_sha": "428c00f0a5d8d1a8903d62c2d713459b0bb30d78",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "commerce-four-step",
+      "sha": "959e503a3e913f30f3ccd7597c323e85fde7df5c",
+      "decision": "delete_candidate",
+      "pr": 148,
+      "merge_sha": "20d84761b8cb5252dc742f0e11d17e3d7ce3c6bf",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "commerce-information-refinement",
+      "sha": "722c733452cf1e46d6452070b8391359774aebbb",
+      "decision": "delete_candidate",
+      "pr": 150,
+      "merge_sha": "edcf4291c9929ec4bed79ac283ce4145ded98ed3",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "commerce-ui-perfection",
+      "sha": "7840e7b66be20e5efbfd5da723b07a4e1bb56825",
+      "decision": "delete_candidate",
+      "pr": 147,
+      "merge_sha": "f247e7fc06a25cc0124492e732d493a1f4837e89",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "console-commerce-consolidation",
+      "sha": "32b72fb8841553b708d4bedcbe744dd158d04696",
+      "decision": "delete_candidate",
+      "pr": 142,
+      "merge_sha": "89bc0c3cf6bf933d32ab6894a95f6aba11bce7ae",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "design/auth-five-screen-html-react-20261028",
+      "sha": "b43a8057caab83f9c9256c079c6a7eefc69b0544",
+      "decision": "delete_candidate",
+      "pr": 90,
+      "merge_sha": "ee581a8038aefe181c22669878332d890f8718fb",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "design/console-batch-b-shared-admin-staff-ui-20261028",
+      "sha": "e3c046b9358091508e1f4a65833d593643d62206",
+      "decision": "delete_candidate",
+      "pr": 85,
+      "merge_sha": "f650099ac22c881b3bdcfa3c5913487c2570b1c7",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "design/console-batch-c-client-auth-shared-ui-20261028",
+      "sha": "24023510542233b9dc79da82b4a9ff986cc4ef3f",
+      "decision": "delete_candidate",
+      "pr": 87,
+      "merge_sha": "5c361b2dedf3864c181577b0571f4da4d8fda3bf",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "design/console-ui-batch1-ownership-and-foundations-20261028",
+      "sha": "8b4275f8eaf2e25ab8090079d1d08481b20a8123",
+      "decision": "delete_candidate",
+      "pr": 83,
+      "merge_sha": "b07808875f580cab33a89a89944fcaf087251f94",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "design/console-ui-batch-a-invoice-report-primitives-20261028",
+      "sha": "5f995df3fed2a3c59669370869c168cad2bd250f",
+      "decision": "delete_candidate",
+      "pr": 84,
+      "merge_sha": "3d763bb8eb6241298203d9388230bba23c1412e6",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "design/premium-foundation-safe-css-retirement-20261028",
+      "sha": "5505dbec1a8889b14bd58f80c91899de297c55f9",
+      "decision": "delete_candidate",
+      "pr": 82,
+      "merge_sha": "e42fd96430a232863f1bb8cd9afe4dc360d6bfb6",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "design/ui-uplift-batch-bc-scoped-workspaces-20261028",
+      "sha": "17979fc3017ddb095c1acb99f8b4c8d91e1fc9f6",
+      "decision": "delete_candidate",
+      "pr": 92,
+      "merge_sha": "d5e560565c95550af886e167601ac27e3068c78c",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "design/ui-uplift-batch-c-domain-checkout-support-admin-editors-20261028",
+      "sha": "5dc0833c822e0fadd29e7bd93ae9581483fcf6e1",
+      "decision": "delete_candidate",
+      "pr": 93,
+      "merge_sha": "558f4bde20c75aab17a1b037916c33fa87ff91d2",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "docs/full-cloud-audit-cleanup-20261030",
+      "sha": "7e186b4b8e8736c769e21d19790a3af713df2e15",
+      "decision": "retain",
+      "reason": "9 divergent commits including unique historical audit; preserve for review"
+    },
+    {
+      "branch": "domain-bundle-draft-import",
+      "sha": "1a7fd9ca2ea02ad62e5a05074af1e910aeaaa1e5",
+      "decision": "delete_candidate",
+      "pr": 135,
+      "merge_sha": "45b7f810511770a8a9163ac7d706515c0cb89903",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/admin-b1-vault-readback-20261027",
+      "sha": "fb1b416a4b67d8aaf5a94a00bf40e413651b3769",
+      "decision": "delete_candidate",
+      "pr": 59,
+      "merge_sha": "58bef3e215ec006aaae168730516ac9bd67eba59",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/admin-integration-store-a2-20261027",
+      "sha": "ba5ea144065055cdade8f9add8c9048766abbe92",
+      "decision": "delete_candidate",
+      "pr": 56,
+      "merge_sha": "c354a4bb68847e4123df73cca349f0259e59026d",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/cloud-batch14-i18n-foundation",
+      "sha": "4c17516265a797ad5c2dd7a55e93cdb597efe245",
+      "decision": "delete_candidate",
+      "pr": 47,
+      "merge_sha": "a580737cd467eb99ea33cb986a9b0251af7b6b2f",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/cloud-batch15-browser-qualification",
+      "sha": "81c1bb71ef29c759aaaff4b970c43ff737f679fd",
+      "decision": "delete_candidate",
+      "pr": 48,
+      "merge_sha": "73281eab7832f6ec270d13f0363571fa49ab64dc",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/cloud-batch16-invoice-studio-safeguards",
+      "sha": "1e2bdd24944edf5c6b901fd69df34fbe172b1cc4",
+      "decision": "delete_candidate",
+      "pr": 49,
+      "merge_sha": "ccdbbfe65d170dc07323962fcc4624b44cfb4f78",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/cloud-batch16-quotes-readonly",
+      "sha": "78c0e9067e3348b32e6f38e32d3ad6d13ceb131a",
+      "decision": "delete_candidate",
+      "pr": 50,
+      "merge_sha": "93be8252eadf4baa0ef8f6f85979c76c11e21947",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/cloud-batch17-renewal-preflight",
+      "sha": "d5826e03ca7706eb752d2f9cf510c0138a0069e9",
+      "decision": "delete_candidate",
+      "pr": 51,
+      "merge_sha": "dfbec82de36a7d08665f9060b73fbf612c52af17",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/cloud-batch18-staff-roster-readonly",
+      "sha": "d3665c1da7cf035c6d4a48036d2ca3b99c4e5413",
+      "decision": "delete_candidate",
+      "pr": 52,
+      "merge_sha": "d98c7a6d8adebf8d6029116e6a8726ef451d2d35",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/cloud-commercial-readiness-tld-paystack-vault-20261122",
+      "sha": "34a926d28131cd4c67ee97e567dad1b540efb33c",
+      "decision": "delete_candidate",
+      "pr": 127,
+      "merge_sha": "949fbd095ded3ca61fba6678f67dcd30dcb232ac",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/compact-invoice-design-css-retirement-20261029",
+      "sha": "b21ba5b9d20992c6f695d18b73bf35ade4bafaef",
+      "decision": "delete_candidate",
+      "pr": 96,
+      "merge_sha": "4d94b0acf84d6c56f65e585b8ad765d4165c2ba1",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/console-invoice-ui-batch1-20261029",
+      "sha": "e30377a525ba4a939f9af085faadc116dd6fa5db",
+      "decision": "delete_candidate",
+      "pr": 97,
+      "merge_sha": "3c614d9960859fe8bd96bf1022e2fc58b5a3a904",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/domain-pilot-readiness-recovery",
+      "sha": "963eac4dcaecf16f7dea3a67ef56563c913d5885",
+      "decision": "delete_candidate",
+      "pr": 129,
+      "merge_sha": "2ae5a9820e091925dc7291cb201cd32757b276b6",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/google-pay-review-readiness",
+      "sha": "c10669c0139b54da2bdbc0ee14be74a1d7eb962e",
+      "decision": "delete_candidate",
+      "pr": 125,
+      "merge_sha": "5b7abdfcca42e8a9f6e0cfe376827728d2a519c0",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/integration-catalog-authority",
+      "sha": "2f80875202435bab2f304bcfb6ec5fc2a7e1aa6c",
+      "decision": "delete_candidate",
+      "pr": 130,
+      "merge_sha": "ae430e0e19f27822fb1732d58508a65afaa06fd9",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/production-domain-sandbox-purchase",
+      "sha": "1e1215dcf95953fba5077d53bd6ba51264aa0b03",
+      "decision": "delete_candidate",
+      "pr": 128,
+      "merge_sha": "53bb2115b907ecbcfecb01db3e744819f2169c69",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/set-batch2-live-console-policy-20261030",
+      "sha": "4ea3e2ad4e28ac979913ff87b85af2f3bcd7a0be",
+      "decision": "delete_candidate",
+      "pr": 101,
+      "merge_sha": "53784a433b466465637eeb740b7f86267e9fd6af",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/ui02-invoice-record-directory-20261029",
+      "sha": "de5e743ac4df48a079b7dac1d157ce516dde74a1",
+      "decision": "delete_candidate",
+      "pr": 98,
+      "merge_sha": "6afdd2b0c51b43b0dbf96cfda4d42a2d3165bafb",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/ui03-customer-contract-qualification-20261029",
+      "sha": "94cde2e6e80305458b66c7ba65d69b1751965ff0",
+      "decision": "delete_candidate",
+      "pr": 99,
+      "merge_sha": "53dcba97b8f697e5bb49c82e97f8db4161ab3a22",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feat/ui-batch1-records-wallet-profile-20261030",
+      "sha": "aea9aea447bb7d4a4c18b04816c85b99beb8f9a0",
+      "decision": "delete_candidate",
+      "pr": 100,
+      "merge_sha": "acb0d1b7cfd741d8b0e2eb5423bfd5cf0a550d21",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feature/biz02-evidence-bi-20261030",
+      "sha": "ab7fea2c9311e9cd064a165ccff14b3082ffd223",
+      "decision": "delete_candidate",
+      "pr": 106,
+      "merge_sha": "478d80377bc9c8f66001c9a17187a945074b369c",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feature/catalogue-unified-react-commerce-20261029",
+      "sha": "b98847e9aa1659448299ad2fddffa9ac84694e49",
+      "decision": "delete_candidate",
+      "pr": 95,
+      "merge_sha": "28091baaa3c5b729b55a78356e4bed07227f3469",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feature/dns01-verified-external-domain-onboarding-20261117",
+      "sha": "8e811aebb4049934f6956baa7c2c4a5e1185cefa",
+      "decision": "delete_candidate",
+      "pr": 122,
+      "merge_sha": "6815b9f57aa1991c016620aaa2f08a5eac2aade2",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feature/dns-01-read-only-20261106",
+      "sha": "55d58dde95edc988577be5b06712af72a873054b",
+      "decision": "delete_candidate",
+      "pr": 118,
+      "merge_sha": "eefcf70e391e5c7a28433ebd0b447fe8de2968fe",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feature/domain-dns-verified-evidence-ui-20261106",
+      "sha": "51de100d91b8e8c1a5ca959b881fbcc6d5c8f755",
+      "decision": "delete_candidate",
+      "pr": 117,
+      "merge_sha": "8b7252e15643ee222dbfb1ad5e49a18e2fa7ec19",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feature/int01-cloudflare-secure-readback-sandbox-20261101",
+      "sha": "61c6c0dc39d45676903e2026669a8b8f527fa190",
+      "decision": "delete_candidate",
+      "pr": 109,
+      "merge_sha": "1d1df24d0064d34b3a46344e4996f498ef82662f",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feature/int02-secure-console-credential-custody-20261101",
+      "sha": "e648f19596088a3bee2f1f5396b1c9623d56a77d",
+      "decision": "delete_candidate",
+      "pr": 110,
+      "merge_sha": "9c5ad9b1f8990fac89a46bf02af116fceb97da99",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feature/launch-opanel-brevo-integration-readiness-20261030",
+      "sha": "c057ff8f57125e2b43dcdbca2db0037d83e649d9",
+      "decision": "delete_candidate",
+      "pr": 108,
+      "merge_sha": "c4401b4dc2f0f3c7e895b81e61e3a65cfc0e8ec5",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "feature/provider-b1-draft-vault-20261027",
+      "sha": "59e90580571f07e9091988dc194ebd30d45b55a3",
+      "decision": "delete_candidate",
+      "pr": 58,
+      "merge_sha": "150434cb6a5c92cc06bd5cb266e140175b715e6b",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "final-commerce-stability",
+      "sha": "5b5efa5b83e578b462e99272ba6151324f0842fe",
+      "decision": "delete_candidate",
+      "pr": 146,
+      "merge_sha": "d1a525052252a25e29ae4601eebf6679d0ccf9b1",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/admin-settings-routing-20261027",
+      "sha": "e4cb4de328b4ac3503b10b31eeda3c33defc96d5",
+      "decision": "delete_candidate",
+      "pr": 53,
+      "merge_sha": "a75e6b5ec436df25a9ac6ba82fc6b36e9e945e1d",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/batch1-admin-role-scope-20261030",
+      "sha": "050e9dda51a3fb46d12936eac58186ace6ebee45",
+      "decision": "delete_candidate",
+      "pr": 104,
+      "merge_sha": "193223e6a97a9c42eaa9e4a2162afb4888381a90",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/batch1-p0-identity-permissions-performance-20261030",
+      "sha": "1de316188dc3c29fd80993e06a011bd0e62cdab2",
+      "decision": "delete_candidate",
+      "pr": 103,
+      "merge_sha": "2afa35156728351ab88af585d50f9d964e719030",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/batch1-phone-country-data-20261030",
+      "sha": "2620791051f6dd75e855352b614cb970ce846a30",
+      "decision": "delete_candidate",
+      "pr": 105,
+      "merge_sha": "91ea9272af314e254c537283b097da6525848afa",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/batch2-local-venv-migration-20261030",
+      "sha": "2dc3ecf848f19a984189d85c06e95302de455d74",
+      "decision": "delete_candidate",
+      "pr": 102,
+      "merge_sha": "d7825d7e58ffb36b7105c1ef32e9faa408d2b044",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/biz02-reports-signup-admin-ux-20261030",
+      "sha": "a50caf571453594a114fe3a44e6762a99a9203f5",
+      "decision": "delete_candidate",
+      "pr": 107,
+      "merge_sha": "6e45b1d9047d2ac1c462d65d250617dfefe2b9b6",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/dns01-local-preflight-frontend-url-20261117",
+      "sha": "a9b213a8ed2e954750cb9dfffeb5d6ab1708e02c",
+      "decision": "delete_candidate",
+      "pr": 121,
+      "merge_sha": "dfc28e30f6c473e19c9417b77803f13065449ac7",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/dns01-local-restore-compat-20261106",
+      "sha": "2cb67f5d75c86c3a1cbab3bdb39a1a8b33fe2633",
+      "decision": "delete_candidate",
+      "pr": 120,
+      "merge_sha": "2e5afe42380cf7ac894a9fb4637d790bf8e4de72",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/dns01c-fresh-session-after-approval-20261117",
+      "sha": "24d26eef0e01271108bb3fa30f9a08baf10300d0",
+      "decision": "delete_candidate",
+      "pr": 124,
+      "merge_sha": "f275a8aee20fcff48a49c34deb529d52b2c74935",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/dns01c-postgres-187-restore-toolchain-20261117",
+      "sha": "43066f35ea9b67a1eca49e2fc968810c37fcb0d3",
+      "decision": "delete_candidate",
+      "pr": 123,
+      "merge_sha": "8bc6a85e56ae3d711a205d67fbd11817ba0ac862",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/int02-email-status-bff-get-only-20261101",
+      "sha": "8ed3b2f8528ddf0dbce7d55c6009d3997ebe5183",
+      "decision": "delete_candidate",
+      "pr": 112,
+      "merge_sha": "b258ab0dd65409e3ff0a7b1f00b03782e348cb66",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/int02-mail-delivery-safe-diagnostics-20261101",
+      "sha": "964c9abee52213fef7273c8027bfe28bf6a29db4",
+      "decision": "delete_candidate",
+      "pr": 113,
+      "merge_sha": "4403e038753bcfdf46bf90eea9605d0070fbae6c",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "fix/vercel-monorepo-link-release-guard-20261122",
+      "sha": "a0375e7545388c358e4b3a40f8f1d6e3e53082f7",
+      "decision": "delete_candidate",
+      "pr": 126,
+      "merge_sha": "60b79e87f6692364b9be6e98a9e03fa7fef9ba65",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "frontend/batch-c-admin-authority-ux-20261028",
+      "sha": "4f693800eeeb4a9b7f7ce39e58f68822078ad25e",
+      "decision": "delete_candidate",
+      "pr": 78,
+      "merge_sha": "6b1ef4a52d12e8cf227e50cbf96a908df0e25f18",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "hardening/main-push-ci-after-batch-e-20261028",
+      "sha": "c74a075548a0f49873e6302700bffb734fe4eaf0",
+      "decision": "delete_candidate",
+      "pr": 81,
+      "merge_sha": "b06d0e6b77262126b62368d0762e748834551273",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "main",
+      "sha": "942bfaf3723550794a286a64a2e7ac1923267059",
+      "decision": "retain",
+      "reason": "Default production branch"
+    },
+    {
+      "branch": "public-shopping-payment-qualification",
+      "sha": "7eac5b017244c98c2b48d089be7400e051f27bdf",
+      "decision": "delete_candidate",
+      "pr": 144,
+      "merge_sha": "5bfab17023dd9b693caf697e4ca68bf90e7b1b06",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "refactor/admin-a1-modular-editor-20261027",
+      "sha": "b901b7f86a139c168ff92d403d84c1b31477e5bb",
+      "decision": "delete_candidate",
+      "pr": 55,
+      "merge_sha": "4e2e37a97705807d9865de3c0ac28f8c9c643af3",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "release/auth-scenic-artwork-qualification-20261028",
+      "sha": "10c6f04341004e03ddaaf0edb4b1bf89e56ee8fa",
+      "decision": "delete_candidate",
+      "pr": 91,
+      "merge_sha": "8730c3a251d96cf8aab57e4b71d0ef06f9500a24",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "release/dns01-production-migration-20261106",
+      "sha": "9de21e9b98db2ff5b1e5c5257a8b5df91e10a0b8",
+      "decision": "delete_candidate",
+      "pr": 119,
+      "merge_sha": "bc6f02549b1e5fde861ed3c101a2bf0f1efea0ca",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "review/cloud",
+      "sha": "aadc642d79d3f74ae90e3dfdf9e2bc163ce2a9e9",
+      "decision": "retain",
+      "reason": "Existing review branch referenced by deployment/CI policy; retain until separate retirement"
+    },
+    {
+      "branch": "review/phase1-authorized-edits-20261027",
+      "sha": "492b147f533874b30d09ab043e8f53ac156395ca",
+      "decision": "delete_candidate",
+      "pr": 36,
+      "merge_sha": "6becd60606688b28ca1f793edf16beccc00a6c34",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/batch-a-authority-settings-components-20261028",
+      "sha": "4f211b4c4be2c2d4cd2fc744af59de73745afd1f",
+      "decision": "delete_candidate",
+      "pr": 76,
+      "merge_sha": "9723f0c2aec4eaff0d0c2f3c17c2c37f71af10bb",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/batch-b-ledger-lifecycle-config-20261028",
+      "sha": "6b1ef4a52d12e8cf227e50cbf96a908df0e25f18",
+      "decision": "delete_candidate",
+      "pr": 77,
+      "merge_sha": "ddccc2471d347be6532d5b5e39afbe7de8160a2c",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/batch-d-auth-resilience-custody-20261028",
+      "sha": "c7393ef6af5335eb580a14713de6d9e9ad31657a",
+      "decision": "delete_candidate",
+      "pr": 79,
+      "merge_sha": "4f693800eeeb4a9b7f7ce39e58f68822078ad25e",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/int02-stepup-before-vault-intake-20261105",
+      "sha": "8c34e328bd7e8c1ee0e543ff863e5d437e3e6cfe",
+      "decision": "delete_candidate",
+      "pr": 114,
+      "merge_sha": "a1c22f6e654dbcc57d9b597ff5657ac1fbbdc035",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/int02-verified-owner-vault-gate-20261101",
+      "sha": "6ffe4b115a2fe7914decbbcb415aa3a9b7f560c8",
+      "decision": "delete_candidate",
+      "pr": 111,
+      "merge_sha": "b27626d803a7464f9e112ae0c8ad46f60998b482",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/int03-cloudflare-readonly-registrar-20261105",
+      "sha": "229e31d4171933e0d371a17b0fc3aafe15bfe4c2",
+      "decision": "delete_candidate",
+      "pr": 115,
+      "merge_sha": "db0df16bd159dcf5d200bef0d69b4fb7b17b68fc",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b0-legacy-write-freeze-20261027",
+      "sha": "cce5da93f5145b2efa3cd466eb3f2e4c157f2f96",
+      "decision": "delete_candidate",
+      "pr": 57,
+      "merge_sha": "0ac0d66d63c4b0294077aee5d7fbb6ae229de785",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b2-audit-integrity-20261027",
+      "sha": "a3c25d869bff8925672f39d9b6994ef3ff8c5e58",
+      "decision": "delete_candidate",
+      "pr": 63,
+      "merge_sha": "6c6ea3314e1425251306ebe311fea2c51cb6f690",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b2-egress-20261027",
+      "sha": "bb8a0bbb1cf79dbdf18010560f69a8fef6d76991",
+      "decision": "delete_candidate",
+      "pr": 62,
+      "merge_sha": "64b8a8c181a34f7b24631bb16fe1f0798cdb3b5e",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b2-isolated-recovery-20261027",
+      "sha": "6c6ea3314e1425251306ebe311fea2c51cb6f690",
+      "decision": "delete_candidate",
+      "pr": null,
+      "merge_sha": null,
+      "reason": "GitHub compare confirms head is ancestor of main"
+    },
+    {
+      "branch": "security/provider-b2-keyring-20261027",
+      "sha": "b2e900b8f63c2b07c769be3826a7695c0d7aa80e",
+      "decision": "delete_candidate",
+      "pr": 61,
+      "merge_sha": "bbfd096ed0627b872470099e61ee50d6cecda308",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b2-recovery-20261027",
+      "sha": "91715d0a56b157098aa36df282d5fa58210c1303",
+      "decision": "delete_candidate",
+      "pr": 64,
+      "merge_sha": "db944d6b46fac0d9da9782c90784fe493dac70b9",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b2-rollback-checkpoints-20261028",
+      "sha": "f643c064e7dd979675880c1196369ef38c50839b",
+      "decision": "delete_candidate",
+      "pr": 66,
+      "merge_sha": "ee97c2a80e681212df11cc0ccd975a078ff3e37b",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b2-shared-throttle-20261028",
+      "sha": "fde4b09a4be1af9c36240e983c2b01a832e9562e",
+      "decision": "delete_candidate",
+      "pr": 65,
+      "merge_sha": "a900d200b274c2a412df17446a3104015ae9b7c3",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b2-stepup-20261027",
+      "sha": "f09996a69c6daf216aaf87d82b207ec951e1281b",
+      "decision": "delete_candidate",
+      "pr": 60,
+      "merge_sha": "82a5f4143908321cbcd29ce1247257381c3ce8f9",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b3-dawhm-synthetic-cert-20261028",
+      "sha": "42e56cf04964a6dd4ba6baf46d7cd62144224a7e",
+      "decision": "delete_candidate",
+      "pr": 74,
+      "merge_sha": "9131e8cb3d32f4896b5281919b5959759e2351d1",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b28-b3-operational-proof-20261028",
+      "sha": "84cbe804eb3426284c2ec75621190ef9b2a53e59",
+      "decision": "delete_candidate",
+      "pr": 75,
+      "merge_sha": "4f211b4c4be2c2d4cd2fc744af59de73745afd1f",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b28-b3-sanitized-review-20261028",
+      "sha": "0c79d273ae26e3c55fb4fec99e126ed81f5a4c19",
+      "decision": "delete_candidate",
+      "pr": null,
+      "merge_sha": null,
+      "reason": "GitHub compare confirms head is ancestor of main"
+    },
+    {
+      "branch": "security/provider-b28-worm-evidence-20261028",
+      "sha": "cf610c34332218d205738d416dd0e2d7817906f5",
+      "decision": "delete_candidate",
+      "pr": 68,
+      "merge_sha": "4b64fcefda8ec3aed290e35d791544f5e832d3a8",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b29-kms-envelope-review-20261028",
+      "sha": "b8bdd1c206c993ea37d2414987e02ab0e00ee879",
+      "decision": "delete_candidate",
+      "pr": 69,
+      "merge_sha": "3984a81ecfaa705d88be699fa51a5bc0436bc982",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/provider-b210-egress-contract-20261028",
+      "sha": "4fb44b45ce07851f47f5ce9ca137c5552751619e",
+      "decision": "delete_candidate",
+      "pr": 70,
+      "merge_sha": "22175b32864b0baf7ae7eeabda05ff67a0107a01",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "security/reports-admin-financial-visibility-20261028",
+      "sha": "1890a05336b7e3fd9f28bc7db0fceea250b4246d",
+      "decision": "delete_candidate",
+      "pr": 86,
+      "merge_sha": "82111e654a6d261ac71dc532fd39bf725b94354b",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "shared-console-commerce-ui",
+      "sha": "33e733dd15da6423d2c54d1d07a8c84cdd66af46",
+      "decision": "delete_candidate",
+      "pr": 141,
+      "merge_sha": "1dacfe58b84c3658e184aaee7d3dfc97020a6910",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "shopping-session-qualification",
+      "sha": "9e31e90a8c9bd2e7930862799c2d8404ad349803",
+      "decision": "delete_candidate",
+      "pr": 140,
+      "merge_sha": "95c826ea322f4c11a413c1ca204b944664d4e07d",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    },
+    {
+      "branch": "ui/integration-production-copy-20261106",
+      "sha": "2c09403b7e55ccfbc388ce7b52b4ab094b8b05ba",
+      "decision": "delete_candidate",
+      "pr": 116,
+      "merge_sha": "085d8f8ce8b2254ebc49dd952d8c315f884a2355",
+      "reason": "Exact merged PR head; merge/ancestor verified in audited main history"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Next Phase Roadmap
 
+> **Priority update — 28 November 2026:** [HOST-FINAL two-batch execution authority](hosting-final/README.md) supersedes this historical hosting task order and status snapshot. Existing safety and release controls remain in force. Do not use the historical PR or schema status as current evidence.
+
 ## Phase 1 — Make the interface production-connected
 
 - Build Django auth and session/JWT flow.
