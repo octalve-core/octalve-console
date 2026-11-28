@@ -65,6 +65,84 @@ class VerifiedAccountReadbackTests(TestCase):
         self.addCleanup(self.token.stop)
         self.addCleanup(self.hosts.stop)
 
+    def _vault_fixture(self, *, directadmin=False):
+        from providers.connection_models import IntegrationConnection
+        adapter = "directadmin" if directadmin else "cpanel"
+        origin = "https://supplier.example.test:2222" if directadmin else "https://supplier.example.test:2087"
+        row = IntegrationConnection.objects.create(
+            adapter_key=adapter, label="Synthetic supplier", environment="live",
+            public_settings={"server_url": origin, "server_ip": "8.8.8.8", "username": "resellerops"},
+        )
+        self.provider.config = {"hosting_account_owner": "resellerops",
+            "hosting_vault_connection_id": str(row.pk),
+            "hosting_execution_policy_v1": {"mac": "fixture-only"}}
+        self.provider.adapter_type = "DirectAdminAdapter" if directadmin else "CpanelAdapter"
+        self.provider.username = "resellerops"
+        self.provider.base_url = origin
+        self.provider.save()
+        self.service.provider_package_id = "basic"
+        self.service.save(update_fields=["provider_package_id"])
+        if directadmin:
+            self.getter.return_value = vendor_response(DA_REPLY + "&package=basic")
+        else:
+            self.getter.return_value = vendor_response({
+                "metadata": {"result": 1, "command": "accountsummary"},
+                "data": {"acct": [dict(WHM_REPLY["data"]["acct"][0], plan="basic")]},
+            })
+        return row
+
+    def test_vault_whm_refresh_uses_pin_and_never_legacy_key(self):
+        row = self._vault_fixture()
+        with patch("providers.hosting_runtime.load_hosting_connection",
+                   return_value=(row, "vault-test-token", {})), patch.object(
+                   Provider, "get_api_key", side_effect=AssertionError("legacy key path")):
+            readback_service(self.service.pk, apply=True, getter=self.getter)
+            proof = VerifiedHostingBinding.objects.get(service=self.service)
+            self.assertIsNotNone(eligible(self.service.client_id, self.service.pk))
+            VerifiedHostingBinding.objects.filter(pk=proof.pk).update(
+                confirmed_at=timezone.now()-timedelta(minutes=16))
+            self.assertIsNone(eligible(self.service.client_id, self.service.pk))
+            readback_service(self.service.pk, apply=True, getter=self.getter)
+            self.assertIsNotNone(eligible(self.service.client_id, self.service.pk))
+            self.assertEqual(VerifiedHostingBinding.objects.get(service=self.service).pk, proof.pk)
+        args, kw = self.getter.call_args
+        self.assertEqual(args[0], row.public_settings["server_url"] + "/json-api/accountsummary")
+        self.assertEqual(kw["bound_origin"], (row.public_settings["server_url"], "8.8.8.8"))
+        self.assertEqual(kw["headers"]["Authorization"], "whm resellerops:vault-test-token")
+
+    def test_vault_directadmin_rejects_wrong_package_and_revokes_proof(self):
+        row = self._vault_fixture(directadmin=True)
+        with patch("providers.hosting_runtime.load_hosting_connection",
+                   return_value=(row, "vault-test-token", {})):
+            readback_service(self.service.pk, apply=True, getter=self.getter)
+            self.getter.return_value = vendor_response(DA_REPLY + "&package=wrong")
+            with self.assertRaises(ReadbackRejected):
+                readback_service(self.service.pk, apply=True, getter=self.getter)
+            self.assertIsNotNone(VerifiedHostingBinding.objects.get(service=self.service).revoked_at)
+
+    def test_vault_unavailable_never_falls_back_to_legacy_network(self):
+        from providers.connection_vault import VaultUnavailable
+        self._vault_fixture()
+        with patch("providers.hosting_runtime.load_hosting_connection", side_effect=VaultUnavailable()), patch.object(
+                   Provider, "get_api_key", side_effect=AssertionError("legacy key path")):
+            with self.assertRaises(ReadbackRejected):
+                readback_service(self.service.pk, apply=True, getter=self.getter)
+        self.getter.assert_not_called()
+        self.assertFalse(VerifiedHostingBinding.objects.exists())
+
+    def test_vault_version_change_during_request_rejects_proof(self):
+        row = self._vault_fixture()
+        response = self.getter.return_value
+        def rotate(*args, **kwargs):
+            row.current_version += 1
+            row.save(update_fields=["current_version"])
+            return response
+        with patch("providers.hosting_runtime.load_hosting_connection",
+                   return_value=(row, "vault-test-token", {})):
+            with self.assertRaises(ReadbackRejected):
+                readback_service(self.service.pk, apply=True, getter=rotate)
+        self.assertFalse(VerifiedHostingBinding.objects.exists())
+
     def test_whm_readback_is_exact_one_get_and_dry_run_no_db_write(self):
         proof = readback_service(self.service.pk, apply=False, getter=self.getter)
         self.assertTrue(proof.account_confirmed)
