@@ -10,8 +10,10 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
  const [data,setData]=useState<Inventory|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [pending,setPending]=useState(false);
+ const [action,setAction]=useState<"mailbox_delete"|"mailbox_quota"|"subdomain_create"|"subdomain_delete"|null>(null);
  const sequence=useRef(0);
  const selected=tab==="email"&&capabilities.email?"email":capabilities.subdomains?"subdomains":"email";
+ const activeAction=action&&capabilities[action]&&((selected==="email"&&action.startsWith("mailbox"))||(selected==="subdomains"&&action.startsWith("subdomain")))?action:null;
  const base="/services/opanel/"+encodeURIComponent(serviceId);
  async function load(resource:"email"|"subdomains"=selected){
   const request=++sequence.current;setBusy(true);setError("");setData(null);
@@ -24,7 +26,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   finally{if(request===sequence.current)setBusy(false)}
  }
  useEffect(()=>{
-  setPending(false);setNotice("");setError("");setData(null);setTab("email");
+  setPending(false);setNotice("");setError("");setData(null);setTab("email");setAction(null);
   return ()=>{sequence.current++};
  },[serviceId,domain]);
  useEffect(()=>{
@@ -50,14 +52,30 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
    setPending(true);
   }finally{setBusy(false)}
  }
+ async function mutate(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();if(busy||pending||!activeAction||!data||data.resource!==selected)return;
+  const form=event.currentTarget,fields=new FormData(form);
+  const local=String(fields.get("local")||"").toLowerCase();
+  const input:Record<string,string|number>={local,confirm_password:String(fields.get("confirmation")||"")};
+  if(activeAction==="mailbox_quota")input.quota_mb=Number(fields.get("quota"));
+  if(activeAction.endsWith("_delete"))input.confirm_target=String(fields.get("confirm_target")||"");
+  form.reset();setBusy(true);setError("");setNotice("");
+  try{
+   const result=await api.post<Result>(base+"/resource-actions/"+activeAction+"/",input);
+   if(result.state==="confirmed"){setNotice("Resource state independently confirmed by the supplier.");setAction(null);await load(selected);}
+   else if(result.state==="pending_verification"){setPending(true);setNotice("Operation outcome is pending verification. Do not submit again.");}
+   else throw Error("Unconfirmed result");
+  }catch{setPending(true);setError("The operation could not be confirmed. Check pending operation or refresh inventory before retrying.");}
+  finally{setBusy(false)}
+ }
  async function reconcile(){
   if(busy)return;setBusy(true);setNotice("");setError("");
   try{
-   const result=await api.post<Result>(base+"/mailboxes/reconcile/",{});
+   const result=await api.post<Result>(base+"/resource-actions/reconcile/",{});
    if(result.state==="confirmed"){
-    setPending(false);setNotice("Mailbox existence and quota confirmed. Verify your mailbox password separately.");await load("email");
+    setPending(false);setNotice(result.password_status==="unverified"?"Mailbox existence and quota confirmed. Verify your mailbox password separately.":"Resource state independently confirmed.");await load(selected);
    }else if(result.state==="pending_verification"){
-    setPending(true);setNotice("Still awaiting independent confirmation. No additional mailbox request was sent.");
+    setPending(true);setNotice("Still awaiting independent confirmation. No additional supplier mutation was sent.");
    }else throw Error("Unconfirmed result");
   }catch{setError("No eligible pending operation could be confirmed. Refresh inventory or contact support.");}
   finally{setBusy(false)}
@@ -69,8 +87,8 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
    <button type="button" disabled={busy} onClick={()=>{setNotice("");void load()}} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">Refresh</button>
   </div>
   <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Resource type">
-   {capabilities.email&&<button type="button" aria-pressed={selected==="email"} onClick={()=>{setTab("email");setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="email"?"bg-[#0064E0] text-white":"border border-slate-200")}>Email accounts</button>}
-   {capabilities.subdomains&&<button type="button" aria-pressed={selected==="subdomains"} onClick={()=>{setTab("subdomains");setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="subdomains"?"bg-[#0064E0] text-white":"border border-slate-200")}>Subdomains</button>}
+   {capabilities.email&&<button type="button" aria-pressed={selected==="email"} disabled={busy} onClick={()=>{setTab("email");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="email"?"bg-[#0064E0] text-white":"border border-slate-200")}>Email accounts</button>}
+   {capabilities.subdomains&&<button type="button" aria-pressed={selected==="subdomains"} disabled={busy} onClick={()=>{setTab("subdomains");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="subdomains"?"bg-[#0064E0] text-white":"border border-slate-200")}>Subdomains</button>}
   </div>
   {busy&&<p role="status" className="mt-4 text-sm text-slate-500">Checking supplier resources…</p>}
   {error&&<p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
@@ -88,7 +106,21 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
    <label className="block text-sm">Storage quota (MB)<input name="quota" required type="number" min={1} max={1000000} step={1} defaultValue={500} className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>
    <label className="block text-sm">New mailbox password<input name="password" required type="password" minLength={16} maxLength={128} autoComplete="new-password" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>
    <label className="block text-sm">Confirm current Console password<input name="confirmation" required type="password" maxLength={1024} autoComplete="current-password" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>
-   <div className="flex flex-wrap gap-2"><button disabled={busy||pending||!data} className="min-h-11 rounded-lg bg-[#0064E0] px-4 text-sm font-medium text-white disabled:opacity-50">Create mailbox</button><button type="button" disabled={busy} onClick={()=>void reconcile()} className="min-h-11 rounded-lg border border-slate-200 px-4 text-sm font-medium disabled:opacity-50">Check pending operation</button></div>
+   <div className="flex flex-wrap gap-2"><button disabled={busy||pending||!data} className="min-h-11 rounded-lg bg-[#0064E0] px-4 text-sm font-medium text-white disabled:opacity-50">Create mailbox</button></div>
   </form>}
+  {data&&data.resource===selected&&<div className="mt-5 border-t border-slate-100 pt-5">
+   <div className="flex flex-wrap gap-2">
+    {([["mailbox_quota","Change quota"],["mailbox_delete","Delete mailbox"],["subdomain_create","Create subdomain"],["subdomain_delete","Remove subdomain"]] as const).filter(([key])=>capabilities[key]&&(selected==="email"?key.startsWith("mailbox"):key.startsWith("subdomain"))).map(([key,label])=><button type="button" key={key} disabled={busy||pending} aria-pressed={activeAction===key} onClick={()=>{setAction(key);setNotice("");setError("")}} className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">{label}</button>)}
+   </div>
+   {activeAction&&<form key={activeAction} onSubmit={mutate} autoComplete="off" className="mt-4 space-y-3">
+    {activeAction==="subdomain_create"?<label className="block text-sm">Subdomain name<div className="mt-1 flex flex-wrap items-center gap-2"><input name="local" required maxLength={63} pattern="[a-zA-Z0-9](?:[a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?" placeholder="shop" className="min-w-0 flex-1 rounded-lg border border-slate-200 p-2"/><span className="break-all text-slate-500">.{domain}</span></div></label>:
+     <label className="block text-sm">Resource<select name="local" required defaultValue="" className="mt-1 w-full rounded-lg border border-slate-200 p-2"><option value="" disabled>Choose a resource</option>{data.items.map(item=>{const name=typeof item==="string"?item:item.address;const suffix=(selected==="email"?"@":".")+domain;const local=name.endsWith(suffix)?name.slice(0,-suffix.length):"";return local&&!local.includes(".")&&selected==="subdomains"||local&&selected==="email"?<option key={name} value={local}>{name}</option>:null})}</select></label>}
+    {activeAction==="mailbox_quota"&&<label className="block text-sm">New storage quota (MB)<input name="quota" required type="number" min={1} max={1000000} step={1} className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>}
+    {activeAction.endsWith("_delete")&&<><p role="note" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{activeAction==="mailbox_delete"?"Deleting a mailbox permanently removes its messages. Back up anything needed before proceeding.":"Removing the subdomain stops its hosting configuration. Website files will not be requested for deletion."}</p><label className="block text-sm">Type the complete resource name to confirm<input name="confirm_target" required maxLength={253} autoComplete="off" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label></>}
+    <label className="block text-sm">Confirm current Console password<input name="confirmation" required type="password" maxLength={1024} autoComplete="current-password" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>
+    <div className="flex flex-wrap gap-2"><button disabled={busy||pending} className="min-h-11 rounded-lg bg-[#0064E0] px-4 text-sm font-medium text-white disabled:opacity-50">Confirm operation</button><button type="button" disabled={busy} onClick={()=>setAction(null)} className="min-h-11 rounded-lg border border-slate-200 px-4 text-sm">Cancel</button></div>
+   </form>}
+  </div>}
+  {(capabilities.mailbox_create||capabilities.mailbox_delete||capabilities.mailbox_quota||capabilities.subdomain_create||capabilities.subdomain_delete)&&<button type="button" disabled={busy} onClick={()=>void reconcile()} className="mt-4 min-h-11 rounded-lg border border-slate-200 px-4 text-sm font-medium disabled:opacity-50">Check pending operation</button>}
  </section>
 }
