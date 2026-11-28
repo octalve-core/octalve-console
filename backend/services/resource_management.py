@@ -110,18 +110,20 @@ def _budget(subject, *, write=False):
 
 
 def list_resources(subject,service_id,resource):
-    operation={"files":"file_root_read","email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read","credentials":"hosting_password","db_users":"database_user_read","forwarders":"forwarder_read","autoresponders":"autoresponder_read"}.get(resource)
+    operation={"ssl":"ssl_readiness","backups":"backup_read","files":"file_root_read","email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read","credentials":"hosting_password","db_users":"database_user_read","forwarders":"forwarder_read","autoresponders":"autoresponder_read"}.get(resource)
     if not operation:
         raise ResourceRefused("Resource unavailable.")
     _budget(subject)
     a=authority(subject,service_id,operation)
     verify_existing_account(a.service,a.provider)
     a=_current(a,operation)
-    rows={"files":a.protocol.website_files,"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[],"db_users":a.protocol.all_database_users,"forwarders":a.protocol.forwarders,"autoresponders":a.protocol.autoresponders}[resource]()
+    from .hosting_health import ssl_readiness
+    rows={"ssl":lambda:[],"backups":lambda:[],"files":a.protocol.website_files,"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[],"db_users":a.protocol.all_database_users,"forwarders":a.protocol.forwarders,"autoresponders":a.protocol.autoresponders}[resource]()
+    health=ssl_readiness(a.protocol) if resource=="ssl" else a.protocol.backup_inventory() if resource=="backups" else None
     owned_databases=a.protocol.databases() if resource=="db_users" else None
     owned_mailboxes=[x["address"] for x in a.protocol.mailboxes()] if resource in ("forwarders","autoresponders") else None
     fresh=_current(a,operation)
-    return {"resource":resource,**({"mailboxes":owned_mailboxes} if owned_mailboxes is not None else {}),**({"databases":owned_databases} if owned_databases is not None else {}),"domain":a.service.domain_name,"items":rows,
+    return {"resource":resource,**({"health":health} if health is not None else {}),**({"mailboxes":owned_mailboxes} if owned_mailboxes is not None else {}),**({"databases":owned_databases} if owned_databases is not None else {}),"domain":a.service.domain_name,"items":rows,
             "pending_operation":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain",
             "pending_password_verification":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain" and fresh.service.metadata.get(FENCE,{}).get("operation") in ("mailbox_password","hosting_password","database_user_password"),
             "verified_at":timezone.now().isoformat()}

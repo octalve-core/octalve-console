@@ -209,6 +209,8 @@ class ResourceProtocol:
                          (method == "POST" and set(fields)=={"action","domain","user","passwd","passwd2","quota"} and fields["action"]=="create" and fields["domain"]==self.domain and fields["passwd"]==fields["passwd2"]) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="delete" and set(fields)=={"action","domain","user"}) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="modify" and set(fields) in ({"action","domain","user","quota"},{"action","domain","user","quota","passwd","passwd2"}) and ("passwd" not in fields or fields["passwd"]==fields["passwd2"])))
+            elif path=="/CMD_API_SITE_BACKUP":
+                valid=method=="GET" and fields=={"domain":self.domain}
             elif path=="/CMD_API_FILE_MANAGER":
                 valid=method=="GET" and fields in ({"path":"/"},{"path":"/domains"},{"path":"/domains/"+self.domain},{"path":"/domains/"+self.domain+"/public_html"})
             elif path=="/CMD_API_EMAIL_AUTORESPONDER":
@@ -293,6 +295,7 @@ class ResourceProtocol:
                 op=(method,fields.get("cpanel.module"),fields.get("cpanel.function"))
                 allowed={("GET","Email","list_pops_with_disk"):{"domain","no_validate"},
                          ("GET","DomainInfo","list_domains"):set(),
+                         ("GET","Backup","list_backups"):set(),
                          ("GET","Fileman","get_file_information"):{"path"},
                          ("GET","Fileman","list_files"):{"dir","show_hidden"},
                          ("GET","Email","list_auto_responders"):{"domain"},
@@ -1207,3 +1210,24 @@ class ResourceProtocol:
         if len({x["name"] for x in result})!=len(result):
             raise ResourceRefused("Ambiguous file inventory.")
         return sorted(result,key=lambda x:(x["kind"]!="directory",x["name"]))
+
+    def backup_inventory(self):
+        """Account-scoped inventory; presence does not prove restore integrity."""
+        if self.adapter=="directadmin":
+            data=_legacy_list(self._request("GET","/CMD_API_SITE_BACKUP",{"domain":self.domain}))
+            if any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,180}\.tar\.gz",x) or ".." in x for x in data):
+                raise ResourceRefused("Unexpected backup inventory.")
+        else:
+            from datetime import datetime
+            data=_list_names(self._whm("GET","Backup","list_backups",{}))
+            for entry in data:
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:T00:00:00(?:\.000)?Z)?",entry):
+                    raise ResourceRefused("Unexpected backup inventory.")
+                try:
+                    datetime.fromisoformat(entry.replace("Z","+00:00"))
+                except ValueError:
+                    raise ResourceRefused("Invalid backup date.") from None
+        if len(data)>365:
+            raise ResourceRefused("Backup inventory exceeds safe inspection.")
+        return {"count":len(data),"inventory":"observed","restore_verified":False,
+                "retention_verified":False,"offsite_verified":False}

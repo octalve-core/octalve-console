@@ -311,6 +311,27 @@ class ProtocolTests(SimpleTestCase):
         with self.assertRaises(ResourceRefused):
             da._check_request("GET","/CMD_API_FILE_MANAGER",{"path":"/domains/other.test/public_html"},False)
 
+    def test_backup_inventory_does_not_claim_recoverability(self):
+        da=self.adapter("directadmin")
+        with patch.object(da,"_request",return_value=SupplierReadResponse(200,b"list%5B%5D=backup-Jan.tar.gz")):
+            data=da.backup_inventory()
+            self.assertEqual(data["count"],1)
+            self.assertFalse(data["restore_verified"])
+        cp=self.adapter("cpanel-whm")
+        with patch.object(cp,"_request",return_value=whm("Backup","list_backups",["2014-12-02T00:00:00.000Z"])):
+            self.assertEqual(cp.backup_inventory()["count"],1)
+        with patch.object(cp,"_request",return_value=whm("Backup","list_backups",["/home/victim/secret"])),self.assertRaises(ResourceRefused):
+            cp.backup_inventory()
+
+    def test_ssl_readiness_separates_public_origin_and_content(self):
+        from services.hosting_health import ssl_readiness
+        cp=self.adapter("cpanel-whm")
+        with patch("services.hosting_health.approved_origin",return_value=("supplier.example.test",2087,"8.8.8.8","/")),patch("services.hosting_health._resolved",return_value=["1.1.1.1"]),patch("services.hosting_health.tls_probe",side_effect=[ResourceRefused("origin unverified"),"2027-01-01T00:00:00+00:00"]):
+            result=ssl_readiness(cp)
+            self.assertEqual(result["public_tls"],"valid")
+            self.assertEqual(result["origin_tls"],"unverified")
+            self.assertFalse(result["website_content_verified"])
+
     def test_database_password_authentication_requires_tls_and_exact_identity(self):
         import ssl
         cp=self.adapter("cpanel-whm")

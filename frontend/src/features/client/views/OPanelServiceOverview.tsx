@@ -31,14 +31,14 @@ const tools=[
   {key:"forwarders",label:"Forwarders",icon:Forward,native:"forwarders"},
   {key:"autoresponders",label:"Autoresponders",icon:ReplyAll,native:"autoresponders"},
   {key:"files",label:"File manager",icon:FolderOpen,native:"files"},
-  {key:"backups",label:"Backups",icon:Archive},
+  {key:"backups",label:"Backups",icon:Archive,native:"backups"},
   {key:"subdomains",label:"Subdomains",icon:Network,native:"subdomains"},
   {key:"domains",label:"Addon domains",icon:Globe2},
   {key:"cron",label:"Cron jobs",icon:CalendarClock},
   {key:"databases",label:"Databases",icon:Database,native:"databases"},
   {key:"phpmyadmin",label:"phpMyAdmin",icon:Database},
   {key:"dns",label:"DNS manager",icon:ListTree},
-  {key:"ssl",label:"SSL certificates",icon:ShieldCheck},
+  {key:"ssl",label:"SSL certificates",icon:ShieldCheck,native:"ssl"},
   {key:"stats",label:"Website statistics",icon:BarChart3}
 ] as const;
 const control="min-h-11 inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium";

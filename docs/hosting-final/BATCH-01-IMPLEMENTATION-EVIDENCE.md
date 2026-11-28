@@ -103,3 +103,7 @@ Added signed `file_root_read` capability and bounded fixed-root inventory for DA
 ### Separate DNS write runtime
 
 Added default-off, separate signed write consent and MFA approval bound to the exact read binding and distinct saved Cloudflare credential. Fixed record mutations with zone-bound HTTPS, strict record validation, protected infrastructure names, public resolver agreement and live zone preflight, exact snapshot confirmation, durable reservation and independently matched post-operation inventory. This is not enabled by a read-only token. Non-Cloudflare DNS remains supplier-managed pending an equivalent qualified authoritative adapter. No production write or live qualification has been performed.
+
+### SSL and backup evidence
+
+Added signed `ssl_readiness` and `backup_read` capabilities. TLS uses strict CA/hostname verification, public-only fixed IP connections, bounded concurrent handshakes and separate public/origin status. No HTTP redirects or publication claim. Backup inventory uses DirectAdmin account-scoped `CMD_API_SITE_BACKUP` and cPanel `Backup::list_backups`, returning only counts and explicit unverified restore/retention/offsite flags. Actual backup restoration qualification requires a disposable supplier account and cannot be inferred from archive presence. Reference: https://docs.directadmin.com/changelog/version-1.24.3.html and https://api.docs.cpanel.net/specifications/cpanel.openapi/backup/list_backups .

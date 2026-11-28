@@ -2,10 +2,11 @@
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import {api} from "@/lib/api/client";
 
-export type ResourceTab="files"|"email"|"subdomains"|"databases"|"credentials"|"db_users"|"forwarders"|"autoresponders";
+export type ResourceTab="ssl"|"backups"|"files"|"email"|"subdomains"|"databases"|"credentials"|"db_users"|"forwarders"|"autoresponders";
 type Mailbox={address:string;quota_mb?:number|null;unlimited?:boolean;destination?:string|null;managed?:boolean};
 type FileItem={name:string;kind:"directory"|"file";size_bytes:number};
-type Inventory={resource:string;domain:string;items:Array<Mailbox|string|FileItem>;verified_at:string;pending_operation:boolean;pending_password_verification?:boolean;databases?:string[];mailboxes?:string[]};
+type Health={origin_tls?:string;public_tls?:string;public_expires_at?:string|null;origin_expires_at?:string|null;count?:number;inventory?:string;restore_verified?:boolean;};
+type Inventory={health?:Health;resource:string;domain:string;items:Array<Mailbox|string|FileItem>;verified_at:string;pending_operation:boolean;pending_password_verification?:boolean;databases?:string[];mailboxes?:string[]};
 type MailSettings={address:string;imap_host:string;imap_port:number;smtp_host:string;smtp_port:number;transport:string};
 type Result={state:"confirmed"|"pending_verification";operation_id?:string;address?:string;password_status?:string};
 export function NativeHostingResources({serviceId,domain,capabilities,initialTab="email",quickOnly=false}:{serviceId:string;domain:string;capabilities:Record<string,boolean>;initialTab?:ResourceTab;quickOnly?:boolean}){
@@ -17,7 +18,7 @@ export function NativeHostingResources({serviceId,domain,capabilities,initialTab
  const [passwordRecovery,setPasswordRecovery]=useState(false);
  const [action,setAction]=useState<"mailbox_delete"|"mailbox_quota"|"mailbox_password"|"subdomain_create"|"subdomain_delete"|"database_create"|"database_delete"|"hosting_password"|"database_user_create"|"database_user_delete"|"database_grants"|"database_user_password"|"forwarder_create"|"forwarder_delete"|"autoresponder_delete"|"autoresponder_create"|"autoresponder_edit"|null>(null);
  const sequence=useRef(0);
- const selected:ResourceTab=capabilities[tab]?tab:capabilities.files?"files":capabilities.email?"email":capabilities.subdomains?"subdomains":capabilities.databases?"databases":capabilities.db_users?"db_users":capabilities.forwarders?"forwarders":capabilities.autoresponders?"autoresponders":"credentials";
+ const selected:ResourceTab=capabilities[tab]?tab:capabilities.ssl?"ssl":capabilities.backups?"backups":capabilities.files?"files":capabilities.email?"email":capabilities.subdomains?"subdomains":capabilities.databases?"databases":capabilities.db_users?"db_users":capabilities.forwarders?"forwarders":capabilities.autoresponders?"autoresponders":"credentials";
  const activeAction=action&&capabilities[action]&&((selected==="email"&&action.startsWith("mailbox"))||(selected==="subdomains"&&action.startsWith("subdomain"))||(selected==="databases"&&(action==="database_create"||action==="database_delete"))||(selected==="db_users"&&(action==="database_user_create"||action==="database_user_delete"||action==="database_grants"||action==="database_user_password"))||(selected==="credentials"&&action==="hosting_password")||(selected==="forwarders"&&action.startsWith("forwarder_"))||(selected==="autoresponders"&&action.startsWith("autoresponder_")))?action:null;
  const base="/services/opanel/"+encodeURIComponent(serviceId);
  async function load(resource:ResourceTab=selected){
@@ -39,7 +40,7 @@ export function NativeHostingResources({serviceId,domain,capabilities,initialTab
   // Do not poll supplier resources on background dashboard refresh.
   return ()=>{sequence.current++};
  // eslint-disable-next-line react-hooks/exhaustive-deps
- },[serviceId,domain,selected,capabilities.files,capabilities.email,capabilities.subdomains,capabilities.databases,capabilities.credentials,capabilities.db_users,capabilities.forwarders,capabilities.autoresponders]);
+ },[serviceId,domain,selected,capabilities.ssl,capabilities.backups,capabilities.files,capabilities.email,capabilities.subdomains,capabilities.databases,capabilities.credentials,capabilities.db_users,capabilities.forwarders,capabilities.autoresponders]);
  async function mailboxAccess(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(busy||selected!=="email")return;
   const form=event.currentTarget,fields=new FormData(form);
@@ -117,13 +118,15 @@ export function NativeHostingResources({serviceId,domain,capabilities,initialTab
   }catch{setError("No eligible pending operation could be confirmed. Refresh inventory or contact support.");}
   finally{setBusy(false)}
  }
- if(!capabilities.files&&!capabilities.email&&!capabilities.subdomains&&!capabilities.databases&&!capabilities.credentials&&!capabilities.db_users&&!capabilities.forwarders&&!capabilities.autoresponders)return null;
+ if(!capabilities.ssl&&!capabilities.backups&&!capabilities.files&&!capabilities.email&&!capabilities.subdomains&&!capabilities.databases&&!capabilities.credentials&&!capabilities.db_users&&!capabilities.forwarders&&!capabilities.autoresponders)return null;
  return <section className={quickOnly?"mt-2":"rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"} aria-label="Native hosting resources">
   {!quickOnly&&<><div className="flex flex-wrap items-center justify-between gap-3">
    <h2 className="text-lg font-medium text-slate-950">Hosting resources</h2>
    <button type="button" disabled={busy} onClick={()=>{setNotice("");void load()}} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">Refresh</button>
   </div>
   <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Resource type">
+   {capabilities.ssl&&<button type="button" aria-pressed={selected==="ssl"} disabled={busy} onClick={()=>{setTab("ssl");setAction(null);setNotice("")}} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm">SSL readiness</button>}
+   {capabilities.backups&&<button type="button" aria-pressed={selected==="backups"} disabled={busy} onClick={()=>{setTab("backups");setAction(null);setNotice("")}} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm">Backup inventory</button>}
    {capabilities.files&&<button type="button" aria-pressed={selected==="files"} disabled={busy} onClick={()=>{setTab("files");setAction(null);setNotice("")}} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm">Website files</button>}
    {capabilities.email&&<button type="button" aria-pressed={selected==="email"} disabled={busy} onClick={()=>{setTab("email");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="email"?"bg-[#0064E0] text-white":"border border-slate-200")}>Email accounts</button>}
    {capabilities.forwarders&&<button type="button" aria-pressed={selected==="forwarders"} disabled={busy} onClick={()=>{setTab("forwarders");setAction(null);setNotice("")}} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm">Forwarders</button>}
@@ -138,7 +141,7 @@ export function NativeHostingResources({serviceId,domain,capabilities,initialTab
   {error&&<p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
   {notice&&<p role="status" className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{notice}</p>}
   {!quickOnly&&data&&data.resource===selected&&<div className="mt-4">
-   {selected==="credentials"?<p className="text-sm text-slate-600">Set or reset your hosting control-panel password. This is separate from your Octalve Console password.</p>:data.items.length===0?<p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-500">No resources returned by the supplier.</p>:<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+   {selected==="ssl"?<div className="space-y-2 text-sm"><p>Public HTTPS certificate: {data.health?.public_tls==="valid"?"Valid":"Not verified"}</p><p>Origin certificate: {data.health?.origin_tls==="valid"?"Valid":"Not verified"}</p>{data.health?.public_expires_at&&<p>Public certificate expiry: {new Date(data.health.public_expires_at).toLocaleDateString()}</p>}<p className="text-xs text-slate-500">A valid certificate does not confirm website content or DNS propagation.</p></div>:selected==="backups"?<div className="space-y-2 text-sm"><p>Backup entries: {data.health?.inventory==="observed"?data.health.count:"Unavailable"}</p><p className="text-xs text-slate-500">Backup existence does not establish recoverability, retention or offsite protection. Use your supplier control panel for backup and restoration.</p></div>:selected==="credentials"?<p className="text-sm text-slate-600">Set or reset your hosting control-panel password. This is separate from your Octalve Console password.</p>:data.items.length===0?<p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-500">No resources returned by the supplier.</p>:<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
     {data.items.map(item=>typeof item==="object"&&"name" in item?<li key={item.name} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><span className="break-all font-medium">{item.name}</span><span className="text-slate-500">{item.kind==="directory"?"Folder":item.size_bytes.toLocaleString()+" bytes"}</span></li>:typeof item==="string"?<li key={item} className="break-all p-3 text-sm">{item}</li>:<li key={item.address+":"+String(item.destination??"")} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><span className="break-all font-medium">{item.address}</span><span className="text-slate-500">{selected==="forwarders"?(item.managed?item.destination:"Unmanaged route"):item.unlimited?"Unlimited":item.quota_mb===null?"Unknown":item.quota_mb+" MB"}</span></li>)}
    </ul>}
    {selected==="files"&&<p className="mt-2 text-xs text-slate-500">Top-level website files only. Hidden, linked and unsupported entries are excluded. Use advanced management to upload, edit, download or remove files securely in your control panel.</p>}
