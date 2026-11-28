@@ -7,6 +7,9 @@ import base64
 import json
 import re
 import stat
+import socket
+import ssl
+import pymysql
 from django.views.decorators.debug import sensitive_variables
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -852,11 +855,7 @@ class ResourceProtocol:
 
     @sensitive_variables("password","data")
     def dispatch_database_user_password(self,user,password,database=None):
-        """Fixed vendor contract only. ACK is not authentication proof.
-
-        Deliberately not routed to customers until an independent database
-        authentication verifier and durable reconciliation are qualified.
-        """
+        """Fixed vendor contract only. ACK is not authentication proof."""
         user=self._db_identity(user)
         strong_password(password)
         if self.adapter=="directadmin":
@@ -871,6 +870,56 @@ class ResourceProtocol:
             data=self._whm("POST","Mysql","set_password",{"user":user,"password":password})
             if not isinstance(data,dict) or data.get("failures")!=[]:
                 raise ResourceRefused("Database password acknowledgement unavailable.")
+
+    @sensitive_variables("password","conn","sock","cursor","row")
+    def verify_database_user_password(self,user,password,database=None):
+        """Independently authenticate at the exact signed supplier host.
+
+        No dynamic host/port, grant changes, SQL from callers or TLS fallback.
+        The signed capability is only for servers with an already approved
+        restricted remote MySQL access path and publicly trusted TLS identity.
+        False means an explicit authentication rejection after TLS; all other
+        failures are inconclusive and block dispatch.
+        """
+        user=self._db_identity(user)
+        strong_password(password)
+        if database is not None:
+            database=self._db_identity(database)
+        host,_,ip,_=approved_origin(self.origin+"/",bound_origin=self.binding)
+        ctx=ssl.create_default_context(cafile=certifi.where())
+        ctx.minimum_version=ssl.TLSVersion.TLSv1_2
+        conn=None
+        sock=None
+        try:
+            conn=pymysql.connect(host=host,port=3306,user=user,password=password,
+                                 database=database,ssl=ctx,connect_timeout=3,
+                                 read_timeout=4,write_timeout=4,autocommit=True,
+                                 defer_connect=True)
+            sock=socket.create_connection((ip,3306),timeout=3)
+            conn.connect(sock=sock)
+            if not conn._secure or not isinstance(conn._sock,ssl.SSLSocket):
+                raise ResourceRefused("Database TLS could not be confirmed.")
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT CURRENT_USER(), DATABASE()")
+                row=cursor.fetchone()
+            if (not isinstance(row,tuple) or len(row)!=2 or not isinstance(row[0],str)
+                    or row[0].split("@",1)[0]!=user or row[1]!=database):
+                raise ResourceRefused("Database authentication identity could not be confirmed.")
+            return True
+        except pymysql.err.OperationalError as exc:
+            if conn is not None and conn._secure and exc.args and exc.args[0]==1045:
+                return False
+            raise ResourceRefused("Database authentication unavailable.") from None
+        except (pymysql.MySQLError,OSError,ValueError,TypeError):
+            raise ResourceRefused("Database authentication unavailable.") from None
+        finally:
+            if conn is not None and conn.open:
+                try:
+                    conn.close()
+                except (pymysql.MySQLError,OSError):
+                    pass
+            if sock is not None:
+                sock.close()
 
     def delete_database_user(self,user,database=None):
         user=self._db_identity(user)

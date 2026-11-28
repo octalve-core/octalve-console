@@ -104,6 +104,7 @@ class ResourceMutationView(APIView):
             "hosting_password":{"local","password","confirm_password"},
             "database_user_create":{"local","password","confirm_password","database"},
             "database_user_delete":{"local","confirm_target","confirm_password","database"},
+            "database_user_password":{"local","password","confirm_password","database"},
             "database_grants":{"local","confirm_password","database","profile"},
             "forwarder_create":{"local","destination","confirm_password"},
             "forwarder_delete":{"local","destination","confirm_target","confirm_password"},
@@ -141,7 +142,7 @@ class ResourceReconcileView(APIView):
             pending=service.metadata.get(resources.FENCE,{})
             if data:
                 confirmation=data["confirm_password"]
-                if pending.get("operation") not in ("mailbox_password","hosting_password"):
+                if pending.get("operation") not in ("mailbox_password","hosting_password","database_user_password"):
                     return _unavailable()
                 if _spend("hosting:resource_stepup",str(request.user.pk),5,900):
                     return Response({"detail":"Too many confirmation attempts."},status=429,headers=HEADERS)

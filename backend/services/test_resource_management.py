@@ -311,6 +311,30 @@ class ProtocolTests(SimpleTestCase):
         with self.assertRaises(ResourceRefused):
             da._check_request("GET","/CMD_API_FILE_MANAGER",{"path":"/domains/other.test/public_html"},False)
 
+    def test_database_password_authentication_requires_tls_and_exact_identity(self):
+        import ssl
+        cp=self.adapter("cpanel-whm")
+        password="SyntheticDatabasePassword!"
+        conn=Mock()
+        conn._secure=True
+        conn._sock=Mock(spec=ssl.SSLSocket)
+        conn.cursor.return_value.__enter__=Mock(return_value=Mock())
+        conn.cursor.return_value.__exit__=Mock(return_value=False)
+        cursor=conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value=("checkhost_app@localhost",None)
+        with patch("services.resource_protocol.approved_origin",return_value=("supplier.example.test",2087,"8.8.8.8","/")),patch("services.resource_protocol.socket.create_connection") as sock,patch("services.resource_protocol.pymysql.connect",return_value=conn) as connect:
+            self.assertTrue(cp.verify_database_user_password("checkhost_app",password))
+            sock.assert_called_once_with(("8.8.8.8",3306),timeout=3)
+            self.assertTrue(connect.call_args.kwargs["ssl"].check_hostname)
+            self.assertEqual(connect.call_args.kwargs["ssl"].verify_mode,ssl.CERT_REQUIRED)
+            cursor.execute.assert_called_once_with("SELECT CURRENT_USER(), DATABASE()")
+            cursor.fetchone.return_value=("victim_app@localhost",None)
+            with self.assertRaises(ResourceRefused):
+                cp.verify_database_user_password("checkhost_app",password)
+            conn._secure=False
+            with self.assertRaises(ResourceRefused):
+                cp.verify_database_user_password("checkhost_app",password)
+
     def test_database_password_dispatch_is_scoped_and_ack_is_not_proof(self):
         password="SyntheticDatabasePassword!"
         da=self.adapter("directadmin")

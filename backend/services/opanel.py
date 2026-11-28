@@ -57,6 +57,7 @@ def opanel_overview(service):
         "db_users": "database_user_read" in resource_caps,
         "database_user_create": "database_user_create" in resource_caps,
         "database_user_delete": "database_user_delete" in resource_caps,
+        "database_user_password": "database_user_password" in resource_caps,
         "database_grants": "database_grants" in resource_caps,
         "database_user_requires_database": "database_user_read" in resource_caps and resource_management.database_initial_user_required(service),
         "database_initial_user_required": "database_create" in resource_caps and service.provider_id is not None and resource_management.database_initial_user_required(service),
