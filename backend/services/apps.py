@@ -7,7 +7,7 @@ class ServicesConfig(AppConfig):
     name = 'services'
     verbose_name = 'Service Management'
 
-    def ready(self):
-        import services.signals
+    # Hosting and other commercial services are created exclusively by
+    # verified fulfillment workers, never by a generic invoice-save signal.
 
 
