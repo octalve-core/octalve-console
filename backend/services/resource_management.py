@@ -117,8 +117,9 @@ def list_resources(subject,service_id,resource):
     verify_existing_account(a.service,a.provider)
     a=_current(a,operation)
     rows={"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[],"db_users":a.protocol.all_database_users}[resource]()
+    owned_databases=a.protocol.databases() if resource=="db_users" else None
     fresh=_current(a,operation)
-    return {"resource":resource,"domain":a.service.domain_name,"items":rows,
+    return {"resource":resource,**({"databases":owned_databases} if owned_databases is not None else {}),"domain":a.service.domain_name,"items":rows,
             "pending_operation":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain",
             "pending_password_verification":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain" and fresh.service.metadata.get(FENCE,{}).get("operation") in ("mailbox_password","hosting_password"),
             "verified_at":timezone.now().isoformat()}

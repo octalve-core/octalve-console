@@ -327,6 +327,30 @@ class ResourceAuthorityTests(TestCase):
             self.assertEqual(response.status_code,200,response.data)
             send.assert_not_called()
 
+    def test_database_create_delete_and_readback(self):
+        self.policy["resource_capabilities"].extend(["database_read","database_create","database_delete"])
+        with patch.object(ResourceProtocol,"databases",side_effect=[[],["checkhost_site"]]),patch.object(
+                ResourceProtocol,"database_capacity",return_value=(0,5)),patch.object(ResourceProtocol,"create_database") as send:
+            response=self.api.post(self.base+"/resource-actions/database_create/",
+                {"local":"site","confirm_password":"SyntheticConsolePassword"},format="json")
+            self.assertEqual(response.status_code,200,response.data)
+            send.assert_called_once_with("site",initial_user=None,password=None)
+        with patch.object(ResourceProtocol,"databases",side_effect=[["checkhost_site"],[]]),patch.object(
+                ResourceProtocol,"delete_database") as send:
+            response=self.api.post(self.base+"/resource-actions/database_delete/",
+                {"local":"checkhost_site","confirm_target":"checkhost_site","confirm_password":"SyntheticConsolePassword"},format="json")
+            self.assertEqual(response.status_code,200,response.data)
+            send.assert_called_once_with("checkhost_site")
+
+    def test_database_grant_requires_owned_database_and_exact_profile(self):
+        self.policy["resource_capabilities"].extend(["database_read","database_user_read","database_grants"])
+        with patch.object(ResourceProtocol,"databases",return_value=["checkhost_site"]),patch.object(
+                ResourceProtocol,"all_database_users",return_value=["checkhost_app"]),patch.object(
+                ResourceProtocol,"database_grants",return_value=["SELECT"]),patch.object(ResourceProtocol,"set_database_grants") as send:
+            response=self.api.post(self.base+"/resource-actions/database_grants/",
+                {"local":"checkhost_app","database":"checkhost_site","profile":"read_only","confirm_password":"SyntheticConsolePassword"},format="json")
+            self.assertEqual(response.status_code,200,response.data)
+            send.assert_called_once_with("checkhost_site","checkhost_app","read_only")
     def test_subdomain_mutations_disabled_without_signed_capability(self):
         with patch.object(ResourceProtocol,"create_subdomain") as send:
             response=self.api.post(self.base+"/resource-actions/subdomain_create/",{"local":"shop","confirm_password":"SyntheticConsolePassword"},format="json")
