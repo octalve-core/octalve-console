@@ -34,7 +34,7 @@ def release_enabled():
 def policy_payload(provider,row,shared_ip):
     return {"provider":provider.pk,"connection":str(row.pk),"version":row.current_version,
         "adapter":row.adapter_key,"environment":row.environment,"settings":row.public_settings,
-        "owner":provider.username,"shared_ip":shared_ip}
+        "owner":provider.username,"shared_ip":shared_ip,"fulfillment_model":provider.config.get("fulfillment_model")}
 
 
 def sign_policy(provider,row,shared_ip):
@@ -49,7 +49,7 @@ def verify_policy(provider,row):
     policy=provider.config.get(POLICY)
     try:
         payload=policy["payload"]
-        if payload!=policy_payload(provider,row,payload["shared_ip"]):
+        if payload!=policy_payload(provider,row,payload["shared_ip"]) or payload["fulfillment_model"] not in ("owned_server","partner_reseller"):
             raise VaultUnavailable()
         if row.adapter_key=="directadmin":
             if public_ip(payload["shared_ip"])!=payload["shared_ip"]:
