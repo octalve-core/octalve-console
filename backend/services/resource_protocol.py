@@ -45,6 +45,19 @@ def subdomain_label(value):
     return value
 
 
+def database_suffix(value):
+    # Conservative portable identifier; provider prefix is always server-owned.
+    if not isinstance(value,str) or not re.fullmatch(r"[a-z][a-z0-9]{0,23}",value):
+        raise ResourceRefused("Invalid database identifier.")
+    return value
+
+
+def strong_password(value):
+    if not isinstance(value,str) or not 16<=len(value)<=128 or any(ord(ch)<33 or ord(ch)>126 for ch in value):
+        raise ResourceRefused("Invalid password.")
+    return value
+
+
 def _form(response, *, empty=False):
     if response.status_code != 200 or len(response.content) > 200000:
         raise ResourceRefused("Supplier response unavailable.")
@@ -159,7 +172,13 @@ class ResourceProtocol:
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="delete" and set(fields)=={"action","domain","user"}) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="modify" and set(fields) in ({"action","domain","user","quota"},{"action","domain","user","quota","passwd","passwd2"}) and ("passwd" not in fields or fields["passwd"]==fields["passwd2"])))
             elif path=="/CMD_API_DATABASES":
-                valid=method=="GET" and fields=={}
+                valid=(method=="GET" and fields=={}) or (method=="POST" and (
+                    (set(fields)=={"action","name","user","passwd","passwd2"} and fields["action"]=="create"
+                     and database_suffix(fields["name"]) and database_suffix(fields["user"])
+                     and strong_password(fields["passwd"]) and fields["passwd"]==fields["passwd2"]) or
+                    (set(fields)=={"action","select0"} and fields["action"]=="delete" and self._db_identity(fields["select0"]))))
+            elif path=="/CMD_API_DB_USER":
+                valid=method=="GET" and set(fields)=={"name"} and self._db_identity(fields["name"])
             elif path=="/CMD_API_EMAIL_AUTH":
                 valid=method=="POST" and set(fields)=={"email","passwd"} and fields["email"].endswith("@"+self.domain)
                 if valid:
@@ -178,6 +197,8 @@ class ResourceProtocol:
                 allowed={("GET","Email","list_pops_with_disk"):{"domain","no_validate"},
                          ("GET","DomainInfo","list_domains"):set(),
                          ("GET","Mysql","list_databases"):set(),
+                         ("POST","Mysql","create_database"):{"name"},
+                         ("POST","Mysql","delete_database"):{"name"},
                          ("POST","Email","add_pop"):{"email","domain","password","quota"},
                          ("POST","Email","delete_pop"):{"email","domain"},
                          ("POST","Email","edit_pop_quota"):{"email","domain","quota"},
@@ -185,14 +206,16 @@ class ResourceProtocol:
                          ("POST","Email","verify_password"):{"email","password"},
                          ("GET","StatsBar","get_stats"):{"display"}}
                 valid=op in allowed and set(fields)==common|allowed[op]
+                if valid and fields.get("cpanel.module")=="Mysql" and "name" in fields:
+                    self._db_identity(fields["name"])
                 if "domain" in fields:
                     valid=valid and fields["domain"]==self.domain
                 if "no_validate" in fields:
                     valid=valid and fields["no_validate"]=="0"
                 if "display" in fields:
-                    valid=valid and fields["display"]=="emailaccounts|diskusage"
+                    valid=valid and fields["display"] in ("emailaccounts|diskusage","sqldatabases")
         if valid and method=="POST":
-            target=fields.get("user",fields.get("email"))
+            target=fields.get("user",fields.get("email")) if path!="/CMD_API_DATABASES" and fields.get("cpanel.module")!="Mysql" else None
             if target is not None:
                 if (path=="/CMD_API_EMAIL_AUTH" or fields.get("cpanel.function") in ("passwd_pop","verify_password")) and "@" not in target:
                     raise ResourceRefused("Full mailbox identity is required.")
@@ -460,3 +483,68 @@ class ResourceProtocol:
                or len(name)<=len(self.account)+1 for name in names):
             raise ResourceRefused("Database account prefix is not confirmed.")
         return sorted(names)
+
+
+    def _db_identity(self, value):
+        if (not isinstance(value,str) or not value.startswith(self.account+"_")
+                or not re.fullmatch(r"[A-Za-z0-9_]{1,64}",value)
+                or len(value)<=len(self.account)+1):
+            raise ResourceRefused("Database account prefix is not confirmed.")
+        return value
+
+    def database_name(self, local):
+        return self._db_identity(self.account+"_"+database_suffix(local))
+
+    def database_capacity(self):
+        if self.adapter=="directadmin":
+            cfg=_form(self._request("GET","/CMD_API_SHOW_USER_CONFIG",{"user":self.account},reseller=True))
+            used=_form(self._request("GET","/CMD_API_SHOW_USER_USAGE",{"user":self.account},reseller=True))
+            if cfg.get("username")!=[self.account] or cfg.get("domain")!=[self.domain]:
+                raise ResourceRefused("Unexpected hosting account.")
+            if any(len(v)!=1 for v in cfg.values()) or any(len(v)!=1 for v in used.values()):
+                raise ResourceRefused("Ambiguous database capacity.")
+            return _count(used.get("mysql",[None])[0]),_count(cfg.get("mysql",[None])[0],unlimited=True)
+        stats=self._whm("GET","StatsBar","get_stats",{"display":"sqldatabases"})
+        if not isinstance(stats,list) or len(stats)!=1 or not isinstance(stats[0],dict) or stats[0].get("id")!="sqldatabases":
+            raise ResourceRefused("Invalid database capacity.")
+        item=stats[0]
+        maximum=_count(item.get("_max"),unlimited=True)
+        if maximum==0 and item.get("zeroisunlimited") in (1,"1"):
+            maximum=None
+        return _count(item.get("_count")),maximum
+
+    def database_users(self, name):
+        """Database membership readback, not a password confirmation."""
+        name=self._db_identity(name)
+        if self.adapter=="directadmin":
+            names=_legacy_list(self._request("GET","/CMD_API_DB_USER",{"name":name}))
+        else:
+            data=self._whm("GET","Mysql","list_databases",{})
+            if not isinstance(data,list) or len(data)>2000 or any(not isinstance(x,dict) for x in data):
+                raise ResourceRefused("Invalid database inventory.")
+            matches=[item for item in data if item.get("database")==name]
+            if len(matches)!=1:
+                raise ResourceRefused("Database not independently identified.")
+            names=_list_names(matches[0].get("users"))
+        return sorted(self._db_identity(x) for x in names)
+
+    @sensitive_variables("password")
+    def create_database(self, local, *, initial_user=None, password=None):
+        name=self.database_name(local)
+        if self.adapter=="directadmin":
+            # DA creates a database and its initial user in one vendor operation.
+            database_suffix(initial_user)
+            strong_password(password)
+            self._da_ack("/CMD_API_DATABASES",{"action":"create","name":local,
+                "user":initial_user,"passwd":password,"passwd2":password})
+        else:
+            if initial_user is not None or password is not None:
+                raise ResourceRefused("Create cPanel database users separately.")
+            self._whm("POST","Mysql","create_database",{"name":name})
+
+    def delete_database(self, name):
+        name=self._db_identity(name)
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_DATABASES",{"action":"delete","select0":name})
+        else:
+            self._whm("POST","Mysql","delete_database",{"name":name})

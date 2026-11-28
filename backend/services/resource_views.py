@@ -99,8 +99,10 @@ class ResourceMutationView(APIView):
             "mailbox_password":{"local","password","confirm_password"},
             "subdomain_create":{"local","confirm_password"},
             "subdomain_delete":{"local","confirm_target","confirm_password"},
+            "database_create":{"local","confirm_password"},
+            "database_delete":{"local","confirm_target","confirm_password"},
         }
-        if operation not in shapes or not isinstance(data,dict) or set(data)!=shapes[operation]:
+        if operation not in shapes or not isinstance(data,dict) or (set(data)!=shapes[operation] and not (operation=="database_create" and set(data)==shapes[operation]|{"initial_user","password"})):
             return Response({"detail":"Invalid resource operation fields."},status=400,headers=HEADERS)
         confirmation=data["confirm_password"]
         try:
@@ -110,7 +112,7 @@ class ResourceMutationView(APIView):
                     or not request.user.check_password(confirmation)):
                 return Response({"detail":"Current Console password could not be confirmed."},status=403,headers=HEADERS)
             result=resources.mutate_resource(request.user.pk,service_id,operation=operation,local=data["local"],
-                quota=data.get("quota_mb"),confirm_target=data.get("confirm_target"),password=data.get("password"))
+                quota=data.get("quota_mb"),confirm_target=data.get("confirm_target"),password=data.get("password"),initial_user=data.get("initial_user"))
             return Response(result,status=200 if result["state"]=="confirmed" else 202,headers=HEADERS)
         except (ResourceRefused,ReadbackRejected,VaultUnavailable,SupplierEgressDenied,DatabaseError):
             return _unavailable()
