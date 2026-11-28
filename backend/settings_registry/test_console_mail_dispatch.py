@@ -105,3 +105,54 @@ class MailDispatchTests(TestCase):
    revision.save()
   with self.assertRaises(ValueError):
    revision.delete()
+
+
+class BrevoTransportTests(TestCase):
+ def test_exact_sender_and_domain_required(self):
+  from unittest.mock import Mock
+  from .brevo_transport import verify_sender,SenderRefused
+  call=Mock(side_effect=[(200,{"domain":"example.test","verified":True,"authenticated":True}),
+    (200,{"senders":[{"email":"mail@example.test","active":True}]})])
+  self.assertTrue(verify_sender("example.test","mail@example.test","synthetic-api-key",request=call))
+  call=Mock(return_value=(200,{"domain":"example.test","verified":True,"authenticated":False}))
+  with self.assertRaises(SenderRefused):
+   verify_sender("example.test","mail@example.test","synthetic-api-key",request=call)
+  self.assertEqual(call.call_count,1)
+
+ def test_acceptance_requires_exact_receipt_and_uncertainty_is_not_retryable(self):
+  from unittest.mock import Mock
+  from .brevo_transport import send_message,SenderRefused
+  args=dict(key="synthetic-api-key",sender="mail@example.test",sender_name="Octalve Cloud",
+     reply_to="support@example.test",recipient="customer@example.test",subject="Receipt",
+     body_text="Hello",body_html="<p>Hello</p>",idempotency_key="invoice:42:payment_confirmed")
+  request=Mock(return_value=(201,{"messageId":"<receipt@example.test>"}))
+  result=send_message(**args,request=request)
+  self.assertEqual(result.outcome,"accepted")
+  self.assertEqual(len(request.call_args.kwargs["payload"]["to"]),1)
+  for response in ((201,{}),(500,{}),(409,{})):
+   self.assertEqual(send_message(**args,request=Mock(return_value=response)).outcome,"unknown")
+  self.assertEqual(send_message(**args,request=Mock(side_effect=SenderRefused())).outcome,"unknown")
+  self.assertEqual(send_message(**args,request=Mock(return_value=(401,{}))).outcome,"refused")
+
+ def test_unverified_notice_never_authorizes_delivery(self):
+  from .mail_runtime import current_message
+  template=EmailTemplate.objects.get(key="payment_confirmed")
+  template.is_active=True
+  template.save(update_fields=["is_active"])
+  notice=ConsoleMailOutbox.objects.create(template=template,
+    idempotency_key="invoice:999999:payment_confirmed",recipient="customer@example.test",
+    subject="Receipt",body_text="Hello",body_html="<p>Hello</p>",audience="transactional")
+  self.assertFalse(current_message(notice))
+
+ def test_protected_worker_ignores_arbitrary_recipient_parameters(self):
+  from unittest.mock import patch
+  from rest_framework.test import APIClient
+  api=APIClient()
+  path="/api/settings/console-mail/delivery/cron/"
+  with patch.dict("os.environ",{"CRON_SECRET":"synthetic-worker-test-only-0123456789abcdef"}),patch(
+    "settings_registry.mail_runtime.run_due_mail",return_value={"enabled":False}) as run:
+   self.assertEqual(api.get(path).status_code,401)
+   self.assertEqual(api.post(path,{},format="json").status_code,405)
+   result=api.get(path+"?recipient=invalid",HTTP_AUTHORIZATION="Bearer synthetic-worker-test-only-0123456789abcdef")
+   self.assertEqual(result.status_code,200)
+   run.assert_called_once_with(2)
