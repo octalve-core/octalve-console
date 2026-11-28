@@ -30,8 +30,9 @@ def read_inventory(connection, secrets):
     ephemeral = SimpleNamespace(base_url=settings["server_url"], username=settings["username"],
                                 adapter_type=adapter, timeout_seconds=4, get_api_key=lambda: key)
     # Bounded serverless readback: fail closed, never import a partial catalogue.
+    binding=(settings["server_url"],settings["server_ip"]) if "server_ip" in settings else None
     offers = fetch_inventory(ephemeral, max_packages=20 if adapter == "DirectAdminAdapter" else 100,
-                             total_timeout=12)
+                             total_timeout=12,bound_origin=binding)
     if not offers:
         raise InventoryError("No eligible supplier packages were returned.")
     return offers
