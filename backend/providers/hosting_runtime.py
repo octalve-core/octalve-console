@@ -32,9 +32,17 @@ def release_enabled():
 
 
 def policy_payload(provider,row,shared_ip):
-    return {"provider":provider.pk,"connection":str(row.pk),"version":row.current_version,
+    payload={"provider":provider.pk,"connection":str(row.pk),"version":row.current_version,
         "adapter":row.adapter_key,"environment":row.environment,"settings":row.public_settings,
         "owner":provider.username,"shared_ip":shared_ip,"fulfillment_model":provider.config.get("fulfillment_model")}
+    # Existing signed policies remain valid. Native sessions are opt-in and
+    # the authorization itself is covered by the same credential-bound MAC.
+    if "native_panel_access" in provider.config:
+        native=provider.config["native_panel_access"]
+        if type(native) is not bool:
+            raise VaultUnavailable()
+        payload["native_panel_access"]=native
+    return payload
 
 
 def sign_policy(provider,row,shared_ip):

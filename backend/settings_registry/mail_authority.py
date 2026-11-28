@@ -11,6 +11,8 @@ TOKENS={
  "invoice.number":"INV-2026-00001","invoice.due_date":"31 Oct 2026",
  "order.number":"ORD-2026-00001","domain.name":"example.com",
  "ticket.number":"TKT-1001","company.name":"Octalve Cloud","year":"2026",
+ "service.label":"Starter Hosting","service.url":"https://console.example.test/client/services/1",
+ "service.renewal_date":"31 Oct 2026",
 }
 PATTERN=re.compile(r"{{\s*([a-z][a-z0-9_.]*)\s*}}")
 ANY_TOKEN=re.compile(r"{{|}}")
@@ -111,3 +113,67 @@ def queue_invoice_issued(invoice):
             extra={"invoice_id":invoice.pk}
         )
         return False
+
+
+def _transactional_event(event_key, template_key, user, context):
+    """Only enqueue opt-in transactional templates; never call mail transport.
+
+    A savepoint isolates rejected templates and mail database errors from the
+    already verified financial or hosting transition. No historic replay.
+    """
+    import logging
+    from django.db import DatabaseError
+    from django.utils import timezone
+    try:
+        with transaction.atomic():
+            if not EmailTemplate.objects.filter(
+                    key=template_key, is_active=True,
+                    category__in=("billing", "provisioning")).exists():
+                return False
+            name = (user.full_name or "").strip()
+            _, created = queue_templated_message(
+                event_key=event_key, template_key=template_key, recipient=user.email,
+                context={"customer.first_name": name.split()[0] if name else "Customer",
+                         "customer.full_name": name or user.email,
+                         "company.name": "Octalve Cloud", "year": str(timezone.now().year),
+                         **context})
+            return created
+    except (ValueError, DjangoValidationError, DatabaseError):
+        logging.getLogger(__name__).warning("Verified transactional notice could not be queued",
+            extra={"event_key": event_key})
+        return False
+
+
+def queue_payment_confirmed(invoice, payment):
+    """One receipt event for independently verified live settlement only."""
+    from provisioning.authority import evaluate_payment_to_provisioning
+    from django.utils import timezone
+    if not evaluate_payment_to_provisioning(invoice, payment).approved:
+        return False
+    return _transactional_event(f"invoice:{invoice.pk}:payment_confirmed",
+        "payment_confirmed", invoice.client, {
+            "invoice.number": str(invoice.invoice_number),
+            "invoice.due_date": timezone.localtime(invoice.due_date).strftime("%d %b %Y"),
+            "order.number": str(invoice.order.order_number),
+        })
+
+
+def queue_verified_hosting_notice(service):
+    """Use the existing canonical mail outbox only after verified activation."""
+    from django.conf import settings
+    from notifications.hosting_ready import draft_hosting_ready, HostingNoticeRefused
+    from django.utils import timezone
+    if not getattr(settings, "CLOUD_HOSTING_READY_QUEUE_ENABLED", False):
+        return False
+    try:
+        payload = draft_hosting_ready(service)
+    except HostingNoticeRefused:
+        return False
+    actual = payload["service"]
+    from notifications.hosting_ready import _console_origin
+    return _transactional_event(payload["event_key"], "hosting_ready", actual.client, {
+        "domain.name": actual.domain_name,
+        "service.label": actual.label,
+        "service.url": _console_origin() + f"/client/services/{actual.pk}",
+        "service.renewal_date": timezone.localtime(actual.next_due_date).strftime("%d %b %Y"),
+    })

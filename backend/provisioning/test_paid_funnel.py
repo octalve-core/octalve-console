@@ -105,6 +105,34 @@ class PaidHostingFunnelTests(TestCase):
             with self.subTest(id=invalid), self.assertRaises(FulfillmentRefused):
                 planned_hosting_username(invalid)
 
+    def test_verified_payment_queues_one_receipt_without_transport(self):
+        from settings_registry.models import EmailTemplate, ConsoleMailOutbox
+        template = EmailTemplate.objects.get(key="payment_confirmed")
+        template.is_active = True
+        template.save(update_fields=["is_active"])
+        self.assertFalse(ConsoleMailOutbox.objects.exists())
+        tx, created = settle_verified_intent(self.intent.pk, getter=self.getter)
+        self.assertTrue(created)
+        notice = ConsoleMailOutbox.objects.get()
+        self.assertEqual(notice.idempotency_key, f"invoice:{self.invoice.pk}:payment_confirmed")
+        self.assertEqual(notice.recipient, self.order.client.email)
+        self.assertEqual(notice.status, "queued")
+        self.assertFalse(notice.provider_receipt)
+        settle_verified_intent(self.intent.pk, getter=self.getter)
+        self.assertEqual(ConsoleMailOutbox.objects.count(), 1)
+
+    def test_bad_payment_notice_template_cannot_block_verified_settlement(self):
+        from settings_registry.models import EmailTemplate, ConsoleMailOutbox
+        template = EmailTemplate.objects.get(key="payment_confirmed")
+        template.is_active = True
+        template.subject = "Invalid {{unreviewed.token}}"
+        template.save(update_fields=["is_active", "subject"])
+        _, created = settle_verified_intent(self.intent.pk, getter=self.getter)
+        self.assertTrue(created)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.status, "paid")
+        self.assertFalse(ConsoleMailOutbox.objects.exists())
+
     def test_full_verified_payment_stages_once_without_activating_or_provisioning(self):
         tx, created = settle_verified_intent(self.intent.pk, getter=self.getter)
         self.assertTrue(created)
@@ -356,6 +384,11 @@ class PaidHostingFunnelTests(TestCase):
                        CLOUD_HOSTING_READY_QUEUE_ENABLED=True,
                        FRONTEND_URL="https://console.example.test")
     def test_customer_hosting_email_queued_once_only_after_provider_proof(self):
+        from settings_registry.models import EmailTemplate, ConsoleMailOutbox
+        template = EmailTemplate.objects.get(key="hosting_ready")
+        template.is_active = True
+        template.body_text = "Hosting {{service.label}} is ready. Manage: {{service.url}}"
+        template.save(update_fields=["is_active", "body_text"])
         settle_verified_intent(self.intent.pk, getter=self.getter)
         service, task = stage_paid_order(self.order.pk)[0]
         with self.assertRaises(HostingNoticeRefused):
@@ -386,6 +419,15 @@ class PaidHostingFunnelTests(TestCase):
         self.assertFalse(created)
         self.assertEqual(duplicate.pk, notice.pk)
         self.assertEqual(HostingNotice.objects.count(), 1)
+        outbox = ConsoleMailOutbox.objects.get()
+        self.assertEqual(outbox.idempotency_key, notice.event_key)
+        self.assertEqual(outbox.recipient, notice.destination_email)
+        self.assertEqual(outbox.status, "queued")
+        self.assertIn(f"/client/services/{service.pk}", outbox.body_text)
+        self.assertNotIn("provider-test-key", outbox.body_text)
+        from settings_registry.mail_authority import queue_verified_hosting_notice
+        self.assertFalse(queue_verified_hosting_notice(Service.objects.get(pk=service.pk)))
+        self.assertEqual(ConsoleMailOutbox.objects.count(), 1)
 
     def test_unhealthy_provider_cannot_be_staged(self):
         settle_verified_intent(self.intent.pk, getter=self.getter)

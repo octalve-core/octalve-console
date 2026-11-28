@@ -1,4 +1,4 @@
-"""Console launch issuer / confidential-client exchange. No provider API calls."""
+"""Console launch issuer and confidential exchange with bounded stale-proof refresh."""
 import base64
 import hashlib
 import hmac
@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import OPanelLaunchGrant
 from .policy import eligible, enabled
+from .readback import refresh_owned_entitlement
 
 CHALLENGE = re.compile(r"^[A-Za-z0-9_-]{43,128}$")
 STATE = re.compile(r"^[A-Za-z0-9_-]{22,128}$")
@@ -54,7 +55,7 @@ class AuthorizeView(APIView):
             return blocked(400)
         if not isinstance(challenge, str) or not CHALLENGE.fullmatch(challenge):
             return blocked(400)
-        found = eligible(request.user.pk, service_id)
+        found = refresh_owned_entitlement(request.user.pk, service_id)
         if not found:
             return blocked(404)
         service, proof = found
@@ -151,7 +152,7 @@ class EntitlementView(APIView):
             service_id = int(request.data.get("service_id"))
         except (TypeError, ValueError, OverflowError):
             return blocked(404)
-        found = eligible(subject_id, service_id)
+        found = refresh_owned_entitlement(subject_id, service_id)
         if not found:
             return blocked(404)
         service, proof = found

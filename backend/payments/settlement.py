@@ -125,6 +125,8 @@ def settle_verified_intent(intent_id, *, getter=None):
         order.save(update_fields=["status", "paid_at", "updated_at"])
         locked.status = "completed"
         locked.save(update_fields=["status"])
+        from settings_registry.mail_authority import queue_payment_confirmed
+        queue_payment_confirmed(invoice, saved)
         # The committed financial ledger, not the browser or supplier, is the
         # durable source of hosting work. Failure leaves the payment intact.
         from provisioning.automatic_staging import enabled, stage_order_after_payment

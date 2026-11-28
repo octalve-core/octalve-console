@@ -43,6 +43,22 @@ export function OPanelServiceOverview(){
   const [data,setData]=useState<Overview|null>(null);
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(true);
+  const [nativeBusy,setNativeBusy]=useState(false);
+  const [nativeError,setNativeError]=useState("");
+  async function openNative(){
+    if(nativeBusy||!data?.capabilities.native_panel||String(data.service_id)!==serviceId)return;
+    setNativeBusy(true);setNativeError("");
+    try{
+      const result=await api.post<{url:string}>(
+        `/services/opanel/${encodeURIComponent(serviceId)}/native-launch/`,{});
+      const target=new URL(result.url);
+      if(target.protocol!=="https:"||target.username||target.password||target.hash||
+        !["2083","2222",""].includes(target.port))throw Error("Invalid panel URL");
+      const anchor=document.createElement("a");anchor.href=target.toString();
+      anchor.rel="noreferrer noopener";anchor.referrerPolicy="no-referrer";anchor.click();
+    }catch{setNativeError("Secure supplier access is temporarily unavailable. Please retry or contact support.");}
+    finally{setNativeBusy(false);}
+  }
 
   useAutoSync(async(quiet)=>{
     if(!/^[1-9][0-9]{0,11}$/.test(serviceId)){
@@ -60,7 +76,7 @@ export function OPanelServiceOverview(){
     }finally{setLoading(false);}
   },serviceId);
 
-  const launch=data?.capabilities.panel_sso?panelUrl(data.service_id):null;
+  const launch=data&&(data.capabilities.panel_sso||data.capabilities.panel_recheck)?panelUrl(data.service_id):null;
   const due=data?.next_due_date?new Date(data.next_due_date):null;
   const dueLabel=due&&!Number.isNaN(due.valueOf())
     ?new Intl.DateTimeFormat("en-NG",{day:"numeric",month:"short",year:"numeric"}).format(due):"Unavailable";
@@ -96,10 +112,15 @@ export function OPanelServiceOverview(){
             </div>
             {launch?<a href={launch} rel="noreferrer"
               className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0064E0] px-5 py-3 text-sm font-medium text-white hover:bg-[#0052B8]">
-              Manage hosting in OPanel <ExternalLink className="h-4 w-4"/>
+              {data.capabilities.panel_sso?"Manage hosting in OPanel":"Recheck and open OPanel"} <ExternalLink className="h-4 w-4"/>
             </a>:<p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">
               OPanel will become available after your hosting account and secure access have been verified. No additional account purchase is needed.
             </p>}
+            {data.capabilities.native_panel?<div className="mt-4">
+              <button type="button" onClick={openNative} disabled={nativeBusy} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-console-line px-5 py-3 text-sm font-medium text-console-primary disabled:opacity-50">{nativeBusy?"Opening…":"Open hosting control panel"}<ExternalLink className="h-4 w-4"/></button>
+              <p className="mt-2 text-xs text-slate-500">Manage the resources available in your supplier account, including files, DNS, email and subdomains.</p>
+              {nativeError?<p role="alert" className="mt-2 text-xs text-rose-700">{nativeError}</p>:null}
+            </div>:null}
           </section>
           <HostingReadiness readiness={data.readiness}/>
           <section className="grid gap-5 lg:grid-cols-2">

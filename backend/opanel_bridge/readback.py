@@ -201,7 +201,7 @@ def verify_existing_account(service, provider, *, getter=None, pending_account=N
     return ReadbackResult(True, provider.adapter_type, service.pk, provider.pk, timezone.now())
 
 
-def readback_service(service_id, *, apply=False, getter=None):
+def readback_service(service_id, *, apply=False, getter=None, expected_binding=None):
     """Operator-only backend entry. Never accepts browser-supplied host/account data."""
     if not getattr(settings, "OPANEL_READBACK_ENABLED", False):
         raise ReadbackRejected("Account read-back is disabled.")
@@ -217,9 +217,10 @@ def readback_service(service_id, *, apply=False, getter=None):
             raise ReadbackRejected("Current supplier authority is unavailable.")
         result = verify_existing_account(service, provider, getter=getter)
     except ReadbackRejected:
-        if apply:
-            # A failed confirmation run must immediately revoke old proof;
-            # no stale 15-minute permission survives a known negative result.
+        if apply and expected_binding is None:
+            # Operator rechecks can revoke current proof immediately. A
+            # stale-only refresh is already ineligible; leave it expired so
+            # transient outages are retryable, without restoring access.
             with transaction.atomic():
                 proof = VerifiedHostingBinding.objects.select_for_update().filter(service_id=service.pk, revoked_at__isnull=True).first()
                 if proof is not None:
@@ -266,6 +267,14 @@ def readback_service(service_id, *, apply=False, getter=None):
         if not digest or (vault_backed and digest != initial_digest):
             raise ReadbackRejected("Current supplier authority is unavailable.")
         proof = VerifiedHostingBinding.objects.select_for_update().filter(service=fresh).first()
+        if expected_binding is not None and (
+            proof is None or proof.pk != expected_binding.pk
+            or proof.revoked_at is not None
+            or proof.confirmed_at != expected_binding.confirmed_at
+            or proof.account_digest != expected_binding.account_digest
+            or proof.account_digest != digest
+        ):
+            raise ReadbackRejected("Existing hosting proof changed during refresh.")
         if proof and (
             proof.revoked_at is not None
             or proof.provider_id_snapshot != fresh.provider_id
@@ -287,3 +296,26 @@ def readback_service(service_id, *, apply=False, getter=None):
             proof.confirmed_at = result.checked_at
             proof.save(update_fields=["confirmation_source", "confirmed_at"])
     return result
+
+
+def refresh_owned_entitlement(subject_id, service_id):
+    """Bounded on-demand refresh; never restore a revoked or missing binding."""
+    from accounts.security_throttle import _spend
+    from django.db import DatabaseError
+    from .policy import eligible, refresh_candidate
+    current = eligible(subject_id, service_id)
+    if current:
+        return current
+    candidate = refresh_candidate(subject_id, service_id)
+    if not candidate:
+        return None
+    service, proof = candidate
+    try:
+        # A shared database budget prevents repeated vendor traffic across
+        # serverless instances. No caller-supplied host or credentials.
+        if _spend("hosting:entitlement_refresh", str(service.pk), 1, 60):
+            return eligible(subject_id, service_id)
+        readback_service(service.pk, apply=True, expected_binding=proof)
+    except (ReadbackRejected, DatabaseError):
+        return eligible(subject_id, service_id)
+    return eligible(subject_id, service_id)

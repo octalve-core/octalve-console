@@ -10,7 +10,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Service, ServiceUsage
-from opanel_bridge.policy import enabled, eligible
+from opanel_bridge.policy import enabled, eligible, refresh_candidate
+from . import native_panel
 
 
 def opanel_overview(service):
@@ -38,6 +39,8 @@ def opanel_overview(service):
         "backups": False,
         "email": False,
         "panel_sso": panel_allowed,
+        "native_panel": native_panel.available(service),
+        "panel_recheck": bool(not verified and enabled() and refresh_candidate(service.client_id, service.pk)),
     }
     now_due = service.next_due_date
     return {
@@ -90,3 +93,21 @@ class OPanelOverviewView(APIView):
             opanel_overview(service),
             headers={"Cache-Control": "private, no-store"},
         )
+
+
+class NativePanelLaunchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, service_id):
+        # POST is necessary: the vendor creates a temporary user session.
+        headers = {"Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer"}
+        if request.data not in ({}, None):
+            return Response({"detail": "No custom session fields are accepted."}, status=400, headers=headers)
+        if getattr(request.user, "role", "") != "client" or not request.user.is_active:
+            return Response({"detail": "Hosting access unavailable."}, status=404, headers=headers)
+        try:
+            url = native_panel.launch(request.user.pk, service_id)
+        except native_panel.NativePanelRefused:
+            return Response({"detail": "Hosting access unavailable. Retry or contact support."},
+                            status=403, headers=headers)
+        return Response({"url": url}, headers=headers)

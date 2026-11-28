@@ -67,7 +67,7 @@ class VerifiedAccountReadbackTests(TestCase):
 
     def _vault_fixture(self, *, directadmin=False):
         from providers.connection_models import IntegrationConnection
-        adapter = "directadmin" if directadmin else "cpanel"
+        adapter = "directadmin" if directadmin else "cpanel-whm"
         origin = "https://supplier.example.test:2222" if directadmin else "https://supplier.example.test:2087"
         row = IntegrationConnection.objects.create(
             adapter_key=adapter, label="Synthetic supplier", environment="live",
@@ -81,7 +81,8 @@ class VerifiedAccountReadbackTests(TestCase):
         self.provider.base_url = origin
         self.provider.save()
         self.service.provider_package_id = "basic"
-        self.service.save(update_fields=["provider_package_id"])
+        self.service.activated_at = timezone.now() - timedelta(minutes=30)
+        self.service.save(update_fields=["provider_package_id", "activated_at"])
         if directadmin:
             self.getter.return_value = vendor_response(DA_REPLY + "&package=basic")
         else:
@@ -142,6 +143,71 @@ class VerifiedAccountReadbackTests(TestCase):
             with self.assertRaises(ReadbackRejected):
                 readback_service(self.service.pk, apply=True, getter=rotate)
         self.assertFalse(VerifiedHostingBinding.objects.exists())
+
+    def test_expired_vault_entitlement_refreshes_only_for_owner(self):
+        from .readback import refresh_owned_entitlement
+        from .policy import refresh_candidate
+        row = self._vault_fixture()
+        with patch("providers.hosting_runtime.load_hosting_connection",
+                   return_value=(row, "vault-test-token", {})), patch(
+                   "opanel_bridge.readback.pinned_get", self.getter):
+            readback_service(self.service.pk, apply=True)
+            proof = VerifiedHostingBinding.objects.get(service=self.service)
+            VerifiedHostingBinding.objects.filter(pk=proof.pk).update(
+                confirmed_at=timezone.now()-timedelta(minutes=16))
+            self.getter.reset_mock()
+            self.assertIsNone(eligible(self.service.client_id, self.service.pk))
+            self.assertIsNotNone(refresh_candidate(self.service.client_id, self.service.pk))
+            self.assertIsNone(refresh_owned_entitlement(self.service.client_id+1000, self.service.pk))
+            self.getter.assert_not_called()
+            self.assertIsNotNone(refresh_owned_entitlement(self.service.client_id, self.service.pk))
+            self.getter.assert_called_once()
+            self.assertIsNotNone(eligible(self.service.client_id, self.service.pk))
+            self.assertEqual(VerifiedHostingBinding.objects.get(service=self.service).pk, proof.pk)
+
+    def test_stale_refresh_never_revives_explicitly_revoked_proof(self):
+        from .readback import refresh_owned_entitlement
+        row = self._vault_fixture()
+        with patch("providers.hosting_runtime.load_hosting_connection",
+                   return_value=(row, "vault-test-token", {})), patch(
+                   "opanel_bridge.readback.pinned_get", self.getter):
+            readback_service(self.service.pk, apply=True)
+            VerifiedHostingBinding.objects.update(
+                confirmed_at=timezone.now()-timedelta(minutes=16), revoked_at=timezone.now())
+            self.getter.reset_mock()
+            self.assertIsNone(refresh_owned_entitlement(self.service.client_id, self.service.pk))
+            self.getter.assert_not_called()
+
+    def test_stale_refresh_failure_is_throttled_and_never_grants_access(self):
+        from .readback import refresh_owned_entitlement
+        row = self._vault_fixture()
+        with patch("providers.hosting_runtime.load_hosting_connection",
+                   return_value=(row, "vault-test-token", {})), patch(
+                   "opanel_bridge.readback.pinned_get", self.getter):
+            readback_service(self.service.pk, apply=True)
+            VerifiedHostingBinding.objects.update(confirmed_at=timezone.now()-timedelta(minutes=16))
+            self.getter.reset_mock()
+            self.getter.return_value = vendor_response("unavailable", status=503)
+            self.assertIsNone(refresh_owned_entitlement(self.service.client_id, self.service.pk))
+            self.assertIsNone(refresh_owned_entitlement(self.service.client_id, self.service.pk))
+            self.getter.assert_called_once()
+            self.assertIsNone(eligible(self.service.client_id, self.service.pk))
+            self.assertIsNone(VerifiedHostingBinding.objects.get(service=self.service).revoked_at)
+
+    def test_concurrent_revocation_during_stale_refresh_cannot_rebind(self):
+        from .readback import refresh_owned_entitlement
+        row = self._vault_fixture()
+        response = self.getter.return_value
+        with patch("providers.hosting_runtime.load_hosting_connection",
+                   return_value=(row, "vault-test-token", {})):
+            readback_service(self.service.pk, apply=True, getter=self.getter)
+            VerifiedHostingBinding.objects.update(confirmed_at=timezone.now()-timedelta(minutes=16))
+            def revoke(*args, **kwargs):
+                VerifiedHostingBinding.objects.update(revoked_at=timezone.now())
+                return response
+            with patch("opanel_bridge.readback.pinned_get", revoke):
+                self.assertIsNone(refresh_owned_entitlement(self.service.client_id, self.service.pk))
+            self.assertIsNotNone(VerifiedHostingBinding.objects.get(service=self.service).revoked_at)
 
     def test_whm_readback_is_exact_one_get_and_dry_run_no_db_write(self):
         proof = readback_service(self.service.pk, apply=False, getter=self.getter)

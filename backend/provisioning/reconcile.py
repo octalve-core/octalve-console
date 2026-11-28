@@ -100,7 +100,7 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
             IntegrationConnection.objects.select_for_update().get(pk=task.provider.config["hosting_vault_connection_id"])
         provider = Provider.objects.select_for_update().get(pk=fresh.provider_id)
         payment = Transaction.objects.select_for_update().filter(pk=fresh.metadata.get(
-            "settlement_transaction_id")).select_related("gateway").first()
+            "settlement_transaction_id"), gateway__isnull=False).select_related("gateway").first()
         if not payment:
             raise ReconciliationRefused("No recorded verified settlement.")
         try:
@@ -167,8 +167,20 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
         }
         fresh.save(update_fields=["status", "completed_at", "result_data", "updated_at"])
         if getattr(settings, "CLOUD_HOSTING_READY_QUEUE_ENABLED", False):
-            from notifications.hosting_ready import queue_hosting_ready
-            queue_hosting_ready(service)
+            # Preserve the historical hosting notice for audit/readback, but
+            # use the canonical Console outbox for eventual delivery. A notice
+            # configuration failure must never roll back a proven activation.
+            from notifications.hosting_ready import queue_hosting_ready, HostingNoticeRefused
+            from settings_registry.mail_authority import queue_verified_hosting_notice
+            from django.db import DatabaseError
+            try:
+                with transaction.atomic():
+                    queue_hosting_ready(service)
+            except (HostingNoticeRefused, DatabaseError):
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Hosting notice audit record unavailable", extra={"service_id": service.pk})
+            queue_verified_hosting_notice(service)
         # For multi-item orders, only close the order after EVERY item is
         # activated by its own independent account verification.
         if not Service.objects.filter(order=order).exclude(status="active").exists():
