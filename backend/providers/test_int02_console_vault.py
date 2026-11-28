@@ -142,3 +142,63 @@ class SecureConsoleCredentialTests(TestCase):
    response=self.c.post("/api/providers/connections/00000000-0000-0000-0000-000000000001/verify/",
      {"confirm_password":PASSWORD,"totp_code":"123456"},format="json")
   self.assertEqual(response.status_code,404)
+
+
+ def test_hosting_verification_imports_inert_inventory_without_copying_key(self):
+  from providers.models import Provider,ProviderPackage
+  from audit.models import AuditLog
+  secret="fixture-only-hosting-token-012345"
+  for adapter,port,key in (("directadmin",2222,"login_key"),("cpanel-whm",2087,"api_token")):
+   with self.subTest(adapter=adapter),patch.dict("os.environ",{"CLOUD_CONNECTION_ALLOWED_HOSTS":"panel.example.invalid"}),patch(
+       "providers.connection_views.connection_database_qualified",return_value=True),patch(
+       "providers.connection_views.check_mutation",return_value=None):
+    payload={**self.payload,"adapter_key":adapter,"label":adapter,"environment":"test",
+       "public_settings":{"server_url":f"https://panel.example.invalid:{port}","username":"reseller"},
+       "secrets":{key:secret}}
+    saved=self.c.post("/api/providers/connections/",payload,format="json")
+    self.assertEqual(saved.status_code,201,saved.data)
+    endpoint="/api/providers/connections/"+saved.data["id"]+"/verify/"
+    with patch("providers.connection_verification.connection_database_qualified",return_value=True),patch(
+        "providers.connection_verification.check_mutation",return_value=None),patch(
+        "providers.hosting_inventory.fetch_inventory",return_value=[
+            {"provider_package_id":"starter","name":"starter","specs":{"quota":"1024"}},
+            {"provider_package_id":"business","name":"business","specs":{"quota":"2048"}}]) as fetch:
+     body={"confirm_password":PASSWORD,"totp_code":"123456"}
+     result=self.c.post(endpoint,body,format="json")
+     self.assertEqual(result.status_code,200,result.data)
+     self.assertEqual(result.data["evidence"]["package_count"],2)
+     self.assertFalse(result.data["execution_enabled"])
+     self.assertNotIn(secret,json.dumps(result.data))
+     self.assertEqual(fetch.call_args.args[0].get_api_key(),secret)
+     provider=Provider.objects.get(pk=result.data["evidence"]["provider_id"])
+     self.assertEqual(provider.status,"inactive")
+     self.assertTrue(provider.test_mode)
+     self.assertFalse(provider.encrypted_api_key)
+     self.assertFalse(provider.encrypted_secret)
+     self.assertFalse(ProviderPackage.objects.filter(provider=provider,is_active=True).exists())
+     self.assertEqual(ProviderPackage.objects.filter(provider=provider).count(),2)
+     fetch.return_value=[{"provider_package_id":"starter","name":"starter","specs":{"quota":"512"}}]
+     result=self.c.post(endpoint,body,format="json")
+     self.assertEqual(result.status_code,200,result.data)
+     self.assertEqual(Provider.objects.filter(pk=provider.pk).count(),1)
+     self.assertEqual(ProviderPackage.objects.get(provider=provider,provider_package_id="starter").specs,{"quota":"512"})
+     self.assertFalse(ProviderPackage.objects.get(provider=provider,provider_package_id="business").raw_data["available"])
+     self.assertTrue(AuditLog.objects.filter(entity_id=saved.data["id"],action="provider_connection_test",
+         details__execution_enabled=False).exists())
+
+ def test_hosting_inventory_rejects_changed_credential_during_readback(self):
+  from providers.models import Provider
+  from providers.hosting_inventory import stage_inventory
+  from providers.inventory import InventoryError
+  with patch.dict("os.environ",{"CLOUD_CONNECTION_ALLOWED_HOSTS":"panel.example.invalid"}),patch(
+      "providers.connection_views.connection_database_qualified",return_value=True),patch(
+      "providers.connection_views.check_mutation",return_value=None):
+   saved=self.c.post("/api/providers/connections/",{**self.payload,"adapter_key":"directadmin",
+      "public_settings":{"server_url":"https://panel.example.invalid:2222","username":"reseller"},
+      "secrets":{"login_key":"fixture-only-hosting-token-012345"}},format="json")
+  self.assertEqual(saved.status_code,201,saved.data)
+  snapshot=IntegrationConnection.objects.get(pk=saved.data["id"])
+  IntegrationConnection.objects.filter(pk=snapshot.pk).update(current_version=2)
+  with self.assertRaises(InventoryError):
+   stage_inventory(snapshot,[{"provider_package_id":"starter","name":"starter","specs":{"quota":"1024"}}],self.admin)
+  self.assertFalse(Provider.objects.exists())
