@@ -17,7 +17,7 @@ from providers.cloudflare_int01 import CloudflareINT01Denied
 from .models import Domain, DomainDNSBinding
 from .dns_readonly import (
     _admin, _customer, _binding_matches_domain, _continued_dns_only_proof,
-    _conn, _vault_read_ready, CONSENT_VERSION, NO_CACHE,
+    _conn, _vault_read_ready, _release_gate, CONSENT_VERSION, NO_CACHE,
 )
 
 RESOLVERS=("https://dns.google/resolve","https://cloudflare-dns.com/dns-query")
@@ -110,6 +110,7 @@ def _snapshot(domain):
             or not binding.consented_at or not binding.approved_at
             or binding.consent_version!=CONSENT_VERSION or not _binding_matches_domain(binding,domain)):
         return None,None
+    _release_gate()
     _vault_read_ready()
     snapshot=_conn(binding.connection,binding.credential_version).dns_live_inventory(binding.zone_id,binding.zone_name)
     if not _continued_dns_only_proof(domain,snapshot):
@@ -141,8 +142,8 @@ def check(request,domain):
             or not current.is_active or current.status!=domain.status):
         raise PermissionDenied("Domain authority changed.")
     if binding:
-        fresh=DomainDNSBinding.objects.select_related("connection").get(pk=binding.pk)
-        if (fresh.updated_at!=binding.updated_at or fresh.state!=DomainDNSBinding.State.ACTIVE
+        fresh=DomainDNSBinding.objects.select_related("connection").filter(pk=binding.pk).first()
+        if (not fresh or fresh.updated_at!=binding.updated_at or fresh.state!=DomainDNSBinding.State.ACTIVE
                 or not _binding_matches_domain(fresh,current)):
             expected=None
     comparison=("not_connected" if expected is None else "unavailable" if result["state"]!="observed"

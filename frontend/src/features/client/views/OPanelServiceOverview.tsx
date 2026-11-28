@@ -150,7 +150,7 @@ export function OPanelServiceOverview(){
               <h2 className="text-sm font-medium text-console-ink">Resource usage</h2>
               {usage?<><div className="grid grid-cols-2 gap-2">
                 {[{label:"Disk",used:usage.disk_used_mb,limit:usage.disk_limit_mb,unlimited:usage.disk_unlimited},{label:"Bandwidth",used:usage.bandwidth_used_mb,limit:usage.bandwidth_limit_mb,unlimited:usage.bandwidth_unlimited}].map(item=><div key={item.label} className="flex min-w-0 flex-col items-center gap-1 text-center">
-                  {item.unlimited?<span className="flex h-20 items-center text-lg font-medium text-console-ink">∞</span>:item.limit>0?<ServiceUsageRing label={item.label} used={item.used} limit={item.limit} compact/>:<span className="flex h-11 items-center text-xs text-console-muted">—</span>}
+                  {item.unlimited?<span className="flex h-20 items-center text-lg font-medium text-console-ink">∞</span>:item.limit>0?<ServiceUsageRing label={item.label} used={item.used} limit={item.limit} stacked color={item.label==="Bandwidth"?"#16A34A":"#0064E0"}/>:<span className="flex h-11 items-center text-xs text-console-muted">—</span>}
                   <span className="text-sm font-medium text-console-ink">{item.label}</span>
                   <span className="break-words text-xs text-console-muted">{item.used.toLocaleString("en-NG")} MB / {item.unlimited?"Unlimited":item.limit>0?item.limit.toLocaleString("en-NG")+" MB":"Unknown"}</span>
                 </div>)}
@@ -160,7 +160,7 @@ export function OPanelServiceOverview(){
           {nativeError&&<p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{nativeError}</p>}
           <Panel elevation="flat">
             <h2 className="text-sm font-medium text-console-ink">Quick shortcuts</h2>
-            <div className="mt-3 grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-6">
+            <div className="mt-3 grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-4">
               {tools.map(item=>{
                 const native="native" in item?item.native as ResourceTab:null;
                 const available=Boolean(native&&current.domain_name&&current.capabilities[native]);
