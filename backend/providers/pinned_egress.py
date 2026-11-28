@@ -25,11 +25,14 @@ class SupplierReadResponse:
 
 def public_ip(value):
     """Disallow non-public, transition and special-purpose addresses."""
+    if not isinstance(value,str):
+        raise ValueError("Invalid supplier address")
     ip=ipaddress.ip_address(value)
     if (not ip.is_global or ip.is_multicast or ip.is_link_local or ip.is_loopback
             or ip.is_private or ip.is_reserved or ip.is_unspecified
             or getattr(ip,"ipv4_mapped",None) or getattr(ip,"sixtofour",None)
-            or getattr(ip,"teredo",None) or getattr(ip,"scope_id",None)):
+            or getattr(ip,"teredo",None) or getattr(ip,"scope_id",None)
+            or (ip.version==6 and ip not in ipaddress.ip_network("2000::/3"))):
         raise ValueError("Non-public supplier address")
     return str(ip)
 
