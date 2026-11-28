@@ -15,7 +15,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError, Throttl
 from catalog.permissions import InternalSupplierAuthority
 from .connection_models import IntegrationConnection, IntegrationCredentialVersion, IntegrationConnectionEvent
 from .connection_specs import READBACK_ADAPTERS, SCHEMAS, public_catalog, validate_public_settings, validate_secrets
-from .connection_vault import seal, vault, VaultUnavailable
+from .connection_vault import seal, vault, VaultUnavailable, unseal_version
 from .connection_stepup import check_mutation, assert_admin
 from .connection_audit import audit_key,append_event
 from .connection_status import verification_receipts,safe_verification_status
@@ -203,9 +203,13 @@ def rotate_connection(request, connection_id):
         next_version=row.current_version+1
         if next_version>65535:
             raise ValidationError({"detail":"Maximum credential versions reached."})
+        old=IntegrationCredentialVersion.objects.select_for_update().get(connection=row,version=row.current_version,revoked_at__isnull=True)
+        # Do not allow a fresh MFA rotation to silently bless a substituted
+        # hosting destination. The old AEAD must authenticate it first.
+        if row.adapter_key in ("directadmin","cpanel-whm"):
+            unseal_version(old)
         encrypted=seal(row.adapter_key,row.pk,next_version,secrets,
             public_settings=row.public_settings,environment=row.environment)
-        old=IntegrationCredentialVersion.objects.select_for_update().get(connection=row,version=row.current_version)
         old.revoked_at=timezone.now()
         old.save(update_fields=["revoked_at"])
         IntegrationCredentialVersion.objects.create(connection=row,version=next_version,
