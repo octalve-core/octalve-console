@@ -6,6 +6,7 @@ from .tax_policy import ConsoleTaxPolicyView,ConsoleTaxHistoryView
 from .public_theme import ConsoleThemeView
 from .operational_status import ConsoleStatusView
 from .mail_sender_status import MailSenderReadiness
+from .mail_worker import MailDeliveryCronView
 from .mail_views import TemplateListView,TemplateDetailView,TemplateDuplicateView,TemplatePreviewView,TemplateRevisionHistoryView,OutboxDashboardView
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -22,6 +23,7 @@ router.register(r'tax', TaxSettingsViewSet, basename='tax-settings')
 router.register(r'system', SystemConfigViewSet, basename='system-config')
 
 urlpatterns = [
+    path('console-mail/delivery/cron/',MailDeliveryCronView.as_view(),name='console-mail-delivery-cron'),
     path('console-mail/senders/',MailSenderReadiness.as_view(),name='console-mail-sender-status'),
     path('console-status/<slug:section>/',ConsoleStatusView.as_view(),name='console-status'),
     path('console-theme/',ConsoleThemeView.as_view(),name='console-theme'),
