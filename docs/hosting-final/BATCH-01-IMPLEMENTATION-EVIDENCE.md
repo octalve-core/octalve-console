@@ -10,6 +10,22 @@ Status: **incomplete; draft PR #182; do not merge or activate**. This file is no
 - Customer resource overview and native resource panel, signed per-supplier capability controls, resource usage counters (mailbox/database/subdomain) using existing ServiceUsage snapshots; absent/invalid counts are not displayed as zero.
 - Synthetic tests for tenant isolation, disabled capabilities, quota, ambiguous replies, replay, fixed command scope, duplicate JSON, and optional usage counts. Both full CI workflow test lists include resource regression. No schema migration.
 
+## Continuation: mailbox lifecycle and additional resource inventory
+
+- Added mailbox deletion and quota changes for both supplier adapters, and actual DirectAdmin subdomain create/remove. DirectAdmin removal explicitly preserves directory contents. These operations use the existing durable service fence, exact target confirmation for deletion, live account limits for creation and independent inventory readback.
+- Added mailbox password change for both suppliers, with distinct password authentication readback. A keyed operation-specific verification receipt is retained only for uncertain recovery, then erased on confirmation; no plaintext password is stored. Recovery verifies the originally submitted password without reissuing the write. Current Console password is required.
+- Added customer database inventory for both adapters; only validated account-prefixed database names are displayed. Database creation, deletion, users and grants are not implemented by this addition.
+- Expanded customer resource forms and Integration Store capability selections, with strict operation-specific authorization. WHM subdomain mutation remains refused pending a supported contract and safe document-root verification.
+- Previous revision 9843c665 passed both CI workflows (46135369250 and 46135369332). This is not evidence of the newer revision passing. Latest full CI and browser qualification remain required.
+
+Additional official references:
+- DirectAdmin legacy API (including POP modification quota units, subdomain removal): https://docs.directadmin.com/developer/api/legacy-api.html
+- DirectAdmin email password verification: https://docs.directadmin.com/changelog/version-1.26.0.html
+- cPanel password verification: https://support.cpanel.net/hc/en-us/articles/360049827494-How-to-validate-an-email-password-using-the-cPanel-API
+- cPanel password change: https://support.cpanel.net/hc/en-us/articles/360059062534-How-To-Reset-E-mail-User-Passwords-via-the-command-line
+- cPanel subdomain removal: https://api.docs.cpanel.net/cpanel-api-2/cpanel-api-2-modules-subdomain/cpanel-api-2-functions-subdomain-delsubdomain (deprecated API2; official page states no UAPI equivalent; do not invent a substitute).
+- DirectAdmin database inventory: https://docs.directadmin.com/changelog/version-1.21.2.html
+
 ## Supplier contract references and qualification limits
 
 - DirectAdmin official legacy API: https://docs.directadmin.com/developer/api/legacy-api.html
@@ -25,10 +41,10 @@ Synthetic fixtures are not real supplier compatibility evidence. DirectAdmin ful
 
 | Scope | Remaining |
 |---|---|
-| Email | Delete/password/quota changes, forwarding/autoresponder, webmail, verified IMAP/SMTP; explicit supplier acceptance and safe uncertain-operation recovery |
-| DNS | Authoritative inventory and CRUD, record validation, signed domain authority, existing Cloudflare integration routing; no local-only or speculative DNS changes |
-| Subdomains | Create/remove/document-root policy and independent DNS/TLS readiness |
-| Databases | Database/user inventory, CRUD, grants, scoped manager |
+| Email | Forwarding/autoresponder, webmail, verified IMAP/SMTP; newest delete/quota/password contracts and recovery need CI and vendor qualification |
+| DNS | Authoritative inventory and CRUD, record validation, signed domain authority and new explicit write consent; existing Cloudflare DNS binding is read-only and must not be silently escalated |
+| Subdomains | WHM create/remove, document-root policy and independent DNS/TLS readiness; DirectAdmin mutations coded but not released |
+| Databases | Database/user mutations, user inventory, grants, scoped manager; database inventory coded but not released |
 | Files | Safe directory/file operations, transfer limits, traversal protections and scoped advanced manager |
 | Password/SSO | Hosting password setup/reset and new cross-adapter acceptance; no credentials exposed |
 | Usage/readiness | Supplier count contract validation, SSL, backups and honest readiness; capacity and scheduling qualification |
