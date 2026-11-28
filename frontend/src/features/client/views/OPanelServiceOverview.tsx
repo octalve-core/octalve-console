@@ -16,7 +16,7 @@ type Overview={
   dns_public_status:string;ssl_public_status:string;
   readiness:ReadinessContract;
   usage:{disk_used_mb:number;disk_limit_mb:number;bandwidth_used_mb:number;
-    bandwidth_limit_mb:number;recorded_at:string}|null;
+    bandwidth_limit_mb:number;disk_unlimited?:boolean;bandwidth_unlimited?:boolean;recorded_at:string}|null;
   capabilities:Record<string,boolean>;
 };
 const tools=[
@@ -138,8 +138,8 @@ export function OPanelServiceOverview(){
                 <ShieldCheck className="h-5 w-5 text-[#0064E0]"/>Recorded usage
               </h2>
               {usage?<dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                <div><dt className="text-slate-500">Disk</dt><dd className="mt-1 font-medium">{usage.disk_used_mb} / {usage.disk_limit_mb} MB</dd></div>
-                <div><dt className="text-slate-500">Bandwidth</dt><dd className="mt-1 font-medium">{usage.bandwidth_used_mb} / {usage.bandwidth_limit_mb} MB</dd></div>
+                <div><dt className="text-slate-500">Disk</dt><dd className="mt-1 font-medium">{usage.disk_used_mb} MB / {usage.disk_unlimited?"Unlimited":`${usage.disk_limit_mb} MB`}</dd></div>
+                <div><dt className="text-slate-500">Bandwidth</dt><dd className="mt-1 font-medium">{usage.bandwidth_used_mb} MB / {usage.bandwidth_unlimited?"Unlimited":`${usage.bandwidth_limit_mb} MB`}</dd></div>
                 <div className="col-span-2 text-xs text-slate-500">Recorded {new Date(usage.recorded_at).toLocaleString()}. This is not a live server reading.</div>
               </dl>:<p className="mt-3 text-sm text-slate-600">Usage information has not yet been recorded for this service.</p>}
             </div>

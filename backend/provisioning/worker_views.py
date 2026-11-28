@@ -19,3 +19,16 @@ class HostingStagingCronView(APIView):
             return Response({"detail":"Hosting staging disabled."},status=503)
         from .automatic_dispatch import run_due_dispatch
         return Response({**run_due_staging(),"dispatch":run_due_dispatch(1)},headers={"Cache-Control":"no-store"})
+
+
+class HostingUsageCronView(APIView):
+    authentication_classes=[]
+    permission_classes=[AllowAny]
+
+    def get(self, request):
+        key=os.environ.get("CRON_SECRET","")
+        header=request.headers.get("Authorization","")
+        if len(key)<32 or not secrets.compare_digest(header.encode(),("Bearer "+key).encode()):
+            return Response({"detail":"Unauthorized."},status=401)
+        from services.usage_sync import run_due_usage
+        return Response(run_due_usage(2),headers={"Cache-Control":"no-store"})
