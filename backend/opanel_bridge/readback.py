@@ -217,14 +217,12 @@ def readback_service(service_id, *, apply=False, getter=None, expected_binding=N
             raise ReadbackRejected("Current supplier authority is unavailable.")
         result = verify_existing_account(service, provider, getter=getter)
     except ReadbackRejected:
-        if apply:
-            # A failed confirmation run must immediately revoke old proof;
-            # no stale 15-minute permission survives a known negative result.
+        if apply and expected_binding is None:
+            # Operator rechecks can revoke current proof immediately. A
+            # stale-only refresh is already ineligible; leave it expired so
+            # transient outages are retryable, without restoring access.
             with transaction.atomic():
-                proofs = VerifiedHostingBinding.objects.select_for_update().filter(service_id=service.pk, revoked_at__isnull=True)
-                if expected_binding is not None:
-                    proofs = proofs.filter(pk=expected_binding.pk, confirmed_at=expected_binding.confirmed_at)
-                proof = proofs.first()
+                proof = VerifiedHostingBinding.objects.select_for_update().filter(service_id=service.pk, revoked_at__isnull=True).first()
                 if proof is not None:
                     proof.revoked_at = timezone.now()
                     proof.save(update_fields=["revoked_at"])
