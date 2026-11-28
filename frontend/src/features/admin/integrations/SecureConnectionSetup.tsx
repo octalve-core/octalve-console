@@ -5,11 +5,11 @@ import {api} from "@/lib/api/client";
 import type {Integration} from "./catalog";
 import {ProviderVaultEnrollment,type VaultSecurityStatus} from "./ProviderVaultEnrollment";
 
-type FieldKind="url"|"name"|"domain"|"identifier";
+type FieldKind="url"|"name"|"domain"|"identifier"|"public_ip";
 type ProviderSchema={key:string;name:string;fields:Record<string,FieldKind>;
  secret_fields:string[];enabled_for_execution:false;supports_verification?:boolean};
 type SavedDraft={id:string;label:string;state:"draft";credential_version:number;execution_enabled:false};
-const labelFor=(value:string)=>({account_id:"Account ID",zone_id:"Zone ID",api_token:"API token",client_id:"Client ID",api_key:"API key",secret_key:"Secret key"} as Record<string,string>)[value]??value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());
+const labelFor=(value:string)=>({account_id:"Account ID",zone_id:"Zone ID",api_token:"API token",client_id:"Client ID",api_key:"API key",secret_key:"Secret key",server_ip:"Public server IP"} as Record<string,string>)[value]??value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());
 const cloudflareHelp:Record<string,string>={
  account_id:"Cloudflare → Account Home → Copy Account ID.",
  zone_id:"Cloudflare → Select your domain → Overview → API → Zone ID.",
@@ -23,7 +23,7 @@ function validSchema(value:unknown,slug:string):ProviderSchema|null{
  if(!match||!match.fields||typeof match.fields!=="object"||Array.isArray(match.fields)||
    !Array.isArray(match.secret_fields)||match.enabled_for_execution!==false ||
    Object.keys(match.fields).length>6||match.secret_fields.length>3||
-   !Object.values(match.fields).every(k=>["url","name","domain","identifier"].includes(k))||
+   !Object.values(match.fields).every(k=>["url","name","domain","identifier","public_ip"].includes(k))||
    !match.secret_fields.every(k=>typeof k==="string"&&/^[a-z_]{1,40}$/.test(k)))return null;
  return match;
 }
@@ -109,8 +109,9 @@ export function SecureConnectionSetup({item,onSaved}:{item:Integration;onSaved:(
    </div>
    {Object.entries(schema.fields).map(([key,kind])=><label key={key} className="block text-xs">{labelFor(key)}
      <input name={"pub_"+key} type={kind==="url"?"url":"text"} required maxLength={220}
-      placeholder={kind==="url"?"https://panel.example.com":undefined} spellCheck={false}
+      placeholder={kind==="url"?"https://panel.example.com":kind==="public_ip"?"Public IPv4 or IPv6 address":undefined} spellCheck={false}
       autoCapitalize="off" autoComplete="off" className={fieldStyle}/>
+       {kind==="public_ip"?<span className="mt-1 block text-xs text-console-muted">Use the fixed public IP assigned to this panel. Octalve connects directly to it and validates the panel hostname’s TLS certificate; private or internal addresses are rejected.</span>:null}
        {item.slug==="cloudflare-dns"&&cloudflareHelp[key]?<span className="mt-1 block text-xs leading-5 text-console-muted">{cloudflareHelp[key]}</span>:null}
     </label>)}
    {schema.secret_fields.map(key=><label key={key} className="block text-xs"><KeyRound className="mr-1 inline h-3.5 w-3.5" aria-hidden="true"/>{labelFor(key)}
