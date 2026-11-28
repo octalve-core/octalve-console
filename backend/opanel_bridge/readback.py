@@ -63,7 +63,7 @@ def _normalize_domain(value):
     return value.strip().rstrip(".").lower()
 
 
-def _da_account(data, account, domain, owner):
+def _da_account(data, account, domain, owner, *, package=None):
     if isinstance(data, str):
         # Do not permit duplicate ambiguous keys or oversized provider replies.
         fields = parse_qs(data, keep_blank_values=True, strict_parsing=False)
@@ -80,12 +80,13 @@ def _da_account(data, account, domain, owner):
         or str(data.get("usertype", "")).lower() != "user"
         or str(data.get("account", "")).upper() != "ON"
         or str(data.get("suspended", "")).lower() != "no"
+        or (package is not None and data.get("package") != package)
     ):
         raise ReadbackRejected("DirectAdmin account identity or activation not verified.")
     return True
 
 
-def _whm_account(data, account, domain, owner):
+def _whm_account(data, account, domain, owner, *, package=None):
     if not isinstance(data, dict) or not isinstance(data.get("metadata"), dict):
         raise ReadbackRejected("Invalid WHM account response.")
     if str(data["metadata"].get("result")) != "1":
@@ -99,6 +100,8 @@ def _whm_account(data, account, domain, owner):
         or item.get("owner") != owner
         or _normalize_domain(item.get("domain")) != domain
         or str(item.get("suspended", "")).lower() not in ("0", "false")
+        or (package is not None and (item.get("plan") != package
+            or data["metadata"].get("command") != "accountsummary"))
     ):
         raise ReadbackRejected("WHM account identity or suspension not verified.")
     return True
@@ -138,13 +141,32 @@ def verify_existing_account(service, provider, *, getter=None, pending_account=N
         raise ReadbackRejected("Provider account reference is incomplete.")
     if any(ch in domain for ch in ("/", ":", "@", "?", "#", "\\")):
         raise ReadbackRejected("Hosting domain is invalid.")
-    try:
-        origin = _endpoint(provider)
-    except (InventoryError, ValueError):
-        raise ReadbackRejected("Provider origin is not on the approved HTTPS allowlist.")
     if provider.adapter_type not in ("DirectAdminAdapter", "CpanelAdapter"):
         raise ReadbackRejected("Only accepted DirectAdmin or WHM read-back is supported.")
-    token = provider.get_api_key()
+    bound_origin = None
+    package = None
+    if provider.config.get("hosting_vault_connection_id"):
+        # The new Integration Store intentionally never copies credentials to
+        # Provider.encrypted_api_key. Reuse its signed, current vault authority.
+        from providers.hosting_runtime import load_hosting_connection
+        from providers.connection_vault import VaultUnavailable
+        if pending_account is not None:
+            raise ReadbackRejected("Vault-backed pending accounts require dispatch reconciliation.")
+        package = service.provider_package_id
+        if not isinstance(package, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", package):
+            raise ReadbackRejected("Hosting package is not bound.")
+        try:
+            row, token, _ = load_hosting_connection(provider)
+        except VaultUnavailable:
+            raise ReadbackRejected("Current supplier authority is unavailable.") from None
+        origin = row.public_settings["server_url"]
+        bound_origin = (origin, row.public_settings["server_ip"])
+    else:
+        try:
+            origin = _endpoint(provider)
+        except (InventoryError, ValueError):
+            raise ReadbackRejected("Provider origin is not on the approved HTTPS allowlist.") from None
+        token = provider.get_api_key()
     if not token or not provider.username:
         raise ReadbackRejected("Provider's server-side account token is unavailable.")
     headers = {"Accept": "application/json"}
@@ -163,16 +185,17 @@ def verify_existing_account(service, provider, *, getter=None, pending_account=N
             origin + path, params=args, headers=headers,
             timeout=min(max(provider.timeout_seconds or 10, 1), 10),
             allow_redirects=False, verify=True,
+            **({"bound_origin": bound_origin} if bound_origin is not None else {}),
         )
     except requests.RequestException as exc:
         raise ReadbackRejected("Provider account read-back failed.") from exc
     if response.status_code != 200 or len(response.content) > 100_000:
         raise ReadbackRejected("Provider refused or oversized the account read-back.")
     if provider.adapter_type == "DirectAdminAdapter":
-        _da_account(response.text, account, domain, owner)
+        _da_account(response.text, account, domain, owner, package=package)
     else:
         try:
-            _whm_account(response.json(), account, domain, owner)
+            _whm_account(response.json(), account, domain, owner, package=package)
         except ValueError as exc:
             raise ReadbackRejected("WHM returned malformed JSON.") from exc
     return ReadbackResult(True, provider.adapter_type, service.pk, provider.pk, timezone.now())
@@ -187,7 +210,11 @@ def readback_service(service_id, *, apply=False, getter=None):
         provider = Provider.objects.get(pk=service.provider_id)
     except (Service.DoesNotExist, Provider.DoesNotExist, TypeError, ValueError):
         raise ReadbackRejected("Service has no valid configured provider.")
+    vault_backed = bool(provider.config.get("hosting_vault_connection_id"))
+    initial_digest = account_digest(service) if vault_backed else None
     try:
+        if vault_backed and not initial_digest:
+            raise ReadbackRejected("Current supplier authority is unavailable.")
         result = verify_existing_account(service, provider, getter=getter)
     except ReadbackRejected:
         if apply:
@@ -205,7 +232,13 @@ def readback_service(service_id, *, apply=False, getter=None):
         # Prevent TOCTOU: the service could have been transferred, suspended or
         # relinked while the provider HTTPS request was in flight.
         fresh = Service.objects.select_for_update().get(pk=service.pk)
-        live_provider = Provider.objects.get(pk=provider.pk)
+        if vault_backed:
+            from providers.connection_models import IntegrationConnection
+            locked = IntegrationConnection.objects.select_for_update().filter(
+                pk=provider.config["hosting_vault_connection_id"]).first()
+            if locked is None:
+                raise ReadbackRejected("Supplier connection no longer exists.")
+        live_provider = Provider.objects.select_for_update().get(pk=provider.pk)
         if (
             fresh.client_id != service.client_id
             or fresh.status != "active"
@@ -219,7 +252,9 @@ def readback_service(service_id, *, apply=False, getter=None):
             or live_provider.base_url != provider.base_url
             or live_provider.username != provider.username
             or live_provider.config != provider.config
-            or live_provider.get_api_key() != provider.get_api_key()
+            or (not vault_backed and live_provider.get_api_key() != provider.get_api_key())
+            or fresh.provider_package_id != service.provider_package_id
+            or (vault_backed and account_digest(fresh) != initial_digest)
             or _normalize_domain(fresh.domain_name) != _normalize_domain(service.domain_name)
             or live_provider.status != "active"
             or live_provider.health_status != "healthy"
@@ -227,11 +262,14 @@ def readback_service(service_id, *, apply=False, getter=None):
             or result.checked_at < fresh.activated_at
         ):
             raise ReadbackRejected("Service changed during provider verification.")
+        digest = account_digest(fresh)
+        if not digest or (vault_backed and digest != initial_digest):
+            raise ReadbackRejected("Current supplier authority is unavailable.")
         proof = VerifiedHostingBinding.objects.select_for_update().filter(service=fresh).first()
         if proof and (
             proof.revoked_at is not None
             or proof.provider_id_snapshot != fresh.provider_id
-            or proof.account_digest != account_digest(fresh)
+            or proof.account_digest != digest
         ):
             # Cascade any unredeemed codes and rotate the OPanel session binding.
             proof.delete()
@@ -240,7 +278,7 @@ def readback_service(service_id, *, apply=False, getter=None):
             VerifiedHostingBinding.objects.create(
                 service=fresh,
                 provider_id_snapshot=fresh.provider_id,
-                account_digest=account_digest(fresh),
+                account_digest=digest,
                 confirmation_source="provider_api_readback",
                 confirmed_at=result.checked_at,
             )
