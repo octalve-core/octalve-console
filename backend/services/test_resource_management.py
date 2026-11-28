@@ -283,3 +283,33 @@ class ResourceAuthorityTests(TestCase):
             response=self.api.post(self.base+"/resource-actions/subdomain_create/",{"local":"shop","confirm_password":"SyntheticConsolePassword"},format="json")
             self.assertEqual(response.status_code,409,response.data)
             send.assert_not_called()
+
+
+    def test_password_change_uncertain_recovery_verifies_original_password_only(self):
+        self.policy["resource_capabilities"].append("mailbox_password")
+        path=self.base+"/resource-actions/mailbox_password/"
+        new_password="Synthetic-New-Mailbox-Password"
+        row={"address":"sales@example.test","quota_mb":500,"unlimited":False}
+        data={"local":"sales","password":new_password,"confirm_password":"SyntheticConsolePassword"}
+        with patch("services.resource_management.audit_keyring",return_value=("fixture",{"fixture":b"x"*32})),patch.object(
+                ResourceProtocol,"mailboxes",return_value=[row]),patch.object(
+                ResourceProtocol,"change_mailbox_password",side_effect=ResourceRefused("uncertain")) as send:
+            self.assertEqual(self.api.post(path,data,format="json").status_code,202)
+            send.assert_called_once_with("sales",new_password,500)
+            self.service.refresh_from_db()
+            self.assertNotIn(new_password,str(self.service.metadata))
+            self.service.metadata[management.FENCE]["created_at"]=(timezone.now()-timedelta(minutes=3)).isoformat()
+            self.service.save(update_fields=["metadata"])
+            recovery=self.base+"/resource-actions/reconcile/"
+            with patch.object(ResourceProtocol,"verify_mailbox_password",return_value=True) as verify:
+                wrong={"password":"Synthetic-Wrong-Mailbox-Password","confirm_password":"SyntheticConsolePassword"}
+                self.assertEqual(self.api.post(recovery,wrong,format="json").status_code,202)
+                verify.assert_not_called()
+                right={**wrong,"password":new_password}
+                response=self.api.post(recovery,right,format="json")
+                self.assertEqual(response.status_code,200,response.data)
+                verify.assert_called_once_with("sales",new_password)
+            send.assert_called_once()
+        self.service.refresh_from_db()
+        self.assertEqual(self.service.metadata[management.FENCE]["state"],"confirmed")
+        self.assertNotIn("password_receipt",self.service.metadata[management.FENCE])
