@@ -26,8 +26,12 @@ def login(page,role,target):
     page.goto(BASE+"/login?next="+target,wait_until="domcontentloaded")
     page.locator('input[name="email"]').fill(("admin" if role=="admin" else "owner")+"@fixture.example.test")
     page.locator('input[name="password"]').fill(PASSWORD)
-    page.get_by_role("button",name="Sign in",exact=True).click()
-    page.wait_for_url("**"+target,timeout=45000)
+    with page.expect_response(lambda r: r.request.method=="POST" and "/api/cloud/auth/jwt/create" in r.url,timeout=45000) as login_response:
+        page.get_by_role("button",name="Sign in",exact=True).click()
+    assert login_response.value.ok, f"Sign-in HTTP {login_response.value.status}"
+    # Exact URL: the previous glob also matched /login?next=/admin/...
+    page.wait_for_url(BASE+target,timeout=45000)
+    assert page.evaluate("location.pathname")==target
     auth=browser_get(page,"/api/auth/session")
     assert auth["ok"] and auth["body"].get("authenticated") is True, f"Browser session unavailable: {auth['status']}"
     cookies=page.context.cookies()
