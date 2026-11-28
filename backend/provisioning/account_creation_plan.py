@@ -51,7 +51,7 @@ def plan_account_creation(task_id, *, allow_reserved=False):
                 allow_reserved and task.status == "pending_confirmation"
                 and isinstance(task.metadata, dict)
                 and isinstance(task.metadata.get("remote_create"), dict)
-                and task.metadata["remote_create"].get("state") == "reserved_no_network"))
+                and task.metadata["remote_create"].get("state") in ("reserved_no_network","dispatched_uncertain")))
             
             or not task.order_id or not task.order_item_id
             or not task.provider_id or not task.service_id
