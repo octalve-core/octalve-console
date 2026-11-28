@@ -125,6 +125,9 @@ def resolve(user,event_id,resolution,amount_minor,message,password,totp,receipt=
             or locked.metadata.get(REFUND_KEY,{}).get("state") in ("submitted","uncertain")
             or locked.metadata.get(KEY)):
             raise ExceptionRefused("Another financial operation is unresolved.")
+        from domains.models import Domain
+        if resolution=="merchant-accepted" and (Domain.objects.filter(order_item__order_id=locked.invoice.order_id,metadata__live_domain_registration_v1__state="uncertain").exists() or Domain.objects.filter(metadata__registrar_renewal_v1__invoice=locked.invoice_id,metadata__registrar_renewal_v1__state="uncertain").exists()):
+            raise ExceptionRefused("A registrar operation is unresolved.")
         entry={"case_id":case,"resolution":resolution,"amount_minor":amount_minor,
             "binding":gateway.config,"state":"uncertain","created_at":timezone.now().isoformat()}
         locked.metadata={**locked.metadata,KEY:entry,"financial_exception_review_required":True}

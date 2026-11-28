@@ -185,9 +185,11 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
         # For multi-item orders, only close the order after EVERY item is
         # activated by its own independent account verification.
         if not Service.objects.filter(order=order).exclude(status="active").exists():
-            if not OrderItem.objects.filter(order=order).exclude(
-                pk__in=Service.objects.filter(order=order).values_list("order_item_id", flat=True)
-            ).exists():
+            remaining=OrderItem.objects.filter(order=order).exclude(pk__in=Service.objects.filter(order=order).values_list("order_item_id",flat=True))
+            if order.metadata.get("live_domain_registration_v1"):
+                from domains.live_cart import all_domains_confirmed
+                if all_domains_confirmed(order): remaining=remaining.exclude(item_type="domain")
+            if not remaining.exists():
                 order.status = "provisioned"
                 order.provisioned_at = timezone.now()
                 order.save(update_fields=["status", "provisioned_at", "updated_at"])

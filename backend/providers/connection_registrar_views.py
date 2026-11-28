@@ -18,6 +18,7 @@ from audit.models import AuditLog
 from catalog.permissions import InternalSupplierAuthority
 from .cloudflare_int01 import CloudflareINT01, CloudflareINT01Denied, FixedCloudflareTransport, require_domain
 from .connection_audit import verify_chain
+from .resellerclub_live import ResellerClub,ResellerClubUnavailable
 from .connection_models import IntegrationConnection, IntegrationCredentialVersion
 from .connection_stepup import assert_admin, check_mutation
 from .connection_views import VaultMutationThrottle, connection_database_qualified
@@ -59,23 +60,23 @@ def live_registrar_quote(request, connection_id):
 
     try:
         row = IntegrationConnection.objects.get(
-            pk=connection_id, adapter_key="cloudflare-registrar-live", state="draft"
+            pk=connection_id, adapter_key__in=("cloudflare-registrar-live","resellerclub"), state="draft"
         )
     except IntegrationConnection.DoesNotExist:
         return Response({"detail": "Approved registrar connection not found."}, status=404)
 
     try:
+        if row.adapter_key=="resellerclub" and row.environment!="live":
+            raise ResellerClubUnavailable()
         verify_chain(row)
         version = IntegrationCredentialVersion.objects.select_related("connection").get(
             connection=row, version=row.current_version, revoked_at__isnull=True
         )
         stored = unseal_version(version)
-        connector = CloudflareINT01(
-            row.public_settings["account_id"],
-            FixedCloudflareTransport(stored["api_token"]),
-        )
+        connector = (ResellerClub(row.public_settings["reseller_id"],stored["api_key"],"live") if row.adapter_key=="resellerclub" else CloudflareINT01(
+            row.public_settings["account_id"], FixedCloudflareTransport(stored["api_token"])))
         quote = connector.live_domain_check(domain)
-    except (CloudflareINT01Denied, VaultUnavailable,
+    except (CloudflareINT01Denied, ResellerClubUnavailable, VaultUnavailable,
             IntegrationCredentialVersion.DoesNotExist, KeyError, DatabaseError):
         return Response(
             {"detail": "Live registrar check could not be verified.", "verified": False},
@@ -115,10 +116,11 @@ def live_registrar_quote(request, connection_id):
             "currency": quote["currency"],
             "registration_cost": quote["registration_cost"],
             "renewal_cost": quote["renewal_cost"],
+            **({"transfer_cost":quote["transfer_cost"]} if row.adapter_key=="resellerclub" and "transfer_cost" in quote else {}),
         }, salt=TLD_SUPPLIER_QUOTE_SALT)
     return Response({
         "verified": True,
-        "provider": "cloudflare-registrar",
+        "provider": "resellerclub" if row.adapter_key=="resellerclub" else "cloudflare-registrar",
         "domain": domain,
         "availability": quote,
         "supplier_quote": supplier_quote,

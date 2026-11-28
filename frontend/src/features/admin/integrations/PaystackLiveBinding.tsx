@@ -58,6 +58,11 @@ function DisputeResponseForm(){
  {message?<p role="status" className="break-words text-xs">{message}</p>:null}
  </form>
 }
+function CloseExceptionForm(){
+ const [busy,setBusy]=useState(false),[message,setMessage]=useState("");
+ async function close(e:FormEvent<HTMLFormElement>){e.preventDefault();if(busy)return;const form=e.currentTarget,f=new FormData(form);const body={transaction_public_id:String(f.get("payment")||""),confirm_password:String(f.get("password")||""),totp_code:String(f.get("totp")||""),confirm_close:f.get("confirm")==="on"};form.reset();setBusy(true);setMessage("");try{const r=await api.post<{state:string;fulfillment_hold_retained:boolean}>("/payments/admin/financial-exceptions/close/",body);setMessage(r.fulfillment_hold_retained?"Accounting review closed. Fulfillment hold retained because funds were returned.":"Case closed and review hold cleared.");}catch{setMessage("Case cannot be closed until independently verified evidence is complete.");}finally{setBusy(false)}}
+ return <form onSubmit={close} className="space-y-2 rounded border p-3"><h4 className="text-sm font-medium">Close reconciled case</h4><label className="block text-xs">Payment UUID<input name="payment" required className="block w-full rounded border p-2"/></label><label className="block text-xs">Password<input type="password" name="password" autoComplete="current-password" required className="block w-full rounded border p-2"/></label><label className="block text-xs">Authenticator code<input name="totp" pattern="[0-9]{6}" maxLength={6} required className="block w-full rounded border p-2"/></label><label className="flex gap-2 text-xs"><input name="confirm" type="checkbox" required/>Close only after independent reconciliation.</label><button disabled={busy} className="rounded border p-2 text-xs">Verify and close</button>{message?<p role="status" className="text-xs">{message}</p>:null}</form>
+}
 function FinancialExceptionReview(){
  const [rows,setRows]=useState<ExceptionCase[]|null>(null),[error,setError]=useState(false),[loading,setLoading]=useState(false),[requests,setRequests]=useState<RefundRequest[]>([]),[canRefund,setCanRefund]=useState(false),[canDispute,setCanDispute]=useState(false);
  async function refresh(){setLoading(true);setError(false);try{const r=await api.get<{cases:ExceptionCase[];requests:RefundRequest[];refund_execution_enabled:boolean;dispute_resolution_enabled:boolean}>("/payments/admin/financial-exceptions/");setRows(r.cases);setRequests(r.requests);setCanRefund(r.refund_execution_enabled);setCanDispute(r.dispute_resolution_enabled)}catch{setError(true);setRows(null);setRequests([]);setCanRefund(false);setCanDispute(false)}finally{setLoading(false)}}
@@ -66,7 +71,7 @@ function FinancialExceptionReview(){
   <p className="text-xs text-console-muted">Verified refund, dispute and payment exception evidence. No money is moved from this view.</p>
   <button type="button" disabled={loading} onClick={()=>void refresh()} className="min-h-10 rounded-lg border border-console-line px-3 text-xs">{loading?"Loading…":"Load financial cases"}</button>
   {error?<p role="alert" className="text-xs text-rose-700">Review unavailable.</p>:null}
-  {canRefund?<RefundRequestForm/>:null}
+  {canRefund?<><RefundRequestForm/><CloseExceptionForm/></>:null}
   {canDispute?<DisputeResponseForm/>:null}
   {requests.map(x=><p key={x.reference} className="break-words text-xs">Refund {x.reference} · {x.state} · NGN {(x.amount_minor/100).toFixed(2)}</p>)}
   {rows?.length===0?<p className="text-xs text-console-muted">No recorded live cases.</p>:null}

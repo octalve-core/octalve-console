@@ -8,6 +8,7 @@ import {CommerceCheckoutFrame,CommercePanel,primary,secondary,OrderConfirmation,
 
 import type {CartLine,CartView,GatewayCode,GatewayOption} from "@/components/shared-commerce/types";
 import {authApi, type AccountProfile} from "@/lib/api/endpoints";
+import {LiveCartReview} from "./LiveCartReview";
 import {liveRegistrationReadiness} from "./LiveDomainRegistration";
 import {formatPlanAmount} from "../data/client-order-data";
 import {TestLifecyclePanel} from "@/components/modules/TestLifecyclePanel";
@@ -45,6 +46,7 @@ async function request<T>(invoice?: number, body?: Record<string,unknown>) {
 
 export function CombinedCartCheckout({invoice}: {invoice?:number}) {
   const router=useRouter();
+  const [liveItems,setLiveItems]=useState<CartSelection[]>();
   const [draft,setDraft]=useState<AccountSnapshot>();
   const [quote, setQuote] = useState<Quote>();
   const [items, setItems] = useState<CartSelection[]>([]);
@@ -82,6 +84,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
       }] : []);
       if (!selections.length) throw Error("Add a product to your cart first.");
       if(domains.length===1&&services.length===0){const live=await liveRegistrationReadiness(domains[0]);if(live.available){if(active)router.replace("/client/order/checkout?product=domain&domain="+encodeURIComponent(domains[0]));return;}}
+      if(domains.length){const readiness=await Promise.all(domains.map(liveRegistrationReadiness));if(readiness.some(r=>r.available)){if(!readiness.every(r=>r.available&&!r.invoice_public_id))throw Error("Review existing invoices or unavailable domains before continuing.");if(active)setLiveItems(selections);return;}}
       const fingerprint = JSON.stringify([profile.email, selections]);
       let cached; try{cached=JSON.parse(sessionStorage.getItem("octalve-combined-cart-review") ?? "null");}catch{cached=null;}
       const key = cached?.fingerprint === fingerprint && typeof cached.id === "string" ? cached.id : crypto.randomUUID();
@@ -173,6 +176,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
     finally { setBusy(false); inFlight.current = false; }
   }
 
+  if(liveItems)return <DashboardShell role="client" title="Checkout" description="Review your live order."><CommerceCheckoutFrame stage={1} title="Checkout" back={()=>router.push("/client/order/checkout?view=cart")} backLabel="Back to cart"><LiveCartReview items={liveItems}/></CommerceCheckoutFrame></DashboardShell>;
   const address = [account?.address, account?.city, account?.state, account?.country, account?.postal_code].filter(Boolean).join(", ");
   const record=purchase??quote;
   const options=(record?.gateway_options??[]).map(item=>({...item,enabled:item.enabled&&item.code==="paystack"}));

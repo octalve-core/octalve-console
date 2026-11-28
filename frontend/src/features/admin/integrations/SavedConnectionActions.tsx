@@ -51,7 +51,7 @@ export function SavedConnectionActions({connection,onVerified}:{
    {working?"Verifying…":hosting?"Verify and import packages":"Verify access"}</button>
   {message?<p role={failed?"alert":"status"} className={"text-xs leading-5 "+(failed?"text-rose-700":"text-emerald-700")}>
    {failed?<AlertTriangle aria-hidden="true" className="mr-1 inline h-4 w-4"/>:null}{message}</p>:null}
- </form>{connection.adapter_key==="cloudflare-registrar-live"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarExecutionPolicy connection={connection}/>:null}{connection.adapter_key==="cloudflare-registrar-live"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarRegistrationReview connection={connection}/>:null}{connection.adapter_key==="paystack"&&connection.environment==="live"&&connection.verification_status==="verified"?<PaystackLiveBinding connection={connection} onSaved={onVerified}/>:null}{["brevo","resend"].includes(connection.adapter_key)&&connection.environment==="live"&&connection.verification_status==="verified"?<MailSenderPolicy connection={connection} onSaved={onVerified}/>:null}{hosting&&connection.hosting_policy_available===true&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
+ </form>{["cloudflare-registrar-live","resellerclub"].includes(connection.adapter_key)&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarExecutionPolicy connection={connection}/>:null}{connection.adapter_key==="cloudflare-registrar-live"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarRegistrationReview connection={connection}/>:null}{connection.adapter_key==="resellerclub"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarRatePublication connection={connection}/>:null}{connection.adapter_key==="paystack"&&connection.environment==="live"&&connection.verification_status==="verified"?<PaystackLiveBinding connection={connection} onSaved={onVerified}/>:null}{["brevo","resend"].includes(connection.adapter_key)&&connection.environment==="live"&&connection.verification_status==="verified"?<MailSenderPolicy connection={connection} onSaved={onVerified}/>:null}{hosting&&connection.hosting_policy_available===true&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
 }
 
 function RegistrarRegistrationReview({connection}:{connection:DraftConnection}){
@@ -82,6 +82,7 @@ function RegistrarExecutionPolicy({connection}:{connection:DraftConnection}){
  async function save(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(working)return;const form=event.currentTarget,fields=new FormData(form);
   const data={registration:fields.get("operation")==="enable",dedicated_account:fields.get("dedicated")==="on",
+    ...(connection.adapter_key==="resellerclub"?{nameservers:String(fields.get("nameservers")||"").split(/[,\s]+/).filter(Boolean).map(s=>s.toLowerCase())}:{}),
     confirm_password:String(fields.get("password")||""),totp_code:String(fields.get("totp")||"")};
   form.reset();setWorking(true);setFailed(false);setMessage("");
   try{const result=await api.post<{registration_enabled:boolean}>("/providers/connections/"+encodeURIComponent(connection.id)+"/registrar-policy/",data);
@@ -93,10 +94,60 @@ function RegistrarExecutionPolicy({connection}:{connection:DraftConnection}){
  <h4 className="text-sm font-medium">Live registration authority</h4>
  <p className="text-xs text-console-muted">One-year standard .com and .net orders only. Supplier billing and customer contact accuracy must be qualified. Enabling this allows independently paid orders to purchase real domains.</p>
  <label className="block text-xs">Registration policy<select name="operation" required className={field}><option value="disable">Disabled</option><option value="enable">Enable paid registration</option></select></label>
+ {connection.adapter_key==="resellerclub"?<label className="block text-xs">Initial nameservers (comma-separated, at least two)<input name="nameservers" required placeholder="ns1.example.com, ns2.example.com" className={field}/></label>:null}
  <label className="flex gap-2 text-xs"><input name="dedicated" type="checkbox" required/>This is a dedicated registrar account controlled by Octalve; no competing out-of-band registration requests.</label>
  <label className="block text-xs">Current password<input type="password" name="password" required autoComplete="current-password" className={field}/></label>
  <label className="block text-xs">Authenticator code<input name="totp" required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" className={field}/></label>
  <button type="submit" disabled={working} className="min-h-11 rounded-lg border border-console-line px-3 text-xs">{working?"Saving…":"Save registrar authority"}</button>
  {message?<p role={failed?"alert":"status"} className="text-xs">{message}</p>:null}
  </form>
+}
+
+function RegistrarRatePublication({connection}:{connection:DraftConnection}){
+ const [working,setWorking]=useState(false),[message,setMessage]=useState(""),[failed,setFailed]=useState(false);
+ const [quote,setQuote]=useState<{supplier_quote:string;availability:{currency:string;registration_cost:string;renewal_cost:string;transfer_cost?:string};expires_at:string;tld:string;revision:number}|null>(null);
+ const field="mt-1 min-h-11 w-full rounded-lg border border-console-line px-3 text-sm";
+ async function read(e:FormEvent<HTMLFormElement>){
+  e.preventDefault();if(working)return;const form=e.currentTarget,fields=new FormData(form);const domain=String(fields.get("domain")||"").trim().toLowerCase();
+  const body={domain,confirm_password:String(fields.get("password")||""),totp_code:String(fields.get("totp")||"")};
+  form.reset();setWorking(true);setFailed(false);setQuote(null);setMessage("");
+  try{
+   const r=await api.post<{verified:boolean;supplier_quote:string|null;availability:{currency:string;registration_cost:string;renewal_cost:string;transfer_cost?:string};expires_at:string}>("/providers/connections/"+encodeURIComponent(connection.id)+"/registrar-quote/",body);
+   if(!r.verified||!r.supplier_quote)throw Error();
+   const tld="."+domain.split(".").pop();
+   const cards=await api.get<{results:{tld:string;revision:number}[]}>("/domains/admin/tld-price-cards/");
+   const card=cards.results.find(c=>c.tld===tld);
+   if(!card)throw Error("draft");
+   setQuote({supplier_quote:r.supplier_quote,availability:r.availability,expires_at:r.expires_at,tld,revision:card.revision});
+  }catch{setFailed(true);setMessage("Supplier quote unavailable. Save the TLD price draft in Catalogue first, then retry with an available standard name.");}finally{setWorking(false)}
+ }
+ async function publish(e:FormEvent<HTMLFormElement>){
+  e.preventDefault();if(working||!quote)return;const form=e.currentTarget,fields=new FormData(form);
+  const body={tld:quote.tld,expected_revision:quote.revision,action:"publish",supplier_quote:quote.supplier_quote,pricing_mode:"fixed",
+    ngn_per_supplier_unit:String(fields.get("fx")||"1"),registration:String(fields.get("registration")||""),renewal:String(fields.get("renewal")||""),
+    confirm_password:String(fields.get("password")||""),totp_code:String(fields.get("totp")||"")};
+  form.reset();setWorking(true);setFailed(false);setMessage("");
+  try{await api.post("/domains/admin/tld-price-cards/publication/",body);setQuote(null);setMessage("Supplier-bound rates published. Transfer price uses the reviewed draft.");}
+  catch{setFailed(true);setMessage("Publication refused. Recheck the current quote, transfer draft, rates and authenticator.");}finally{setWorking(false)}
+ }
+ return <div className="mt-3 space-y-3 rounded-lg border border-console-line bg-white p-3">
+  <h4 className="text-sm font-medium">ResellerClub pricing and publication</h4>
+  <p className="text-xs text-console-muted">Save a price draft in Catalogue, then read supplier costs for an available standard name. Publish approved NGN amounts only; the server rejects prices below supplier cost.</p>
+  <form onSubmit={read} className="space-y-2">
+   <label className="block text-xs">Available sample domain<input name="domain" placeholder="example-name.com" required className={field}/></label>
+   <label className="block text-xs">Password<input name="password" type="password" required autoComplete="current-password" className={field}/></label>
+   <label className="block text-xs">Authenticator<input name="totp" required pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" className={field}/></label>
+   <button type="submit" disabled={working} className="min-h-11 rounded-lg border px-3 text-xs">Read live supplier rates</button>
+  </form>
+  {quote?<form onSubmit={publish} className="space-y-2">
+   <p className="text-xs">Supplier {quote.tld}: registration {quote.availability.registration_cost}, renewal {quote.availability.renewal_cost}, transfer {quote.availability.transfer_cost??"unavailable"} {quote.availability.currency}. Quote expires {new Date(quote.expires_at).toLocaleTimeString()}.</p>
+   {quote.availability.currency!=="NGN"?<label className="block text-xs">NGN per supplier currency unit<input name="fx" required inputMode="decimal" className={field}/></label>:null}
+   <label className="block text-xs">Registration price (NGN)<input name="registration" required inputMode="decimal" className={field}/></label>
+   <label className="block text-xs">Renewal price (NGN)<input name="renewal" required inputMode="decimal" className={field}/></label>
+   <label className="block text-xs">Password<input name="password" type="password" required autoComplete="current-password" className={field}/></label>
+   <label className="block text-xs">Fresh authenticator<input name="totp" required pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" className={field}/></label>
+   <button type="submit" disabled={working} className="min-h-11 rounded-lg border px-3 text-xs">Publish supplier-bound rates</button>
+  </form>:null}
+  {message?<p role={failed?"alert":"status"} className="text-xs">{message}</p>:null}
+ </div>
 }

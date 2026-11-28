@@ -114,3 +114,18 @@ class BusinessSnapshotTests(TestCase):
             result = api.get("/api/reports/business-intelligence/?currency=NGN")
         self.assertEqual(result.status_code, 200)
         self.assertLess(len(ctx.captured_queries), 55)
+
+    def test_independently_confirmed_refund_reduces_net_not_gross(self):
+        original=Transaction.objects.get(reference="biz02-real-verified")
+        Transaction.objects.create(client=self.client,invoice=self.invoice,reference="verified-reversal",
+            currency="NGN",amount=Decimal("20"),net_amount=Decimal("-20"),status="successful",
+            transaction_type="refund",paid_at=timezone.now(),webhook_verified=False,
+            metadata={"provider_api_verified":True,"provider_refund_id":"123","original_payment_id":original.pk})
+        Transaction.objects.create(client=self.client,invoice=self.invoice,reference="unverified-reversal",
+            currency="NGN",amount=Decimal("90"),net_amount=Decimal("-90"),status="successful",
+            transaction_type="refund",paid_at=timezone.now())
+        result=self.api(self.admin).get("/api/reports/business-intelligence/")
+        totals=result.data["finance"]["payment_amounts"]
+        self.assertEqual(totals["this_month"],"120.00")
+        self.assertEqual(totals["refunded_this_month"],"20.00")
+        self.assertEqual(totals["net_collections_this_month"],"100.00")

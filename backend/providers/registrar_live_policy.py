@@ -18,6 +18,7 @@ from .connection_views import VaultMutationThrottle
 from .connection_vault import VaultUnavailable,unseal_version
 from .hosting_runtime import qualified_vault
 from .cloudflare_int01 import CloudflareINT01,FixedCloudflareTransport,CloudflareINT01Denied
+from .resellerclub_live import ResellerClub,nameservers,ResellerClubUnavailable
 
 ACTION="registrar_live_registration_policy_v1"
 
@@ -35,23 +36,30 @@ def mac(payload,key):
         hashlib.sha256).hexdigest()
 
 def token(row):
-    if row.state!="draft" or row.adapter_key!="cloudflare-registrar-live" or row.environment!="live":
+    if row.state!="draft" or row.adapter_key not in ("cloudflare-registrar-live","resellerclub") or row.environment!="live":
         raise VaultUnavailable()
     verify_chain(row)
     version=IntegrationCredentialVersion.objects.get(connection=row,version=row.current_version,revoked_at__isnull=True)
-    return unseal_version(version)["api_token"]
+    return unseal_version(version)["api_key" if row.adapter_key=="resellerclub" else "api_token"]
 
-def approved(row):
+def policy(row):
     grant=AuditLog.objects.filter(action=ACTION,entity_type="IntegrationConnection",entity_id=str(row.pk)).order_by("-pk").first()
     if not grant:
-        return False
+        return None
     try:
         payload=grant.details["payload"]
         _,keys=audit_keyring()
-        return (payload=={**identity(row),"registration":True,"dedicated_account":True}
-            and hmac.compare_digest(grant.details["mac"],mac(payload,keys[grant.details["key_id"]])))
+        expected={**identity(row),"registration":True,"dedicated_account":True}
+        if row.adapter_key=="resellerclub":
+            expected["nameservers"]=nameservers(payload.get("nameservers"))
+        if payload==expected and hmac.compare_digest(grant.details["mac"],mac(payload,keys[grant.details["key_id"]])):
+            return payload
+        return None
     except (KeyError,TypeError,ValueError,VaultUnavailable):
-        return False
+        return None
+
+def approved(row):
+    return policy(row) is not None
 
 def load(route):
     if not ready() or not isinstance(route,dict) or type(route.get("credential_version")) is not int:
@@ -66,32 +74,40 @@ def load(route):
 @throttle_classes([VaultMutationThrottle])
 def configure(request,connection_id):
     assert_admin(request.user)
-    row=IntegrationConnection.objects.filter(pk=connection_id,state="draft",adapter_key="cloudflare-registrar-live",environment="live").first()
+    row=IntegrationConnection.objects.filter(pk=connection_id,state="draft",adapter_key__in=("cloudflare-registrar-live","resellerclub"),environment="live").first()
     if not row:
         raise ValidationError("Live registrar connection unavailable.")
     headers={"Cache-Control":"private, no-store"}
     if request.method=="GET":
         return Response({"available":ready(),"registration_enabled":bool(ready() and approved(row)),
-            "supported_tlds":[".com",".net"],"manual_renewal":False,"custom_nameservers":False,
-            "contact_updates":False,"transfer_execution":False},headers=headers)
+            "supported_tlds":[".com",".net"],"manual_renewal":bool(row.adapter_key=="resellerclub" and ready() and approved(row)),"custom_nameservers":bool(row.adapter_key=="resellerclub" and ready() and approved(row)),
+            "contact_updates":False,"transfer_execution":bool(row.adapter_key=="resellerclub" and ready() and approved(row))},headers=headers)
     data=request.data
-    if not ready() or not isinstance(data,dict) or set(data)!={"confirm_password","totp_code","registration","dedicated_account"} or type(data["registration"]) is not bool or data["dedicated_account"] is not True:
+    fields={"confirm_password","totp_code","registration","dedicated_account"}
+    if row.adapter_key=="resellerclub": fields.add("nameservers")
+    if not ready() or not isinstance(data,dict) or set(data)!=fields or type(data["registration"]) is not bool or data["dedicated_account"] is not True:
         raise ValidationError("Confirm the dedicated registrar account and registration policy.")
     check_mutation(request.user,data["confirm_password"],data["totp_code"])
     expected=identity(row)
     try:
+        ns=nameservers(data["nameservers"]) if row.adapter_key=="resellerclub" else None
         if data["registration"]:
             secret=token(row)
-            CloudflareINT01(row.public_settings["account_id"],FixedCloudflareTransport(secret)).live_domain_check("example.com")
+            if row.adapter_key=="resellerclub":
+                from .resellerclub_sandbox import verify_credentials
+                verify_credentials(row.public_settings["reseller_id"],secret,"live")
+            else:
+                CloudflareINT01(row.public_settings["account_id"],FixedCloudflareTransport(secret)).live_domain_check("example.com")
         with transaction.atomic():
             row=IntegrationConnection.objects.select_for_update().get(pk=row.pk)
             if identity(row)!=expected or row.state!="draft":
                 raise VaultUnavailable()
             token(row)
             payload={**identity(row),"registration":data["registration"],"dedicated_account":True}
+            if ns is not None: payload["nameservers"]=ns
             active,keys=audit_keyring()
             AuditLog.objects.create(actor=request.user,action=ACTION,entity_type="IntegrationConnection",entity_id=str(row.pk),
                 entity_name="Live registrar execution policy",details={"payload":payload,"key_id":active,"mac":mac(payload,keys[active])})
-    except (CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):
+    except (CloudflareINT01Denied,ResellerClubUnavailable,VaultUnavailable,DatabaseError,KeyError,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):
         raise ValidationError("Registrar policy could not be verified.") from None
     return Response({"registration_enabled":data["registration"]},headers=headers)

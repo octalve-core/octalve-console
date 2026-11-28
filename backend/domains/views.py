@@ -116,6 +116,13 @@ class DomainViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
         from . import dns_readonly
         return dns_readonly.live_inventory(request, self.get_object())
 
+    @action(detail=True, methods=["get","post"], url_path="registrar-lifecycle")
+    def registrar_lifecycle(self,request,pk=None):
+        from .resellerclub_lifecycle import handle
+        from .pilot import DomainPurchaseThrottle
+        DomainPurchaseThrottle().allow_request(request,self)
+        return handle(request,self.get_object())
+
     @action(detail=True, methods=['get'])
     def nameservers(self, request, pk=None):
         """Get domain nameservers"""
