@@ -23,7 +23,7 @@ from .cloudflare_int01 import CloudflareINT01, FixedCloudflareTransport, Cloudfl
 from audit.models import AuditLog
 from .public_google import PublicGoogleUnavailable, page_speed, verify_gemini
 from .web_risk import WebRiskUnavailable, lookup as web_risk_lookup
-from .resellerclub_sandbox import ResellerClubUnavailable, verify_sandbox
+from .resellerclub_sandbox import ResellerClubUnavailable, verify_sandbox, verify_credentials
 from .hosting_inventory import read_inventory, stage_inventory, ADAPTERS as HOSTING_ADAPTERS
 from .inventory import InventoryError
 
@@ -155,7 +155,7 @@ def verify_connection(request,connection_id):
             web_risk_lookup(secrets["api_key"], "https://example.com/")
             proof = {"lookup_api": "reachable"}
         elif row.adapter_key=="resellerclub":
-            proof=verify_sandbox(row.public_settings["reseller_id"],secrets["api_key"],row.environment)
+            proof=(verify_credentials if row.environment=="live" else verify_sandbox)(row.public_settings["reseller_id"],secrets["api_key"],row.environment)
         elif row.adapter_key=="brevo":
             proof=brevo_readback(secrets["api_key"])
         elif row.adapter_key=="resend":

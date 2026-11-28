@@ -10,7 +10,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Sum, F
+from django.db.models import Count, Sum, F, Q
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
@@ -68,9 +68,8 @@ def business_snapshot(request):
         webhook_verified=True, paid_at__isnull=False,
     )
     refund_receipts = Transaction.objects.filter(
-        currency=currency, status="successful", transaction_type="refund",
-        webhook_verified=True, paid_at__isnull=False,
-    )
+        currency=currency, status="successful", transaction_type="refund", paid_at__isnull=False,
+    ).filter(Q(webhook_verified=True)|Q(metadata__provider_api_verified=True,metadata__provider_refund_id__isnull=False,metadata__original_payment_id__isnull=False))
     current_payments = payment_receipts.filter(paid_at__gte=this_month)
     last_payments = payment_receipts.filter(
         paid_at__gte=last_month, paid_at__lt=this_month)
@@ -126,12 +125,17 @@ def business_snapshot(request):
     paid_current = paid_invoices.filter(paid_at__gte=this_month)
     renewal_paid = paid_invoices.filter(
         metadata__type="renewal", paid_at__gte=this_month)
+    current_refunds=aggregate_amount(refund_receipts.filter(paid_at__gte=this_month))
+    previous_refunds=aggregate_amount(refund_receipts.filter(paid_at__gte=last_month,paid_at__lt=this_month))
+    annual_refunds=aggregate_amount(refund_receipts.filter(paid_at__gte=year_start))
     totals = {
         "this_month": money(aggregate_amount(current_payments)),
         "last_month": money(aggregate_amount(last_payments)),
         "year_to_date": money(aggregate_amount(annual_payments)),
-        "refunded_this_month": money(aggregate_amount(
-            refund_receipts.filter(paid_at__gte=this_month))),
+        "refunded_this_month": money(current_refunds),
+        "net_collections_this_month": money(aggregate_amount(current_payments)-current_refunds),
+        "net_collections_last_month": money(aggregate_amount(last_payments)-previous_refunds),
+        "net_collections_year_to_date": money(aggregate_amount(annual_payments)-annual_refunds),
     }
     return Response({
         "as_of": now.isoformat(),
@@ -142,6 +146,7 @@ def business_snapshot(request):
             "profit_verified": False,
             "provider_cost_evidence": "unavailable",
             "invoice_status_is_settlement": False,
+            "net_collections_basis": "verified gross payment receipts minus verified refund receipts by receipt date, before fees and supplier costs",
             "currency_policy": "one currency at a time; no implicit FX",
         },
         "overview": {

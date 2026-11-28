@@ -205,3 +205,36 @@ class RegistrarLaunchTests(TestCase):
             workflow_proof({"domain_name":domain,"context":{"domain_name":"other.com"},"state":"succeeded","completed":True},domain,path)
         with self.assertRaises(CloudflareINT01Denied):
             workflow_proof({"domain_name":domain,"state":"succeeded","completed":True,"links":{"self":"https://other.example/"}},domain,path)
+
+    def test_abandoned_claim_release_never_releases_any_payment_intent(self):
+        from . import live_registration as live
+        from .reservation_recovery import release
+        from django.core import signing
+        from datetime import timedelta
+        order=Order.objects.create(client=self.owner,status="pending_payment",currency="NGN")
+        item=OrderItem.objects.create(order=order,item_type="domain",product_id=0,plan_id=0,billing_cycle_id=0,
+            description="Abandoned registration",domain_name="abandoned.com",unit_price=Decimal("17000"),cycle_key="1yr",months=12)
+        order.refresh_from_db()
+        contact={"email":self.owner.email}
+        grant={"owner":self.owner.pk,"order":order.pk,"item":item.pk,"domain":item.domain_name,"contact_digest":live.digest(contact)}
+        domain=Domain.objects.create(client=self.owner,domain_name=item.domain_name,tld=".com",order_item=item,
+            registrar="cloudflare-registrar-live",status="pending",is_active=False,registration_date=None,
+            auto_renew=False,registrant_contact=contact,metadata={live.KEY:{"state":"queued","grant":signing.dumps(grant,salt=live.SALT)}})
+        order.metadata={live.KEY:{"domain_id":domain.pk,"item":item.pk}}
+        order.save(update_fields=["metadata"])
+        invoice=Invoice.create_from_order(order)
+        self.assertFalse(release(domain.pk))
+        Domain.objects.filter(pk=domain.pk).update(created_at=timezone.now()-timedelta(hours=25))
+        gateway=PaymentGateway.objects.create(code="paystack",name="Fixture",status="active",test_mode=False)
+        intent=PaymentIntent.objects.create(client=self.owner,invoice=invoice,gateway=gateway,reference="ABANDONED_FIXTURE",
+            status="expired",amount=invoice.total,expires_at=timezone.now()-timedelta(hours=1))
+        self.assertFalse(release(domain.pk))
+        # Only synthetic fixture deletion, to prove the no-intent case.
+        intent.delete()
+        self.assertTrue(release(domain.pk))
+        self.assertFalse(Domain.objects.filter(pk=domain.pk).exists())
+        invoice.refresh_from_db()
+        order.refresh_from_db()
+        self.assertEqual(invoice.status,"void")
+        self.assertEqual(order.status,"cancelled")
+        self.assertTrue(OrderItem.objects.filter(pk=item.pk).exists())
