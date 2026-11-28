@@ -316,6 +316,21 @@ class ResourceAuthorityTests(TestCase):
             self.assertEqual(self.api.get(self.base+"/resources/email/").status_code,409)
             network.assert_not_called()
 
+    def test_autoresponder_inventory_route_owner_and_capability(self):
+        path=self.base+"/resources/autoresponders/"
+        with patch.object(ResourceProtocol,"autoresponders",return_value=["sales@example.test"]) as read:
+            self.assertEqual(self.api.get(path).status_code,409)
+            self.policy["resource_capabilities"].append("autoresponder_read")
+            self.api.force_authenticate(self.other)
+            self.assertEqual(self.api.get(path).status_code,404)
+            read.assert_not_called()
+            self.api.force_authenticate(self.owner)
+            response=self.api.get(path)
+            self.assertEqual(response.status_code,200,response.data)
+            self.assertEqual(response.data["items"],["sales@example.test"])
+            self.assertEqual(response.data["resource"],"autoresponders")
+            read.assert_called_once()
+
     def test_autoresponder_removal_requires_capability_confirmation_and_absence(self):
         path=self.base+"/resource-actions/autoresponder_delete/"
         data={"local":"sales","confirm_target":"sales@example.test","confirm_password":"SyntheticConsolePassword"}

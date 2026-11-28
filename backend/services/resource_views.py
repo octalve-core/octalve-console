@@ -35,7 +35,7 @@ class ResourceInventoryView(APIView):
 
     def get(self,request,service_id,resource):
         _owner(request,service_id)
-        if request.query_params or resource not in ("email","subdomains","databases","credentials","db_users","forwarders"):
+        if request.query_params or resource not in ("email","subdomains","databases","credentials","db_users","forwarders","autoresponders"):
             return Response({"detail":"Unsupported resource request."},status=400,headers=HEADERS)
         try:
             return Response(resources.list_resources(request.user.pk,service_id,resource),headers=HEADERS)
