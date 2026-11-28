@@ -294,6 +294,23 @@ class ProtocolTests(SimpleTestCase):
         with self.assertRaises(ResourceRefused):
             whm_adapter.set_database_grants("checkhost_site","checkhost_app","ALL PRIVILEGES")
 
+    def test_file_inventory_rejects_symlink_root_and_filters_non_owned_items(self):
+        cp=self.adapter("cpanel-whm")
+        root="/home/checkhost/public_html"
+        directory={"type":"dir","fullpath":root,"exists":1,"mode":16877,"uid":1234}
+        files=[{"file":"index.html","type":"file","fullpath":root+"/index.html","exists":1,"mode":33188,"uid":1234,"size":100},
+               {"file":"link","type":"link","fullpath":root+"/link","exists":1,"mode":41471,"uid":1234,"size":3},
+               {"file":"victim","type":"file","fullpath":"/home/other/victim","exists":1,"mode":33188,"uid":999,"size":50}]
+        with patch.object(cp,"_request",side_effect=[whm("Fileman","get_file_information",directory),whm("Fileman","list_files",files),whm("Fileman","get_file_information",directory)]):
+            self.assertEqual(cp.website_files(),[{"name":"index.html","kind":"file","size_bytes":100}])
+        with patch.object(cp,"_request",return_value=whm("Fileman","get_file_information",{**directory,"type":"link","mode":41471})),self.assertRaises(ResourceRefused):
+            cp.website_files()
+        with self.assertRaises(ResourceRefused):
+            cp._check_request("GET","/json-api/uapi_cpanel",{"api.version":"1","cpanel.user":"checkhost","cpanel.module":"Fileman","cpanel.function":"list_files","dir":"/etc","show_hidden":"0"},False)
+        da=self.adapter("directadmin")
+        with self.assertRaises(ResourceRefused):
+            da._check_request("GET","/CMD_API_FILE_MANAGER",{"path":"/domains/other.test/public_html"},False)
+
     def test_database_password_dispatch_is_scoped_and_ack_is_not_proof(self):
         password="SyntheticDatabasePassword!"
         da=self.adapter("directadmin")

@@ -6,6 +6,7 @@ must reserve a mutation and independently read back the resource.
 import base64
 import json
 import re
+import stat
 from django.views.decorators.debug import sensitive_variables
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -205,6 +206,8 @@ class ResourceProtocol:
                          (method == "POST" and set(fields)=={"action","domain","user","passwd","passwd2","quota"} and fields["action"]=="create" and fields["domain"]==self.domain and fields["passwd"]==fields["passwd2"]) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="delete" and set(fields)=={"action","domain","user"}) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="modify" and set(fields) in ({"action","domain","user","quota"},{"action","domain","user","quota","passwd","passwd2"}) and ("passwd" not in fields or fields["passwd"]==fields["passwd2"])))
+            elif path=="/CMD_API_FILE_MANAGER":
+                valid=method=="GET" and fields in ({"path":"/"},{"path":"/domains"},{"path":"/domains/"+self.domain},{"path":"/domains/"+self.domain+"/public_html"})
             elif path=="/CMD_API_EMAIL_AUTORESPONDER":
                 valid=method=="GET" and fields=={"domain":self.domain}
                 if method=="POST" and set(fields)=={"action","domain","select0"} and fields["action"]=="delete" and fields["domain"]==self.domain:
@@ -287,6 +290,8 @@ class ResourceProtocol:
                 op=(method,fields.get("cpanel.module"),fields.get("cpanel.function"))
                 allowed={("GET","Email","list_pops_with_disk"):{"domain","no_validate"},
                          ("GET","DomainInfo","list_domains"):set(),
+                         ("GET","Fileman","get_file_information"):{"path"},
+                         ("GET","Fileman","list_files"):{"dir","show_hidden"},
                          ("GET","Email","list_auto_responders"):{"domain"},
                          ("POST","Email","delete_auto_responder"):{"email"},
                          ("GET","Email","get_auto_responder"):{"email","temp_charset"},
@@ -311,6 +316,10 @@ class ResourceProtocol:
                          ("POST","Email","verify_password"):{"email","password"},
                          ("GET","StatsBar","get_stats"):{"display"}}
                 valid=op in allowed and set(fields)==common|allowed[op]
+                if valid and op==("GET","Fileman","get_file_information"):
+                    valid=fields["path"]=="/home/"+self.account+"/public_html"
+                if valid and op==("GET","Fileman","list_files"):
+                    valid=fields["dir"]=="/home/"+self.account+"/public_html" and fields["show_hidden"]=="0"
                 if valid and op in (("POST","Email","add_forwarder"),("POST","Email","delete_forwarder")):
                     address=fields.get("email",fields.get("address"))
                     destination=fields.get("fwdemail",fields.get("forwarder"))
@@ -1055,3 +1064,97 @@ class ResourceProtocol:
                 or str(data.get("smtp_port"))!="465"):
             raise ResourceRefused("Secure mail configuration unavailable.")
         return {"address":address,"imap_host":host,"imap_port":993,"smtp_host":host,"smtp_port":465,"transport":"implicit_tls","source":"supplier_configuration"}
+
+    def _da_file_rows(self,path):
+        response=self._request("GET","/CMD_API_FILE_MANAGER",{"path":path})
+        fields=_form(response)
+        entries={}
+        for key,values in fields.items():
+            if key=="error" and values==["0"]:
+                continue
+            if len(values)!=1 or len(entries)>=1000:
+                raise ResourceRefused("Invalid file inventory.")
+            try:
+                row=parse_qs(values[0],keep_blank_values=True,strict_parsing=True,max_num_fields=24)
+                if any(len(v)!=1 for v in row.values()):
+                    raise ValueError()
+                row={k:v[0] for k,v in row.items()}
+            except (TypeError,ValueError):
+                raise ResourceRefused("Invalid file inventory.") from None
+            name=row.get("path")
+            expected=path.rstrip("/")+"/"+str(name)
+            if (not isinstance(name,str) or not name or "/" in name or "\\" in name or name in (".","..")
+                    or key!=expected or name in entries):
+                raise ResourceRefused("Unexpected file path.")
+            entries[name]=row
+        return entries
+
+    def _da_safe_entry(self,row,path,kind):
+        return (isinstance(row,dict) and row.get("type")==kind and row.get("uid")==self.account
+                and row.get("truepath")=="/home/"+self.account+path
+                and row.get("linkpath")=="" and row.get("islink","0")=="0")
+
+    def _cp_safe_entry(self,row,path,kind,uid=None):
+        if (not isinstance(row,dict) or row.get("fullpath")!=path or row.get("type")!=kind
+                or str(row.get("exists"))!="1" or str(row.get("isparent",0))!="0"):
+            return False
+        try:
+            mode=int(row["mode"])
+            owner=int(row["uid"])
+        except (ValueError,TypeError,KeyError):
+            return False
+        return owner>0 and (uid is None or owner==uid) and (stat.S_ISDIR(mode) if kind=="dir" else stat.S_ISREG(mode))
+
+    def website_files(self):
+        """Bounded top-level metadata, no contents, traversal or file mutations.
+
+        Never forward a customer-selected server path. Unusual layouts and
+        symlinked roots are unsupported until the server contract is qualified.
+        """
+        result=[]
+        if self.adapter=="directadmin":
+            path=""
+            for segment in ("domains",self.domain,"public_html"):
+                entries=self._da_file_rows(path or "/")
+                path+="/"+segment
+                if not self._da_safe_entry(entries.get(segment),path,"dir"):
+                    raise ResourceRefused("Website directory could not be isolated.")
+            rows=self._da_file_rows(path)
+            for name,row in rows.items():
+                if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._ -]{0,127}",name) or ".." in name:
+                    continue
+                kind=row.get("type")
+                if kind not in ("file","dir") or not self._da_safe_entry(row,path+"/"+name,kind):
+                    continue
+                result.append({"name":name,"kind":"directory" if kind=="dir" else "file","size_bytes":_count(row.get("size"))})
+            if not self._da_safe_entry(self._da_file_rows("/domains/"+self.domain).get("public_html"),path,"dir"):
+                raise ResourceRefused("Website directory changed.")
+        else:
+            path="/home/"+self.account+"/public_html"
+            root=self._whm("GET","Fileman","get_file_information",{"path":path})
+            if not self._cp_safe_entry(root,path,"dir"):
+                raise ResourceRefused("Website directory could not be isolated.")
+            uid=int(root["uid"])
+            data=self._whm("GET","Fileman","list_files",{"dir":path,"show_hidden":"0"})
+            if isinstance(data,dict) and isinstance(data.get("files"),list) and isinstance(data.get("dirs"),list):
+                rows=data["files"]+data["dirs"]
+            elif isinstance(data,list):
+                rows=data
+            else:
+                raise ResourceRefused("Invalid file inventory.")
+            if len(rows)>1000 or any(not isinstance(x,dict) for x in rows):
+                raise ResourceRefused("Invalid file inventory.")
+            for row in rows:
+                name=row.get("file")
+                if not isinstance(name,str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._ -]{0,127}",name) or ".." in name:
+                    continue
+                kind=row.get("type")
+                if kind not in ("file","dir") or not self._cp_safe_entry(row,path+"/"+name,kind,uid):
+                    continue
+                result.append({"name":name,"kind":"directory" if kind=="dir" else "file","size_bytes":_count(row.get("size"))})
+            final=self._whm("GET","Fileman","get_file_information",{"path":path})
+            if not self._cp_safe_entry(final,path,"dir",uid):
+                raise ResourceRefused("Website directory changed.")
+        if len({x["name"] for x in result})!=len(result):
+            raise ResourceRefused("Ambiguous file inventory.")
+        return sorted(result,key=lambda x:(x["kind"]!="directory",x["name"]))

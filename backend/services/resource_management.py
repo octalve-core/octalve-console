@@ -110,14 +110,14 @@ def _budget(subject, *, write=False):
 
 
 def list_resources(subject,service_id,resource):
-    operation={"email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read","credentials":"hosting_password","db_users":"database_user_read","forwarders":"forwarder_read","autoresponders":"autoresponder_read"}.get(resource)
+    operation={"files":"file_root_read","email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read","credentials":"hosting_password","db_users":"database_user_read","forwarders":"forwarder_read","autoresponders":"autoresponder_read"}.get(resource)
     if not operation:
         raise ResourceRefused("Resource unavailable.")
     _budget(subject)
     a=authority(subject,service_id,operation)
     verify_existing_account(a.service,a.provider)
     a=_current(a,operation)
-    rows={"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[],"db_users":a.protocol.all_database_users,"forwarders":a.protocol.forwarders,"autoresponders":a.protocol.autoresponders}[resource]()
+    rows={"files":a.protocol.website_files,"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[],"db_users":a.protocol.all_database_users,"forwarders":a.protocol.forwarders,"autoresponders":a.protocol.autoresponders}[resource]()
     owned_databases=a.protocol.databases() if resource=="db_users" else None
     owned_mailboxes=[x["address"] for x in a.protocol.mailboxes()] if resource in ("forwarders","autoresponders") else None
     fresh=_current(a,operation)

@@ -30,7 +30,7 @@ const tools=[
   {key:"email",label:"Email accounts",icon:Mail,native:"email"},
   {key:"forwarders",label:"Forwarders",icon:Forward,native:"forwarders"},
   {key:"autoresponders",label:"Autoresponders",icon:ReplyAll,native:"autoresponders"},
-  {key:"files",label:"File manager",icon:FolderOpen},
+  {key:"files",label:"File manager",icon:FolderOpen,native:"files"},
   {key:"backups",label:"Backups",icon:Archive},
   {key:"subdomains",label:"Subdomains",icon:Network,native:"subdomains"},
   {key:"domains",label:"Addon domains",icon:Globe2},

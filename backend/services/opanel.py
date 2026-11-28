@@ -48,7 +48,7 @@ def opanel_overview(service):
         "forwarder_delete": "forwarder_delete" in resource_caps,
         "credentials": "hosting_password" in resource_caps,
         "hosting_password": "hosting_password" in resource_caps,
-        "files": False,
+        "files": "file_root_read" in resource_caps,
         "subdomains": "subdomain_read" in resource_caps,
         "dns": False,
         "databases": "database_read" in resource_caps,
