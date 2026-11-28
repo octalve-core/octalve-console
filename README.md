@@ -1,4 +1,12 @@
-> **CURRENT EXECUTION INDEX — 26 OCTOBER 2026 (Review only).** The authoritative implementation and Production plan is [Cloud Master Execution](docs/CLOUD_MASTER_EXECUTION_PLAN_2026-10-26.md), with [Acceptance Matrix](docs/CLOUD_MASTER_ACCEPTANCE_MATRIX_2026-10-26.md) and [Protected Release Runbook](docs/CLOUD_PRODUCTION_RELEASE_RUNBOOK_2026-10-26.md). Console [PR #13](https://github.com/octalve-core/octalve-console/pull/13) and [PR #14](https://github.com/octalve-core/octalve-console/pull/14) remain **draft and unmerged**; independent OPanel [PR #1](https://github.com/octalve-core/octalve-opanel/pull/1) is also draft. Existing financial/provisioning actions are default disabled, external hosting/domain/WordPress operations are **NOT live-qualified**, and automated CI does **not** constitute Production acceptance. Prior Production DB counts (including older 48/91 and later reported 49/92) are historical snapshots, **not** a current verified migration ledger. The original MVP/readme material below is historical and should not be used as an authentication, payment, migration, or Production execution guide.
+# Octalve Cloud — Current execution priority
+
+> **P0 — HOST-FINAL, approved 28 November 2026.** The authoritative hosting task order and completion scope are in [Final two-batch execution authority](docs/hosting-final/README.md). Execute [HOST-FINAL-01](docs/hosting-final/BATCH-01-EXECUTION.md) first; HOST-FINAL-02 follows only after qualified merge and both production deployments. The approved work covers actual customer hosting mailboxes, authoritative DNS, subdomains, databases, files, secure access and usage, followed by payment, renewal, transactional delivery and service lifecycle. Existing vault, tenant, financial and protected release gates remain mandatory. The latest audited baseline is `942bfaf3`; consult current main and live deployment evidence for current status. Draft PR #180 is reserved for Batch 2. No real provider is yet accepted. See [branch retirement evidence](docs/hosting-final/branch-cleanup-2026-11-28.json).
+
+Production endpoints: [Console](https://console.cloud.octalve.com) · [API](https://api.cloud.octalve.com). See the [protected release runbook](docs/CLOUD_PRODUCTION_RELEASE_RUNBOOK_2026-10-26.md) and [acceptance matrix](docs/CLOUD_MASTER_ACCEPTANCE_MATRIX_2026-10-26.md) for continuing safeguards.
+
+---
+
+## Historical MVP material (not a current deployment or authentication guide)
 
 # Octalve Console — Premium MVP Package
 
