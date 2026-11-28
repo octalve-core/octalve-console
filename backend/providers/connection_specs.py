@@ -132,23 +132,33 @@ READBACK_ADAPTERS = frozenset({"directadmin", "cpanel-whm", "resellerclub", "clo
 
 
 def public_catalog():
-    return [{"key":key,"name":spec["name"],"fields":spec["fields"],
+    from django.conf import settings
+    return [{"key":key,"name":spec["name"],"fields":{**spec["fields"], **({"server_ip":"public_ip"} if key in ("directadmin","cpanel-whm") and getattr(settings,"CLOUD_HOSTING_CONFIGURED_EGRESS_ENABLED",False) else {})},
              "secret_fields":list(spec["secrets"]),"guide":spec["guide"],
              "enabled_for_execution":False, "supports_verification":key in READBACK_ADAPTERS}
             for key,spec in SCHEMAS.items()]
 
 def validate_public_settings(adapter, data):
     schema = SCHEMAS.get(adapter)
-    if not schema or not isinstance(data,dict) or set(data) != set(schema["fields"]):
+    from django.conf import settings
+    fields = dict(schema["fields"]) if schema else {}
+    configured = (adapter in ("directadmin","cpanel-whm") and isinstance(data,dict)
+                  and "server_ip" in data and getattr(settings,"CLOUD_HOSTING_CONFIGURED_EGRESS_ENABLED",False))
+    if configured:
+        fields["server_ip"]="public_ip"
+    if not schema or not isinstance(data,dict) or set(data) != set(fields):
         raise ValidationError({"public_settings":"Use exactly the approved fields for this adapter."})
     result = {}
-    for field,kind in schema["fields"].items():
+    for field,kind in fields.items():
         v=data[field]
         if not isinstance(v,str) or not (1 <= len(v.strip()) <= 220) or v != v.strip():
             raise ValidationError({"public_settings":"One or more required fields are invalid."})
         if kind=="url":
-            parts=urlsplit(v)
-            if parts.scheme!="https" or not parts.hostname or parts.username or parts.password or parts.path not in ("","/") or parts.query or parts.fragment:
+            try:
+                parts=urlsplit(v)
+            except ValueError:
+                raise ValidationError({"public_settings":"A valid HTTPS panel origin is required."}) from None
+            if any(ord(ch)<33 for ch in v) or parts.scheme!="https" or not parts.hostname or parts.username or parts.password or parts.path not in ("","/") or parts.query or parts.fragment:
                 raise ValidationError({"public_settings":"A clean HTTPS panel origin is required."})
             hostname=parts.hostname.lower().rstrip(".")
             try:
@@ -156,16 +166,22 @@ def validate_public_settings(adapter, data):
                 raise ValidationError({"public_settings":"Raw IP addresses are not accepted."})
             except ValueError:
                 pass
-            if not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?",hostname) or ".." in hostname:
+            if not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?",hostname) or ".." in hostname or (configured and ("." not in hostname or hostname.endswith(".local"))):
                 raise ValidationError({"public_settings":"Invalid panel hostname."})
             try:
                 port=parts.port or 443
             except ValueError:
                 raise ValidationError({"public_settings":"Invalid panel port."})
             allowed={s.strip().lower().rstrip(".") for s in os.getenv("CLOUD_CONNECTION_ALLOWED_HOSTS","").split(",") if s.strip()}
-            if hostname not in allowed or port not in schema["ports"]:
+            if (not configured and hostname not in allowed) or port not in schema["ports"]:
                 raise ValidationError({"public_settings":"Panel host and port must be approved by infrastructure policy."})
             v=f"https://{hostname}:{port}"
+        elif kind=="public_ip":
+            from .pinned_egress import public_ip
+            try:
+                v=public_ip(v)
+            except ValueError:
+                raise ValidationError({"public_settings":"Enter the server’s fixed, globally routable IP address."}) from None
         elif kind=="domain":
             v=v.lower()
             if not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+",v):

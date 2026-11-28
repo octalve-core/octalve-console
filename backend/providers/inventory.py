@@ -87,13 +87,13 @@ def normalize_whm_packages(payload):
     return offers
 
 
-def _endpoint(provider):
+def _endpoint(provider, *, bound_origin=None):
     """Only HTTPS endpoints whose *exact hostname* is explicitly approved."""
     parsed = urlsplit(provider.base_url)
     host = (parsed.hostname or "").lower().rstrip(".")
     allowed = {v.strip().lower().rstrip(".") for v in os.environ.get(
         "CLOUD_INVENTORY_ALLOWED_HOSTS", "").split(",") if v.strip()}
-    if not host or host not in allowed or parsed.scheme != "https" or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ("", "/"):
+    if not host or (bound_origin is None and host not in allowed) or parsed.scheme != "https" or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ("", "/"):
         raise InventoryError("Provider API origin must be HTTPS and explicitly allowlisted.")
     if provider.adapter_type == "DirectAdminAdapter" and parsed.port not in (2222, 443):
         raise InventoryError("DirectAdmin inventory requires HTTPS port 2222 or 443.")
@@ -101,12 +101,18 @@ def _endpoint(provider):
         raise InventoryError("WHM inventory requires HTTPS port 2087 or 443.")
     if provider.adapter_type not in SUPPORTED:
         raise InventoryError("No audited inventory adapter for this provider type.")
-    return provider.base_url.rstrip("/")
+    origin=provider.base_url.rstrip("/")
+    if bound_origin is not None and bound_origin[0]!=origin:
+        raise InventoryError("Supplier binding does not match its HTTPS origin.")
+    return origin
 
 
-def fetch_inventory(provider, *, getter=None, max_packages=100, total_timeout=None):
+def fetch_inventory(provider, *, getter=None, max_packages=100, total_timeout=None, bound_origin=None):
     """Fetch inventory only; never mutate provider or Django records here."""
-    origin = _endpoint(provider)
+    origin = _endpoint(provider,bound_origin=bound_origin)
+    if getter is None and bound_origin is not None:
+        from functools import partial
+        getter=partial(pinned_get,bound_origin=bound_origin)
     getter = getter or pinned_get
     deadline = monotonic() + total_timeout if total_timeout is not None else None
     key = provider.get_api_key()

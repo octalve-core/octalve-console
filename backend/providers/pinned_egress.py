@@ -23,7 +23,21 @@ class SupplierReadResponse:
     def json(self):
         return json.loads(self.content.decode("utf-8"))
 
-def approved_origin(url):
+def public_ip(value):
+    """Disallow non-public, transition and special-purpose addresses."""
+    if not isinstance(value,str):
+        raise ValueError("Invalid supplier address")
+    ip=ipaddress.ip_address(value)
+    if (not ip.is_global or ip.is_multicast or ip.is_link_local or ip.is_loopback
+            or ip.is_private or ip.is_reserved or ip.is_unspecified
+            or getattr(ip,"ipv4_mapped",None) or getattr(ip,"sixtofour",None)
+            or getattr(ip,"teredo",None) or getattr(ip,"scope_id",None)
+            or (ip.version==6 and ip not in ipaddress.ip_network("2000::/3"))):
+        raise ValueError("Non-public supplier address")
+    return str(ip)
+
+
+def approved_origin(url, *, bound_origin=None):
     if not getattr(settings,"CLOUD_SUPPLIER_PINNED_READBACK_ENABLED",False):
         raise SupplierEgressDenied()
     if not isinstance(url,str) or len(url)>500 or any(ord(c)<33 for c in url):
@@ -43,6 +57,15 @@ def approved_origin(url):
     try: port=parts.port or 443
     except ValueError: raise SupplierEgressDenied()
     if port not in (443,2087,2222): raise SupplierEgressDenied()
+    if bound_origin is not None:
+        if (not getattr(settings,"CLOUD_HOSTING_CONFIGURED_EGRESS_ENABLED",False)
+                or not isinstance(bound_origin,tuple) or len(bound_origin)!=2
+                or bound_origin[0]!=f"https://{host}:{port}"):
+            raise SupplierEgressDenied()
+        try:
+            return host,port,public_ip(bound_origin[1]),parts.path
+        except (ValueError,TypeError):
+            raise SupplierEgressDenied() from None
     allowed={s.strip().lower().rstrip(".") for s in os.getenv("CLOUD_INVENTORY_ALLOWED_HOSTS","").split(",") if s.strip()}
     if host not in allowed: raise SupplierEgressDenied()
     try: pins=json.loads(getattr(settings,"CLOUD_SUPPLIER_PINNED_IPS_JSON","") or "{}")
@@ -99,9 +122,9 @@ def validate_readback_contract(path,port,params,headers):
     raise SupplierEgressDenied()
 
 
-def pinned_get(url,*,params,headers,timeout,allow_redirects,verify):
+def pinned_get(url,*,params,headers,timeout,allow_redirects,verify,bound_origin=None):
     if allow_redirects is not False or verify is not True: raise SupplierEgressDenied()
-    host,port,ip,path=approved_origin(url)
+    host,port,ip,path=approved_origin(url,bound_origin=bound_origin)
     if not isinstance(params,dict) or len(params)>10 or not isinstance(headers,dict) or not isinstance(timeout,(float,int)) or not 0<timeout<=15:
         raise SupplierEgressDenied()
     validate_readback_contract(path,port,params,headers)

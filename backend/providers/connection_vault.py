@@ -55,14 +55,26 @@ def vault():
     identifier,keys=keyring()
     return keys[identifier]
 
-def encode_bound(adapter,connection_id,version,secrets):
+def hosting_destination(adapter,public_settings,environment):
+    if adapter not in ("directadmin","cpanel-whm") or not isinstance(public_settings,dict) or "server_ip" not in public_settings:
+        return None
+    if environment not in ("test","live") or set(public_settings)!={"server_url","username","server_ip"}:
+        raise VaultUnavailable()
+    return {"environment":environment,"settings":public_settings}
+
+
+def encode_bound(adapter,connection_id,version,secrets,*,public_settings=None,environment=None):
     if not isinstance(secrets,dict):
         raise VaultUnavailable()
-    return json.dumps({"adapter":adapter,"connection_id":str(connection_id),
-                       "version":version,"secrets":secrets},separators=(",",":"),sort_keys=True).encode()
+    payload={"adapter":adapter,"connection_id":str(connection_id),"version":version,"secrets":secrets}
+    destination=hosting_destination(adapter,public_settings,environment)
+    if destination is not None:
+        payload["hosting_destination"]=destination
+    return json.dumps(payload,separators=(",",":"),sort_keys=True).encode()
 
-def seal(adapter,connection_id,version,secrets):
-    return vault().encrypt(encode_bound(adapter,connection_id,version,secrets)).decode()
+def seal(adapter,connection_id,version,secrets,*,public_settings=None,environment=None):
+    return vault().encrypt(encode_bound(adapter,connection_id,version,secrets,
+        public_settings=public_settings,environment=environment)).decode()
 
 def unseal_version(record):
     """Internal recovery only; never call from a customer/admin API view."""
@@ -74,6 +86,12 @@ def unseal_version(record):
         if (payload.get("adapter")!=record.connection.adapter_key or
             payload.get("connection_id")!=str(record.connection_id) or
             payload.get("version")!=record.version or not isinstance(payload.get("secrets"),dict)):
+            raise VaultUnavailable()
+        # The new MFA-approved network destination is authenticated with the
+        # credential. A database-only edit must never redirect a secret.
+        destination=hosting_destination(record.connection.adapter_key,
+            record.connection.public_settings,record.connection.environment)
+        if payload.get("hosting_destination")!=destination:
             raise VaultUnavailable()
         return payload["secrets"]
     except (InvalidToken,ValueError,TypeError,UnicodeError,KeyError) as exc:
@@ -100,7 +118,8 @@ def rewrap_versions(*,apply=False):
     for row in rows:
         secrets=unseal_version(row)
         if row.key_id!=active_id:
-            prepared.append((row,seal(row.connection.adapter_key,row.connection_id,row.version,secrets)))
+            prepared.append((row,seal(row.connection.adapter_key,row.connection_id,row.version,secrets,
+                public_settings=row.connection.public_settings,environment=row.connection.environment)))
     if apply:
         if not getattr(settings,"CLOUD_PROVIDER_VAULT_REWRAP_ENABLED",False):
             raise VaultUnavailable()

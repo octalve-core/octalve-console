@@ -79,6 +79,7 @@ def build_isolated_snapshot():
         for version in versions: unseal_version(version)
         record={"id":str(conn.pk),"adapter":conn.adapter_key,
             "state":conn.state,"current":conn.current_version,
+            "public_settings":conn.public_settings,"environment":conn.environment,
             "head":conn.audit_head,"sequence":conn.audit_sequence,
             "versions":[{"number":v.version,"key":v.key_id,"cipher":v.ciphertext,
                          "revoked":bool(v.revoked_at)} for v in versions],
@@ -87,7 +88,7 @@ def build_isolated_snapshot():
                        "prev":e.previous_mac,"mac":e.event_mac} for e in events]}
         check_lifecycle(record)
         out.append(record)
-    data=json.dumps({"format":"octalve-vault-recovery-v1","connections":out},
+    data=json.dumps({"format":"octalve-vault-recovery-v2","connections":out},
                     sort_keys=True,separators=(",",":")).encode()
     if len(data)>MAX_BYTES//2: raise VaultUnavailable()
     return crypt.encrypt(data)
@@ -100,7 +101,7 @@ def verify_isolated_snapshot(blob):
         if len(raw)>MAX_BYTES//2: raise VaultUnavailable()
         data=json.loads(raw)
     except (InvalidToken,ValueError,UnicodeError,TypeError) as exc: raise VaultUnavailable() from exc
-    if not isinstance(data,dict) or set(data)!={"format","connections"} or data["format"]!="octalve-vault-recovery-v1" or not isinstance(data["connections"],list) or len(data["connections"])>250:
+    if not isinstance(data,dict) or set(data)!={"format","connections"} or data["format"] not in ("octalve-vault-recovery-v1","octalve-vault-recovery-v2") or not isinstance(data["connections"],list) or len(data["connections"])>250:
         raise VaultUnavailable()
     try:
         with sqlite3.connect(":memory:") as scratch:
@@ -110,7 +111,12 @@ def verify_isolated_snapshot(blob):
             counts={"connections":0,"versions":0,"events":0}
             _,audit_keys=audit_keyring()
             for row in data["connections"]:
-                if not isinstance(row,dict) or set(row)!={"id","adapter","state","current","head","sequence","versions","events"}:
+                expected={"id","adapter","state","current","head","sequence","versions","events"}
+                if data["format"]=="octalve-vault-recovery-v2":
+                    expected|={"public_settings","environment"}
+                if not isinstance(row,dict) or set(row)!=expected:
+                    raise VaultUnavailable()
+                if data["format"]=="octalve-vault-recovery-v2" and (not isinstance(row["public_settings"],dict) or row["environment"] not in ("test","live")):
                     raise VaultUnavailable()
                 uuid.UUID(row["id"])
                 if row["state"] not in ("draft","revoked") or not isinstance(row["adapter"],str):
@@ -123,7 +129,8 @@ def verify_isolated_snapshot(blob):
                 for version in row["versions"]:
                     if set(version)!={"number","key","cipher","revoked"}: raise VaultUnavailable()
                     scratch.execute("INSERT INTO versions VALUES(?,?)",(row["id"],version["number"]))
-                    stub=SimpleNamespace(connection=SimpleNamespace(adapter_key=row["adapter"]),
+                    stub=SimpleNamespace(connection=SimpleNamespace(adapter_key=row["adapter"],
+                        public_settings=row.get("public_settings",{}),environment=row.get("environment")),
                         connection_id=uuid.UUID(row["id"]),version=version["number"],
                         ciphertext=version["cipher"],key_id=version["key"])
                     unseal_version(stub)

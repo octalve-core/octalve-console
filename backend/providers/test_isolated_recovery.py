@@ -130,3 +130,31 @@ class IsolatedRecoveryTests(TestCase):
         with override_settings(CLOUD_PROVIDER_RECOVERY_KEY=VAULT_KEY):
             with self.assertRaises(VaultUnavailable):
                 build_isolated_snapshot()
+
+
+    def test_configured_hosting_destination_survives_recovery_and_rejects_tampering(self):
+        public={"server_url":"https://panel.example.invalid:2087","username":"reseller","server_ip":"8.8.8.8"}
+        with transaction.atomic():
+            row=IntegrationConnection.objects.create(adapter_key="cpanel-whm",
+                label="Pinned hosting fixture",environment="test",public_settings=public)
+            IntegrationCredentialVersion.objects.create(connection=row,version=1,key_id="v1",
+                ciphertext=seal(row.adapter_key,row.pk,1,{"api_token":SYNTHETIC},
+                    public_settings=public,environment="test"))
+            append_event(row,self.actor,"draft_created",1)
+        blob=build_isolated_snapshot()
+        self.assertEqual(verify_isolated_snapshot(blob)["connections"],2)
+        crypt=Fernet(BACKUP_KEY.encode())
+        body=json.loads(crypt.decrypt(blob))
+        subject=next(x for x in body["connections"] if x["id"]==str(row.pk))
+        subject["public_settings"]["server_ip"]="1.1.1.1"
+        with self.assertRaises(VaultUnavailable):
+            verify_isolated_snapshot(crypt.encrypt(json.dumps(body).encode()))
+
+    def test_legacy_snapshot_still_valid_for_unbound_connections(self):
+        crypt=Fernet(BACKUP_KEY.encode())
+        body=json.loads(crypt.decrypt(build_isolated_snapshot()))
+        body["format"]="octalve-vault-recovery-v1"
+        for row in body["connections"]:
+            del row["public_settings"]
+            del row["environment"]
+        self.assertEqual(verify_isolated_snapshot(crypt.encrypt(json.dumps(body).encode()))["connections"],1)
