@@ -13,7 +13,7 @@ import urllib3
 from django.conf import settings
 from providers.pinned_egress import approved_origin, SupplierEgressDenied, SupplierReadResponse
 from provisioning.account_creation_plan import AccountCreationPlan, CreationPlanRefused
-from provisioning.vendor_create_contract import compile_account_create, NAME
+from provisioning.vendor_create_contract import compile_account_create
 
 class VendorProtocolRefused(ValueError):
     pass
@@ -22,7 +22,10 @@ class VendorProtocolRefused(ValueError):
 def _fields(text):
     if not isinstance(text,str) or not text or len(text)>100000:
         raise VendorProtocolRefused("Invalid supplier response.")
-    data=parse_qs(text,keep_blank_values=True,max_num_fields=500)
+    try:
+        data=parse_qs(text,keep_blank_values=True,max_num_fields=500)
+    except ValueError:
+        raise VendorProtocolRefused("Invalid supplier response.") from None
     if any(len(values)!=1 for values in data.values()):
         raise VendorProtocolRefused("Ambiguous supplier response.")
     return {k:v[0] for k,v in data.items()}
@@ -107,16 +110,17 @@ def verify_create_response(plan,response):
 
 class PinnedHostingProtocol:
     """Exact plan-bound protocol. Transport is private, fixed and non-retrying."""
-    def __init__(self,plan,origin,username,token):
+    def __init__(self,plan,origin,username,token,*,bound_origin=None):
         _assert_plan(plan)
         if (not isinstance(username,str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_.-]{1,79}",username)
                 or not isinstance(token,str) or not 12<=len(token)<=4096
                 or any(ord(ch)<33 or ord(ch)>126 for ch in token)):
             raise VendorProtocolRefused("Invalid supplier credentials.")
-        if username=="root":
+        if username.lower() in ("root","admin"):
             raise VendorProtocolRefused("Use an independently qualified restricted supplier account.")
         self.plan=plan
         self._origin=origin.rstrip("/")
+        self._bound_origin=bound_origin
         self._auth=("Basic "+base64.b64encode((username+":"+token).encode()).decode()
                     if plan.adapter_type=="DirectAdminAdapter" else "whm "+username+":"+token)
         self._da=plan.adapter_type=="DirectAdminAdapter"
@@ -124,7 +128,7 @@ class PinnedHostingProtocol:
     def _request(self,method,path,fields):
         # Never use the generic requests client, URL redirects, DNS resolution,
         # retries, proxies, or a request path provided by a browser.
-        host,port,ip,checked_path=approved_origin(self._origin+path)
+        host,port,ip,checked_path=approved_origin(self._origin+path,bound_origin=self._bound_origin)
         if checked_path!=path or port not in ((2222,443) if self._da else (2087,443)):
             raise SupplierEgressDenied()
         pool=urllib3.HTTPSConnectionPool(host=ip,port=port,server_hostname=host,
@@ -167,7 +171,7 @@ class PinnedHostingProtocol:
     def create(self,*,dispatch_authorized=False,shared_ip=None):
         # This transport alone cannot establish authorization. The production
         # dispatcher must independently qualify and reserve this exact plan.
-        if not dispatch_authorized or not getattr(settings,"CLOUD_HOSTING_VENDOR_CREATE_ENABLED",False):
+        if dispatch_authorized is not True or not getattr(settings,"CLOUD_HOSTING_VENDOR_CREATE_ENABLED",False):
             raise VendorProtocolRefused("Supplier account creation is disabled.")
         spec=compile_account_create(self.plan)
         if self._da:
