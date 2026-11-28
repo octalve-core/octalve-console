@@ -144,6 +144,8 @@ class OrderViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
                     'status': previous.status, 'amount_due': str(previous.amount_due),
                 }
             return Response(data, status=status.HTTP_200_OK)
+        from .serializers import require_hosting_domains
+        require_hosting_domains(validated_data['items'])
         coupon = serializer.context.get('coupon')
         
         # Calculate totals
