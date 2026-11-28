@@ -5,6 +5,8 @@ identity store. Only redacted operation identity is persisted. An uncertain
 supplier write blocks further mutations until an independent reconciliation.
 """
 import uuid
+from datetime import timedelta
+from django.utils.dateparse import parse_datetime
 from dataclasses import dataclass
 from django.conf import settings
 from django.db import DatabaseError, transaction
@@ -157,6 +159,7 @@ def create_mailbox(subject,service_id,*,local,password,quota):
     verify_existing_account(a.service,a.provider)
     a=_current(a,"mailbox_create")
     address=local+"@"+a.service.domain_name
+    previous_fence=a.service.metadata.get(FENCE)
     current_rows=a.protocol.mailboxes()
     if any(x["address"]==address for x in current_rows):
         raise ResourceRefused("Mailbox already exists.")
@@ -168,6 +171,8 @@ def create_mailbox(subject,service_id,*,local,password,quota):
     with transaction.atomic():
         service,a=_lock(a,"mailbox_create")
         prior=service.metadata.get(FENCE)
+        if prior!=previous_fence:
+            raise ResourceRefused("Hosting resource state changed. Refresh before retrying.")
         if prior and prior.get("state")!="confirmed":
             # No blind retry, even for a different local name, while a
             # potentially dispatched write remains uncertain.
@@ -200,6 +205,9 @@ def reconcile_mailbox(subject,service_id):
     if (pending.get("state")!="dispatched_uncertain" or pending.get("operation")!="mailbox_create"
             or pending.get("binding")!=a.digest):
         raise ResourceRefused("No eligible pending mailbox operation.")
+    created=parse_datetime(pending.get("created_at",""))
+    if not created or timezone.is_naive(created) or timezone.now()-created<timedelta(minutes=2):
+        return {"state":"pending_verification","operation_id":pending["id"]}
     verify_existing_account(a.service,a.provider)
     a=_current(a,"mailbox_create")
     rows=a.protocol.mailboxes()
