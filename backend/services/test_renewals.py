@@ -253,3 +253,35 @@ class CommercialSchedulerTests(TestCase):
             wake("mail")
             wake("invalid")
         self.assertEqual(len(callbacks),1)
+
+    @override_settings(CLOUD_COMMERCIAL_SCHEDULER_ENABLED=True)
+    def test_usage_lane_and_legacy_cron_do_not_duplicate(self):
+        from services.commercial_scheduler import run_lane,INTERVALS
+        from rest_framework.test import APIClient
+        with patch("services.usage_sync.run_due_usage",return_value={"enabled":True,"recorded":2}) as run:
+            self.assertEqual(run_lane("usage")["recorded"],2)
+            run.assert_called_once_with(2)
+            with patch.dict("os.environ",{"CRON_SECRET":"synthetic-scheduler-credential-only-123456"}):
+                response=APIClient().get("/api/provisioning/hosting-usage/cron/",HTTP_AUTHORIZATION="Bearer synthetic-scheduler-credential-only-123456")
+            self.assertEqual(response.json()["state"],"commercial_scheduler")
+            run.assert_called_once_with(2)
+        self.assertEqual(INTERVALS["usage"],1800)
+
+    @override_settings(CLOUD_COMMERCIAL_SCHEDULER_ENABLED=True)
+    def test_disabled_lane_not_reported_healthy_and_invalid_lease_holds(self):
+        import json
+        from django.db import connection
+        from settings_registry.models import Setting
+        from services.commercial_scheduler import claim,finish,status,PREFIX
+        if connection.vendor!="postgresql":
+            self.skipTest("Production lease uses PostgreSQL.")
+        token=claim("usage")
+        finish("usage",token,{"enabled":False,"recorded":0})
+        self.assertFalse(next(x for x in status() if x["lane"]=="usage")["healthy"])
+        token=claim("usage")
+        row=Setting.objects.get(key=PREFIX+"usage",group__key="cron")
+        state=json.loads(row.value)
+        state["lease_until"]={"invalid":True}
+        row.value=json.dumps(state)
+        row.save(update_fields=["value"])
+        self.assertIsNone(claim("usage"))

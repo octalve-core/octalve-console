@@ -33,5 +33,8 @@ class HostingUsageCronView(APIView):
         header=request.headers.get("Authorization","")
         if len(key)<32 or not secrets.compare_digest(header.encode(),("Bearer "+key).encode()):
             return Response({"detail":"Unauthorized."},status=401)
+        from services.commercial_scheduler import enabled as commercial_enabled
+        if commercial_enabled():
+            return Response({"enabled":False,"state":"commercial_scheduler"},headers={"Cache-Control":"no-store"})
         from services.usage_sync import run_due_usage
         return Response(run_due_usage(2),headers={"Cache-Control":"no-store"})
