@@ -14,7 +14,14 @@ class InvoiceAdmin(admin.ModelAdmin):
     list_filter = ['status', 'issue_date', 'due_date']
     search_fields = ['invoice_number', 'client__email']
     readonly_fields = ['invoice_number', 'amount_paid', 'amount_due']
-    inlines = [InvoiceItemInline]
+    inlines = []
+
+    def has_add_permission(self,request):
+        return False
+    def has_change_permission(self,request,obj=None):
+        return False
+    def has_delete_permission(self,request,obj=None):
+        return False
     fieldsets = (
         ('Invoice Info', {
             'fields': ('invoice_number', 'order', 'client')
