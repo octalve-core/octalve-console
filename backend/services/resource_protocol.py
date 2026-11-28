@@ -158,6 +158,8 @@ class ResourceProtocol:
                          (method == "POST" and set(fields)=={"action","domain","user","passwd","passwd2","quota"} and fields["action"]=="create" and fields["domain"]==self.domain and fields["passwd"]==fields["passwd2"]) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="delete" and set(fields)=={"action","domain","user"}) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="modify" and set(fields) in ({"action","domain","user","quota"},{"action","domain","user","quota","passwd","passwd2"}) and ("passwd" not in fields or fields["passwd"]==fields["passwd2"])))
+            elif path=="/CMD_API_DATABASES":
+                valid=method=="GET" and fields=={}
             elif path=="/CMD_API_EMAIL_AUTH":
                 valid=method=="POST" and set(fields)=={"email","passwd"} and fields["email"].endswith("@"+self.domain)
                 if valid:
@@ -175,6 +177,7 @@ class ResourceProtocol:
                 op=(method,fields.get("cpanel.module"),fields.get("cpanel.function"))
                 allowed={("GET","Email","list_pops_with_disk"):{"domain","no_validate"},
                          ("GET","DomainInfo","list_domains"):set(),
+                         ("GET","Mysql","list_databases"):set(),
                          ("POST","Email","add_pop"):{"email","domain","password","quota"},
                          ("POST","Email","delete_pop"):{"email","domain"},
                          ("POST","Email","edit_pop_quota"):{"email","domain","quota"},
@@ -440,3 +443,20 @@ class ResourceProtocol:
             return True
         result=self._whm("POST","Email","verify_password",{"email":local+"@"+self.domain,"password":password})
         return type(result) in (int,str) and str(result)=="1"
+
+
+    def databases(self):
+        """Account-owned prefixed databases; no grants or credentials returned."""
+        if self.adapter=="directadmin":
+            names=_legacy_list(self._request("GET","/CMD_API_DATABASES",{}))
+        else:
+            data=self._whm("GET","Mysql","list_databases",{})
+            if not isinstance(data,list) or len(data)>2000 or any(not isinstance(item,dict) for item in data):
+                raise ResourceRefused("Invalid database inventory.")
+            names=_list_names([item.get("database") for item in data])
+        # Require explicit account prefix, even where the supplier permits
+        # unprefixed database names. Never guess ownership of those names.
+        if any(not name.startswith(self.account+"_") or not re.fullmatch(r"[A-Za-z0-9_]{1,64}",name)
+               or len(name)<=len(self.account)+1 for name in names):
+            raise ResourceRefused("Database account prefix is not confirmed.")
+        return sorted(names)
