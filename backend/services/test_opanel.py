@@ -189,3 +189,56 @@ class NativePanelProtocolTests(TestCase):
         with patch("services.native_panel.load_hosting_connection", return_value=(None, "test-token", {})):
             with self.assertRaises(NativePanelRefused):
                 _policy(None)
+
+
+    def test_whm_session_strips_optional_vendor_navigation(self):
+        from urllib.parse import parse_qs, urlsplit
+        from services.native_panel import parse_session
+        response = self.whm_response()
+        original = response.json()["data"]["url"]
+        output = parse_session(self.whm_response(url=original + "&locale=en&goto_uri=%2Ffrontend%2Fjupiter"),
+                               "https://supplier.example.test:2087", "cpanel-whm", "checkhost")
+        self.assertEqual(set(parse_qs(urlsplit(output).query)), {"session"})
+
+    def test_concurrent_revocation_discards_already_minted_url(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from services.native_panel import launch, NativePanelRefused
+        service = SimpleNamespace(pk=2, provider_id=3, provider_identifier="checkhost",
+                                  provider_package_id="basic", domain_name="example.test")
+        proof = SimpleNamespace(pk=4, confirmed_at=timezone.now(), account_digest="same")
+        provider = SimpleNamespace(config={})
+        row = SimpleNamespace(pk="connection", current_version=1, adapter_key="cpanel-whm",
+                              public_settings={"server_url": "https://supplier.example.test:2087"})
+        with patch("services.native_panel.eligible", side_effect=[(service, proof), (service, proof), None]), patch(
+                "services.native_panel.refresh_owned_entitlement", return_value=(service, proof)), patch(
+                "services.native_panel.Provider.objects.get", return_value=provider), patch(
+                "services.native_panel._policy", return_value=(row, "synthetic-token")), patch(
+                "services.native_panel._spend", return_value=False), patch(
+                "services.native_panel.verify_existing_account"), patch(
+                "services.native_panel._session_request", return_value=self.whm_response()) as mint:
+            with self.assertRaises(NativePanelRefused):
+                launch(1, 2)
+            mint.assert_called_once()
+
+    def test_http_launch_refuses_unverified_and_cross_tenant_customers(self):
+        from unittest.mock import patch
+        user = get_user_model()
+        owner = user.objects.create_user(email="native-owner@example.test", username="nativeowner",
+                                         password="TestPassword_123", role="client")
+        other = user.objects.create_user(email="native-other@example.test", username="nativeother",
+                                         password="TestPassword_123", role="client")
+        service = Service.objects.create(client=owner, product_id=1, plan_id=2, provider_id=3,
+            status="active", label="Unverified hosting", service_type="hosting",
+            domain_name="example.test", provider_identifier="checkhost",
+            billing_cycle="1mo", amount=Decimal("3000"), currency="NGN",
+            next_due_date=timezone.now()+timedelta(days=30))
+        api = APIClient()
+        url = f"/api/services/opanel/{service.pk}/native-launch/"
+        with patch("services.native_panel._session_request") as mint:
+            for customer in (other, owner):
+                api.force_authenticate(customer)
+                response = api.post(url, {}, format="json")
+                self.assertEqual(response.status_code, 403, response.data)
+                self.assertIn("no-store", response["Cache-Control"])
+            mint.assert_not_called()
