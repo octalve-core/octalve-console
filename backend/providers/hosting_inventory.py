@@ -58,11 +58,14 @@ def stage_inventory(connection, offers, actor):
     if len(rows) > 1:
         raise InventoryError("Ambiguous hosting supplier binding.")
     provider = rows[0] if rows else None
-    if provider and (provider.status != "inactive" or provider.adapter_type != adapter
+    if provider and (provider.status not in ("inactive","active") or provider.adapter_type != adapter
             or provider.base_url != settings["server_url"] or provider.username != settings["username"]
             or provider.test_mode != (current.environment == "test")
             or provider.encrypted_api_key or provider.encrypted_secret):
         raise InventoryError("Existing hosting supplier requires a separate qualification.")
+    if provider and provider.status=="active":
+        from .hosting_runtime import verify_policy
+        verify_policy(provider,current)
     if not provider:
         if Provider.objects.filter(adapter_type=adapter, base_url=settings["server_url"],
                                    username=settings["username"]).exists():
@@ -107,5 +110,5 @@ def stage_inventory(connection, offers, actor):
                  "checked_at":timezone.now().isoformat(),"hosting_provider_id":provider.pk,
                  "package_count":len(seen)})
     return {"authenticated":True,"read_only":True,"provider_id":provider.pk,
-            "package_count":len(seen),"supplier_active":False,"retail_published":False,
+            "package_count":len(seen),"supplier_active":provider.status=="active","retail_published":False,
             "provisioning_enabled":False}
