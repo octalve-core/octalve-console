@@ -26,7 +26,7 @@ def login(page,role,target):
     page.goto(BASE+"/login?next="+target,wait_until="domcontentloaded")
     page.locator('input[name="email"]').fill(("admin" if role=="admin" else "owner")+"@fixture.example.test")
     page.locator('input[name="password"]').fill(PASSWORD)
-    with page.expect_response(lambda r: r.request.method=="POST" and "/api/cloud/auth/jwt/create" in r.url,timeout=45000) as login_response:
+    with page.expect_response(lambda r: r.request.method=="POST" and r.url.rstrip("/")==BASE+"/api/cloud/auth/jwt/create" and not 300<=r.status<400,timeout=45000) as login_response:
         page.get_by_role("button",name="Sign in",exact=True).click()
     assert login_response.value.ok, f"Sign-in HTTP {login_response.value.status}"
     # Exact URL: the previous glob also matched /login?next=/admin/...
