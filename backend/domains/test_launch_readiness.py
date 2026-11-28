@@ -238,3 +238,34 @@ class RegistrarLaunchTests(TestCase):
         self.assertEqual(invoice.status,"void")
         self.assertEqual(order.status,"cancelled")
         self.assertTrue(OrderItem.objects.filter(pk=item.pk).exists())
+
+    def test_live_cart_two_domains_has_one_invoice_and_atomic_release(self):
+        from . import live_registration as live
+        from . import live_cart
+        from .reservation_recovery import release
+        from providers.connection_models import IntegrationConnection
+        from datetime import timedelta
+        from uuid import uuid4
+        route={"connection_id":"00000000-0000-4000-8000-000000000001","credential_version":1,"revision":1}
+        cost={"revision":1,"currency":"USD","registration_cost":"10.00","renewal_cost":"12.00","ngn_per_unit":"1500"}
+        self.rate.metadata={**self.rate.metadata,"published_registrar":route,"published_registrar_cost_v1":cost}
+        self.rate.save(update_fields=["metadata"])
+        row=IntegrationConnection.objects.create(pk=route["connection_id"],adapter_key="cloudflare-registrar-live",state="draft",environment="live",label="Fixture",public_settings={"account_id":"a"*32})
+        self.supplier.live_domain_check.side_effect=lambda n:{"name":n,"registrable":True,"currency":"USD","registration_cost":"10.00"}
+        contact={"name":"Fixture","phone":"+234.8012345678","street":"Fixture Road","city":"Abuja","state":"FCT","country_code":"NG","postal_code":"900001"}
+        PaymentGateway.objects.create(code="paystack",name="Live fixture",status="active",test_mode=False,config={})
+        with patch("domains.live_registration.enabled",return_value=True),patch("domains.live_registration.resolve_live_key",return_value="fixture"),patch("domains.live_registration.connector",return_value=(row,"fixture",self.supplier)),patch("domains.live_cart.enabled",return_value=True),patch("domains.live_cart.load",return_value=(row,"fixture")):
+            q=live_cart.quote_cart(self.owner,["alpha.com","beta.com"],[])
+            self.assertEqual(q["total"],"34000.00")
+            key=str(uuid4())
+            result=live_cart.accept_cart(self.owner,q["quote"],contact,key)
+            self.assertEqual(result,live_cart.accept_cart(self.owner,q["quote"],contact,key))
+            invoice=Invoice.objects.get(public_id=result["invoice_public_id"])
+            self.assertEqual(invoice.total,Decimal("34000"))
+            self.assertTrue(live_cart.payment_ready(invoice))
+            self.assertFalse(live_cart.all_domains_confirmed(invoice.order))
+            self.assertEqual(Domain.objects.count(),2)
+            Domain.objects.update(created_at=timezone.now()-timedelta(hours=25))
+            self.assertTrue(release(Domain.objects.first().pk))
+            self.assertEqual(Domain.objects.count(),0)
+            invoice.refresh_from_db();self.assertEqual(invoice.status,"void")

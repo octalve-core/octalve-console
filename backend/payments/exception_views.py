@@ -69,3 +69,20 @@ def dispute_response(request):
     except (ExceptionRefused,ValueError,TypeError,DatabaseError,WebhookEvent.DoesNotExist,Transaction.DoesNotExist,Transaction.MultipleObjectsReturned):
         raise ValidationError("Dispute response could not be qualified. Review the case before another request.") from None
     return Response(result,status=202,headers={"Cache-Control":"private, no-store"})
+
+
+@api_view(["POST"])
+@permission_classes([InternalSupplierAuthority])
+@throttle_classes([VaultMutationThrottle])
+def exception_close(request):
+    from .exception_clearance import close
+    from .financial_exceptions import ExceptionRefused
+    assert_admin(request.user)
+    data=request.data
+    if not isinstance(data,dict) or set(data)!={"transaction_public_id","confirm_password","totp_code","confirm_close"} or data["confirm_close"] is not True:
+        raise ValidationError("Explicit case closure authorization is required.")
+    try:
+        result=close(request.user,data["transaction_public_id"],data["confirm_password"],data["totp_code"])
+    except ExceptionRefused as exc:
+        raise ValidationError(str(exc)) from None
+    return Response(result,headers={"Cache-Control":"private, no-store"})

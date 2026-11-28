@@ -124,7 +124,7 @@ def business_snapshot(request):
 
     paid_current = paid_invoices.filter(paid_at__gte=this_month)
     renewal_paid = paid_invoices.filter(
-        metadata__type="renewal", paid_at__gte=this_month)
+        metadata__type__in=("renewal","domain_renewal"), paid_at__gte=this_month)
     current_refunds=aggregate_amount(refund_receipts.filter(paid_at__gte=this_month))
     previous_refunds=aggregate_amount(refund_receipts.filter(paid_at__gte=last_month,paid_at__lt=this_month))
     annual_refunds=aggregate_amount(refund_receipts.filter(paid_at__gte=year_start))

@@ -30,46 +30,44 @@ def release(domain_id):
         return False
     invoice=invoices[0]
     order=Order.objects.select_for_update().get(pk=item.order_id)
-    domain=Domain.objects.select_for_update().get(pk=domain_id)
-    if (domain.metadata.get(KEY)!=candidate.metadata.get(KEY)
-        or domain.status!="pending" or domain.is_active or domain.service_id or domain.provider_id
-        or domain.provider_domain_id or domain.registration_date or domain.expiry_date or domain.next_due_date
-        or domain.registrar not in ("cloudflare-registrar-live","resellerclub") or domain.order_item_id!=item.pk
-        or domain.client_id!=order.client_id or invoice.client_id!=order.client_id
-        or order.status!="pending_payment" or order.paid_at or invoice.status not in ("unpaid","overdue")
-        or invoice.paid_at or invoice.amount_paid!=0 or invoice.amount_due!=invoice.total
-        or order.total!=invoice.total or order.items.count()!=1
-        or item.item_type!="domain" or item.domain_name!=domain.domain_name
-        or order.metadata.get(KEY)!={"domain_id":domain.pk,"item":item.pk}):
-        return False
+    from .live_cart import claims_for
     try:
-        entry=domain.metadata[KEY]
-        grant=signing.loads(entry["grant"],salt=SALT)
-        if (entry["state"]!="queued" or entry.get("reserved_at") or grant["owner"]!=domain.client_id
-            or grant["order"]!=order.pk or grant["item"]!=item.pk or grant["domain"]!=domain.domain_name
-            or grant["contact_digest"]!=digest(domain.registrant_contact)):
+        claims=claims_for(order)
+        domains=list(Domain.objects.select_for_update().filter(pk__in=[c["domain_id"] for c in claims]).order_by("pk"))
+        if len(domains)!=len(claims) or domain_id not in [d.pk for d in domains]:return False
+        if (invoice.client_id!=order.client_id or order.status!="pending_payment" or order.paid_at
+            or invoice.status not in ("unpaid","overdue") or invoice.paid_at or invoice.amount_paid!=0
+            or invoice.amount_due!=invoice.total or order.total!=invoice.total
+            or PaymentIntent.objects.filter(invoice=invoice).exists() or Transaction.objects.filter(invoice=invoice).exists()):
             return False
+        for domain in domains:
+            item=domain.order_item
+            entry=domain.metadata[KEY];grant=signing.loads(entry["grant"],salt=SALT)
+            if (domain.status!="pending" or domain.is_active or domain.service_id or domain.provider_id or domain.provider_domain_id
+                or domain.registration_date or domain.expiry_date or domain.next_due_date or domain.created_at>timezone.now()-MAX_AGE
+                or domain.registrar not in ("cloudflare-registrar-live","resellerclub") or domain.management_kind!="registrar"
+                or domain.client_id!=order.client_id or not item or item.order_id!=order.pk or item.item_type!="domain"
+                or item.domain_name!=domain.domain_name or {"domain_id":domain.pk,"item":item.pk} not in claims
+                or entry["state"]!="queued" or entry.get("reserved_at") or entry.get("rc_stage")
+                or grant["owner"]!=domain.client_id or grant["order"]!=order.pk or grant["item"]!=item.pk
+                or grant["domain"]!=domain.domain_name or grant["contact_digest"]!=digest(domain.registrant_contact)):
+                return False
+            for relation in Domain._meta.related_objects:
+                if relation.related_model._default_manager.filter(**{relation.field.name:domain}).exists():return False
+        from services.models import Service
+        from provisioning.models import ProvisioningTask
+        if Service.objects.filter(order=order).exists() or ProvisioningTask.objects.filter(order=order).exists():return False
     except (signing.BadSignature,ValueError,TypeError,KeyError):
         return False
-    if PaymentIntent.objects.filter(invoice=invoice).exists() or Transaction.objects.filter(invoice=invoice).exists():
-        return False
-    # Refuse any linked record (including DNS claims or support references);
-    # only an unused local placeholder may be removed.
-    for relation in Domain._meta.related_objects:
-        if relation.related_model._default_manager.filter(**{relation.field.name:domain}).exists():
-            return False
-    receipt={"domain":domain.domain_name,"domain_public_id":str(domain.public_id),
-        "order":order.pk,"invoice":invoice.pk,"released_at":timezone.now().isoformat(),
-        "reason":"unpaid_without_payment_attempt"}
-    invoice.status="void"
-    invoice.metadata={**invoice.metadata,"domain_reservation_release_v1":receipt}
+    receipt={"domains":[{"name":d.domain_name,"public_id":str(d.public_id)} for d in domains],"order":order.pk,"invoice":invoice.pk,
+        "released_at":timezone.now().isoformat(),"reason":"unpaid_without_payment_attempt"}
+    invoice.status="void";invoice.metadata={**invoice.metadata,"domain_reservation_release_v1":receipt}
     invoice.save(update_fields=["status","metadata","updated_at"])
-    order.status="cancelled"
-    order.metadata={**order.metadata,"domain_reservation_release_v1":receipt}
+    order.status="cancelled";order.metadata={**order.metadata,"domain_reservation_release_v1":receipt}
     order.save(update_fields=["status","metadata","updated_at"])
-    AuditLog.objects.create(actor=None,action="domain_reservation_released",entity_type="Domain",
-        entity_id=str(domain.pk),entity_name=domain.domain_name,details=receipt)
-    domain.delete()
+    for domain in domains:
+        AuditLog.objects.create(actor=None,action="domain_reservation_released",entity_type="Domain",entity_id=str(domain.pk),entity_name=domain.domain_name,details=receipt)
+        domain.delete()
     return True
 
 def run_due(limit=5):

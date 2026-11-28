@@ -165,7 +165,7 @@ def request_refund(user,public_id,amount_minor,password,totp):
                 raise ExceptionRefused("Existing payment exception requires review.")
             from domains.models import Domain
             if Domain.objects.filter(order_item__order_id=locked.invoice.order_id,
-                metadata__live_domain_registration_v1__state="uncertain").exists():
+                metadata__live_domain_registration_v1__state="uncertain").exists() or Domain.objects.filter(metadata__registrar_renewal_v1__invoice=locked.invoice_id,metadata__registrar_renewal_v1__state="uncertain").exists():
                 raise ExceptionRefused("Registrar dispatch outcome is unresolved.")
             local={x.metadata.get("provider_refund_id"):int(x.amount*100) for x in refund_rows(locked)}
             if (locked.metadata.get("financial_exception_review_required") is True and not local
