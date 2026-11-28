@@ -75,7 +75,7 @@ def _safe_url(value, origin, *, directadmin, account, session=None, security_tok
                 or target.fragment or target.netloc.lower() != target.netloc
                 or (target.port or 443) != ((source.port or 443) if directadmin else 2083)):
             raise ValueError()
-        fields = parse_qs(target.query, keep_blank_values=True, max_num_fields=2)
+        fields = parse_qs(target.query, keep_blank_values=True, max_num_fields=4)
         if directadmin:
             key = ("key" if target.path == "/api/login/url" else
                    "hash" if target.path == "/CMD_LOGIN_URL" else None)
@@ -86,11 +86,16 @@ def _safe_url(value, origin, *, directadmin, account, session=None, security_tok
             if (not isinstance(security_token, str)
                     or not re.fullmatch(r"/cpsess[0-9]{10,20}", security_token)
                     or target.path not in (security_token+"/login", security_token+"/login/")
-                    or set(fields) != {"session"} or fields["session"] != [session]
+                    or not set(fields) <= {"session", "locale", "goto_uri"}
+                    or fields.get("session") != [session]
+                    or any(len(v) != 1 for v in fields.values())
                     or not isinstance(session, str) or len(session) > 1000
                     or not session.startswith(account+":")
-                    or not re.fullmatch(r"[A-Za-z0-9_:,.-]+", session)):
+                    or not re.fullmatch(r"[A-Za-z0-9_:, .-]+", session)):
                 raise ValueError()
+            # Ignore vendor-provided optional navigation and locale parameters;
+            # only the validated session is forwarded to the customer.
+            return f"https://{target.netloc}{target.path}?" + urlencode({"session": session})
     except (ValueError, TypeError, KeyError):
         raise NativePanelRefused("Supplier returned an invalid session destination.") from None
     return value
