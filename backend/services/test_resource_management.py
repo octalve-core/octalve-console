@@ -91,6 +91,32 @@ class ProtocolTests(SimpleTestCase):
                  {"main_domain":"other.test","sub_domains":[]})),self.assertRaises(ResourceRefused):
             protocol.subdomains()
 
+    def test_forwarding_inventory_scoped_and_special_routes_unmanaged(self):
+        da=self.adapter("directadmin")
+        with patch.object(da,"_request",return_value=SupplierReadResponse(200,b"sales=person%40external.test&support=%3Ablackhole%3A")):
+            self.assertEqual(da.forwarders(),[
+                {"address":"sales@example.test","destination":"person@external.test","managed":True},
+                {"address":"support@example.test","destination":None,"managed":False}])
+        cp=self.adapter("cpanel-whm")
+        payload={"cpanelresult":{"apiversion":2,"module":"Email","func":"listforwards","event":{"result":1},"data":[{"forward":"sales@example.test","dest":"person@external.test"}]}}
+        with patch.object(cp,"_request",return_value=reply(payload)):
+            self.assertEqual(cp.forwarders(),[{"address":"sales@example.test","destination":"person@external.test","managed":True}])
+        payload["cpanelresult"]["data"][0]["forward"]="victim@external.test"
+        with patch.object(cp,"_request",return_value=reply(payload)),self.assertRaises(ResourceRefused):
+            cp.forwarders()
+
+    def test_forwarder_transport_disallows_unowned_source_and_pipe(self):
+        cp=self.adapter("cpanel-whm")
+        base={"api.version":"1","cpanel.user":"checkhost","cpanel.module":"Email","cpanel.function":"add_forwarder","domain":"example.test","email":"sales@example.test","fwdopt":"fwd","fwdemail":"person@external.test"}
+        cp._check_request("POST","/json-api/uapi_cpanel",base,False)
+        for change in ({"email":"victim@external.test"},{"fwdemail":"|/bin/sh"},{"fwdemail":"sales@example.test"},{"fwdopt":"pipe"},{"cpanel.user":"victim"}):
+            with self.assertRaises(ResourceRefused):
+                cp._check_request("POST","/json-api/uapi_cpanel",{**base,**change},False)
+        da=self.adapter("directadmin")
+        da._check_request("POST","/CMD_API_EMAIL_FORWARDERS",{"action":"create","domain":"example.test","user":"sales","email":"person@external.test"},False)
+        with self.assertRaises(ResourceRefused):
+            da._check_request("POST","/CMD_API_EMAIL_FORWARDERS",{"action":"create","domain":"example.test","user":"sales","email":":blackhole:"},False)
+
     def test_transport_rejects_unknown_commands_and_cross_account_before_connecting(self):
         da=self.adapter("directadmin")
         whm=self.adapter("cpanel-whm")
@@ -386,3 +412,22 @@ class ResourceAuthorityTests(TestCase):
         self.service.refresh_from_db()
         self.assertEqual(self.service.metadata[management.FENCE]["state"],"confirmed")
         self.assertNotIn("password_receipt",self.service.metadata[management.FENCE])
+
+    def test_forwarder_write_and_delete_require_exact_readback(self):
+        self.policy["resource_capabilities"].extend(["forwarder_read","forwarder_create","forwarder_delete"])
+        mailbox={"address":"sales@example.test","quota_mb":500,"unlimited":False}
+        route={"address":"sales@example.test","destination":"person@external.test","managed":True}
+        data={"local":"sales","destination":"person@external.test","confirm_password":"SyntheticConsolePassword"}
+        with patch.object(ResourceProtocol,"mailboxes",return_value=[mailbox]),patch.object(
+                ResourceProtocol,"forwarders",side_effect=[[],[route]]),patch.object(ResourceProtocol,"create_forwarder") as send:
+            response=self.api.post(self.base+"/resource-actions/forwarder_create/",data,format="json")
+            self.assertEqual(response.status_code,200,response.data)
+            send.assert_called_once_with("sales","person@external.test")
+        with patch.object(ResourceProtocol,"mailboxes",return_value=[mailbox]),patch.object(
+                ResourceProtocol,"forwarders",side_effect=[[route],[]]),patch.object(ResourceProtocol,"delete_forwarder") as send:
+            response=self.api.post(self.base+"/resource-actions/forwarder_delete/",{**data,"confirm_target":"wrong"},format="json")
+            self.assertEqual(response.status_code,409,response.data)
+            send.assert_not_called()
+            response=self.api.post(self.base+"/resource-actions/forwarder_delete/",{**data,"confirm_target":"sales@example.test -> person@external.test"},format="json")
+            self.assertEqual(response.status_code,200,response.data)
+            send.assert_called_once_with("sales","person@external.test")

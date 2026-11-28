@@ -177,6 +177,7 @@ class ResourceProtocol:
         """Deny undeclared operations even if a future caller misuses transport."""
         if not isinstance(fields, dict) or any(not isinstance(v,str) for v in fields.values()):
             raise ResourceRefused("Invalid supplier request.")
+        valid=False
         if self.adapter == "directadmin":
             if reseller:
                 valid = (method == "GET" and path in ("/CMD_API_SHOW_USER_CONFIG", "/CMD_API_SHOW_USER_USAGE") and fields == {"user": self.account})
@@ -195,10 +196,10 @@ class ResourceProtocol:
                 valid=method=="GET" and fields=={"domain":self.domain}
                 if method=="POST" and fields.get("domain")==self.domain:
                     if set(fields)=={"action","domain","user","email"} and fields["action"]=="create":
-                        valid=bool(mailbox_name(fields["user"]) and forwarding_destination(fields["email"])
+                        valid=bool(mailbox_name(fields["user"]) and fields["user"]!=self.account.lower() and forwarding_destination(fields["email"])
                                    and fields["email"].split("@")[1]!=self.domain)
                     elif set(fields)=={"action","domain","select0"} and fields["action"]=="delete":
-                        valid=bool(mailbox_name(fields["select0"]))
+                        valid=bool(mailbox_name(fields["select0"]) and fields["select0"]!=self.account.lower())
             elif path=="/CMD_API_DATABASES":
                 valid=(method=="GET" and fields=={}) or (method=="POST" and (
                     (set(fields)=={"action","name","user","passwd","passwd2"} and fields["action"]=="create"
@@ -279,7 +280,7 @@ class ResourceProtocol:
                     address=fields.get("email",fields.get("address"))
                     destination=fields.get("fwdemail",fields.get("forwarder"))
                     local,sep,domain=address.partition("@")
-                    valid=bool(sep and domain==self.domain and mailbox_name(local)
+                    valid=bool(sep and domain==self.domain and mailbox_name(local) and local!=self.account.lower()
                                and forwarding_destination(destination)
                                and destination.split("@")[1]!=self.domain
                                and (op[2]!="add_forwarder" or fields["fwdopt"]=="fwd"))

@@ -111,7 +111,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   {notice&&<p role="status" className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{notice}</p>}
   {data&&data.resource===selected&&<div className="mt-4">
    {selected==="credentials"?<p className="text-sm text-slate-600">Set or reset your hosting control-panel password. This is separate from your Octalve Console password.</p>:data.items.length===0?<p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-500">No resources returned by the supplier.</p>:<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-    {data.items.map(item=>typeof item==="string"?<li key={item} className="break-all p-3 text-sm">{item}</li>:<li key={item.address} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><span className="break-all font-medium">{item.address}</span><span className="text-slate-500">{selected==="forwarders"?(item.managed?item.destination:"Unmanaged route"):item.unlimited?"Unlimited":item.quota_mb===null?"Unknown":item.quota_mb+" MB"}</span></li>)}
+    {data.items.map(item=>typeof item==="string"?<li key={item} className="break-all p-3 text-sm">{item}</li>:<li key={item.address+":"+String(item.destination??"")} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><span className="break-all font-medium">{item.address}</span><span className="text-slate-500">{selected==="forwarders"?(item.managed?item.destination:"Unmanaged route"):item.unlimited?"Unlimited":item.quota_mb===null?"Unknown":item.quota_mb+" MB"}</span></li>)}
    </ul>}
    <p className="mt-2 text-xs text-slate-500">Verified at {new Date(data.verified_at).toLocaleString()}</p>
   </div>}
