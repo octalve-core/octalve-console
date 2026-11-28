@@ -8,7 +8,7 @@ type Template={id:number;key:string;name:string;category:string;subject:string;b
 type SenderReadiness={primary:string;fallback:string;outbound_enabled:boolean;status:string;
  senders:{key:string;label:string;guide:string;live_verified:boolean;draft_connections:number;free_daily_quota:number|null}[]};
 type Outbox={counts:Record<string,number>;sender_ready:boolean;message:string;
- results:{id:number;recipient:string;subject:string;status:string;attempts:number;created_at:string}[]};
+ results:{id:number;recipient:string;subject:string;status:string;delivery_state?:string;attempts:number;created_at:string}[]};
 const categories=["auth","billing","support","provisioning","domains","system","marketing"];
 const blank={name:"",category:"billing",subject:"",body_text:"",is_active:false};
 export function MailTemplateWorkbench(){
@@ -168,7 +168,7 @@ export function MailTemplateWorkbench(){
     <div><h2 className="text-lg font-medium text-console-ink">Delivery queue</h2>
      <p className="mt-1 text-sm text-console-muted">Recorded delivery intent and attempts. Sender verification is required before external delivery.</p></div></div>
    {outbox?<><dl className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">{Object.entries(outbox.counts).map(([state,count])=><div key={state} className="rounded-xl bg-slate-50 p-3"><dt className="text-xs capitalize text-console-muted">{state.replace("_"," ")}</dt><dd className="mt-1 text-xl font-medium text-console-ink">{count}</dd></div>)}</dl>
-    {outbox.results.length?<ul className="mt-4 divide-y divide-console-line">{outbox.results.map(item=><li key={item.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span className="break-all">{item.subject} — {item.recipient}</span><span className="capitalize text-console-muted">{item.status.replace("_"," ")}</span></li>)}</ul>:<p className="mt-4 text-sm text-console-muted">No queued messages yet.</p>}
+    {outbox.results.length?<ul className="mt-4 divide-y divide-console-line">{outbox.results.map(item=><li key={item.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span className="break-all">{item.subject} — {item.recipient}</span><span className="capitalize text-console-muted">{(item.delivery_state||item.status).replaceAll("_"," ")}</span></li>)}</ul>:<p className="mt-4 text-sm text-console-muted">No queued messages yet.</p>}
     <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-console-muted"><ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true"/>No external sender is certified in this workspace. Configure and verify connections in Integrations before enabling delivery.</p>
    </>:null}
   </Panel>

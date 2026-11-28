@@ -100,6 +100,8 @@ jobs:
       - name: TypeScript
         run: pnpm typecheck:frontend
       - name: Next.js build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api
         run: pnpm build:frontend
       - name: Workspace contrast and emitted Tailwind CSS regression
         run: node frontend/scripts/check-contrast-safe-cloud-panels.cjs --built
@@ -201,6 +203,44 @@ jobs:
         run: node frontend/scripts/check-batch-d-auth-resilience.cjs
       - name: Batch E canonical 135 route / 810 evidence and authority guard
         run: node frontend/scripts/check-batch-e-authority.cjs
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: HOST-FINAL authenticated desktop and mobile browser acceptance
+        env:
+          DJANGO_SECRET_KEY: CI-ONLY-LOCAL-BROWSER-FIXTURE-1234567890-abcdef
+          DEBUG: "true"
+          DATABASE_URL: sqlite:///${{ runner.temp }}/octalve-host-final-browser.sqlite3
+          FRONTEND_URL: http://localhost:3000
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api
+          ALLOWED_HOSTS: localhost,127.0.0.1
+          CLOUD_PRIVILEGED_WEBAUTHN_REQUIRED: "false"
+          VERCEL_ENV: ""
+        run: |
+          set -euo pipefail
+          python -m pip install -r backend/requirements.txt
+          python -m pip install playwright==1.58.0
+          python -m playwright install --with-deps chromium
+          (cd backend && python manage.py migrate --noinput && python manage.py shell < scripts/seed_host_final_browser.py)
+          (cd backend && python manage.py runserver 127.0.0.1:8000 --noreload) > "$RUNNER_TEMP/host-final-django.log" 2>&1 &
+          API_PID=$!
+          pnpm start:frontend > "$RUNNER_TEMP/host-final-next.log" 2>&1 &
+          WEB_PID=$!
+          trap 'kill "$API_PID" "$WEB_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 2 http://localhost:3000/login >/dev/null && curl -sS --max-time 2 http://127.0.0.1:8000/api/ >/dev/null; then break; fi
+            sleep 2
+          done
+          python frontend/scripts/host-final-browser.py
+      - name: Upload isolated browser screenshots (synthetic accounts only)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: host-final-browser-fixture-evidence
+          path: frontend/browser-fixture-evidence/*.png
+          if-no-files-found: ignore
+          retention-days: 7
 
   django-check:
     runs-on: ubuntu-latest
