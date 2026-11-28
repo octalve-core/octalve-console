@@ -502,3 +502,23 @@ class PaidHostingFunnelTests(TestCase):
             stage_paid_order(self.order.pk,item_id=domain.pk)
         self.order.refresh_from_db()
         self.assertEqual(self.order.status,"paid")
+
+
+    @override_settings(CLOUD_HOSTING_AUTO_STAGE_ENABLED=True)
+    def test_automatic_staging_after_commit_and_recovery_are_idempotent(self):
+        from provisioning.automatic_staging import run_due_staging
+        with self.captureOnCommitCallbacks(execute=True):
+            settle_verified_intent(self.intent.pk,getter=self.getter)
+        self.assertEqual(ProvisioningTask.objects.count(),1)
+        self.assertEqual(Service.objects.get().status,"pending")
+        self.assertEqual(run_due_staging()["staged"],0)
+        self.assertEqual(ProvisioningTask.objects.count(),1)
+
+    @override_settings(CLOUD_HOSTING_AUTO_STAGE_ENABLED=True)
+    def test_automatic_staging_never_trusts_paid_flags_alone(self):
+        from provisioning.automatic_staging import run_due_staging
+        self.order.status="paid"
+        self.order.save(update_fields=["status"])
+        self.assertEqual(run_due_staging()["held"],1)
+        self.assertEqual(run_due_staging()["held"],0)
+        self.assertFalse(Service.objects.exists())
