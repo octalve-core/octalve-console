@@ -192,3 +192,16 @@ class RegistrarLaunchTests(TestCase):
             self.assertEqual(domain.order_item.order.status,"provisioned")
             self.assertEqual(live.transition(domain.pk),"held")
             self.assertEqual(vendor.call_count,2)
+
+    def test_live_workflow_proof_documented_shapes(self):
+        from providers.registrar_live_transport import workflow_proof
+        from providers.cloudflare_int01 import CloudflareINT01Denied
+        domain="example.com"
+        path="/accounts/"+("a"*32)+"/registrar/registrations/"+domain+"/registration-status"
+        for proof in ({"domain_name":domain},{"context":{"domain_name":domain}}):
+            result=workflow_proof({**proof,"state":"in_progress","completed":False,"links":{"self":path}},domain,path)
+            self.assertEqual(result["domain_name"],domain)
+        with self.assertRaises(CloudflareINT01Denied):
+            workflow_proof({"domain_name":domain,"context":{"domain_name":"other.com"},"state":"succeeded","completed":True},domain,path)
+        with self.assertRaises(CloudflareINT01Denied):
+            workflow_proof({"domain_name":domain,"state":"succeeded","completed":True,"links":{"self":"https://other.example/"}},domain,path)

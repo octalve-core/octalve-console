@@ -257,6 +257,7 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None, allow_test
             from django.core import signing
             from providers.registrar_live_policy import load
             from providers.connection_vault import VaultUnavailable
+            from providers.connection_models import IntegrationConnection, IntegrationCredentialVersion
             try:
                 domain=Domain.objects.select_for_update().get(pk=invoice.order.metadata[KEY]["domain_id"],
                     client_id=invoice.client_id,order_item__order_id=invoice.order_id,status="pending")
@@ -266,7 +267,7 @@ def reserve_hosted_checkout(invoice_id, gateway_code, *, poster=None, allow_test
                     or Decimal(grant["retail"])!=invoice.total):
                     raise CheckoutRefused("Live registration payment is unavailable.")
                 load(grant["route"])
-            except (Domain.DoesNotExist,VaultUnavailable,signing.BadSignature,ValueError,KeyError,TypeError):
+            except (Domain.DoesNotExist,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist,VaultUnavailable,signing.BadSignature,ValueError,KeyError,TypeError):
                 raise CheckoutRefused("Live registrar authority changed.") from None
         if live_binding:
             from .live_reconciliation import enabled as live_enabled

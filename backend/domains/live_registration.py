@@ -12,6 +12,7 @@ from uuid import UUID
 from django.conf import settings
 from django.core import signing
 from django.db import transaction,DatabaseError
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.core.validators import validate_email
@@ -237,13 +238,76 @@ def transition(domain_id):
         Domain.DoesNotExist,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist,Invoice.DoesNotExist,Order.DoesNotExist):
         return "held"
 
+def reconcile_confirmed(domain_id):
+    """Refresh expiry/status only from the same paid supplier resource."""
+    try:
+        domain=Domain.objects.get(pk=domain_id,registrar="cloudflare-registrar-live",management_kind="registrar")
+        entry=domain.metadata[KEY]
+        grant=signing.loads(entry["grant"],salt=SALT)
+        if (entry.get("state")!="confirmed" or domain.provider_domain_id!=domain.domain_name
+            or grant["domain"]!=domain.domain_name or grant["owner"]!=domain.client_id
+            or not domain.order_item_id or grant["item"]!=domain.order_item_id
+            or grant["order"]!=domain.order_item.order_id):
+            return "held"
+        row,secret,adapter=connector(grant["route"])
+        if row.public_settings["account_id"]!=grant.get("account_id"):
+            return "held"
+        proof=adapter.live_registration_readback(domain.domain_name)
+        created=parse_datetime(proof.get("registered_at") or "")
+        expires=parse_datetime(proof.get("expires_at") or "")
+        if (proof.get("domain_name")!=domain.domain_name or not created or not expires
+            or created.utcoffset() is None or expires.utcoffset() is None
+            or created!=domain.registration_date or expires<=created):
+            return "held"
+        state=proof.get("status")
+        if state not in ("active","expired","suspended","redemption_period","pending_delete"):
+            return "held"
+        local="active" if state=="active" and expires>timezone.now() else ("suspended" if state=="suspended" else "expired")
+        with transaction.atomic():
+            locked=Domain.objects.select_for_update().get(pk=domain.pk)
+            IntegrationConnection.objects.select_for_update().get(pk=row.pk)
+            if (locked.metadata.get(KEY)!=entry or locked.client_id!=domain.client_id
+                or locked.provider_domain_id!=domain.provider_domain_id or locked.registration_date!=created
+                or load(grant["route"])[1]!=secret):
+                return "held"
+            changed=locked.expiry_date!=expires or locked.status!=local or locked.is_active!=(local=="active")
+            locked.expiry_date=expires
+            locked.next_due_date=expires
+            locked.status=local
+            locked.is_active=local=="active"
+            locked.metadata={**locked.metadata,KEY:{**entry,"supplier_status":state,
+                "last_reconciled_at":timezone.now().isoformat(),"reconcile_after":(timezone.now()+timedelta(hours=12)).isoformat()}}
+            locked.save(update_fields=["expiry_date","next_due_date","status","is_active","metadata","updated_at"])
+            if changed:
+                AuditLog.objects.create(actor=None,action="live_domain_registration_reconciled",entity_type="Domain",
+                    entity_id=str(locked.pk),entity_name=locked.domain_name,details={"supplier_status":state,"expires_at":expires.isoformat()})
+        return "processed"
+    except (RegistrationRefused,CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,
+            signing.BadSignature,Domain.DoesNotExist,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):
+        return "held"
+
 def run_due():
     if not enabled():
         return None
     row=Domain.objects.filter(status="pending",registrar="cloudflare-registrar-live",order_item__order__status="paid",
         metadata__live_domain_registration_v1__state__in=("queued","uncertain")).order_by("updated_at","pk").first()
     if not row:
-        return None
+        confirmed=Domain.objects.filter(registrar="cloudflare-registrar-live",management_kind="registrar",
+            metadata__live_domain_registration_v1__state="confirmed").filter(
+                Q(metadata__live_domain_registration_v1__reconcile_after__isnull=True)|
+                Q(metadata__live_domain_registration_v1__reconcile_after__lte=timezone.now().isoformat())
+            ).order_by("updated_at","pk").first()
+        if not confirmed:
+            return None
+        result=reconcile_confirmed(confirmed.pk)
+        if result=="held":
+            with transaction.atomic():
+                locked=Domain.objects.select_for_update().get(pk=confirmed.pk)
+                if locked.metadata.get(KEY)==confirmed.metadata.get(KEY):
+                    locked.metadata={**locked.metadata,KEY:{**locked.metadata[KEY],
+                        "reconcile_after":(timezone.now()+timedelta(hours=1)).isoformat()}}
+                    locked.save(update_fields=["metadata","updated_at"])
+        return result
     result=transition(row.pk)
     if result=="held":
         Domain.objects.filter(pk=row.pk,status="pending").update(updated_at=timezone.now())

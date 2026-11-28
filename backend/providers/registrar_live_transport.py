@@ -8,7 +8,31 @@ import requests
 from django.views.decorators.debug import sensitive_variables
 from .cloudflare_int01 import API_ORIGIN,MAX_REPLY_BYTES,require_id,require_domain,CloudflareINT01Denied,_require_result
 
-@sensitive_variables("token")
+def workflow_proof(data,domain,path):
+    """Cloudflare's SDK documents context.domain_name; the guide also uses a top-level field."""
+    if not isinstance(data,dict):
+        raise CloudflareINT01Denied()
+    context=data.get("context") or {}
+    if not isinstance(context,dict):
+        raise CloudflareINT01Denied()
+    names=[value for value in (data.get("domain_name"),context.get("domain_name")) if value is not None]
+    registration=context.get("registration")
+    if registration is not None:
+        if not isinstance(registration,dict) or registration.get("domain_name")!=domain:
+            raise CloudflareINT01Denied()
+        names.append(registration["domain_name"])
+    links=data.get("links") or {}
+    if not isinstance(links,dict) or (links.get("self") is not None and links["self"]!=path):
+        raise CloudflareINT01Denied()
+    if not names or any(name!=domain for name in names):
+        raise CloudflareINT01Denied()
+    state=data.get("state")
+    if (state not in ("pending","in_progress","blocked","action_required","failed","succeeded")
+        or type(data.get("completed")) is not bool or data["completed"]!=(state in ("failed","succeeded"))):
+        raise CloudflareINT01Denied()
+    return {"domain_name":domain,"state":state,"completed":data["completed"]}
+
+@sensitive_variables("token","contact")
 def request(account,token,domain,operation,contact=None):
     account=require_id(account)
     domain=require_domain(domain)
@@ -43,8 +67,4 @@ def request(account,token,domain,operation,contact=None):
                 data=_require_result(json.loads(raw))
         except (requests.RequestException,ValueError,TypeError):
             raise CloudflareINT01Denied() from None
-    if (not isinstance(data,dict) or data.get("domain_name")!=domain
-        or data.get("state") not in ("pending","in_progress","blocked","action_required","failed","succeeded")
-        or type(data.get("completed")) is not bool or data["completed"]!=(data["state"] in ("failed","succeeded"))):
-        raise CloudflareINT01Denied()
-    return {"domain_name":domain,"state":data["state"],"completed":data["completed"]}
+    return workflow_proof(data,domain,f"/accounts/{account}/registrar/registrations/{domain}/registration-status")
