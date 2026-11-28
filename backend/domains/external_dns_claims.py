@@ -6,7 +6,6 @@ public nameserver delegation, domain expiry, or commercial entitlement.
 The existing Domain and DomainDNSBinding remain the sole customer authorities.
 """
 import hashlib
-import os
 import hmac
 import re
 import secrets
@@ -72,12 +71,6 @@ def _rate(user, action, max_attempts, window_seconds):
         raise Throttled(wait=retry)
 
 
-def _self_service_scope(user, domain):
-    return bool(domain and domain==os.getenv("CLOUD_DNS01_SELF_SERVICE_DOMAIN")
-                and str(user.pk)==os.getenv("CLOUD_DOMAIN_PILOT_CLIENT_ID")
-                and user.is_active and user.role=="client" and user.email_verified_at)
-
-
 def _public(claim):
     return {
         "id": str(claim.pk),
@@ -98,17 +91,12 @@ def list_claims(request):
     _gated()
     if request.user.role == "client":
         _client(request)
-        scope=os.getenv("CLOUD_DNS01_SELF_SERVICE_DOMAIN")
-        if scope and not _self_service_scope(request.user,scope):
-            raise PermissionDenied("External DNS pilot is not available for this account.")
         rows = DomainDNSClaim.objects.filter(client=request.user).order_by("-created_at")[:30]
     else:
         assert_admin(request.user)
         rows = DomainDNSClaim.objects.order_by("-created_at")[:50]
     return Response({"results": [_public(row) for row in rows],
-                     "execution_enabled": False,
-                     "self_service":bool(request.user.role=="client" and _self_service_scope(request.user,os.getenv("CLOUD_DNS01_SELF_SERVICE_DOMAIN"))),
-                     "allowed_domain":os.getenv("CLOUD_DNS01_SELF_SERVICE_DOMAIN") if request.user.role=="client" else None}, headers=NO_CACHE)
+                     "execution_enabled": False}, headers=NO_CACHE)
 
 
 def begin_claim(request):
@@ -117,8 +105,6 @@ def begin_claim(request):
     if not isinstance(request.data, dict) or set(request.data) != {"domain_name"}:
         raise ValidationError({"detail": "Enter the domain name only."})
     domain_name = _strict_domain(request.data["domain_name"])
-    if os.getenv("CLOUD_DNS01_SELF_SERVICE_DOMAIN") and not _self_service_scope(request.user,domain_name):
-        raise PermissionDenied("Only the configured external DNS pilot domain can be connected.")
     _rate(request.user, "issue", 5, 3600)
 
     raw = CHALLENGE_VALUE_PREFIX + secrets.token_urlsafe(32)
@@ -232,46 +218,9 @@ def verify_claim(request):
     ).first()
     if not connection:
         return Response({"detail": "Saved Cloudflare connection is unavailable."}, status=404, headers=NO_CACHE)
-    return _confirm_claim(claim, connection, request.user)
-
-
-def verify_self_service(request):
-    """Customer confirms their own challenge; policy and provider authorize access."""
-    _gated()
-    _client(request)
-    data=request.data
-    if not isinstance(data,dict) or set(data)!={"claim_id","accept","consent_version"} or data["accept"] is not True or data["consent_version"]!=CONSENT_VERSION:
-        raise ValidationError("Confirm read-only DNS access for the exact challenge.")
+    connector = _conn(connection, connection.current_version)
+    zone_id = require_id(connection.public_settings.get("zone_id", ""))
     try:
-        claim_id=uuid.UUID(str(data["claim_id"]))
-    except (TypeError,ValueError,AttributeError):
-        raise ValidationError("Invalid challenge reference.") from None
-    claim=DomainDNSClaim.objects.filter(pk=claim_id,client=request.user).first()
-    if not claim or not _self_service_scope(request.user,claim.domain_name):
-        raise PermissionDenied("This challenge is not available.")
-    if claim.state==DomainDNSClaim.State.VERIFIED:
-        from .dns_readonly import _binding_matches_domain
-        binding=DomainDNSBinding.objects.select_related("connection","domain").filter(domain=claim.domain,client=request.user,state="active").first()
-        if binding and _binding_matches_domain(binding,binding.domain):
-            return Response({**_public(claim),"next_step":"Open My Domains to view live DNS."},headers=NO_CACHE)
-    if claim.state!=DomainDNSClaim.State.PENDING or claim.expires_at<=timezone.now():
-        return Response({"detail":"Request a fresh verification record."},status=409,headers=NO_CACHE)
-    _rate(request.user,"self_verify",PROOF_MAX_ATTEMPTS,3600)
-    _vault_read_ready()
-    # The administrator enrolls exactly one zone by saving a dedicated connection
-    # whose label is the canonical domain name. The caller cannot choose its ID.
-    from providers.connection_status import verification_receipts,safe_verification_status
-    rows=list(IntegrationConnection.objects.filter(adapter_key="cloudflare-dns",environment="live",state="draft",
-        label=claim.domain_name)[:2])
-    if len(rows)!=1 or safe_verification_status(rows[0],verification_receipts(rows))["verification_status"]!="verified":
-        return Response({"detail":"The dedicated Cloudflare zone connection must be configured and verified once."},status=409,headers=NO_CACHE)
-    return _confirm_claim(claim,rows[0],request.user,self_service=True)
-
-
-def _confirm_claim(claim, connection, actor, *, self_service=False):
-    try:
-        connector = _conn(connection, connection.current_version)
-        zone_id = require_id(connection.public_settings.get("zone_id", ""))
         snapshot = connector.dns_live_inventory(zone_id, claim.domain_name)
     except CloudflareINT01Denied:
         return Response({"detail": "Unable to verify the exact Cloudflare zone."},
@@ -290,10 +239,7 @@ def _confirm_claim(claim, connection, actor, *, self_service=False):
                     or locked.challenge_sha256 != claim.challenge_sha256
                     or current_connection.current_version != connection.current_version
                     or current_connection.state != "draft"
-                    or current_connection.public_settings != connection.public_settings
-                    or (self_service and (not _self_service_scope(actor,locked.domain_name)
-                        or locked.client_id!=actor.pk or current_connection.label!=locked.domain_name
-                        or current_connection.updated_at!=connection.updated_at))):
+                    or current_connection.public_settings != connection.public_settings):
                 return Response({"detail": "Claim or credential changed. Start verification again."},
                                 status=409, headers=NO_CACHE)
             if Domain.objects.filter(domain_name=locked.domain_name).exists():
@@ -322,26 +268,22 @@ def _confirm_claim(claim, connection, actor, *, self_service=False):
                 domain=domain, client=locked.client, connection=current_connection,
                 zone_id=zone_id, zone_name=domain.domain_name,
                 credential_version=current_connection.current_version,
-                state=DomainDNSBinding.State.ACTIVE if self_service else DomainDNSBinding.State.PENDING,
-                requested_by=actor,
-                consented_by=actor if self_service else None,
-                consented_at=timezone.now() if self_service else None,
-                approved_at=timezone.now() if self_service else None,
+                state=DomainDNSBinding.State.PENDING,
+                requested_by=request.user,
                 customer_authorization_reference="dnsclaim:" + str(locked.pk),
                 consent_version=CONSENT_VERSION,
             )
             locked.state = DomainDNSClaim.State.VERIFIED
             locked.domain = domain
-            locked.verified_by = None if self_service else actor
+            locked.verified_by = request.user
             locked.verified_at = timezone.now()
             locked.save(update_fields=["state", "domain", "verified_by", "verified_at", "updated_at"])
             AuditLog.objects.create(
-                actor=None if self_service else actor, action="domain_dns_claim_verified",
+                actor=request.user, action="domain_dns_claim_verified",
                 entity_type="DomainDNSClaim", entity_id=str(locked.pk),
                 entity_name="External DNS zone control verified",
                 details={"domain_id": domain.pk, "binding_id": binding.pk,
                          "read_only": True, "registration_confirmed": False,
-                         "source":"customer_txt_policy" if self_service else "operator",
                          "execution_enabled": False},
             )
     except IntegrityError:
@@ -350,5 +292,5 @@ def _confirm_claim(claim, connection, actor, *, self_service=False):
     return Response({
         **_public(locked),
         "state": "verified",
-        "next_step": "Open My Domains to view live DNS." if self_service else "Customer must approve DNS visibility, then Super Admin approves access.",
+        "next_step": "Customer must approve DNS visibility, then Super Admin approves access.",
     }, headers=NO_CACHE)
