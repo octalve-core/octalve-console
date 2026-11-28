@@ -29,7 +29,8 @@ from orders.models import Order,OrderItem
 from payments.models import PaymentGateway,Transaction
 from payments.live_binding import resolve_live_key
 from provisioning.authority import require_verified_settlement,SettlementNotVerified
-from providers.registrar_live_policy import ready,load
+from providers.registrar_live_policy import ready,load,policy
+from providers.resellerclub_live import ResellerClub,ResellerClubUnavailable
 from providers.registrar_live_transport import request as registrar_request
 from providers.cloudflare_int01 import CloudflareINT01,FixedCloudflareTransport,CloudflareINT01Denied,require_domain
 from providers.connection_models import IntegrationConnection,IntegrationCredentialVersion
@@ -50,7 +51,12 @@ def enabled():
 
 def connector(route):
     row,secret=load(route)
+    if row.adapter_key=="resellerclub":
+        return row,secret,ResellerClub(row.public_settings["reseller_id"],secret,"live")
     return row,secret,CloudflareINT01(row.public_settings["account_id"],FixedCloudflareTransport(secret))
+
+def account_id(row):
+    return row.public_settings["reseller_id" if row.adapter_key=="resellerclub" else "account_id"]
 
 def cost_snapshot(price,domain):
     route=price.metadata.get("published_registrar")
@@ -113,6 +119,8 @@ def accept(user,token,contact):
         or str(price.register_price)!=grant["retail"]):
         raise RegistrationRefused("Price changed. Request a new quote.")
     row,_=load(grant["route"])
+    if row.adapter_key=="resellerclub" and not policy(row):
+        raise RegistrationRefused("Registrar authority unavailable.")
     prior=Domain.objects.select_for_update().filter(domain_name__iexact=name).first()
     if prior:
         if prior.client_id==user.pk and prior.status=="pending" and prior.order_item_id:
@@ -129,8 +137,8 @@ def accept(user,token,contact):
         domain_name=name,description=name+" registration (1 year)",unit_price=price.register_price,cycle_key="1yr",months=12)
     order.refresh_from_db()
     domain=Domain.objects.create(client=user,domain_name=name,tld=price.tld,order_item=item,registration_type="register",
-        registrar="cloudflare-registrar-live",status="pending",is_active=False,registration_date=None,
-        auto_renew=False,registrant_contact=contact,metadata={KEY:{"state":"queued","grant":signing.dumps({**grant,"order":order.pk,"item":item.pk,"account_id":row.public_settings["account_id"],"contact_digest":digest(contact)},salt=SALT)}})
+        registrar=row.adapter_key,status="pending",is_active=False,registration_date=None,
+        auto_renew=False,registrant_contact=contact,metadata={KEY:{"state":"queued","grant":signing.dumps({**grant,"order":order.pk,"item":item.pk,"account_id":account_id(row),"contact_digest":digest(contact)},salt=SALT)}})
     order.metadata={**order.metadata,KEY:{"domain_id":domain.pk,"item":item.pk}}
     order.save(update_fields=["metadata","updated_at"])
     invoice=Invoice.create_from_order(order)
@@ -140,7 +148,7 @@ def authority(domain,*,lock=False):
     entry=domain.metadata[KEY]
     grant=signing.loads(entry["grant"],salt=SALT)
     item=domain.order_item
-    if (digest(domain.registrant_contact)!=grant.get("contact_digest") or domain.management_kind!="registrar" or domain.registrar!="cloudflare-registrar-live" or domain.status!="pending"
+    if (digest(domain.registrant_contact)!=grant.get("contact_digest") or domain.management_kind!="registrar" or domain.registrar not in ("cloudflare-registrar-live","resellerclub") or domain.status!="pending"
         or not item or item.pk!=grant["item"] or item.order_id!=grant["order"] or item.item_type!="domain"
         or item.domain_name!=domain.domain_name or domain.domain_name!=grant["domain"] or domain.client_id!=grant["owner"]
         or item.order.client_id!=domain.client_id or item.months!=12 or item.quantity!=1 or str(item.subtotal)!=grant["retail"]
@@ -169,8 +177,11 @@ def transition(domain_id):
         domain=Domain.objects.select_related("order_item__order").get(pk=domain_id)
         entry,grant,invoice=authority(domain)
         row,secret,adapter=connector(grant["route"])
-        if row.public_settings["account_id"]!=grant.get("account_id"):
+        if account_id(row)!=grant.get("account_id") or row.adapter_key!=domain.registrar:
             return "held"
+        if row.adapter_key=="resellerclub":
+            from .resellerclub_registration import advance
+            return advance(domain,entry,grant,invoice,row,secret,adapter)
         state=entry["state"]
         if state=="queued":
             proof=adapter.live_domain_check(domain.domain_name)
@@ -234,7 +245,7 @@ def transition(domain_id):
             AuditLog.objects.create(actor=None,action="live_domain_registration_confirmed",entity_type="Domain",
                 entity_id=str(locked.pk),entity_name=locked.domain_name,details={"order":order.pk,"expires_at":expires.isoformat()})
         return "processed"
-    except (RegistrationRefused,SettlementNotVerified,CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,InvalidOperation,signing.BadSignature,
+    except (RegistrationRefused,SettlementNotVerified,ResellerClubUnavailable,CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,InvalidOperation,signing.BadSignature,
         Domain.DoesNotExist,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist,Invoice.DoesNotExist,Order.DoesNotExist):
         return "held"
 
@@ -282,14 +293,14 @@ def reconcile_confirmed(domain_id):
                 AuditLog.objects.create(actor=None,action="live_domain_registration_reconciled",entity_type="Domain",
                     entity_id=str(locked.pk),entity_name=locked.domain_name,details={"supplier_status":state,"expires_at":expires.isoformat()})
         return "processed"
-    except (RegistrationRefused,CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,
+    except (RegistrationRefused,ResellerClubUnavailable,CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,
             signing.BadSignature,Domain.DoesNotExist,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):
         return "held"
 
 def run_due():
     if not enabled():
         return None
-    row=Domain.objects.filter(status="pending",registrar="cloudflare-registrar-live",order_item__order__status="paid",
+    row=Domain.objects.filter(status="pending",registrar__in=("cloudflare-registrar-live","resellerclub"),order_item__order__status="paid",
         metadata__live_domain_registration_v1__state__in=("queued","uncertain")).order_by("updated_at","pk").first()
     if not row:
         confirmed=Domain.objects.filter(registrar="cloudflare-registrar-live",management_kind="registrar",
@@ -321,7 +332,7 @@ def checkout_readiness(user,name):
         name=require_domain(name)
         if name.count(".")!=1:
             return {"available":False}
-        existing=Domain.objects.filter(domain_name__iexact=name,client_id=user.pk,registrar="cloudflare-registrar-live",status="pending").first()
+        existing=Domain.objects.filter(domain_name__iexact=name,client_id=user.pk,registrar__in=("cloudflare-registrar-live","resellerclub"),status="pending").first()
         if existing and existing.order_item_id:
             invoice=Invoice.objects.filter(order_id=existing.order_item.order_id,client_id=user.pk).first()
             if invoice:
@@ -335,7 +346,7 @@ def checkout_readiness(user,name):
             return {"available":False}
         load(route)
         return {"available":True}
-    except (CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,TLDPricing.DoesNotExist,
+    except (ResellerClubUnavailable,CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,TLDPricing.DoesNotExist,
         IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):
         return {"available":False}
 
@@ -352,6 +363,6 @@ def registration_checkout(request):
         if isinstance(data,dict) and set(data)=={"quote","contact","consent"} and data["consent"] is True:
             return Response(accept(request.user,data["quote"],data["contact"]),status=201,headers=HEADERS)
         raise RegistrationRefused("Review the registration terms and registrant contact.")
-    except (RegistrationRefused,CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,InvalidOperation,DjangoValidationError,signing.BadSignature,
+    except (RegistrationRefused,ResellerClubUnavailable,CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,InvalidOperation,DjangoValidationError,signing.BadSignature,
         TLDPricing.DoesNotExist,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):
         raise ValidationError("Live registration is unavailable or the quote needs renewal. No new charge was initiated.") from None

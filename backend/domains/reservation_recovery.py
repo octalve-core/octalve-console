@@ -20,7 +20,7 @@ MAX_AGE=timedelta(hours=24)
 @transaction.atomic
 def release(domain_id):
     candidate=Domain.objects.filter(pk=domain_id,status="pending",management_kind="registrar",
-        registrar="cloudflare-registrar-live",created_at__lte=timezone.now()-MAX_AGE,
+        registrar__in=("cloudflare-registrar-live","resellerclub"),created_at__lte=timezone.now()-MAX_AGE,
         metadata__live_domain_registration_v1__state="queued").first()
     if not candidate or not candidate.order_item_id:
         return False
@@ -34,7 +34,7 @@ def release(domain_id):
     if (domain.metadata.get(KEY)!=candidate.metadata.get(KEY)
         or domain.status!="pending" or domain.is_active or domain.service_id or domain.provider_id
         or domain.provider_domain_id or domain.registration_date or domain.expiry_date or domain.next_due_date
-        or domain.registrar!="cloudflare-registrar-live" or domain.order_item_id!=item.pk
+        or domain.registrar not in ("cloudflare-registrar-live","resellerclub") or domain.order_item_id!=item.pk
         or domain.client_id!=order.client_id or invoice.client_id!=order.client_id
         or order.status!="pending_payment" or order.paid_at or invoice.status not in ("unpaid","overdue")
         or invoice.paid_at or invoice.amount_paid!=0 or invoice.amount_due!=invoice.total
@@ -77,7 +77,7 @@ def run_due(limit=5):
     from django.db.models import Exists,OuterRef
     intents=PaymentIntent.objects.filter(invoice__order_id=OuterRef("order_item__order_id"))
     movements=Transaction.objects.filter(invoice__order_id=OuterRef("order_item__order_id"))
-    rows=Domain.objects.filter(status="pending",management_kind="registrar",registrar="cloudflare-registrar-live",
+    rows=Domain.objects.filter(status="pending",management_kind="registrar",registrar__in=("cloudflare-registrar-live","resellerclub"),
         created_at__lte=timezone.now()-MAX_AGE,metadata__live_domain_registration_v1__state="queued",
         order_item__order__status="pending_payment",service__isnull=True,provider__isnull=True
         ).annotate(has_intent=Exists(intents),has_movement=Exists(movements)).filter(

@@ -51,7 +51,7 @@ export function SavedConnectionActions({connection,onVerified}:{
    {working?"Verifying…":hosting?"Verify and import packages":"Verify access"}</button>
   {message?<p role={failed?"alert":"status"} className={"text-xs leading-5 "+(failed?"text-rose-700":"text-emerald-700")}>
    {failed?<AlertTriangle aria-hidden="true" className="mr-1 inline h-4 w-4"/>:null}{message}</p>:null}
- </form>{connection.adapter_key==="cloudflare-registrar-live"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarExecutionPolicy connection={connection}/>:null}{connection.adapter_key==="cloudflare-registrar-live"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarRegistrationReview connection={connection}/>:null}{connection.adapter_key==="paystack"&&connection.environment==="live"&&connection.verification_status==="verified"?<PaystackLiveBinding connection={connection} onSaved={onVerified}/>:null}{["brevo","resend"].includes(connection.adapter_key)&&connection.environment==="live"&&connection.verification_status==="verified"?<MailSenderPolicy connection={connection} onSaved={onVerified}/>:null}{hosting&&connection.hosting_policy_available===true&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
+ </form>{["cloudflare-registrar-live","resellerclub"].includes(connection.adapter_key)&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarExecutionPolicy connection={connection}/>:null}{connection.adapter_key==="cloudflare-registrar-live"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarRegistrationReview connection={connection}/>:null}{connection.adapter_key==="paystack"&&connection.environment==="live"&&connection.verification_status==="verified"?<PaystackLiveBinding connection={connection} onSaved={onVerified}/>:null}{["brevo","resend"].includes(connection.adapter_key)&&connection.environment==="live"&&connection.verification_status==="verified"?<MailSenderPolicy connection={connection} onSaved={onVerified}/>:null}{hosting&&connection.hosting_policy_available===true&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
 }
 
 function RegistrarRegistrationReview({connection}:{connection:DraftConnection}){
@@ -82,6 +82,7 @@ function RegistrarExecutionPolicy({connection}:{connection:DraftConnection}){
  async function save(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(working)return;const form=event.currentTarget,fields=new FormData(form);
   const data={registration:fields.get("operation")==="enable",dedicated_account:fields.get("dedicated")==="on",
+    ...(connection.adapter_key==="resellerclub"?{nameservers:String(fields.get("nameservers")||"").split(/[,\s]+/).filter(Boolean).map(s=>s.toLowerCase())}:{}),
     confirm_password:String(fields.get("password")||""),totp_code:String(fields.get("totp")||"")};
   form.reset();setWorking(true);setFailed(false);setMessage("");
   try{const result=await api.post<{registration_enabled:boolean}>("/providers/connections/"+encodeURIComponent(connection.id)+"/registrar-policy/",data);
@@ -93,6 +94,7 @@ function RegistrarExecutionPolicy({connection}:{connection:DraftConnection}){
  <h4 className="text-sm font-medium">Live registration authority</h4>
  <p className="text-xs text-console-muted">One-year standard .com and .net orders only. Supplier billing and customer contact accuracy must be qualified. Enabling this allows independently paid orders to purchase real domains.</p>
  <label className="block text-xs">Registration policy<select name="operation" required className={field}><option value="disable">Disabled</option><option value="enable">Enable paid registration</option></select></label>
+ {connection.adapter_key==="resellerclub"?<label className="block text-xs">Initial nameservers (comma-separated, at least two)<input name="nameservers" required placeholder="ns1.example.com, ns2.example.com" className={field}/></label>:null}
  <label className="flex gap-2 text-xs"><input name="dedicated" type="checkbox" required/>This is a dedicated registrar account controlled by Octalve; no competing out-of-band registration requests.</label>
  <label className="block text-xs">Current password<input type="password" name="password" required autoComplete="current-password" className={field}/></label>
  <label className="block text-xs">Authenticator code<input name="totp" required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" className={field}/></label>

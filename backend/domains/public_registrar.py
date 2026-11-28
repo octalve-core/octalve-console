@@ -17,7 +17,11 @@ def _cloudflare_check(connection, credentials, domain):
     return CloudflareINT01(connection.public_settings["account_id"], transport).live_domain_check(domain)
 
 
-LIVE_AVAILABILITY_ADAPTERS = {"cloudflare-registrar-live": _cloudflare_check}
+def _resellerclub_check(connection,credentials,domain):
+    from providers.resellerclub_live import ResellerClub
+    return ResellerClub(connection.public_settings["reseller_id"],credentials["api_key"],"live").live_domain_check(domain)
+
+LIVE_AVAILABILITY_ADAPTERS = {"cloudflare-registrar-live": _cloudflare_check,"resellerclub":_resellerclub_check}
 
 
 def query_published_registrar(route, domain):

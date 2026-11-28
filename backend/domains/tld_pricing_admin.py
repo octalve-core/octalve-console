@@ -217,7 +217,7 @@ def publish_tld_price_card(request):
             return Response({"detail": "Price card changed. Refresh before publishing."}, status=409)
         if quote and not IntegrationConnection.objects.select_for_update().filter(
             pk=quote["connection_id"], environment="live", state="draft",
-            adapter_key="cloudflare-registrar-live", current_version=quote["credential_version"],
+            adapter_key__in=("cloudflare-registrar-live","resellerclub"), current_version=quote["credential_version"],
             credential_versions__version=quote["credential_version"], credential_versions__revoked_at__isnull=True,
         ).exists():
             raise ValidationError("The quoted registrar credential changed. Check live pricing again.")
