@@ -29,7 +29,7 @@ from .models import ConsoleMailOutbox
 from .console_policy import read_policy
 from .mail_dispatch import DeliveryResult, deliver_queued_once, quarantine_expired_attempts
 from .brevo_transport import verify_sender, send_message, SenderRefused
-from . import resend_transport
+from . import resend_transport,brevo_transport
 
 def _transport(adapter):
     if adapter=="brevo":
@@ -231,6 +231,8 @@ class BrevoSender:
             if (not current_message(stored) or any(getattr(stored,k)!=message[k]
                     for k in ("recipient","subject","body_text","body_html"))):
                 raise SenderRefused("Notice authority changed.")
+            if _known_suppressed(stored.recipient):
+                return DeliveryResult("suppressed",error_code="recipient_suppressed")
             _transport(row.adapter_key)[0](row.public_settings["sending_domain"],policy["sender"],key)
             latest=IntegrationConnection.objects.get(pk=self.row_id)
             if _identity(latest)!=_identity(row) or approved_policy(latest)!=policy or _key(latest)!=key:
@@ -246,6 +248,48 @@ class BrevoSender:
         return _transport(row.adapter_key)[1](key=key,sender=policy["sender"],sender_name=policy["sender_name"],
                             reply_to=policy["reply_to"],**message)
 
+
+def _suppression_readback(sender,recipient):
+    row=IntegrationConnection.objects.get(pk=sender.row_id)
+    if approved_policy(row)!=sender.policy:
+        raise SenderRefused("Sender approval changed.")
+    transport=brevo_transport if row.adapter_key=="brevo" else resend_transport
+    return transport.recipient_suppressed(recipient,_key(row))
+
+def _known_suppressed(recipient):
+    return ConsoleMailOutbox.objects.filter(recipient__iexact=recipient,status="suppressed",
+        last_error_code__in=("recipient_suppressed","delivery_suppressed")).exists()
+
+def reconcile_delivery(senders,limit=2):
+    """Authenticated receipt readback, never retry an accepted message."""
+    count=0
+    for sender in senders:
+        rows=ConsoleMailOutbox.objects.filter(status="sent",provider=sender.name,
+            sent_at__gte=timezone.now()-timedelta(days=30)).exclude(provider_receipt="").exclude(
+            last_error_code__in=("delivery_delivered","delivery_failed")).order_by("sent_at","pk")[:limit]
+        for message in rows:
+            try:
+                row=IntegrationConnection.objects.get(pk=sender.row_id)
+                if approved_policy(row)!=sender.policy:
+                    continue
+                transport=brevo_transport if row.adapter_key=="brevo" else resend_transport
+                state=transport.delivery_state(message.recipient,message.provider_receipt,_key(row))
+                if state=="pending":
+                    continue
+                with transaction.atomic():
+                    current=ConsoleMailOutbox.objects.select_for_update().get(pk=message.pk)
+                    if current.status!="sent" or current.provider!=message.provider or current.provider_receipt!=message.provider_receipt or current.recipient!=message.recipient:
+                        continue
+                    current.last_error_code="delivery_"+state
+                    if state=="suppressed":
+                        current.status="suppressed"
+                    elif state=="failed":
+                        current.status="needs_review"
+                    current.save(update_fields=["status","last_error_code"])
+                    count+=1
+            except (SenderRefused,VaultUnavailable,DatabaseError,IntegrationConnection.DoesNotExist,ConsoleMailOutbox.DoesNotExist,KeyError,ValueError,TypeError):
+                continue
+    return count
 
 def configured_sender(adapter=ADAPTER):
     """No arbitrary connection selection: ambiguity holds rather than guessing."""
@@ -285,7 +329,26 @@ def run_due_mail(limit=2):
         template__key__in=KEYS,template__is_active=True,created_at__gte=now-timedelta(days=7))
         .filter(Q(next_attempt_at__isnull=True)|Q(next_attempt_at__lte=now))
         .order_by("created_at","pk").values_list("pk",flat=True)[:min(max(limit,1),2)])
+    result["reconciled"]=reconcile_delivery(senders,limit=1)
     for pk in ids:
+        message=ConsoleMailOutbox.objects.select_related("template").get(pk=pk)
+        # Check both configured providers BEFORE attempting either. A failed
+        # suppression read is a hold, never a reason to bypass the primary.
+        try:
+            blocked=_known_suppressed(message.recipient) or any(_suppression_readback(s,message.recipient) for s in senders)
+        except (SenderRefused,VaultUnavailable,DatabaseError,IntegrationConnection.DoesNotExist,KeyError,ValueError,TypeError):
+            result["held"]+=1
+            continue
+        if blocked or not current_message(message):
+            with transaction.atomic():
+                locked=ConsoleMailOutbox.objects.select_for_update().get(pk=pk)
+                if locked.status=="queued" and locked.recipient==message.recipient:
+                    locked.status="suppressed"
+                    locked.last_error_code="recipient_suppressed" if blocked else "notice_no_longer_current"
+                    locked.next_attempt_at=None
+                    locked.save(update_fields=["status","last_error_code","next_attempt_at"])
+            result["held"]+=1
+            continue
         if deliver_queued_once(pk,senders=senders):
             result["accepted"]+=1
         else:

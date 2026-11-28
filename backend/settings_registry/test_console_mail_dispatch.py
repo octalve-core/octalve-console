@@ -176,3 +176,37 @@ class ResendTransportTests(TestCase):
   self.assertEqual(len(call.call_args.kwargs["event"]),64)
   for status,expected in ((403,"refused"),(409,"unknown"),(500,"unknown"),(200,"unknown")):
    self.assertEqual(send_message(**args,request=Mock(return_value=(status,{}))).outcome,expected)
+
+
+class SuppressionReadbackTests(TestCase):
+ def test_brevo_requires_complete_inventory(self):
+  from unittest.mock import Mock
+  from .brevo_transport import recipient_suppressed,SenderRefused
+  self.assertTrue(recipient_suppressed("user@example.test","fixture",request=Mock(return_value=(200,{"contacts":[{"email":"USER@example.test"}],"count":1}))))
+  self.assertFalse(recipient_suppressed("user@example.test","fixture",request=Mock(return_value=(200,{"contacts":[],"count":0}))))
+  with self.assertRaises(SenderRefused):
+   recipient_suppressed("user@example.test","fixture",request=Mock(return_value=(200,{"contacts":[],"count":10})))
+ def test_resend_suppression_pagination_and_unavailable(self):
+  from unittest.mock import Mock
+  from .resend_transport import recipient_suppressed,SenderRefused
+  self.assertFalse(recipient_suppressed("user@example.test","fixture",request=Mock(return_value=(200,{"object":"list","data":[],"has_more":False}))))
+  self.assertTrue(recipient_suppressed("user@example.test","fixture",request=Mock(return_value=(200,{"object":"list","data":[{"email":"user@example.test"}],"has_more":False}))))
+  with self.assertRaises(SenderRefused):
+   recipient_suppressed("user@example.test","fixture",request=Mock(return_value=(403,{})))
+ def test_bounce_is_not_delivery_and_receipt_identity_is_required(self):
+  from unittest.mock import Mock
+  from .brevo_transport import delivery_state,SenderRefused
+  receipt="<fixture@example.test>"
+  row={"email":"user@example.test","messageId":receipt,"event":"hardBounce"}
+  self.assertEqual(delivery_state("user@example.test",receipt,"fixture",request=Mock(return_value=(200,{"events":[row]}))),"suppressed")
+  with self.assertRaises(SenderRefused):
+   delivery_state("other@example.test",receipt,"fixture",request=Mock(return_value=(200,{"events":[row]})))
+
+class SuppressionDispatchTests(MailDispatchTests):
+ def test_suppressed_recipient_never_falls_back(self):
+  primary=FakeVerifiedSender("smtp_primary","suppressed")
+  fallback=FakeVerifiedSender("api_secondary","accepted","receipt-3")
+  self.assertFalse(deliver_queued_once(self.msg.pk,senders=[primary,fallback]))
+  self.msg.refresh_from_db()
+  self.assertEqual(self.msg.status,"suppressed")
+  self.assertEqual(fallback.calls,0)

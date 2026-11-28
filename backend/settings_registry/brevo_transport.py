@@ -18,11 +18,11 @@ class SenderRefused(ValueError):
     pass
 
 
-def _request(method, path, key, *, payload=None, session_factory=None):
+def _request(method, path, key, *, payload=None, params=None, session_factory=None):
     if (not isinstance(key, str) or not 12 <= len(key) <= 4096
             or any(ord(c) < 33 or ord(c) > 126 for c in key)):
         raise SenderRefused("Invalid mail credential.")
-    if not ((method == "GET" and (path == "/senders" or
+    if not ((method == "GET" and (path in ("/senders","/smtp/blockedContacts","/smtp/statistics/events") or
             (path.startswith("/senders/domains/") and DOMAIN.fullmatch(path[17:]))))
             or (method == "POST" and path == "/smtp/email" and isinstance(payload, dict))):
         raise SenderRefused("Unapproved mail operation.")
@@ -34,6 +34,8 @@ def _request(method, path, key, *, payload=None, session_factory=None):
                   "verify":True,"allow_redirects":False,"stream":True,"timeout":(3,8)}
         if method == "POST":
             kwargs["json"] = payload
+        elif params is not None:
+            kwargs["params"] = params
         with session.request(method, ORIGIN + path, **kwargs) as response:
             if 300 <= response.status_code < 400:
                 raise SenderRefused("Unexpected supplier redirect.")
@@ -98,3 +100,43 @@ def send_message(*,key,sender,sender_name,reply_to,recipient,subject,
     if status in (401,403) and not receipt:
         return DeliveryResult("refused",error_code="supplier_authorization_refused")
     return DeliveryResult("unknown",error_code="supplier_acceptance_unconfirmed")
+
+
+def recipient_suppressed(recipient,key,*,request=None):
+    """Read the full bounded suppression inventory; incomplete is not clear."""
+    call=request or _request
+    for offset in (0,100,200):
+        status,body=call("GET","/smtp/blockedContacts",key,params={"limit":100,"offset":offset})
+        rows,count=body.get("contacts"),body.get("count")
+        if status!=200 or not isinstance(rows,list) or type(count) is not int or count<0 or len(rows)>100:
+            raise SenderRefused("Suppression readback unavailable.")
+        for row in rows:
+            if not isinstance(row,dict) or not isinstance(row.get("email"),str):
+                raise SenderRefused("Invalid suppression inventory.")
+            if row["email"].casefold()==recipient.casefold():
+                return True
+        if offset+len(rows)==count and len(rows)<100:
+            return False
+        if offset+len(rows)==count and len(rows)==100:
+            # Confirm the next page rather than assuming count is total.
+            continue
+        if len(rows)!=100 or offset+len(rows)>count:
+            raise SenderRefused("Suppression inventory incomplete.")
+    raise SenderRefused("Suppression inventory exceeds safe bound.")
+
+def delivery_state(recipient,receipt,key,*,request=None):
+    status,body=(request or _request)("GET","/smtp/statistics/events",key,
+        params={"email":recipient,"messageId":receipt,"days":30,"limit":100})
+    rows=body.get("events")
+    if status!=200 or not isinstance(rows,list) or len(rows)>=100:
+        raise SenderRefused("Delivery evidence unavailable.")
+    states=set()
+    for row in rows:
+        if not isinstance(row,dict) or row.get("messageId")!=receipt or row.get("email","").casefold()!=recipient.casefold():
+            raise SenderRefused("Delivery evidence identity mismatch.")
+        states.add(row.get("event"))
+    if states & {"hardBounce","hardBounces","hard_bounce","spam","unsubscribed","blocked","invalid"}:
+        return "suppressed"
+    if states & {"delivered","opened","clicks","clicked"}:
+        return "delivered"
+    return "pending"
