@@ -7,6 +7,7 @@ from decimal import Decimal,InvalidOperation
 from datetime import timedelta
 import re
 import hashlib
+import hmac
 import json
 from uuid import UUID
 from django.conf import settings
@@ -146,6 +147,10 @@ def accept(user,token,contact,auth_code=None):
         if prior.client_id==user.pk and prior.status=="pending" and prior.order_item_id:
             saved=signing.loads(prior.metadata.get(KEY,{}).get("grant",""),salt=SALT)
             if all(saved.get(k)==v for k,v in grant.items()) and saved.get("contact_digest")==digest(contact):
+                if operation=="transfer":
+                    from .transfer_secret import open_code
+                    if not hmac.compare_digest(open_code(prior),auth_code):
+                        raise RegistrationRefused("Resume the existing transfer invoice.")
                 invoices=list(Invoice.objects.filter(order_id=prior.order_item.order_id,client=user)[:2])
                 if len(invoices)==1:
                     invoice=invoices[0]

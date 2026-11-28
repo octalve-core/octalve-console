@@ -25,7 +25,7 @@ def close(user,public_id,password,totp):
         check_mutation(user,password,totp)
         key=resolve_live_key(original.gateway)
         if not key: raise ExceptionRefused()
-        event_snapshot=list(event_rows(original).order_by("pk").values_list("pk","is_processed"))
+        event_snapshot=list(event_rows(original).order_by("pk").values_list("pk","is_processed")[:101])
         if any(not done for _,done in event_snapshot) or len(event_snapshot)>100:raise ExceptionRefused()
         refunds=remote_refunds(original,key);disputes=remote_disputes(original,key)
         if any(r["state"] not in ("failed","processed") for r in refunds): raise ExceptionRefused()
@@ -43,7 +43,7 @@ def close(user,public_id,password,totp):
             gateway=PaymentGateway.objects.select_for_update().get(pk=original.gateway_id)
             locked=Transaction.objects.select_for_update().get(pk=original.pk)
             if (locked.metadata!=original.metadata or gateway.config!=original.gateway.config or resolve_live_key(gateway)!=key
-                or not original_authorized(locked,gateway) or event_snapshot!=list(event_rows(locked).order_by("pk").values_list("pk","is_processed"))
+                or not original_authorized(locked,gateway) or event_snapshot!=list(event_rows(locked).order_by("pk").values_list("pk","is_processed")[:101])
                 or locked.metadata.get(REFUND,{}).get("state") in ("submitted","uncertain")
                 or locked.metadata.get(DISPUTE,{}).get("state")=="uncertain"):
                 raise ExceptionRefused()

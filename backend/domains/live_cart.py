@@ -2,6 +2,7 @@
 from decimal import Decimal
 from uuid import UUID
 from django.core import signing
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction,DatabaseError
 from rest_framework.decorators import api_view,permission_classes,throttle_classes
 from rest_framework.permissions import IsAuthenticated
@@ -126,7 +127,12 @@ def payment_ready(invoice):
             or grant["item"]!=d.order_item_id or grant["domain"]!=d.domain_name or digest(d.registrant_contact)!=grant["contact_digest"]
             or Decimal(grant["retail"])!=d.order_item.subtotal):
             raise RegistrationRefused()
-        load(grant["route"])
+        row,_=load(grant["route"])
+        if row.adapter_key!=d.registrar or account_id(row)!=grant["account_id"] or d.registration_type!=grant.get("operation","register"):
+            raise RegistrationRefused()
+        if d.registration_type=="transfer":
+            from .transfer_secret import open_code
+            open_code(d)
     return True
 
 def all_domains_confirmed(order):
@@ -157,5 +163,5 @@ def checkout(request):
         if set(data)=={"quote","contact","checkout_id","consent"} and data["consent"] is True:
             return Response(accept_cart(request.user,data["quote"],data["contact"],data["checkout_id"]),status=201,headers=HEADERS)
         raise RegistrationRefused()
-    except (RegistrationRefused,CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,ArithmeticError,signing.BadSignature,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist,TLDPricing.DoesNotExist):
+    except (RegistrationRefused,CloudflareINT01Denied,VaultUnavailable,DjangoValidationError,DatabaseError,KeyError,TypeError,ValueError,ArithmeticError,signing.BadSignature,IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist,TLDPricing.DoesNotExist):
         raise ValidationError("Live cart is unavailable or changed. No new payment was initiated.") from None

@@ -145,11 +145,15 @@ def priced_line(item, *, verify_domain=False):
             "amount": str(entry["unit_price"]), "setup_fee": str(cycle.setup_fee), "period": cycle.label}
 
 
-def checkout_issue(items):
+def checkout_issue(items,user=None):
     domains = [item["domain"] for item in items if item["kind"] == "domain"]
     if len(domains) > MAX_CHECKOUT_DOMAINS:
         return f"Test checkout supports up to {MAX_CHECKOUT_DOMAINS} domains per order. Remove {len(domains) - MAX_CHECKOUT_DOMAINS} domain(s) to continue."
-    if any(not name.endswith(".com") for name in domains):
+    live=False
+    if user and domains:
+        from domains.live_registration import checkout_readiness
+        live=all(checkout_readiness(user,name)["available"] for name in domains)
+    if not live and any(not name.endswith(".com") for name in domains):
         return "Test checkout currently supports .com registrations only. Remove other domain extensions to continue."
     service_domains=[item.get("domain") for item in items if item["kind"]=="service"]
     if any(not name for name in service_domains):
@@ -179,7 +183,7 @@ def snapshot(cart):
     subtotal = str(sum((Decimal(line["amount"]) for line in lines), Decimal("0.00"))) if currency else None
     domains = list(owned_domains(cart.client_id).order_by("domain_name").values_list("domain_name", flat=True)[:100]) if cart and cart.client_id else []
     return {"lines": lines, "subtotal": subtotal, "currency": currency, "domains": domains,
-            "checkout_issue": checkout_issue(cart.items if cart else [])}
+            "checkout_issue": checkout_issue(cart.items if cart else [],cart.client if cart and cart.client_id else None)}
 
 
 def owned_domains(owner):

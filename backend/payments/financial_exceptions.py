@@ -58,7 +58,9 @@ def record_signed(gateway,event,body):
     # A notification is evidence of a case, not proof of money movement.
     fingerprint=hashlib.sha256(json.dumps([gateway.pk,event,payload],sort_keys=True,separators=(",",":")).encode()).hexdigest()
     with transaction.atomic():
-        PaymentGateway.objects.select_for_update().get(pk=gateway.pk)
+        current=PaymentGateway.objects.select_for_update().get(pk=gateway.pk)
+        if current.config!=gateway.config or not resolve_live_key(current):
+            raise ExceptionRefused("Gateway authority changed.")
         saved,created=WebhookEvent.objects.get_or_create(event_id="cloud_exception_"+fingerprint,
             defaults={"gateway":gateway,"event_type":event,"payload":payload,"is_verified":True,"headers":{}})
         if saved.gateway_id!=gateway.pk or any(saved.payload.get(k)!=v for k,v in payload.items()) or not saved.is_verified:

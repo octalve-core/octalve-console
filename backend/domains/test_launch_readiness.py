@@ -269,3 +269,67 @@ class RegistrarLaunchTests(TestCase):
             self.assertTrue(release(Domain.objects.first().pk))
             self.assertEqual(Domain.objects.count(),0)
             invoice.refresh_from_db();self.assertEqual(invoice.status,"void")
+
+    def test_resellerclub_paid_registration_and_renewal(self):
+        from . import live_registration as live
+        from . import resellerclub_renewals as renew
+        from providers.connection_models import IntegrationConnection
+        from payments.readback import ConfirmedGatewayPayment
+        from payments.live_reconciliation import consume
+        from contextlib import ExitStack
+        from datetime import timedelta
+        from dateutil.relativedelta import relativedelta
+        route={"connection_id":"00000000-0000-4000-8000-000000000001","credential_version":1,"revision":1}
+        cost={"revision":1,"currency":"USD","registration_cost":"10.00","renewal_cost":"10.00","ngn_per_unit":"1000"}
+        self.rate.metadata={**self.rate.metadata,"published_registrar":route,"published_registrar_cost_v1":cost}
+        self.rate.save(update_fields=["metadata"])
+        row=IntegrationConnection.objects.create(pk=route["connection_id"],adapter_key="resellerclub",state="draft",environment="live",label="Fixture",public_settings={"reseller_id":"123"})
+        gateway=PaymentGateway.objects.create(code="paystack",name="Live fixture",status="active",test_mode=False,config={"fixture":1})
+        contact={"name":"Fixture","phone":"+234.8012345678","street":"Fixture Road","city":"Abuja","state":"FCT","country_code":"NG","postal_code":"900001"}
+        self.supplier.live_domain_check.side_effect=lambda n:{"name":n,"registrable":True,"currency":"USD","registration_cost":"10.00","renewal_cost":"10.00"}
+        self.supplier.customer.return_value="11";self.supplier.find_contact.return_value="12"
+        self.supplier.domain_details.return_value=None
+        config={"nameservers":["ns1.example.com","ns2.example.com"]}
+        def settle(invoice,number):
+            intent=PaymentIntent.objects.create(invoice=invoice,client=self.owner,gateway=gateway,reference="RC_FIXTURE_"+number,status="pending",amount=invoice.total,currency="NGN",expires_at=timezone.now()+timedelta(minutes=10),metadata={"payment_mode":"live","gateway_binding":gateway.config})
+            event=WebhookEvent.objects.create(gateway=gateway,event_id="rc-fixture-"+number,event_type="charge.success",is_verified=True,payload={"mode":"live","binding":gateway.config,"intent_id":intent.pk,"reference":intent.reference,"remote_id":number})
+            with patch("payments.settlement.verify_gateway_intent",return_value=ConfirmedGatewayPayment("paystack",intent.reference,"NGN",intent.amount,number)):
+                self.assertEqual(consume(event.pk),"processed")
+        with ExitStack() as stack:
+            for path in ("domains.live_registration.enabled","domains.resellerclub_lifecycle.enabled","domains.resellerclub_renewals.enabled","payments.live_reconciliation.enabled"):
+                stack.enter_context(patch(path,return_value=True))
+            for path in ("domains.live_registration.resolve_live_key","domains.resellerclub_renewals.resolve_live_key","payments.live_reconciliation.resolve_live_key","payments.live_binding.resolve_live_key"):
+                stack.enter_context(patch(path,return_value="fixture"))
+            for path in ("domains.live_registration.load","domains.resellerclub_registration.load","domains.resellerclub_lifecycle.load","domains.resellerclub_renewals.load"):
+                stack.enter_context(patch(path,return_value=(row,"fixture")))
+            for path in ("domains.live_registration.connector","domains.resellerclub_lifecycle.connector"):
+                stack.enter_context(patch(path,return_value=(row,"fixture",self.supplier)))
+            for path in ("domains.live_registration.policy","domains.resellerclub_registration.policy"):
+                stack.enter_context(patch(path,return_value=config))
+            stack.enter_context(self.settings(CLOUD_SETTLEMENT_COMMIT_ENABLED=True))
+            q=live.quote(self.owner,"rc-fixture.com")
+            a=live.accept(self.owner,q["quote"],contact)
+            d=Domain.objects.get(domain_name="rc-fixture.com")
+            self.assertEqual(live.transition(d.pk),"held")
+            self.supplier.register.assert_not_called()
+            settle(Invoice.objects.get(pk=a["invoice_id"]),"12345")
+            for _ in range(3): self.assertEqual(live.transition(d.pk),"processed")
+            self.supplier.register.assert_called_once()
+            now=timezone.now()
+            proof={"domain_name":d.domain_name,"order_id":"13","registered_at":now.isoformat(),"expires_at":(now+relativedelta(years=1)).isoformat(),"status":"Active","auto_renew":False,"premium":False,"registrant_email":self.owner.email,"registrant_verification":"verified","nameservers":config["nameservers"]}
+            self.supplier.domain_details.return_value=proof
+            self.assertEqual(live.transition(d.pk),"processed")
+            d.refresh_from_db();self.assertEqual(d.status,"active")
+            self.assertEqual(d.provider_domain_id,"13")
+            # A renewal invoice is idempotent and no extension occurs until paid.
+            result=renew.create_invoice(d);d.refresh_from_db()
+            self.assertEqual(renew.create_invoice(d),result)
+            inv=Invoice.objects.get(public_id=result["invoice_public_id"])
+            self.assertEqual(renew.advance(inv.pk),"held");self.supplier.renew.assert_not_called()
+            settle(inv,"12346")
+            self.assertEqual(renew.advance(inv.pk),"processed")
+            self.supplier.renew.assert_called_once()
+            self.supplier.domain_details.return_value={**proof,"expires_at":(now+relativedelta(years=2)).isoformat()}
+            self.assertEqual(renew.advance(inv.pk),"processed")
+            d.refresh_from_db();self.assertEqual(d.expiry_date,now+relativedelta(years=2))
+            self.assertEqual(renew.advance(inv.pk),"held");self.supplier.renew.assert_called_once()
