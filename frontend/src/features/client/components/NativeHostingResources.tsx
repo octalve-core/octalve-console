@@ -2,21 +2,22 @@
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import {api} from "@/lib/api/client";
 
+type ResourceTab="email"|"subdomains"|"databases";
 type Mailbox={address:string;quota_mb:number|null;unlimited:boolean};
 type Inventory={resource:string;domain:string;items:Array<Mailbox|string>;verified_at:string;pending_operation:boolean;pending_password_verification?:boolean};
 type Result={state:"confirmed"|"pending_verification";operation_id?:string;address?:string;password_status?:string};
 export function NativeHostingResources({serviceId,domain,capabilities}:{serviceId:string;domain:string;capabilities:Record<string,boolean>}){
- const [tab,setTab]=useState<"email"|"subdomains">("email");
+ const [tab,setTab]=useState<ResourceTab>("email");
  const [data,setData]=useState<Inventory|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [pending,setPending]=useState(false);
  const [passwordRecovery,setPasswordRecovery]=useState(false);
  const [action,setAction]=useState<"mailbox_delete"|"mailbox_quota"|"mailbox_password"|"subdomain_create"|"subdomain_delete"|null>(null);
  const sequence=useRef(0);
- const selected=tab==="email"&&capabilities.email?"email":capabilities.subdomains?"subdomains":"email";
+ const selected:ResourceTab=capabilities[tab]?tab:capabilities.email?"email":capabilities.subdomains?"subdomains":"databases";
  const activeAction=action&&capabilities[action]&&((selected==="email"&&action.startsWith("mailbox"))||(selected==="subdomains"&&action.startsWith("subdomain")))?action:null;
  const base="/services/opanel/"+encodeURIComponent(serviceId);
- async function load(resource:"email"|"subdomains"=selected){
+ async function load(resource:ResourceTab=selected){
   const request=++sequence.current;setBusy(true);setError("");setData(null);
   try{
    const result=await api.get<Inventory>(base+"/resources/"+resource+"/");
@@ -31,11 +32,11 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   return ()=>{sequence.current++};
  },[serviceId,domain]);
  useEffect(()=>{
-  if((selected==="email"&&capabilities.email)||(selected==="subdomains"&&capabilities.subdomains))void load(selected);
+  if(capabilities[selected])void load(selected);
   // Do not poll supplier resources on background dashboard refresh.
   return ()=>{sequence.current++};
  // eslint-disable-next-line react-hooks/exhaustive-deps
- },[serviceId,domain,selected,capabilities.email,capabilities.subdomains]);
+ },[serviceId,domain,selected,capabilities.email,capabilities.subdomains,capabilities.databases]);
  async function create(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(busy||pending||!capabilities.mailbox_create||selected!=="email")return;
   const form=event.currentTarget,fields=new FormData(form);
@@ -85,7 +86,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   }catch{setError("No eligible pending operation could be confirmed. Refresh inventory or contact support.");}
   finally{setBusy(false)}
  }
- if(!capabilities.email&&!capabilities.subdomains)return null;
+ if(!capabilities.email&&!capabilities.subdomains&&!capabilities.databases)return null;
  return <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="Native hosting resources">
   <div className="flex flex-wrap items-center justify-between gap-3">
    <h2 className="text-lg font-medium text-slate-950">Hosting resources</h2>
@@ -94,6 +95,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Resource type">
    {capabilities.email&&<button type="button" aria-pressed={selected==="email"} disabled={busy} onClick={()=>{setTab("email");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="email"?"bg-[#0064E0] text-white":"border border-slate-200")}>Email accounts</button>}
    {capabilities.subdomains&&<button type="button" aria-pressed={selected==="subdomains"} disabled={busy} onClick={()=>{setTab("subdomains");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="subdomains"?"bg-[#0064E0] text-white":"border border-slate-200")}>Subdomains</button>}
+   {capabilities.databases&&<button type="button" aria-pressed={selected==="databases"} disabled={busy} onClick={()=>{setTab("databases");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="databases"?"bg-[#0064E0] text-white":"border border-slate-200")}>Databases</button>}
   </div>
   {busy&&<p role="status" className="mt-4 text-sm text-slate-500">Checking supplier resources…</p>}
   {error&&<p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
@@ -115,7 +117,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   </form>}
   {data&&data.resource===selected&&<div className="mt-5 border-t border-slate-100 pt-5">
    <div className="flex flex-wrap gap-2">
-    {([["mailbox_quota","Change quota"],["mailbox_password","Change password"],["mailbox_delete","Delete mailbox"],["subdomain_create","Create subdomain"],["subdomain_delete","Remove subdomain"]] as const).filter(([key])=>capabilities[key]&&(selected==="email"?key.startsWith("mailbox"):key.startsWith("subdomain"))).map(([key,label])=><button type="button" key={key} disabled={busy||pending} aria-pressed={activeAction===key} onClick={()=>{setAction(key);setNotice("");setError("")}} className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">{label}</button>)}
+    {([["mailbox_quota","Change quota"],["mailbox_password","Change password"],["mailbox_delete","Delete mailbox"],["subdomain_create","Create subdomain"],["subdomain_delete","Remove subdomain"]] as const).filter(([key])=>capabilities[key]&&(selected==="email"?key.startsWith("mailbox"):selected==="subdomains"&&key.startsWith("subdomain"))).map(([key,label])=><button type="button" key={key} disabled={busy||pending} aria-pressed={activeAction===key} onClick={()=>{setAction(key);setNotice("");setError("")}} className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">{label}</button>)}
    </div>
    {activeAction&&<form key={activeAction} onSubmit={mutate} autoComplete="off" className="mt-4 space-y-3">
     {activeAction==="subdomain_create"?<label className="block text-sm">Subdomain name<div className="mt-1 flex flex-wrap items-center gap-2"><input name="local" required maxLength={63} pattern="[a-zA-Z0-9](?:[a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?" placeholder="shop" className="min-w-0 flex-1 rounded-lg border border-slate-200 p-2"/><span className="break-all text-slate-500">.{domain}</span></div></label>:
