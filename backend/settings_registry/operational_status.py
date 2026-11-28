@@ -45,6 +45,15 @@ class ConsoleStatusView(APIView):
  def get(self,request,section):
   if section not in DATA:return Response({"detail":"No verified settings status."},status=404)
   heading,entries=DATA[section]
+  entries=list(entries)
+  if section=="cron-jobs":
+   from services.commercial_scheduler import enabled,status
+   for lane in status():
+    metrics=lane["metrics"]
+    copy=("Last completed: "+str(lane["completed_at"]) if lane["completed_at"] else "No authenticated scheduler completion recorded.")
+    if metrics:
+     copy+="; "+", ".join(f"{key}: {value}" for key,value in sorted(metrics.items()))
+    entries.append((lane["lane"].capitalize(),copy,"managed" if lane["healthy"] else "required"))
   return Response({"title":heading,"items":[{"name":name,"description":copy,"state":state} for name,copy,state in entries],
      "provider_certified":False,
      "note":"Only independently verified connections can be enabled."},

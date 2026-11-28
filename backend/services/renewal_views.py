@@ -41,6 +41,9 @@ class RenewalCronView(APIView):
         key=os.environ.get("CRON_SECRET","")
         if len(key)<32 or not secrets.compare_digest(request.headers.get("Authorization","").encode(),("Bearer "+key).encode()):
             return Response({"detail":"Unauthorized."},status=401)
+        from .commercial_scheduler import enabled as commercial_enabled
+        if commercial_enabled():
+            return Response({"enabled":False,"state":"commercial_scheduler"},headers={"Cache-Control":"no-store"})
         from .hosting_lifecycle import run_due
         from .hosting_cancellation import run_due as cancellation_due
         return Response({**renewals.run_due(),"lifecycle":run_due(),"cancellation":cancellation_due()},headers={"Cache-Control":"no-store"})

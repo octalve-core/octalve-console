@@ -68,4 +68,7 @@ class LiveReconciliationCronView(APIView):
         key=os.environ.get("CRON_SECRET","")
         if len(key)<32 or not secrets.compare_digest(request.headers.get("Authorization","").encode(),("Bearer "+key).encode()):
             return Response({"detail":"Unauthorized."},status=401)
+        from services.commercial_scheduler import enabled as commercial_enabled
+        if commercial_enabled():
+            return Response({"enabled":False,"state":"commercial_scheduler"},headers={"Cache-Control":"no-store"})
         return Response(run_due(),headers={"Cache-Control":"no-store"})

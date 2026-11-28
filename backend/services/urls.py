@@ -4,6 +4,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import ServiceViewSet, ServiceChangeRequestViewSet
 from .opanel import OPanelOverviewView, NativePanelLaunchView
+from .commercial_scheduler import CommercialWorkerView
 from .renewal_views import RenewalPolicyView,RenewalCronView,LifecyclePolicyView,CancellationPolicyView
 from .resource_views import ResourceInventoryView, MailboxCreateView, MailboxReconcileView, ResourceMutationView, ResourceReconcileView, MailboxSettingsView, MailboxWebmailView
 
@@ -12,6 +13,7 @@ router.register(r'services', ServiceViewSet, basename='service')
 router.register(r'change-requests', ServiceChangeRequestViewSet, basename='change-request')
 
 urlpatterns = [
+    path('commercial-worker/<str:lane>/cron/', CommercialWorkerView.as_view(), name='commercial-worker-cron'),
     path('cancellation-policy/', CancellationPolicyView.as_view(), name='hosting-cancellation-policy'),
     path('lifecycle-policy/', LifecyclePolicyView.as_view(), name='hosting-lifecycle-policy'),
     path('renewal-policy/', RenewalPolicyView.as_view(), name='hosting-renewal-policy'),

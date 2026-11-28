@@ -1,0 +1,48 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "main": false,
+      "review/cloud": false,
+      "*": false
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/payments/test-lifecycle/cron/",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/provisioning/hosting-usage/cron/",
+      "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/services/commercial-worker/payments/cron/",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/services/commercial-worker/staging/cron/",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/services/commercial-worker/provisioning/cron/",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/services/commercial-worker/mail/cron/",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/services/commercial-worker/renewals/cron/",
+      "schedule": "0-59/5 * * * *"
+    },
+    {
+      "path": "/api/services/commercial-worker/lifecycle/cron/",
+      "schedule": "1-59/5 * * * *"
+    },
+    {
+      "path": "/api/services/commercial-worker/cancellation/cron/",
+      "schedule": "2-59/5 * * * *"
+    }
+  ]
+}

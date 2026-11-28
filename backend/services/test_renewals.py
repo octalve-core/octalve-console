@@ -179,3 +179,29 @@ class RenewalLifecycleDatabaseTests(TestCase):
             protocol.lifecycle_write.assert_not_called()
             with self.assertRaises(RenewalRefused):
                 cancel.authorize_removal(self.service.pk,self.user,self.service.domain_name,"fixture-backup-1")
+
+
+class CommercialSchedulerTests(TestCase):
+    def test_disabled_and_untrusted_calls_never_run(self):
+        from rest_framework.test import APIClient
+        api=APIClient()
+        with patch.dict("os.environ",{"CRON_SECRET":"synthetic-scheduler-credential-only-123456"}),override_settings(CLOUD_COMMERCIAL_SCHEDULER_ENABLED=False),patch("services.commercial_scheduler.run_lane") as run:
+            path="/api/services/commercial-worker/mail/cron/"
+            self.assertEqual(api.get(path).status_code,401)
+            self.assertEqual(api.get(path,HTTP_AUTHORIZATION="Bearer synthetic-scheduler-credential-only-123456").json(),{"enabled":False})
+            self.assertEqual(api.get("/api/services/commercial-worker/other/cron/",HTTP_AUTHORIZATION="Bearer synthetic-scheduler-credential-only-123456").status_code,404)
+            run.assert_not_called()
+    @override_settings(CLOUD_COMMERCIAL_SCHEDULER_ENABLED=True)
+    def test_postgres_lease_fences_overlapping_workers(self):
+        from django.db import connection
+        from services.commercial_scheduler import claim,finish,status
+        if connection.vendor!="postgresql":
+            self.skipTest("Production lease uses PostgreSQL.")
+        token=claim("mail")
+        self.assertTrue(token)
+        self.assertIsNone(claim("mail"))
+        finish("mail","incorrect",{"accepted":99})
+        self.assertIsNone(claim("mail"))
+        finish("mail",token,{"accepted":1,"secret":"must-not-store"})
+        self.assertEqual(next(x for x in status() if x["lane"]=="mail")["metrics"],{"accepted":1})
+        self.assertTrue(claim("mail"))
