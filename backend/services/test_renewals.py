@@ -34,3 +34,13 @@ class RenewalCalendarTests(SimpleTestCase):
         value["payload"]["total"]="1.00"
         with self.assertRaises(RenewalRefused):
             unseal(value,"renewal")
+
+
+class LifecyclePolicyTests(SimpleTestCase):
+    def test_explicit_grace_and_restoration_policy(self):
+        from services.hosting_lifecycle import validate_policy
+        p={"enabled":True,"grace_days":3,"restore_enabled":False}
+        self.assertEqual(validate_policy(p),p)
+        for bad in ({**p,"grace_days":0},{**p,"restore_enabled":1},{**p,"terminate":True}):
+            with self.assertRaises(RenewalRefused):
+                validate_policy(bad)

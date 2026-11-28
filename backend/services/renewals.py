@@ -94,8 +94,8 @@ def end_of_term(start,months,anchor):
     result=start+relativedelta(months=months)
     return result.replace(day=min(anchor,calendar.monthrange(result.year,result.month)[1]))
 
-def _original(service):
-    if (service.service_type!="hosting" or service.status!="active" or not service.auto_renew
+def _original(service, *, allow_suspended=False):
+    if (service.service_type!="hosting" or (service.status!="active" and not (allow_suspended and service.status=="suspended" and service.suspension_reason=="Octalve verified nonpayment")) or not service.auto_renew
             or not service.client.is_active or not service.activated_at or not service.provider_identifier
             or not service.order_id or not service.invoice_id or not service.order_item_id
             or not service.provider_id or not service.provider_package_id or service.billing_cycle not in MONTHS):
@@ -222,7 +222,9 @@ def apply(invoice_id):
         raise RenewalRefused("Renewal service authority changed.")
     if order.status=="provisioned" and invoice.metadata.get("renewal_applied") is True:
         return False
-    proof=_original(service)
+    if service.metadata.get("hosting_lifecycle_v1",{}).get("state")=="dispatched_uncertain":
+        raise RenewalRefused("Lifecycle outcome requires readback before renewal extension.")
+    proof=_original(service,allow_suspended=True)
     if proof.account_digest!=p["account_digest"] or str(proof.binding_ref)!=p["binding"]:
         raise RenewalRefused("Supplier binding changed.")
     start,end=parse_datetime(p["start"]),parse_datetime(p["end"])
