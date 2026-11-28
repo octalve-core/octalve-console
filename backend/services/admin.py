@@ -23,7 +23,15 @@ class ServiceAdmin(admin.ModelAdmin):
     list_filter = ['status', 'service_type', 'auto_renew']
     search_fields = ['label', 'domain_name', 'client__email', 'provider_identifier']
     readonly_fields = ['created_at', 'updated_at', 'activated_at', 'suspended_at']
-    inlines = [ServiceCredentialInline, ServiceUsageInline]
+    # Never expose encrypted credentials or allow direct entitlement edits.
+    inlines = []
+
+    def has_add_permission(self,request):
+        return False
+    def has_change_permission(self,request,obj=None):
+        return False
+    def has_delete_permission(self,request,obj=None):
+        return False
     fieldsets = (
         ('Basic Info', {
             'fields': ('client', 'label', 'service_type', 'domain_name', 'description')
