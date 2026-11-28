@@ -18,7 +18,7 @@ from providers.pinned_egress import public_ip
 from rest_framework.exceptions import ValidationError
 
 POLICY="hosting_execution_policy_v1"
-RESOURCE_CAPABILITIES=frozenset(("mailbox_read","mailbox_create","mailbox_delete","mailbox_quota","mailbox_password","subdomain_read","subdomain_create","subdomain_delete","database_read","database_create","database_delete"))
+RESOURCE_CAPABILITIES=frozenset(("mailbox_read","mailbox_create","mailbox_delete","mailbox_quota","mailbox_password","subdomain_read","subdomain_create","subdomain_delete","database_read","database_create","database_delete","hosting_password"))
 
 
 def validate_resource_capabilities(value):

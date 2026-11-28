@@ -35,7 +35,7 @@ class ResourceInventoryView(APIView):
 
     def get(self,request,service_id,resource):
         _owner(request,service_id)
-        if request.query_params or resource not in ("email","subdomains","databases"):
+        if request.query_params or resource not in ("email","subdomains","databases","credentials"):
             return Response({"detail":"Unsupported resource request."},status=400,headers=HEADERS)
         try:
             return Response(resources.list_resources(request.user.pk,service_id,resource),headers=HEADERS)
@@ -101,6 +101,7 @@ class ResourceMutationView(APIView):
             "subdomain_delete":{"local","confirm_target","confirm_password"},
             "database_create":{"local","confirm_password"},
             "database_delete":{"local","confirm_target","confirm_password"},
+            "hosting_password":{"local","password","confirm_password"},
         }
         if operation not in shapes or not isinstance(data,dict) or (set(data)!=shapes[operation] and not (operation=="database_create" and set(data)==shapes[operation]|{"initial_user","password"})):
             return Response({"detail":"Invalid resource operation fields."},status=400,headers=HEADERS)
@@ -132,7 +133,7 @@ class ResourceReconcileView(APIView):
             pending=service.metadata.get(resources.FENCE,{})
             if data:
                 confirmation=data["confirm_password"]
-                if pending.get("operation")!="mailbox_password":
+                if pending.get("operation") not in ("mailbox_password","hosting_password"):
                     return _unavailable()
                 if _spend("hosting:resource_stepup",str(request.user.pk),5,900):
                     return Response({"detail":"Too many confirmation attempts."},status=429,headers=HEADERS)

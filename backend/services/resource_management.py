@@ -109,18 +109,18 @@ def _budget(subject, *, write=False):
 
 
 def list_resources(subject,service_id,resource):
-    operation={"email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read"}.get(resource)
+    operation={"email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read","credentials":"hosting_password"}.get(resource)
     if not operation:
         raise ResourceRefused("Resource unavailable.")
     _budget(subject)
     a=authority(subject,service_id,operation)
     verify_existing_account(a.service,a.provider)
     a=_current(a,operation)
-    rows={"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases}[resource]()
+    rows={"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[]}[resource]()
     fresh=_current(a,operation)
     return {"resource":resource,"domain":a.service.domain_name,"items":rows,
             "pending_operation":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain",
-            "pending_password_verification":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain" and fresh.service.metadata.get(FENCE,{}).get("operation")=="mailbox_password",
+            "pending_password_verification":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain" and fresh.service.metadata.get(FENCE,{}).get("operation") in ("mailbox_password","hosting_password"),
             "verified_at":timezone.now().isoformat()}
 
 
@@ -246,19 +246,21 @@ def _password_receipt(event,password,*,key_id=None):
 @sensitive_variables("password")
 def _same_password(pending,password):
     receipt=pending.get("password_receipt")
-    if not isinstance(receipt,dict) or not isinstance(password,str):
+    if not isinstance(receipt,dict) or not isinstance(password,str) or not 16<=len(password)<=128:
         return False
     current=_password_receipt(pending["id"],password,key_id=receipt.get("key_id"))
     return hmac.compare_digest(current["mac"],receipt.get("mac",""))
 
 
-OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete"}
+OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password"}
 
 
 @sensitive_variables("password")
 def _observed(protocol, pending, password=None):
     operation=pending["operation"]
     target=pending["address"]
+    if operation=="hosting_password":
+        return _same_password(pending,password) and protocol.verify_hosting_password(password)
     if operation.startswith("mailbox_"):
         rows=protocol.mailboxes()
         matching=[x for x in rows if x["address"]==target]
@@ -286,7 +288,12 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
         raise ResourceRefused("Unknown resource operation.")
     mailbox=operation.startswith("mailbox_")
     database=operation.startswith("database_")
-    if not database:
+    hosting=operation=="hosting_password"
+    if hosting:
+        if local!="":
+            raise ResourceRefused("Hosting account identity is server assigned.")
+        strong_password(password)
+    elif not database:
         (mailbox_name if mailbox else subdomain_label)(local)
     elif operation=="database_create":
         database_suffix(local)
@@ -294,7 +301,7 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
     a=authority(subject,service_id,operation)
     if mailbox and local==a.service.provider_identifier.lower():
         raise ResourceRefused("Reserved account name.")
-    target=(a.protocol.database_name(local) if operation=="database_create" else a.protocol._db_identity(local)) if database else local+("@" if mailbox else ".")+a.service.domain_name
+    target=a.protocol.account if hosting else (a.protocol.database_name(local) if operation=="database_create" else a.protocol._db_identity(local)) if database else local+("@" if mailbox else ".")+a.service.domain_name
     if operation.endswith("_delete") and confirm_target!=target:
         raise ResourceRefused("Confirm the exact resource being removed.")
     if operation=="mailbox_quota" and (type(quota) is not int or not 1<=quota<=1000000):
@@ -306,7 +313,9 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
     previous=a.service.metadata.get(FENCE)
     if previous and previous.get("state")!="confirmed":
         raise ResourceRefused("A previous operation requires reconciliation.")
-    if mailbox:
+    if hosting:
+        pass
+    elif mailbox:
         rows=a.protocol.mailboxes()
         matches=[x for x in rows if x["address"]==target]
         if len(matches)!=1:
@@ -343,6 +352,8 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
              "state":"dispatched_uncertain","created_at":timezone.now().isoformat()}
     if operation=="database_create" and initial_user is not None:
         pending["initial_user"]=a.protocol.database_name(initial_user)
+    if hosting:
+        pending["password_receipt"]=_password_receipt(event,password)
     if operation=="mailbox_quota":
         pending["quota_mb"]=quota
     elif operation=="mailbox_password":
@@ -360,7 +371,9 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
         _record(service,operation,"reserved",event,actor_id=subject)
     try:
         a=_current(a,operation)
-        if operation=="mailbox_delete":
+        if hosting:
+            a.protocol.reset_hosting_password(password)
+        elif operation=="mailbox_delete":
             a.protocol.delete_mailbox(local)
         elif operation=="mailbox_quota":
             a.protocol.change_mailbox_quota(local,quota)
@@ -392,11 +405,11 @@ def reconcile_resource(subject,service_id,*,password=None):
     if operation not in OBSERVABLE_MUTATIONS or pending.get("state")!="dispatched_uncertain":
         raise ResourceRefused("No eligible pending operation.")
     a=authority(subject,service_id,operation)
-    if operation!="mailbox_password" and password is not None:
+    if operation not in ("mailbox_password","hosting_password") and password is not None:
         raise ResourceRefused("Unexpected verification fields.")
     if a.digest!=pending.get("binding") or a.service.metadata.get(FENCE)!=pending:
         raise ResourceRefused("Pending resource authority changed.")
-    if operation=="mailbox_password" and password is None:
+    if operation in ("mailbox_password","hosting_password") and password is None:
         return {"state":"pending_verification","operation_id":pending["id"],"password_status":"verification_required"}
     created=parse_datetime(pending.get("created_at",""))
     if not created or timezone.is_naive(created) or timezone.now()-created<timedelta(minutes=2):

@@ -38,6 +38,8 @@ def opanel_overview(service):
     resource_caps = resource_management.capabilities(service)
     capabilities = {
         "overview": True,
+        "credentials": "hosting_password" in resource_caps,
+        "hosting_password": "hosting_password" in resource_caps,
         "files": False,
         "subdomains": "subdomain_read" in resource_caps,
         "dns": False,

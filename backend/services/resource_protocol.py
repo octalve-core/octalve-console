@@ -166,6 +166,12 @@ class ResourceProtocol:
         if self.adapter == "directadmin":
             if reseller:
                 valid = (method == "GET" and path in ("/CMD_API_SHOW_USER_CONFIG", "/CMD_API_SHOW_USER_USAGE") and fields == {"user": self.account})
+                if method=="POST" and path=="/CMD_API_USER_PASSWD":
+                    valid=(set(fields)=={"username","passwd","passwd2"} and fields["username"]==self.account
+                           and strong_password(fields["passwd"]) and fields["passwd"]==fields["passwd2"])
+                if method=="POST" and path=="/CMD_API_VERIFY_PASSWORD":
+                    valid=(set(fields)=={"user","passwd"} and fields["user"]==self.account
+                           and strong_password(fields["passwd"]))
             elif path == "/CMD_API_POP":
                 valid = ((method == "GET" and fields == {"action":"full_list","domain":self.domain,"json":"yes"}) or
                          (method == "POST" and set(fields)=={"action","domain","user","passwd","passwd2","quota"} and fields["action"]=="create" and fields["domain"]==self.domain and fields["passwd"]==fields["passwd2"]) or
@@ -192,6 +198,9 @@ class ResourceProtocol:
         else:
             common={"api.version","cpanel.user","cpanel.module","cpanel.function"}
             valid=False
+            if reseller and method=="POST" and path=="/json-api/passwd":
+                valid=(set(fields)=={"api.version","user","password"} and fields["api.version"]=="1"
+                       and fields["user"]==self.account and strong_password(fields["password"]))
             if not reseller and path=="/json-api/cpanel":
                 base={"cpanel_jsonapi_user":self.account,"cpanel_jsonapi_apiversion":"2","cpanel_jsonapi_module":"SubDomain"}
                 func=fields.get("cpanel_jsonapi_func")
@@ -230,7 +239,7 @@ class ResourceProtocol:
                 if "display" in fields:
                     valid=valid and fields["display"] in ("emailaccounts|diskusage","sqldatabases","subdomains")
         if valid and method=="POST":
-            target=fields.get("user",fields.get("email")) if path!="/CMD_API_DATABASES" and fields.get("cpanel.module")!="Mysql" else None
+            target=fields.get("user",fields.get("email")) if path not in ("/CMD_API_DATABASES","/CMD_API_VERIFY_PASSWORD","/json-api/passwd") and fields.get("cpanel.module")!="Mysql" else None
             if target is not None:
                 if (path=="/CMD_API_EMAIL_AUTH" or fields.get("cpanel.function") in ("passwd_pop","verify_password")) and "@" not in target:
                     raise ResourceRefused("Full mailbox identity is required.")
@@ -614,3 +623,61 @@ class ResourceProtocol:
             self._da_ack("/CMD_API_DATABASES",{"action":"delete","select0":name})
         else:
             self._whm("POST","Mysql","delete_database",{"name":name})
+
+
+    @sensitive_variables("password")
+    def reset_hosting_password(self,password):
+        strong_password(password)
+        if self.adapter=="directadmin":
+            result=_form(self._request("POST","/CMD_API_USER_PASSWD",{
+                "username":self.account,"passwd":password,"passwd2":password},reseller=True))
+            if result.get("error")!=["0"]:
+                raise ResourceRefused("Hosting password mutation not acknowledged.")
+        else:
+            response=self._request("POST","/json-api/passwd",{
+                "api.version":"1","user":self.account,"password":password},reseller=True)
+            try:
+                result=_unique_json(response)["metadata"]
+                if response.status_code!=200 or result["command"]!="passwd" or str(result["result"])!="1":
+                    raise ValueError()
+            except (ValueError,KeyError,TypeError):
+                raise ResourceRefused("Hosting password mutation not acknowledged.") from None
+
+    @sensitive_variables("password","headers","response","body")
+    def verify_hosting_password(self,password):
+        strong_password(password)
+        if self.adapter=="directadmin":
+            result=_form(self._request("POST","/CMD_API_VERIFY_PASSWORD",
+                        {"user":self.account,"passwd":password},reseller=True))
+            return result.get("valid")==["1"] and result.get("error",["0"])==["0"]
+        # Only the assigned account's new credential, not the reseller token,
+        # is used for the independent fixed cPanel TLS endpoint.
+        host,port,ip,path=approved_origin(self.origin+"/json-api/passwd",bound_origin=self.binding)
+        if port not in (443,2087) or path!="/json-api/passwd":
+            raise ResourceRefused("Unexpected hosting endpoint.")
+        pool=urllib3.HTTPSConnectionPool(host=ip,port=2083,server_hostname=host,
+            assert_hostname=host,cert_reqs="CERT_REQUIRED",ca_certs=certifi.where(),
+            timeout=urllib3.Timeout(connect=3,read=6),retries=False,maxsize=1,block=True)
+        headers={"Authorization":"Basic "+base64.b64encode((self.account+":"+password).encode()).decode(),
+                 "Host":host+":2083","Accept":"application/json"}
+        try:
+            response=pool.request("GET","/execute/DomainInfo/list_domains",headers=headers,
+                                  redirect=False,retries=False,preload_content=False)
+            try:
+                if response.status!=200 or int(response.headers.get("content-length","0"))>200000:
+                    return False
+                body=response.read(200001)
+                if len(body)>200000:
+                    return False
+                data=_unique_json(SupplierReadResponse(response.status,body))
+                result=data["result"]
+                return (str(data["apiversion"])=="3" and data["module"]=="DomainInfo"
+                        and data["func"]=="list_domains" and str(result["status"])=="1"
+                        and not result.get("errors") and result["data"]["main_domain"]==self.domain)
+            finally:
+                response.close()
+                response.release_conn()
+        except (urllib3.exceptions.HTTPError,ValueError,OSError,KeyError,TypeError,AttributeError):
+            return False
+        finally:
+            pool.close()

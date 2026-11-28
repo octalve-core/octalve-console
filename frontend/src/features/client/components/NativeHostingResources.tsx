@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import {api} from "@/lib/api/client";
 
-type ResourceTab="email"|"subdomains"|"databases";
+type ResourceTab="email"|"subdomains"|"databases"|"credentials";
 type Mailbox={address:string;quota_mb:number|null;unlimited:boolean};
 type Inventory={resource:string;domain:string;items:Array<Mailbox|string>;verified_at:string;pending_operation:boolean;pending_password_verification?:boolean};
 type Result={state:"confirmed"|"pending_verification";operation_id?:string;address?:string;password_status?:string};
@@ -12,10 +12,10 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [pending,setPending]=useState(false);
  const [passwordRecovery,setPasswordRecovery]=useState(false);
- const [action,setAction]=useState<"mailbox_delete"|"mailbox_quota"|"mailbox_password"|"subdomain_create"|"subdomain_delete"|"database_create"|"database_delete"|null>(null);
+ const [action,setAction]=useState<"mailbox_delete"|"mailbox_quota"|"mailbox_password"|"subdomain_create"|"subdomain_delete"|"database_create"|"database_delete"|"hosting_password"|null>(null);
  const sequence=useRef(0);
- const selected:ResourceTab=capabilities[tab]?tab:capabilities.email?"email":capabilities.subdomains?"subdomains":"databases";
- const activeAction=action&&capabilities[action]&&((selected==="email"&&action.startsWith("mailbox"))||(selected==="subdomains"&&action.startsWith("subdomain"))||(selected==="databases"&&action.startsWith("database")))?action:null;
+ const selected:ResourceTab=capabilities[tab]?tab:capabilities.email?"email":capabilities.subdomains?"subdomains":capabilities.databases?"databases":"credentials";
+ const activeAction=action&&capabilities[action]&&((selected==="email"&&action.startsWith("mailbox"))||(selected==="subdomains"&&action.startsWith("subdomain"))||(selected==="databases"&&action.startsWith("database"))||(selected==="credentials"&&action==="hosting_password"))?action:null;
  const base="/services/opanel/"+encodeURIComponent(serviceId);
  async function load(resource:ResourceTab=selected){
   const request=++sequence.current;setBusy(true);setError("");setData(null);
@@ -36,7 +36,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   // Do not poll supplier resources on background dashboard refresh.
   return ()=>{sequence.current++};
  // eslint-disable-next-line react-hooks/exhaustive-deps
- },[serviceId,domain,selected,capabilities.email,capabilities.subdomains,capabilities.databases]);
+ },[serviceId,domain,selected,capabilities.email,capabilities.subdomains,capabilities.databases,capabilities.credentials]);
  async function create(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(busy||pending||!capabilities.mailbox_create||selected!=="email")return;
   const form=event.currentTarget,fields=new FormData(form);
@@ -60,7 +60,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   const local=String(fields.get("local")||"").toLowerCase();
   const input:Record<string,string|number>={local,confirm_password:String(fields.get("confirmation")||"")};
   if(activeAction==="mailbox_quota")input.quota_mb=Number(fields.get("quota"));
-  if(activeAction==="mailbox_password")input.password=String(fields.get("password")||"");
+  if(activeAction==="mailbox_password"||activeAction==="hosting_password")input.password=String(fields.get("password")||"");
   if(activeAction==="database_create"&&capabilities.database_initial_user_required){input.initial_user=String(fields.get("initial_user")||"").toLowerCase();input.password=String(fields.get("password")||"");}
   if(activeAction==="database_delete")input.local=String(fields.get("local")||"");
   if(activeAction.endsWith("_delete"))input.confirm_target=String(fields.get("confirm_target")||"");
@@ -68,7 +68,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   try{
    const result=await api.post<Result>(base+"/resource-actions/"+activeAction+"/",input);
    if(result.state==="confirmed"){setNotice(result.password_status==="unverified"?"Database and initial user confirmed. Verify the password separately.":"Resource state independently confirmed by the supplier.");setAction(null);await load(selected);}
-   else if(result.state==="pending_verification"){setPending(true);setPasswordRecovery(activeAction==="mailbox_password");setNotice("Operation outcome is pending verification. Do not submit again.");}
+   else if(result.state==="pending_verification"){setPending(true);setPasswordRecovery(activeAction==="mailbox_password"||activeAction==="hosting_password");setNotice("Operation outcome is pending verification. Do not submit again.");}
    else throw Error("Unconfirmed result");
   }catch{setPending(true);setError("The operation could not be confirmed. Check pending operation or refresh inventory before retrying.");}
   finally{setBusy(false)}
@@ -81,14 +81,14 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   try{
    const result=await api.post<Result>(base+"/resource-actions/reconcile/",input);
    if(result.state==="confirmed"){
-    setPending(false);setPasswordRecovery(false);setNotice(result.password_status==="unverified"?"Mailbox existence and quota confirmed. Verify your mailbox password separately.":"Resource state independently confirmed.");await load(selected);
+    setPending(false);setPasswordRecovery(false);setNotice(result.password_status==="unverified"?"Resource existence confirmed. Verify the associated password separately.":"Resource state independently confirmed.");await load(selected);
    }else if(result.state==="pending_verification"){
     setPending(true);if(result.password_status==="verification_required")setPasswordRecovery(true);setNotice("Still awaiting independent confirmation. No additional supplier mutation was sent.");
    }else throw Error("Unconfirmed result");
   }catch{setError("No eligible pending operation could be confirmed. Refresh inventory or contact support.");}
   finally{setBusy(false)}
  }
- if(!capabilities.email&&!capabilities.subdomains&&!capabilities.databases)return null;
+ if(!capabilities.email&&!capabilities.subdomains&&!capabilities.databases&&!capabilities.credentials)return null;
  return <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="Native hosting resources">
   <div className="flex flex-wrap items-center justify-between gap-3">
    <h2 className="text-lg font-medium text-slate-950">Hosting resources</h2>
@@ -98,12 +98,13 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
    {capabilities.email&&<button type="button" aria-pressed={selected==="email"} disabled={busy} onClick={()=>{setTab("email");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="email"?"bg-[#0064E0] text-white":"border border-slate-200")}>Email accounts</button>}
    {capabilities.subdomains&&<button type="button" aria-pressed={selected==="subdomains"} disabled={busy} onClick={()=>{setTab("subdomains");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="subdomains"?"bg-[#0064E0] text-white":"border border-slate-200")}>Subdomains</button>}
    {capabilities.databases&&<button type="button" aria-pressed={selected==="databases"} disabled={busy} onClick={()=>{setTab("databases");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="databases"?"bg-[#0064E0] text-white":"border border-slate-200")}>Databases</button>}
+   {capabilities.credentials&&<button type="button" aria-pressed={selected==="credentials"} disabled={busy} onClick={()=>{setTab("credentials");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="credentials"?"bg-[#0064E0] text-white":"border border-slate-200")}>Hosting password</button>}
   </div>
   {busy&&<p role="status" className="mt-4 text-sm text-slate-500">Checking supplier resources…</p>}
   {error&&<p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
   {notice&&<p role="status" className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{notice}</p>}
   {data&&data.resource===selected&&<div className="mt-4">
-   {data.items.length===0?<p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-500">No resources returned by the supplier.</p>:<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+   {selected==="credentials"?<p className="text-sm text-slate-600">Set or reset your hosting control-panel password. This is separate from your Octalve Console password.</p>:data.items.length===0?<p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-500">No resources returned by the supplier.</p>:<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
     {data.items.map(item=>typeof item==="string"?<li key={item} className="break-all p-3 text-sm">{item}</li>:<li key={item.address} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><span className="break-all font-medium">{item.address}</span><span className="text-slate-500">{item.unlimited?"Unlimited":item.quota_mb===null?"Unknown":item.quota_mb+" MB"}</span></li>)}
    </ul>}
    <p className="mt-2 text-xs text-slate-500">Verified at {new Date(data.verified_at).toLocaleString()}</p>
@@ -119,23 +120,23 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   </form>}
   {data&&data.resource===selected&&<div className="mt-5 border-t border-slate-100 pt-5">
    <div className="flex flex-wrap gap-2">
-    {([["mailbox_quota","Change quota"],["mailbox_password","Change password"],["mailbox_delete","Delete mailbox"],["subdomain_create","Create subdomain"],["subdomain_delete","Remove subdomain"],["database_create","Create database"],["database_delete","Delete database"]] as const).filter(([key])=>capabilities[key]&&(selected==="email"?key.startsWith("mailbox"):selected==="subdomains"?key.startsWith("subdomain"):key.startsWith("database"))).map(([key,label])=><button type="button" key={key} disabled={busy||pending} aria-pressed={activeAction===key} onClick={()=>{setAction(key);setNotice("");setError("")}} className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">{label}</button>)}
+    {([["mailbox_quota","Change quota"],["mailbox_password","Change password"],["mailbox_delete","Delete mailbox"],["subdomain_create","Create subdomain"],["subdomain_delete","Remove subdomain"],["database_create","Create database"],["database_delete","Delete database"],["hosting_password","Set or reset hosting password"]] as const).filter(([key])=>capabilities[key]&&(selected==="email"?key.startsWith("mailbox"):selected==="subdomains"?key.startsWith("subdomain"):selected==="databases"?key.startsWith("database"):key==="hosting_password")).map(([key,label])=><button type="button" key={key} disabled={busy||pending} aria-pressed={activeAction===key} onClick={()=>{setAction(key);setNotice("");setError("")}} className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">{label}</button>)}
    </div>
    {activeAction&&<form key={activeAction} onSubmit={mutate} autoComplete="off" className="mt-4 space-y-3">
-    {activeAction==="database_create"?<label className="block text-sm">Database name (your account prefix is added automatically)<input name="local" required maxLength={24} pattern="[a-z][a-z0-9]{0,23}" placeholder="website" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>:activeAction==="subdomain_create"?<label className="block text-sm">Subdomain name<div className="mt-1 flex flex-wrap items-center gap-2"><input name="local" required maxLength={63} pattern="[a-zA-Z0-9](?:[a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?" placeholder="shop" className="min-w-0 flex-1 rounded-lg border border-slate-200 p-2"/><span className="break-all text-slate-500">.{domain}</span></div></label>:
+    {activeAction==="hosting_password"?<input type="hidden" name="local" value=""/>:activeAction==="database_create"?<label className="block text-sm">Database name (your account prefix is added automatically)<input name="local" required maxLength={24} pattern="[a-z][a-z0-9]{0,23}" placeholder="website" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>:activeAction==="subdomain_create"?<label className="block text-sm">Subdomain name<div className="mt-1 flex flex-wrap items-center gap-2"><input name="local" required maxLength={63} pattern="[a-zA-Z0-9](?:[a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?" placeholder="shop" className="min-w-0 flex-1 rounded-lg border border-slate-200 p-2"/><span className="break-all text-slate-500">.{domain}</span></div></label>:
      <label className="block text-sm">Resource<select name="local" required defaultValue="" className="mt-1 w-full rounded-lg border border-slate-200 p-2"><option value="" disabled>Choose a resource</option>{data.items.map(item=>{const name=typeof item==="string"?item:item.address;const suffix=(selected==="email"?"@":".")+domain;const local=selected==="databases"?name:name.endsWith(suffix)?name.slice(0,-suffix.length):"";return local&&!local.includes(".")&&selected==="subdomains"||local&&(selected==="email"||selected==="databases")?<option key={name} value={local}>{name}</option>:null})}</select></label>}
     {activeAction==="database_create"&&capabilities.database_initial_user_required&&<><label className="block text-sm">Initial database user<input name="initial_user" required maxLength={24} pattern="[a-z][a-z0-9]{0,23}" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label><label className="block text-sm">Database user password<input name="password" type="password" required minLength={16} maxLength={128} autoComplete="new-password" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label></>}
     {activeAction==="mailbox_quota"&&<label className="block text-sm">New storage quota (MB)<input name="quota" required type="number" min={1} max={1000000} step={1} className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>}
-    {activeAction==="mailbox_password"&&<label className="block text-sm">New mailbox password<input name="password" required type="password" minLength={16} maxLength={128} autoComplete="new-password" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>}
+    {(activeAction==="mailbox_password"||activeAction==="hosting_password")&&<label className="block text-sm">New {activeAction==="hosting_password"?"hosting":"mailbox"} password<input name="password" required type="password" minLength={16} maxLength={128} autoComplete="new-password" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>}
     {activeAction.endsWith("_delete")&&<><p role="note" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{activeAction==="database_delete"?"Deleting a database permanently removes its data. Back it up before proceeding.":activeAction==="mailbox_delete"?"Deleting a mailbox permanently removes its messages. Back up anything needed before proceeding.":"Removing the subdomain stops its hosting configuration. Website files will not be requested for deletion."}</p><label className="block text-sm">Type the complete resource name to confirm<input name="confirm_target" required maxLength={253} autoComplete="off" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label></>}
     <label className="block text-sm">Confirm current Console password<input name="confirmation" required type="password" maxLength={1024} autoComplete="current-password" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>
     <div className="flex flex-wrap gap-2"><button disabled={busy||pending} className="min-h-11 rounded-lg bg-[#0064E0] px-4 text-sm font-medium text-white disabled:opacity-50">Confirm operation</button><button type="button" disabled={busy} onClick={()=>setAction(null)} className="min-h-11 rounded-lg border border-slate-200 px-4 text-sm">Cancel</button></div>
    </form>}
   </div>}
-  {(capabilities.mailbox_create||capabilities.mailbox_delete||capabilities.mailbox_quota||capabilities.mailbox_password||capabilities.subdomain_create||capabilities.subdomain_delete||capabilities.database_create||capabilities.database_delete)&&!passwordRecovery&&<button type="button" disabled={busy} onClick={()=>void reconcile()} className="mt-4 min-h-11 rounded-lg border border-slate-200 px-4 text-sm font-medium disabled:opacity-50">Check pending operation</button>}
-  {passwordRecovery&&capabilities.mailbox_password&&<form onSubmit={reconcile} className="mt-4 space-y-3 rounded-lg border border-slate-200 p-4">
+  {(capabilities.mailbox_create||capabilities.mailbox_delete||capabilities.mailbox_quota||capabilities.mailbox_password||capabilities.subdomain_create||capabilities.subdomain_delete||capabilities.database_create||capabilities.database_delete||capabilities.hosting_password)&&!passwordRecovery&&<button type="button" disabled={busy} onClick={()=>void reconcile()} className="mt-4 min-h-11 rounded-lg border border-slate-200 px-4 text-sm font-medium disabled:opacity-50">Check pending operation</button>}
+  {passwordRecovery&&(capabilities.mailbox_password||capabilities.hosting_password)&&<form onSubmit={reconcile} className="mt-4 space-y-3 rounded-lg border border-slate-200 p-4">
    <p className="text-sm">Verify the password submitted for the pending operation. This does not change it again.</p>
-   <label className="block text-sm">Mailbox password<input name="password" required type="password" minLength={16} maxLength={128} autoComplete="off" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>
+   <label className="block text-sm">Originally submitted password<input name="password" required type="password" minLength={16} maxLength={128} autoComplete="off" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>
    <label className="block text-sm">Current Console password<input name="confirmation" required type="password" maxLength={1024} autoComplete="current-password" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>
    <button disabled={busy} className="min-h-11 rounded-lg border border-slate-200 px-4 text-sm font-medium disabled:opacity-50">Verify pending password</button>
   </form>}

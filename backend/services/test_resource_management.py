@@ -150,6 +150,18 @@ class ProtocolTests(SimpleTestCase):
         with patch.object(whm_adapter,"_request",return_value=whm("Mysql","list_databases",[{"database":"other_site"}])),self.assertRaises(ResourceRefused):
             whm_adapter.databases()
 
+    def test_hosting_password_reseller_target_and_da_verification(self):
+        da=self.adapter("directadmin")
+        secret="SyntheticHostingPassword123!"
+        with patch.object(da,"_request",side_effect=[SupplierReadResponse(200,b"error=0"),SupplierReadResponse(200,b"valid=1")]) as send:
+            da.reset_hosting_password(secret)
+            self.assertTrue(da.verify_hosting_password(secret))
+            self.assertEqual(send.call_args_list[0].args[2]["username"],"checkhost")
+            self.assertTrue(send.call_args_list[0].kwargs["reseller"])
+            self.assertEqual(send.call_args.args[2]["user"],"checkhost")
+        with self.assertRaises(ResourceRefused):
+            da._check_request("POST","/CMD_API_USER_PASSWD",{"username":"victim","passwd":secret,"passwd2":secret},True)
+
     def test_invalid_names_and_capability_dependency(self):
         for name in ("root","cpanel","postmaster","../x","x@other.test","x..y","a."):
             with self.assertRaises(ResourceRefused):
