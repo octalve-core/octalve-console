@@ -22,7 +22,7 @@ def enabled():
             and getattr(settings,"CLOUD_SETTLEMENT_COMMIT_ENABLED",False))
 
 
-def due_items(limit=10):
+def due_items(limit=10, *, order_id=None):
     if not enabled():
         return []
     limit = min(max(int(limit),1),20)
@@ -30,7 +30,10 @@ def due_items(limit=10):
     existing = ProvisioningTask.objects.filter(order_item_id=OuterRef("pk"),
         action="provision",metadata__authority="verified_paid_order")
     # No repeated scanning of staged lines or unlimited traversal of held lines.
-    return list(OrderItem.objects.filter(item_type="hosting",order__status="paid")
+    rows=OrderItem.objects.filter(item_type="hosting",order__status="paid")
+    if order_id is not None:
+        rows=rows.filter(order_id=order_id)
+    return list(rows
         .annotate(staged=Exists(existing)).filter(staged=False)
         .filter(Q(metadata__hosting_stage_retry_v1__next_at__isnull=True) |
                 Q(metadata__hosting_stage_retry_v1__next_at__lte=now.isoformat()))
@@ -54,13 +57,16 @@ def _hold(item_id):
     item.save(update_fields=["metadata","updated_at"])
 
 
-def run_due_staging(limit=10):
+def run_due_staging(limit=10, *, order_id=None):
     result={"enabled":bool(enabled()),"staged":0,"held":0}
-    for item_id,order_id in due_items(limit):
+    for item_id,order_id in due_items(limit,order_id=order_id):
         try:
             stage_paid_order(order_id,item_id=item_id)
         except FulfillmentRefused:
-            _hold(item_id)
+            try:
+                _hold(item_id)
+            except DatabaseError:
+                pass
             result["held"]+=1
         except DatabaseError:
             # Infrastructure failure must remain retryable, never be marked success.
@@ -68,3 +74,11 @@ def run_due_staging(limit=10):
         else:
             result["staged"]+=1
     return result
+
+
+def stage_order_after_payment(order_id):
+    """Fast path after COMMIT. A periodic scan recovers crashes and held work."""
+    try:
+        return run_due_staging(20,order_id=order_id)
+    except DatabaseError:
+        return {"enabled":bool(enabled()),"staged":0,"held":1}
