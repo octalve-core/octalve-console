@@ -40,7 +40,7 @@ def _transport(adapter):
 
 ACTION = "mail_sender_policy_v1"
 ADAPTER = "brevo"
-KEYS = ("payment_confirmed", "hosting_ready", "invoice_issued", "invoice_due", "hosting_cancellation_notice", "hosting_termination_notice")
+KEYS = ("payment_confirmed", "hosting_ready", "invoice_issued", "invoice_due", "hosting_cancellation_notice", "hosting_termination_notice", "hosting_suspended", "hosting_restored")
 ID_PATTERN = re.compile(r"(?:invoice:([1-9][0-9]{0,18}):payment_confirmed|hosting_ready:v1:([1-9][0-9]{0,18}))\Z")
 
 
@@ -157,6 +157,9 @@ def current_message(message):
     if (message.audience!="transactional" or not message.template.is_active
             or message.template.key not in KEYS):
         return False
+    if message.template.key in ("hosting_suspended","hosting_restored"):
+        from services.hosting_lifecycle import current_notice
+        return current_notice(message)
     if message.template.key in ("hosting_cancellation_notice","hosting_termination_notice"):
         from services.hosting_cancellation import current_notice
         return current_notice(message)

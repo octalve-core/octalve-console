@@ -29,8 +29,8 @@ DATA={
    ("Manual funding","Unavailable without verified financial reconciliation.","unconnected"),
  ]),
  "cron-jobs":("Scheduled operations",[
-   ("Renewals","Review approved due dates in billing operations.","managed"),
-   ("Automatic processing","Requires a certified worker and retry/recovery authority.","unconnected"),
+   ("Renewals","Review approved due dates and signed renewal policies in billing operations.","managed"),
+   ("Automatic processing","Bounded worker routes exist; scheduler cadence, production entitlement and vendor acceptance must be independently qualified.","required"),
  ]),
  "tickets":("Support operations",[
    ("Support departments","Configure routing in the Support workspace.","managed"),

@@ -42,11 +42,34 @@ def policy():
     record=AuditLog.objects.filter(action=POLICY,entity_type="HostingLifecyclePolicy",entity_id="global").order_by("-pk").first()
     return {"revision":record.pk,**validate_policy(unseal(record.details,POLICY))} if record else None
 
+@transaction.atomic
 def save_policy(value,actor):
     value=validate_policy(value)
     record=AuditLog.objects.create(actor=actor,action=POLICY,entity_type="HostingLifecyclePolicy",entity_id="global",
         entity_name="Hosting lifecycle",details=seal(value,POLICY))
+    from settings_registry.models import EmailTemplate
+    for key,name,subject,body in (
+        ("hosting_suspended","Hosting suspension","Hosting suspended: {{service.label}}","Hello {{customer.first_name}},\n\nYour hosting service was suspended after its unpaid renewal grace period. Sign in to your account to review your invoice."),
+        ("hosting_restored","Hosting restoration","Hosting restored: {{service.label}}","Hello {{customer.first_name}},\n\nYour hosting supplier has confirmed restoration after renewal payment.")):
+        EmailTemplate.objects.get_or_create(key=key,defaults={"name":name,"category":"provisioning","subject":subject,"body_text":body,"body_html":"","is_active":False,"is_system":True})
     return {"revision":record.pk,**value}
+
+def current_notice(message):
+    import re
+    match=re.fullmatch(r"hosting_lifecycle:([1-9][0-9]{0,18}):([a-f0-9]{32}):(suspend|restore)",message.idempotency_key)
+    if not match:
+        return False
+    try:
+        service=Service.objects.get(pk=int(match[1]),client__is_active=True,client__email=message.recipient)
+        record=service.metadata[FENCE]
+        entry=unseal(record["grant"],FENCE)
+        operation=match[3]
+        return (record["state"]=="confirmed" and entry["service"]==service.pk and entry["owner"]==service.client_id
+                and entry["marker"]=="octalve-nonpayment-"+match[2] and entry["operation"]==operation
+                and ((operation=="suspend" and service.status=="suspended" and message.template.key=="hosting_suspended")
+                     or (operation=="restore" and service.status=="active" and message.template.key=="hosting_restored")))
+    except (Service.DoesNotExist,RenewalRefused,KeyError,TypeError,ValueError):
+        return False
 
 def _hold(service, *, allow_cancellation=False):
     return bool(service.metadata.get("lifecycle_protection") or service.metadata.get("security_hold")
@@ -169,6 +192,11 @@ def _complete(service_id,invoice_id,expected,observed):
     OPanelLaunchGrant.objects.filter(service=service,consumed_at__isnull=True).update(consumed_at=timezone.now())
     ServiceActionLog.objects.create(service=service,action="suspend" if expected["operation"]=="suspend" else "unsuspend",
         is_automatic=True,success=True,details={"invoice_id":invoice.pk,"verified":True})
+    from settings_registry.mail_authority import _transactional_event
+    operation=expected["operation"]
+    _transactional_event(f"hosting_lifecycle:{service.pk}:{expected['marker'].rsplit('-',1)[-1]}:{operation}",
+        "hosting_suspended" if operation=="suspend" else "hosting_restored",service.client,
+        {"service.label":service.label,"invoice.number":str(invoice.invoice_number)})
     return True
 
 def advance(service_id,invoice_id,operation):

@@ -272,7 +272,7 @@ def advance(service_id):
         if state=="terminate_uncertain":
             return "terminated" if _finish(service.pk,entry,"terminate",protocol.absent()) else "held"
         return "waiting"
-    except (RenewalRefused,VendorProtocolRefused,VaultUnavailable,SupplierEgressDenied,DatabaseError,
+    except (RenewalRefused,VendorProtocolRefused,VaultUnavailable,SupplierEgressDenied,DatabaseError,ObjectDoesNotExist,
             Service.DoesNotExist,KeyError,TypeError,ValueError):
         return "held"
 
