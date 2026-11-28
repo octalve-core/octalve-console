@@ -6,6 +6,7 @@ must reserve a mutation and independently read back the resource.
 import base64
 import json
 import re
+from django.views.decorators.debug import sensitive_variables
 from urllib.parse import parse_qs, urlencode
 
 import certifi
@@ -116,6 +117,7 @@ def _count(value, *, unlimited=False):
 
 class ResourceProtocol:
     """One service-bound adapter. All paths and parameter keys are code-owned."""
+    @sensitive_variables("key")
     def __init__(self, service, provider, row, key):
         self.domain = domain_name(service.domain_name)
         self.account = service.provider_identifier
@@ -137,6 +139,7 @@ class ResourceProtocol:
         self._auth = ("Basic " + base64.b64encode((owner+"|"+self.account+":"+key).encode()).decode()
                       if self.adapter == "directadmin" else "whm "+owner+":"+key)
 
+    @sensitive_variables("fields")
     def _check_request(self, method, path, fields, reseller):
         """Deny undeclared operations even if a future caller misuses transport."""
         if not isinstance(fields, dict) or any(not isinstance(v,str) for v in fields.values()):
@@ -168,6 +171,7 @@ class ResourceProtocol:
         if not valid:
             raise ResourceRefused("Supplier operation not allowed.")
 
+    @sensitive_variables("fields","headers","args","data","response")
     def _request(self, method, path, fields, *, reseller=False):
         self._check_request(method,path,fields,reseller)
         # Private transport; callers below compile fixed operations. POST
@@ -205,6 +209,7 @@ class ResourceProtocol:
         finally:
             pool.close()
 
+    @sensitive_variables("fields","response")
     def _whm(self, method, module, function, fields):
         response=self._request(method,"/json-api/uapi_cpanel",{
             "api.version":"1","cpanel.user":self.account,
@@ -272,6 +277,7 @@ class ResourceProtocol:
                 raise ResourceRefused("Unexpected subdomain.")
         return sorted(_list_names(names))
 
+    @sensitive_variables("password","result")
     def create_mailbox(self, local, password, quota):
         """Call only after the durable service mutation reservation."""
         mailbox_name(local)
