@@ -191,6 +191,8 @@ class ResourceProtocol:
         if valid and method=="POST":
             target=fields.get("user",fields.get("email"))
             if target is not None:
+                if (path=="/CMD_API_EMAIL_AUTH" or fields.get("cpanel.function") in ("passwd_pop","verify_password")) and "@" not in target:
+                    raise ResourceRefused("Full mailbox identity is required.")
                 if "@" in target:
                     local,sep,domain=target.partition("@")
                     if not sep or domain!=self.domain or (path!="/CMD_API_EMAIL_AUTH" and fields.get("cpanel.function") not in ("passwd_pop","verify_password")):
