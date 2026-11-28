@@ -194,6 +194,8 @@ class ResourceProtocol:
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="modify" and set(fields) in ({"action","domain","user","quota"},{"action","domain","user","quota","passwd","passwd2"}) and ("passwd" not in fields or fields["passwd"]==fields["passwd2"])))
             elif path=="/CMD_API_EMAIL_AUTORESPONDER":
                 valid=method=="GET" and fields=={"domain":self.domain}
+                if method=="POST" and set(fields)=={"action","domain","select0"} and fields["action"]=="delete" and fields["domain"]==self.domain:
+                    valid=bool(mailbox_name(fields["select0"]) and fields["select0"]!=self.account.lower())
             elif path=="/CMD_API_EMAIL_FORWARDERS":
                 valid=method=="GET" and fields=={"domain":self.domain}
                 if method=="POST" and fields.get("domain")==self.domain:
@@ -261,6 +263,7 @@ class ResourceProtocol:
                 allowed={("GET","Email","list_pops_with_disk"):{"domain","no_validate"},
                          ("GET","DomainInfo","list_domains"):set(),
                          ("GET","Email","list_auto_responders"):{"domain"},
+                         ("POST","Email","delete_auto_responder"):{"email"},
                          ("POST","SubDomain","addsubdomain"):{"domain","rootdomain","dir","disallowdot"},
                          ("GET","Mysql","list_databases"):set(),
                          ("POST","Mysql","create_database"):{"name"},
@@ -307,11 +310,11 @@ class ResourceProtocol:
         if valid and method=="POST":
             target=fields.get("user",fields.get("email")) if path not in ("/CMD_API_DATABASES","/CMD_API_VERIFY_PASSWORD","/json-api/passwd","/CMD_API_DB_USER","/CMD_API_DB_USER_PRIVS") and fields.get("cpanel.module")!="Mysql" and fields.get("cpanel.function")!="add_forwarder" and path!="/CMD_API_EMAIL_FORWARDERS" else None
             if target is not None:
-                if (path=="/CMD_API_EMAIL_AUTH" or fields.get("cpanel.function") in ("passwd_pop","verify_password")) and "@" not in target:
+                if (path=="/CMD_API_EMAIL_AUTH" or fields.get("cpanel.function") in ("passwd_pop","verify_password","delete_auto_responder")) and "@" not in target:
                     raise ResourceRefused("Full mailbox identity is required.")
                 if "@" in target:
                     local,sep,domain=target.partition("@")
-                    if not sep or domain!=self.domain or (path!="/CMD_API_EMAIL_AUTH" and fields.get("cpanel.function") not in ("passwd_pop","verify_password")):
+                    if not sep or domain!=self.domain or (path!="/CMD_API_EMAIL_AUTH" and fields.get("cpanel.function") not in ("passwd_pop","verify_password","delete_auto_responder")):
                         raise ResourceRefused("Unexpected mailbox target.")
                     target=local
                 mailbox_name(target)
@@ -922,3 +925,12 @@ class ResourceProtocol:
             if not sep or domain!=self.domain or not LOCAL.fullmatch(local) or ".." in local or local.endswith("."):
                 raise ResourceRefused("Unexpected autoresponder identity.")
         return sorted(_list_names(addresses))
+
+    def delete_autoresponder(self,local):
+        mailbox_name(local)
+        if local==self.account.lower():
+            raise ResourceRefused("Reserved account name.")
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_EMAIL_AUTORESPONDER",{"action":"delete","domain":self.domain,"select0":local})
+        else:
+            self._whm("POST","Email","delete_auto_responder",{"email":local+"@"+self.domain})

@@ -121,7 +121,7 @@ class ProtocolTests(SimpleTestCase):
             with patch.object(cp,"_request",return_value=whm("Email","list_auto_responders",rows)),self.assertRaises(ResourceRefused):
                 cp.autoresponders()
 
-    def test_autoresponder_transport_is_read_only_and_account_scoped(self):
+    def test_autoresponder_transport_is_fixed_and_account_scoped(self):
         da=self.adapter("directadmin")
         da._check_request("GET","/CMD_API_EMAIL_AUTORESPONDER",{"domain":"example.test"},False)
         for method,fields in (("POST",{"domain":"example.test"}),("GET",{"domain":"other.test"}),("GET",{"domain":"example.test","action":"delete"})):
@@ -135,6 +135,17 @@ class ProtocolTests(SimpleTestCase):
                 cp._check_request("GET","/json-api/uapi_cpanel",{**fields,**change},False)
         with self.assertRaises(VaultUnavailable):
             validate_resource_capabilities(["autoresponder_read"])
+        with self.assertRaises(VaultUnavailable):
+            validate_resource_capabilities(["mailbox_read","autoresponder_delete"])
+        with patch.object(da,"_request",return_value=SupplierReadResponse(200,b"error=0")) as send:
+            da.delete_autoresponder("sales")
+            send.assert_called_once_with("POST","/CMD_API_EMAIL_AUTORESPONDER",{"action":"delete","domain":"example.test","select0":"sales"})
+        with patch.object(cp,"_request",return_value=whm("Email","delete_auto_responder",None)) as send:
+            cp.delete_autoresponder("sales")
+            self.assertEqual(send.call_args.args[2]["email"],"sales@example.test")
+        for email in ("sales@other.test","root@example.test","sales","checkhost@example.test"):
+            with self.assertRaises(ResourceRefused):
+                cp._check_request("POST","/json-api/uapi_cpanel",{**{k:v for k,v in fields.items() if k!="domain"},"cpanel.function":"delete_auto_responder","email":email},False)
         self.assertEqual(validate_resource_capabilities(["mailbox_read","autoresponder_read"]),["autoresponder_read","mailbox_read"])
 
     def test_forwarder_transport_disallows_unowned_source_and_pipe(self):
@@ -304,6 +315,20 @@ class ResourceAuthorityTests(TestCase):
             self.policy["resource_capabilities"]=[]
             self.assertEqual(self.api.get(self.base+"/resources/email/").status_code,409)
             network.assert_not_called()
+
+    def test_autoresponder_removal_requires_capability_confirmation_and_absence(self):
+        path=self.base+"/resource-actions/autoresponder_delete/"
+        data={"local":"sales","confirm_target":"sales@example.test","confirm_password":"SyntheticConsolePassword"}
+        with patch.object(ResourceProtocol,"autoresponders",side_effect=[["sales@example.test"],[]]),patch.object(ResourceProtocol,"delete_autoresponder") as send:
+            self.assertEqual(self.api.post(path,data,format="json").status_code,409)
+            self.policy["resource_capabilities"].extend(["autoresponder_read","autoresponder_delete"])
+            self.assertEqual(self.api.post(path,{**data,"confirm_target":"other@example.test"},format="json").status_code,409)
+            send.assert_not_called()
+            response=self.api.post(path,data,format="json")
+            self.assertEqual(response.status_code,200,response.data)
+            send.assert_called_once_with("sales")
+        self.service.refresh_from_db()
+        self.assertEqual(self.service.metadata[management.FENCE]["state"],"confirmed")
 
     def test_success_requires_readback_and_keeps_password_out_of_audit(self):
         with patch.object(ResourceProtocol,"mailboxes",side_effect=[[],[

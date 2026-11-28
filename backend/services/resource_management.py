@@ -254,13 +254,15 @@ def _same_password(pending,password):
     return hmac.compare_digest(current["mac"],receipt.get("mac",""))
 
 
-OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password","database_user_create","database_user_delete","database_grants","forwarder_create","forwarder_delete"}
+OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password","database_user_create","database_user_delete","database_grants","forwarder_create","forwarder_delete","autoresponder_delete"}
 
 
 @sensitive_variables("password")
 def _observed(protocol, pending, password=None):
     operation=pending["operation"]
     target=pending["address"]
+    if operation=="autoresponder_delete":
+        return target not in protocol.autoresponders()
     if operation.startswith("forwarder_"):
         rows=[x for x in protocol.forwarders() if x["address"]==target]
         return (len(rows)==1 and rows[0]["managed"] and rows[0]["destination"]==pending["destination"]) if operation=="forwarder_create" else not rows
@@ -298,7 +300,8 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
     if operation not in OBSERVABLE_MUTATIONS:
         raise ResourceRefused("Unknown resource operation.")
     forwarder=operation.startswith("forwarder_")
-    mailbox=operation.startswith("mailbox_") or forwarder
+    autoresponder=operation=="autoresponder_delete"
+    mailbox=operation.startswith("mailbox_") or forwarder or autoresponder
     database=operation.startswith("database_")
     hosting=operation=="hosting_password"
     if hosting:
@@ -333,6 +336,9 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
         raise ResourceRefused("A previous operation requires reconciliation.")
     if hosting:
         pass
+    elif autoresponder:
+        if target not in a.protocol.autoresponders():
+            raise ResourceRefused("Autoresponder not independently identified.")
     elif forwarder:
         if target not in [x["address"] for x in a.protocol.mailboxes()]:
             raise ResourceRefused("Forwarding mailbox not independently identified.")
@@ -433,6 +439,8 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
         a=_current(a,operation)
         if hosting:
             a.protocol.reset_hosting_password(password)
+        elif autoresponder:
+            a.protocol.delete_autoresponder(local)
         elif operation=="forwarder_create":
             a.protocol.create_forwarder(local,destination)
         elif operation=="forwarder_delete":

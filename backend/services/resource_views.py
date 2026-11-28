@@ -107,6 +107,7 @@ class ResourceMutationView(APIView):
             "database_grants":{"local","confirm_password","database","profile"},
             "forwarder_create":{"local","destination","confirm_password"},
             "forwarder_delete":{"local","destination","confirm_target","confirm_password"},
+            "autoresponder_delete":{"local","confirm_target","confirm_password"},
         }
         if operation not in shapes or not isinstance(data,dict) or (set(data)!=shapes[operation] and not (operation=="database_create" and set(data)==shapes[operation]|{"initial_user","password"})):
             return Response({"detail":"Invalid resource operation fields."},status=400,headers=HEADERS)
