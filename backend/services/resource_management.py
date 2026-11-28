@@ -25,7 +25,7 @@ from providers.hosting_runtime import load_hosting_connection
 from providers.models import Provider
 from providers.pinned_egress import SupplierEgressDenied
 from .models import Service
-from .resource_protocol import DB_PROFILES,  ResourceProtocol, ResourceRefused, mailbox_name, subdomain_label, database_suffix, strong_password
+from .resource_protocol import DB_PROFILES,  ResourceProtocol, ResourceRefused, mailbox_name, subdomain_label, database_suffix, strong_password, forwarding_destination
 
 FENCE = "native_resource_mutation_v1"
 
@@ -109,17 +109,18 @@ def _budget(subject, *, write=False):
 
 
 def list_resources(subject,service_id,resource):
-    operation={"email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read","credentials":"hosting_password","db_users":"database_user_read"}.get(resource)
+    operation={"email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read","credentials":"hosting_password","db_users":"database_user_read","forwarders":"forwarder_read"}.get(resource)
     if not operation:
         raise ResourceRefused("Resource unavailable.")
     _budget(subject)
     a=authority(subject,service_id,operation)
     verify_existing_account(a.service,a.provider)
     a=_current(a,operation)
-    rows={"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[],"db_users":a.protocol.all_database_users}[resource]()
+    rows={"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[],"db_users":a.protocol.all_database_users,"forwarders":a.protocol.forwarders}[resource]()
     owned_databases=a.protocol.databases() if resource=="db_users" else None
+    owned_mailboxes=[x["address"] for x in a.protocol.mailboxes()] if resource=="forwarders" else None
     fresh=_current(a,operation)
-    return {"resource":resource,**({"databases":owned_databases} if owned_databases is not None else {}),"domain":a.service.domain_name,"items":rows,
+    return {"resource":resource,**({"mailboxes":owned_mailboxes} if owned_mailboxes is not None else {}),**({"databases":owned_databases} if owned_databases is not None else {}),"domain":a.service.domain_name,"items":rows,
             "pending_operation":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain",
             "pending_password_verification":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain" and fresh.service.metadata.get(FENCE,{}).get("operation") in ("mailbox_password","hosting_password"),
             "verified_at":timezone.now().isoformat()}
@@ -253,13 +254,16 @@ def _same_password(pending,password):
     return hmac.compare_digest(current["mac"],receipt.get("mac",""))
 
 
-OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password","database_user_create","database_user_delete","database_grants"}
+OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password","database_user_create","database_user_delete","database_grants","forwarder_create","forwarder_delete"}
 
 
 @sensitive_variables("password")
 def _observed(protocol, pending, password=None):
     operation=pending["operation"]
     target=pending["address"]
+    if operation.startswith("forwarder_"):
+        rows=[x for x in protocol.forwarders() if x["address"]==target]
+        return (len(rows)==1 and rows[0]["managed"] and rows[0]["destination"]==pending["destination"]) if operation=="forwarder_create" else not rows
     if operation=="hosting_password":
         return _same_password(pending,password) and protocol.verify_hosting_password(password)
     if operation.startswith("mailbox_"):
@@ -290,10 +294,11 @@ def _observed(protocol, pending, password=None):
 
 
 @sensitive_variables("password")
-def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_target=None,password=None,initial_user=None,database_name=None,profile=None):
+def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_target=None,password=None,initial_user=None,database_name=None,profile=None,destination=None):
     if operation not in OBSERVABLE_MUTATIONS:
         raise ResourceRefused("Unknown resource operation.")
-    mailbox=operation.startswith("mailbox_")
+    forwarder=operation.startswith("forwarder_")
+    mailbox=operation.startswith("mailbox_") or forwarder
     database=operation.startswith("database_")
     hosting=operation=="hosting_password"
     if hosting:
@@ -309,7 +314,13 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
     if mailbox and local==a.service.provider_identifier.lower():
         raise ResourceRefused("Reserved account name.")
     target=a.protocol.account if hosting else (a.protocol.database_name(local) if operation in ("database_create","database_user_create") else a.protocol._db_identity(local)) if database else local+("@" if mailbox else ".")+a.service.domain_name
-    if operation.endswith("_delete") and confirm_target!=(target+" @ "+database_name if operation=="database_user_delete" and isinstance(database_name,str) else target):
+    if forwarder:
+        forwarding_destination(destination)
+        if destination.split("@")[1]==a.protocol.domain:
+            raise ResourceRefused("Local forwarding chains are not managed.")
+    if operation=="forwarder_delete" and confirm_target!=target+" -> "+destination:
+        raise ResourceRefused("Confirm the exact forwarding route.")
+    if operation.endswith("_delete") and not forwarder and confirm_target!=(target+" @ "+database_name if operation=="database_user_delete" and isinstance(database_name,str) else target):
         raise ResourceRefused("Confirm the exact resource being removed.")
     if operation=="mailbox_quota" and (type(quota) is not int or not 1<=quota<=1000000):
         raise ResourceRefused("Invalid mailbox quota.")
@@ -322,6 +333,14 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
         raise ResourceRefused("A previous operation requires reconciliation.")
     if hosting:
         pass
+    elif forwarder:
+        if target not in [x["address"] for x in a.protocol.mailboxes()]:
+            raise ResourceRefused("Forwarding mailbox not independently identified.")
+        rows=[x for x in a.protocol.forwarders() if x["address"]==target]
+        if operation=="forwarder_create" and rows:
+            raise ResourceRefused("Remove the existing forwarding route before creating another.")
+        if operation=="forwarder_delete" and (len(rows)!=1 or not rows[0]["managed"] or rows[0]["destination"]!=destination):
+            raise ResourceRefused("Forwarding route cannot be independently identified.")
     elif mailbox:
         rows=a.protocol.mailboxes()
         matches=[x for x in rows if x["address"]==target]
@@ -385,6 +404,8 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
     event=str(uuid.uuid4())
     pending={"id":event,"operation":operation,"address":target,"binding":a.digest,
              "state":"dispatched_uncertain","created_at":timezone.now().isoformat()}
+    if forwarder:
+        pending["destination"]=destination
     if operation=="database_create" and initial_user is not None:
         pending["initial_user"]=a.protocol.database_name(initial_user)
     if operation in ("database_user_create","database_user_delete","database_grants"):
@@ -412,6 +433,10 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
         a=_current(a,operation)
         if hosting:
             a.protocol.reset_hosting_password(password)
+        elif operation=="forwarder_create":
+            a.protocol.create_forwarder(local,destination)
+        elif operation=="forwarder_delete":
+            a.protocol.delete_forwarder(local,destination)
         elif operation=="mailbox_delete":
             a.protocol.delete_mailbox(local)
         elif operation=="mailbox_quota":

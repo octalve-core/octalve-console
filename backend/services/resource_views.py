@@ -35,7 +35,7 @@ class ResourceInventoryView(APIView):
 
     def get(self,request,service_id,resource):
         _owner(request,service_id)
-        if request.query_params or resource not in ("email","subdomains","databases","credentials","db_users"):
+        if request.query_params or resource not in ("email","subdomains","databases","credentials","db_users","forwarders"):
             return Response({"detail":"Unsupported resource request."},status=400,headers=HEADERS)
         try:
             return Response(resources.list_resources(request.user.pk,service_id,resource),headers=HEADERS)
@@ -105,6 +105,8 @@ class ResourceMutationView(APIView):
             "database_user_create":{"local","password","confirm_password","database"},
             "database_user_delete":{"local","confirm_target","confirm_password","database"},
             "database_grants":{"local","confirm_password","database","profile"},
+            "forwarder_create":{"local","destination","confirm_password"},
+            "forwarder_delete":{"local","destination","confirm_target","confirm_password"},
         }
         if operation not in shapes or not isinstance(data,dict) or (set(data)!=shapes[operation] and not (operation=="database_create" and set(data)==shapes[operation]|{"initial_user","password"})):
             return Response({"detail":"Invalid resource operation fields."},status=400,headers=HEADERS)
@@ -116,7 +118,7 @@ class ResourceMutationView(APIView):
                     or not request.user.check_password(confirmation)):
                 return Response({"detail":"Current Console password could not be confirmed."},status=403,headers=HEADERS)
             result=resources.mutate_resource(request.user.pk,service_id,operation=operation,local=data["local"],
-                quota=data.get("quota_mb"),confirm_target=data.get("confirm_target"),password=data.get("password"),initial_user=data.get("initial_user"),database_name=data.get("database"),profile=data.get("profile"))
+                quota=data.get("quota_mb"),confirm_target=data.get("confirm_target"),password=data.get("password"),initial_user=data.get("initial_user"),database_name=data.get("database"),profile=data.get("profile"),destination=data.get("destination"))
             return Response(result,status=200 if result["state"]=="confirmed" else 202,headers=HEADERS)
         except (ResourceRefused,ReadbackRejected,VaultUnavailable,SupplierEgressDenied,DatabaseError):
             return _unavailable()

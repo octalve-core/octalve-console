@@ -43,6 +43,16 @@ def mailbox_name(value):
     return value
 
 
+def forwarding_destination(value):
+    if not isinstance(value,str) or len(value)>253 or value.count("@")!=1:
+        raise ResourceRefused("Provide one plain email destination.")
+    local,domain=value.split("@")
+    if not LOCAL.fullmatch(local) or ".." in local or local.endswith("."):
+        raise ResourceRefused("Invalid destination mailbox.")
+    domain_name(domain)
+    return value
+
+
 def subdomain_label(value):
     if not isinstance(value,str) or not LABEL.fullmatch(value) or value in {"www","mail","webmail","cpanel","whm","ftp","autodiscover","autoconfig","ns1","ns2","localhost"}:
         raise ResourceRefused("Invalid or reserved subdomain.")
@@ -181,6 +191,14 @@ class ResourceProtocol:
                          (method == "POST" and set(fields)=={"action","domain","user","passwd","passwd2","quota"} and fields["action"]=="create" and fields["domain"]==self.domain and fields["passwd"]==fields["passwd2"]) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="delete" and set(fields)=={"action","domain","user"}) or
                          (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="modify" and set(fields) in ({"action","domain","user","quota"},{"action","domain","user","quota","passwd","passwd2"}) and ("passwd" not in fields or fields["passwd"]==fields["passwd2"])))
+            elif path=="/CMD_API_EMAIL_FORWARDERS":
+                valid=method=="GET" and fields=={"domain":self.domain}
+                if method=="POST" and fields.get("domain")==self.domain:
+                    if set(fields)=={"action","domain","user","email"} and fields["action"]=="create":
+                        valid=bool(mailbox_name(fields["user"]) and forwarding_destination(fields["email"])
+                                   and fields["email"].split("@")[1]!=self.domain)
+                    elif set(fields)=={"action","domain","select0"} and fields["action"]=="delete":
+                        valid=bool(mailbox_name(fields["select0"]))
             elif path=="/CMD_API_DATABASES":
                 valid=(method=="GET" and fields=={}) or (method=="POST" and (
                     (set(fields)=={"action","name","user","passwd","passwd2"} and fields["action"]=="create"
@@ -225,7 +243,9 @@ class ResourceProtocol:
             if not reseller and path=="/json-api/cpanel":
                 base={"cpanel_jsonapi_user":self.account,"cpanel_jsonapi_apiversion":"2","cpanel_jsonapi_module":"SubDomain"}
                 func=fields.get("cpanel_jsonapi_func")
-                if func=="listsubdomains":
+                if method=="GET" and fields=={"cpanel_jsonapi_user":self.account,"cpanel_jsonapi_apiversion":"2","cpanel_jsonapi_module":"Email","cpanel_jsonapi_func":"listforwards","domain":self.domain}:
+                    valid=True
+                elif func=="listsubdomains":
                     valid=method=="GET" and fields=={**base,"cpanel_jsonapi_func":func}
                 elif func=="delsubdomain":
                     target=fields.get("domain","")
@@ -246,6 +266,8 @@ class ResourceProtocol:
                          ("POST","Mysql","delete_user"):{"name"},
                          ("GET","Mysql","get_privileges_on_database"):{"database","user"},
                          ("POST","Mysql","set_privileges_on_database"):{"database","user","privileges"},
+                         ("POST","Email","add_forwarder"):{"domain","email","fwdopt","fwdemail"},
+                         ("POST","Email","delete_forwarder"):{"address","forwarder"},
                          ("POST","Email","add_pop"):{"email","domain","password","quota"},
                          ("POST","Email","delete_pop"):{"email","domain"},
                          ("POST","Email","edit_pop_quota"):{"email","domain","quota"},
@@ -253,6 +275,14 @@ class ResourceProtocol:
                          ("POST","Email","verify_password"):{"email","password"},
                          ("GET","StatsBar","get_stats"):{"display"}}
                 valid=op in allowed and set(fields)==common|allowed[op]
+                if valid and op in (("POST","Email","add_forwarder"),("POST","Email","delete_forwarder")):
+                    address=fields.get("email",fields.get("address"))
+                    destination=fields.get("fwdemail",fields.get("forwarder"))
+                    local,sep,domain=address.partition("@")
+                    valid=bool(sep and domain==self.domain and mailbox_name(local)
+                               and forwarding_destination(destination)
+                               and destination.split("@")[1]!=self.domain
+                               and (op[2]!="add_forwarder" or fields["fwdopt"]=="fwd"))
                 if valid and fields.get("cpanel.module")=="Mysql":
                     for key in ("name","database","user"):
                         if key in fields:
@@ -271,7 +301,7 @@ class ResourceProtocol:
                 if "display" in fields:
                     valid=valid and fields["display"] in ("emailaccounts|diskusage","sqldatabases","subdomains")
         if valid and method=="POST":
-            target=fields.get("user",fields.get("email")) if path not in ("/CMD_API_DATABASES","/CMD_API_VERIFY_PASSWORD","/json-api/passwd","/CMD_API_DB_USER","/CMD_API_DB_USER_PRIVS") and fields.get("cpanel.module")!="Mysql" else None
+            target=fields.get("user",fields.get("email")) if path not in ("/CMD_API_DATABASES","/CMD_API_VERIFY_PASSWORD","/json-api/passwd","/CMD_API_DB_USER","/CMD_API_DB_USER_PRIVS") and fields.get("cpanel.module")!="Mysql" and fields.get("cpanel.function")!="add_forwarder" and path!="/CMD_API_EMAIL_FORWARDERS" else None
             if target is not None:
                 if (path=="/CMD_API_EMAIL_AUTH" or fields.get("cpanel.function") in ("passwd_pop","verify_password")) and "@" not in target:
                     raise ResourceRefused("Full mailbox identity is required.")
@@ -795,3 +825,70 @@ class ResourceProtocol:
         else:
             self._whm("POST","Mysql","set_privileges_on_database",{"database":database,"user":user,
                       "privileges":",".join(grants)})
+
+
+    def forwarders(self):
+        """Read full primary-domain inventory; refuse ambiguous/special routes."""
+        if self.adapter=="directadmin":
+            response=self._request("GET","/CMD_API_EMAIL_FORWARDERS",{"domain":self.domain})
+            fields={} if response.status_code==200 and not response.content else _form(response)
+            rows=[]
+            for local,values in fields.items():
+                if local=="error" and values==["0"]:
+                    continue
+                if len(values)!=1:
+                    raise ResourceRefused("Ambiguous forwarding inventory.")
+                rows.append((local+"@"+self.domain,values[0]))
+        else:
+            response=self._request("GET","/json-api/cpanel",{
+                "cpanel_jsonapi_user":self.account,"cpanel_jsonapi_apiversion":"2",
+                "cpanel_jsonapi_module":"Email","cpanel_jsonapi_func":"listforwards","domain":self.domain})
+            try:
+                data=_unique_json(response)["cpanelresult"]
+                if (response.status_code!=200 or str(data["apiversion"])!="2"
+                        or data["module"]!="Email" or data["func"]!="listforwards"
+                        or str(data["event"]["result"])!="1" or data.get("error")
+                        or not isinstance(data["data"],list)):
+                    raise ValueError()
+                rows=[(x["forward"],x["dest"]) for x in data["data"]]
+            except (ValueError,KeyError,TypeError,AttributeError):
+                raise ResourceRefused("Forwarding inventory unavailable.") from None
+        if len(rows)>2000:
+            raise ResourceRefused("Forwarding inventory too large.")
+        result=[]
+        for address,destination in rows:
+            if not isinstance(address,str):
+                raise ResourceRefused("Invalid forwarding source.")
+            local,sep,domain=address.partition("@")
+            if not sep or domain!=self.domain or not LOCAL.fullmatch(local):
+                raise ResourceRefused("Unexpected forwarding source.")
+            if not isinstance(destination,str) or len(destination)>2048:
+                raise ResourceRefused("Unexpected forwarding target.")
+            # Other forwarding forms stay visible as unmanaged, but never
+            # become editable commands or expose arbitrary pipe/file contents.
+            try:
+                managed=bool(forwarding_destination(destination) and destination.split("@")[1]!=self.domain)
+            except ResourceRefused:
+                managed=False
+            result.append({"address":address,"destination":destination if managed else None,"managed":managed})
+        return result
+
+    def create_forwarder(self,local,destination):
+        mailbox_name(local)
+        forwarding_destination(destination)
+        if destination.split("@")[1]==self.domain:
+            raise ResourceRefused("Local forwarding chains are not managed.")
+        if self.adapter=="directadmin":
+            _form(self._request("POST","/CMD_API_EMAIL_FORWARDERS",{"action":"create","domain":self.domain,"user":local,"email":destination}))
+        else:
+            self._whm("POST","Email","add_forwarder",{"domain":self.domain,"email":local+"@"+self.domain,"fwdopt":"fwd","fwdemail":destination})
+
+    def delete_forwarder(self,local,destination):
+        mailbox_name(local)
+        forwarding_destination(destination)
+        if destination.split("@")[1]==self.domain:
+            raise ResourceRefused("Local forwarding chains are not managed.")
+        if self.adapter=="directadmin":
+            _form(self._request("POST","/CMD_API_EMAIL_FORWARDERS",{"action":"delete","domain":self.domain,"select0":local}))
+        else:
+            self._whm("POST","Email","delete_forwarder",{"address":local+"@"+self.domain,"forwarder":destination})

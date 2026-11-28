@@ -38,6 +38,9 @@ def opanel_overview(service):
     resource_caps = resource_management.capabilities(service)
     capabilities = {
         "overview": True,
+        "forwarders": "forwarder_read" in resource_caps,
+        "forwarder_create": "forwarder_create" in resource_caps,
+        "forwarder_delete": "forwarder_delete" in resource_caps,
         "credentials": "hosting_password" in resource_caps,
         "hosting_password": "hosting_password" in resource_caps,
         "files": False,
