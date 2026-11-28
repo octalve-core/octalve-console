@@ -124,7 +124,7 @@ def validate_readback_contract(path,port,params,headers):
         if (not re.fullmatch(r"whm [A-Za-z0-9_.-]{1,80}:[^\r\n]{12,4096}",auth)
                 or set(params)!={"api.version","cpanel.user","cpanel.module","cpanel.function","display"}
                 or params["api.version"]!="1" or params["cpanel.module"]!="StatsBar"
-                or params["cpanel.function"]!="get_stats" or params["display"]!="bandwidthusage|diskusage"
+                or params["cpanel.function"]!="get_stats" or params["display"] not in ("bandwidthusage|diskusage","bandwidthusage|diskusage|emailaccounts|sqldatabases|subdomains")
                 or not isinstance(params["cpanel.user"],str)
                 or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,31}",params["cpanel.user"])):
             raise SupplierEgressDenied()
