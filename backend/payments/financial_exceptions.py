@@ -45,7 +45,7 @@ def record_signed(gateway,event,body):
     with transaction.atomic():
         saved,created=WebhookEvent.objects.get_or_create(event_id="cloud_exception_"+fingerprint,
             defaults={"gateway":gateway,"event_type":event,"payload":payload,"is_verified":True,"headers":{}})
-        if saved.gateway_id!=gateway.pk or saved.payload!=payload or not saved.is_verified:
+        if saved.gateway_id!=gateway.pk or any(saved.payload.get(k)!=v for k,v in payload.items()) or not saved.is_verified:
             raise ExceptionRefused("Conflicting financial event.")
     return saved,created
 

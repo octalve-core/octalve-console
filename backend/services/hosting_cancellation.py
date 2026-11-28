@@ -76,12 +76,13 @@ def _protected(service):
 def _unresolved(service):
     invoices=Invoice.objects.filter(client_id=service.client_id,metadata__type="renewal",metadata__service_id=service.pk)
     original=Transaction.objects.filter(invoice_id=service.invoice_id)
-    if original.filter(status__in=("manual_review","pending","refunded")).exists() or original.filter(transaction_type="refund").exists():
+    if original.filter(status__in=("manual_review","pending","refunded")).exists() or original.filter(transaction_type="refund").exists() or original.filter(metadata__financial_exception_review_required=True).exists():
         return True
     return (invoices.filter(status__in=("unpaid","partially_paid","overdue")).exists()
         or invoices.filter(status="paid",order__status="paid").exists()
         or PaymentIntent.objects.filter(invoice__in=invoices,status__in=("pending","processing")).exists()
-        or Transaction.objects.filter(invoice__in=invoices,status__in=("manual_review","pending","refunded")).exists())
+        or Transaction.objects.filter(invoice__in=invoices,status__in=("manual_review","pending","refunded")).exists()
+        or Transaction.objects.filter(invoice__in=invoices,metadata__financial_exception_review_required=True).exists())
 
 def _entry(service):
     record=service.metadata.get(KEY,{})

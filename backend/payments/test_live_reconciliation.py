@@ -74,3 +74,17 @@ class LiveReconciliationTests(TestCase):
             self.assertEqual(consume_exception(event.pk),"held")
         event.refresh_from_db()
         self.assertFalse(event.is_processed)
+
+    def test_signed_case_replay_after_readback_does_not_change_evidence(self):
+        from .financial_exceptions import record_signed
+        body={"domain":"live","id":99,"transaction":{"id":12345}}
+        with patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"):
+            event,created=record_signed(self.intent.gateway,"charge.dispute.create",body)
+            self.assertTrue(created)
+            event.payload={**event.payload,"verified_case":{"state":"pending"}}
+            event.is_processed=True
+            event.save(update_fields=["payload","is_processed"])
+            replay,created=record_signed(self.intent.gateway,"charge.dispute.create",body)
+            self.assertFalse(created)
+            self.assertEqual(replay.pk,event.pk)
+            self.assertTrue(replay.is_processed)
