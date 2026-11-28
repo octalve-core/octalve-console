@@ -57,7 +57,10 @@ class LiveReconciliationTests(TestCase):
             self.assertEqual(consume_exception(refund.pk),"processed")
             self.assertEqual(consume_exception(refund.pk),"processed")
             read.assert_called_once()
-        original=Transaction.objects.get(invoice=self.invoice)
+        original=Transaction.objects.get(invoice=self.invoice,transaction_type="payment")
+        reversal=Transaction.objects.get(invoice=self.invoice,transaction_type="refund")
+        self.assertEqual(reversal.amount,Decimal("50"))
+        self.assertEqual(reversal.net_amount,Decimal("-50"))
         self.assertTrue(original.metadata["financial_exception_review_required"])
         self.assertEqual(original.amount,Decimal("100"))
         self.assertEqual(original.status,"successful")
@@ -144,3 +147,17 @@ class LiveReconciliationTests(TestCase):
         with patch("payments.live_reconciliation.attempt",return_value="held") as attempt:
             self.assertEqual(run_due()["held"],1)
             attempt.assert_called_once_with(self.event.pk)
+
+    def test_refund_request_reserves_before_post_and_never_reposts_unknown(self):
+        from .refund_authority import request_refund,ExceptionRefused,KEY
+        proof=ConfirmedGatewayPayment("paystack",self.intent.reference,"NGN",Decimal("100"),"12345")
+        with patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.live_binding.resolve_live_key",return_value="fixture"),patch("payments.settlement.verify_gateway_intent",return_value=proof):
+            self.assertEqual(consume(self.event.pk),"processed")
+        original=Transaction.objects.get(invoice=self.invoice,transaction_type="payment")
+        with patch("providers.connection_stepup.check_mutation"),patch("payments.refund_authority.resolve_live_key",return_value="fixture"),patch("payments.refund_authority.remote_refunds",return_value=[]),patch("payments.refund_authority.submit",side_effect=ExceptionRefused("uncertain")) as post:
+            self.assertEqual(request_refund(original.client,original.public_id,5000,"fixture","123456")["state"],"uncertain")
+            original.refresh_from_db()
+            self.assertEqual(original.metadata[KEY]["amount_minor"],5000)
+            with self.assertRaises(ExceptionRefused):
+                request_refund(original.client,original.public_id,5000,"fixture","123456")
+            post.assert_called_once()

@@ -66,6 +66,14 @@ def run_due(limit=5):
         outcome=attempt(pk)
         if outcome in ("processed","held"):
             result[outcome]+=1
+    from .refund_authority import KEY,reconcile_request
+    from .models import Transaction
+    requests_due=Transaction.objects.filter(transaction_type="payment",metadata__paystack_refund_request_v1__state__in=("uncertain","submitted")).order_by("updated_at","pk").values_list("pk",flat=True)[:1]
+    for pk in requests_due:
+        outcome=reconcile_request(pk)
+        result[outcome]+=1
+        if outcome=="held":
+            Transaction.objects.filter(pk=pk).update(updated_at=timezone.now())
     return result
 
 class LiveReconciliationCronView(APIView):
