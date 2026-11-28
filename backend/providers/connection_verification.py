@@ -24,6 +24,8 @@ from audit.models import AuditLog
 from .public_google import PublicGoogleUnavailable, page_speed, verify_gemini
 from .web_risk import WebRiskUnavailable, lookup as web_risk_lookup
 from .resellerclub_sandbox import ResellerClubUnavailable, verify_sandbox
+from .hosting_inventory import read_inventory, stage_inventory, ADAPTERS as HOSTING_ADAPTERS
+from .inventory import InventoryError
 
 class ProviderReadbackFailed(ValueError):
     def __str__(self):
@@ -124,7 +126,14 @@ def verify_connection(request,connection_id):
         version=IntegrationCredentialVersion.objects.select_related("connection").get(
             connection=row,version=row.current_version,revoked_at__isnull=True)
         secrets=unseal_version(version)
-        if row.adapter_key=="cloudflare-dns":
+        if row.adapter_key in HOSTING_ADAPTERS:
+            offers=read_inventory(row,secrets)
+            proof=stage_inventory(row,offers,request.user)
+            return Response({"verified":True,"adapter_key":row.adapter_key,
+                "credential_version":row.current_version,"execution_enabled":False,
+                "checked_at":timezone.now().isoformat(),"evidence":proof},
+                headers={"Cache-Control":"private, no-store"})
+        elif row.adapter_key=="cloudflare-dns":
             connector=CloudflareINT01(row.public_settings["account_id"],
                 FixedCloudflareTransport(secrets["api_token"]))
             proof=connector.dns_readback(row.public_settings["zone_id"])
@@ -146,7 +155,7 @@ def verify_connection(request,connection_id):
             proof=brevo_readback(secrets["api_key"])
         else:
             proof=paystack_readback(secrets["secret_key"],row.environment)
-    except (ResellerClubUnavailable,CloudflareINT01Denied,ProviderReadbackFailed,WebRiskUnavailable,PublicGoogleUnavailable,VaultUnavailable,
+    except (InventoryError,IntegrationConnection.DoesNotExist,ResellerClubUnavailable,CloudflareINT01Denied,ProviderReadbackFailed,WebRiskUnavailable,PublicGoogleUnavailable,VaultUnavailable,
             IntegrationCredentialVersion.DoesNotExist,KeyError,DatabaseError):
         return Response({"verified":False,"detail":"Credential readback failed or could not be certified."},
             status=503,headers={"Cache-Control":"private, no-store"})
