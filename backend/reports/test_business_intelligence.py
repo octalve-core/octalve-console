@@ -129,3 +129,4 @@ class BusinessSnapshotTests(TestCase):
         self.assertEqual(totals["this_month"],"120.00")
         self.assertEqual(totals["refunded_this_month"],"20.00")
         self.assertEqual(totals["net_collections_this_month"],"100.00")
+        self.assertEqual(result.data["finance"]["payment_months"][-1]["net"],"100.00")

@@ -21,7 +21,8 @@ def financial_exception_review(request):
     gateway=PaymentGateway.objects.filter(code="paystack",test_mode=False,status="active").first()
     pending=Transaction.objects.filter(transaction_type="payment",gateway=gateway,
         metadata__paystack_refund_request_v1__state__in=("uncertain","submitted","processed","failed")).order_by("-updated_at")[:100] if gateway else []
-    return Response({"requests":[{"payment":str(x.public_id),"reference":x.metadata["paystack_refund_request_v1"]["reference"],
+    reviews=list(Transaction.objects.filter(transaction_type="payment",gateway=gateway,metadata__financial_exception_review_required=True).order_by("-updated_at")[:100]) if gateway else []
+    return Response({"reviews":[{"payment":str(x.public_id),"reference":x.reference,"closed":bool(x.metadata.get("financial_exception_closure_v1")),"fulfillment_hold":True} for x in reviews],"requests":[{"payment":str(x.public_id),"reference":x.metadata["paystack_refund_request_v1"]["reference"],
         "amount_minor":x.metadata["paystack_refund_request_v1"]["amount_minor"],"state":x.metadata["paystack_refund_request_v1"]["state"]} for x in pending],"cases":[{"id":row.pk,"event":row.event_type,
         "state":"verified_review" if row.is_processed or row.payload.get("late_payment_review") else "awaiting_readback",
         "case":row.payload.get("verified_case"),"created_at":row.created_at.isoformat()} for row in rows[:100]],

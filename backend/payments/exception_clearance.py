@@ -31,13 +31,23 @@ def close(user,public_id,password,totp):
         if any(r["state"] not in ("failed","processed") for r in refunds): raise ExceptionRefused()
         # Independently read every dispute, not a merchant's asserted decision.
         final=[]
+        liability=0
+        seen=set()
         for d in disputes:
             case=numeric_id(d["id"]);proof=fetch_case("dispute",case,key)
             if proof.get("domain")!="live" or remote_transaction(proof.get("transaction"))!=original.provider_reference or numeric_id(proof.get("id"))!=case or proof.get("status")!="resolved":
                 raise ExceptionRefused()
-            if proof.get("resolution")!="declined" or proof.get("refund_amount")!=0:
-                raise ExceptionRefused("Money-moving disputes remain under financial review.")
-            final.append(case)
+            if case in seen:raise ExceptionRefused()
+            seen.add(case)
+            amount=proof.get("refund_amount")
+            resolution=proof.get("resolution")
+            if resolution=="declined" and amount in (0,None):
+                amount=0
+            elif resolution in ("merchant-accepted","auto-accepted") and type(amount) is int and 0<amount<=int(original.amount*100) and proof.get("currency")==original.currency:
+                liability+=amount
+            else:raise ExceptionRefused("Unconfirmed dispute resolution or amount.")
+            final.append({"case_id":case,"resolution":resolution,"amount_minor":amount})
+        if liability>int(original.amount*100):raise ExceptionRefused()
         verified={r["id"]:r["amount_minor"] for r in refunds if r["state"]=="processed"}
         with transaction.atomic():
             gateway=PaymentGateway.objects.select_for_update().get(pk=original.gateway_id)
@@ -51,8 +61,12 @@ def close(user,public_id,password,totp):
             if local!=verified:raise ExceptionRefused()
             # A processed refund can be closed for accounting, but must never
             # authorize new provisioning against an already returned payment.
-            clear=not verified
-            receipt={"closed_at":timezone.now().isoformat(),"refund_cases":len(refunds),"dispute_cases":len(final),"fulfillment_hold_retained":not clear}
+            # Accepted disputes are booked as confirmed liabilities, not proof
+            # of payout movement. Any overlap with refund receipts is displayed
+            # separately; never deduct the same amount twice.
+            clear=not verified and not liability
+            receipt={"closed_at":timezone.now().isoformat(),"refund_cases":len(refunds),"dispute_cases":len(final),"dispute_liability_minor":liability,
+                "disputes":final,"fulfillment_hold_retained":not clear,"cash_settlement_verified":False}
             locked.metadata={**locked.metadata,"financial_exception_review_required":not clear,"financial_exception_closure_v1":receipt}
             locked.save(update_fields=["metadata","updated_at"])
             AuditLog.objects.create(actor=user,action="payment_exception_closed",entity_type="Transaction",entity_id=str(locked.pk),entity_name="Paystack financial exception",details=receipt)

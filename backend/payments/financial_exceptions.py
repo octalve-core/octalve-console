@@ -70,6 +70,7 @@ def record_signed(gateway,event,body):
             originals=originals.filter(reference=payload["reference"]) if "reference" in payload else originals.filter(provider_reference=payload["transaction_id"])
             for original in originals:
                 original.metadata={**original.metadata,"financial_exception_review_required":True}
+                original.metadata.pop("financial_exception_closure_v1",None)
                 original.save(update_fields=["metadata","updated_at"])
     return saved,created
 
@@ -161,8 +162,8 @@ def consume(event_id):
         if "reference" in event.payload and (proof["amount_minor"]!=event.payload["amount_minor"] or proof["currency"]!=event.payload["currency"]):
             return "held"
         with transaction.atomic():
-            fresh=WebhookEvent.objects.select_for_update().get(pk=event.pk)
             gateway=PaymentGateway.objects.select_for_update().get(pk=event.gateway_id)
+            fresh=WebhookEvent.objects.select_for_update().get(pk=event.pk)
             if fresh.is_processed:
                 return "processed"
             if fresh.payload!=event.payload or gateway.config!=event.gateway.config or not resolve_live_key(gateway):
@@ -183,6 +184,7 @@ def consume(event_id):
             # A confirmed case puts new fulfillment on review; no existing service
             # is remotely suspended, deleted, or refunded automatically.
             original.metadata={**original.metadata,"financial_exception_review_required":True}
+            original.metadata.pop("financial_exception_closure_v1",None)
             original.save(update_fields=["metadata","updated_at"])
             AuditLog.objects.create(actor=None,action="payment_exception_verified",entity_type="Transaction",
                 entity_id=str(original.pk),entity_name="Paystack financial exception",

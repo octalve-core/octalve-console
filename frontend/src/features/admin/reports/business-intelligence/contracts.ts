@@ -1,16 +1,16 @@
 /** Strict BIZ-02 view contract: reject malformed or missing financial evidence. */
-export type MonthlyMoney={month:string;count:number;amount:string};
+export type MonthlyMoney={month:string;count:number;amount:string;refunds?:string;net?:string};
 export type MonthlyCount={month:string;count:number};
 export type BIZSnapshot={
  as_of:string;currency:string;
  methodology:{payment_basis:string;settlement_verified:false;profit_verified:false;
   provider_cost_evidence:string;invoice_status_is_settlement:false;currency_policy:string};
- overview:{payment_amounts:{this_month:string;last_month:string;year_to_date:string;refunded_this_month:string};
+ overview:{payment_amounts:{this_month:string;last_month:string;year_to_date:string;refunded_this_month:string;net_collections_this_month?:string;net_collections_last_month?:string;net_collections_year_to_date?:string};
   verified_payment_count_this_month:number;verified_payment_count_last_month:number;paid_invoices_this_month:number;pending_invoices:number;
   active_services:number;new_customers_this_month:number;paid_renewal_invoices_this_month:number};
  finance:{payment_amounts:BIZSnapshot["overview"]["payment_amounts"];
   invoice_status:Record<string,number>;paid_before_due_this_month:number;
-  paid_after_due_this_month:number;payment_months:MonthlyMoney[]};
+  paid_after_due_this_month:number;payment_months:MonthlyMoney[];accepted_dispute_liability?:string;open_financial_reviews?:number};
  customers:{registered_total:number;registered_this_month:number;registered_last_month:number;
   paying_customers_this_month:number;accounts_with_repeat_failed_payments_14d:number;
   accounts_with_past_due_services:number;registrations_by_month:MonthlyCount[]};
@@ -36,10 +36,12 @@ function amount(value:unknown):string{
  if(typeof value!=="string"||!/^\d{1,16}\.\d{2}$/.test(value))throw Error("Invalid financial amount.");
  return value;
 }
+function signedAmount(value:unknown):string{if(typeof value!=="string"||!(/^-?\d{1,16}\.\d{2}$/).test(value))throw Error("Invalid net collection amount.");return value;}
 function amounts(value:unknown){
  const r=record(value);
  return {this_month:amount(r.this_month),last_month:amount(r.last_month),
-  year_to_date:amount(r.year_to_date),refunded_this_month:amount(r.refunded_this_month)};
+  year_to_date:amount(r.year_to_date),refunded_this_month:amount(r.refunded_this_month),
+  ...(r.net_collections_this_month===undefined?{}:{net_collections_this_month:signedAmount(r.net_collections_this_month),net_collections_last_month:signedAmount(r.net_collections_last_month),net_collections_year_to_date:signedAmount(r.net_collections_year_to_date)})};
 }
 function array(value:unknown):unknown[]{
  if(!Array.isArray(value)||value.length>100)throw Error("Invalid reporting series.");
@@ -49,7 +51,7 @@ function monthly(value:unknown,hasAmount:boolean){
  return array(value).map(item=>{
   const r=record(item),month=name(r.month);
   if(!/^\d{4}-\d{2}$/.test(month))throw Error("Invalid report month.");
-  return {month,count:number(r.count),...(hasAmount?{amount:amount(r.amount)}:{})};
+  return {month,count:number(r.count),...(hasAmount?{amount:amount(r.amount),...(r.refunds===undefined?{}:{refunds:amount(r.refunds),net:signedAmount(r.net)})}:{})};
  });
 }
 export function parseBIZSnapshot(value:unknown):BIZSnapshot{
@@ -79,7 +81,7 @@ export function parseBIZSnapshot(value:unknown):BIZSnapshot{
   finance:{payment_amounts:amounts(f.payment_amounts),invoice_status:invoiceStatus,
    paid_before_due_this_month:number(f.paid_before_due_this_month),
    paid_after_due_this_month:number(f.paid_after_due_this_month),
-   payment_months:monthly(f.payment_months,true) as MonthlyMoney[]},
+   payment_months:monthly(f.payment_months,true) as MonthlyMoney[],...(f.accepted_dispute_liability===undefined?{}:{accepted_dispute_liability:amount(f.accepted_dispute_liability),open_financial_reviews:number(f.open_financial_reviews)})},
   customers:{registered_total:number(c.registered_total),
    registered_this_month:number(c.registered_this_month),
    registered_last_month:number(c.registered_last_month),

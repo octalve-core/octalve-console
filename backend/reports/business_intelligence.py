@@ -10,7 +10,9 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Sum, F, Q
+from django.db.models import Count, Sum, F, Q, BigIntegerField
+from django.db.models.functions import Cast
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
@@ -110,6 +112,18 @@ def business_snapshot(request):
         .order_by("month")
     )
 
+    refund_months={row['month']:row['amount'] for row in refund_receipts.filter(paid_at__gte=year_ago).annotate(month=TruncMonth('paid_at')).values('month').annotate(amount=Sum('amount'))}
+    payment_by_month={row['month']:row for row in payment_months}
+    month_rows=[]
+    for month in sorted(set(payment_by_month)|set(refund_months)):
+        row=payment_by_month.get(month,{'count':0,'amount':ZERO})
+        refunds=refund_months.get(month,ZERO) or ZERO
+        gross=row['amount'] or ZERO
+        month_rows.append({'month':month.date().isoformat()[:7],'count':row['count'],'amount':money(gross),'refunds':money(refunds),'net':money(gross-refunds)})
+    # Chargeback liabilities are separate from independently verified cash refunds.
+    # Never subtract them twice where the gateway reports overlapping cases.
+    liabilities=payment_receipts.filter(metadata__financial_exception_closure_v1__dispute_liability_minor__gt=0).annotate(minor=Cast(KeyTextTransform('dispute_liability_minor',F('metadata__financial_exception_closure_v1')),BigIntegerField()))
+    liability_total=Decimal(liabilities.aggregate(value=Sum('minor'))['value'] or 0)/100
     provider_counts = list(
         active_services.exclude(provider_id__isnull=True)
         .values("provider_id").annotate(count=Count("id"))
@@ -169,11 +183,9 @@ def business_snapshot(request):
             "paid_after_due_this_month": paid_current.filter(
                 paid_at__gt=F("due_date")
             ).count(),
-            "payment_months": [
-                {"month": row["month"].date().isoformat()[:7],
-                 "count": row["count"], "amount": money(row["amount"])}
-                for row in payment_months
-            ],
+            "payment_months": month_rows,
+            "accepted_dispute_liability":money(liability_total),
+            "open_financial_reviews":payment_receipts.filter(metadata__financial_exception_review_required=True).exclude(metadata__financial_exception_closure_v1__closed_at__isnull=False).count(),
         },
         "customers": {
             "registered_total": users.count(),
