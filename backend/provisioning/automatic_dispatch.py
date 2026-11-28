@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.db.models import Q
 from providers.hosting_runtime import release_enabled,load_hosting_connection,POLICY
 from providers.connection_vault import VaultUnavailable
+from providers.connection_models import IntegrationConnection
 from providers.pinned_egress import SupplierEgressDenied
 from providers.models import Provider,ProviderPackage
 from provisioning.models import ProvisioningTask,ProvisioningLog
@@ -45,6 +46,9 @@ def _mark_dispatched(task_id,plan,snapshot):
     with connection.cursor() as cursor:
         cursor.execute("SELECT pg_advisory_xact_lock(%s)",[number])
     fresh=ProvisioningTask.objects.select_for_update().get(pk=task_id)
+    from providers.connection_models import IntegrationConnection
+    connection_id=fresh.provider.config.get("hosting_vault_connection_id")
+    IntegrationConnection.objects.select_for_update().get(pk=connection_id)
     provider=Provider.objects.select_for_update().get(pk=fresh.provider_id)
     fresh.provider=provider
     now_plan=plan_account_creation(task_id,allow_reserved=True)
@@ -103,7 +107,7 @@ def advance(task_id):
         reconcile_verified_hosting(task.pk,apply=True)
         return "completed"
     except (ProvisioningTask.DoesNotExist,Provider.DoesNotExist,CreateReservationRefused,CreationPlanRefused,
-            VendorProtocolRefused,SupplierEgressDenied,ReconciliationRefused,VaultUnavailable,DatabaseError):
+            VendorProtocolRefused,SupplierEgressDenied,ReconciliationRefused,VaultUnavailable,DatabaseError,IntegrationConnection.DoesNotExist):
         return "held"
 
 
