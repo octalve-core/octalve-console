@@ -24,7 +24,10 @@ def configure_execution(request,connection_id):
         raise VaultUnavailable()
     require_write_authority(request)
     data=request.data
-    if not isinstance(data,dict) or set(data)!={"confirm_password","totp_code","fulfillment_model","shared_ip","accept"}:
+    required={"confirm_password","totp_code","fulfillment_model","shared_ip","accept"}
+    if (not isinstance(data,dict) or not required<=set(data)
+            or set(data)-required-{"native_panel_access"}
+            or ("native_panel_access" in data and type(data["native_panel_access"]) is not bool)):
         raise ValidationError("Only documented supplier policy fields are accepted.")
     if data["accept"] is not True or data["fulfillment_model"] not in ("owned_server","partner_reseller"):
         raise ValidationError("Confirm the supplier execution policy.")
@@ -55,15 +58,19 @@ def configure_execution(request,connection_id):
             provider.refresh_from_db()
             provider.config={**provider.config,"hosting_account_owner":provider.username,
                 "fulfillment_model":data["fulfillment_model"]}
+            if "native_panel_access" in data:
+                provider.config["native_panel_access"]=data["native_panel_access"]
             provider.config[POLICY]=sign_policy(provider,locked,shared)
             provider.status="active"
             provider.save(update_fields=["config","status","updated_at"])
             AuditLog.objects.create(actor=request.user,action="hosting_supplier_policy_approved",
                 entity_type="IntegrationConnection",entity_id=str(row.pk),entity_name=row.adapter_key,
                 details={"credential_version":locked.current_version,"provider_id":provider.pk,
-                    "fulfillment_model":data["fulfillment_model"],"execution_policy":True})
+                    "fulfillment_model":data["fulfillment_model"],"execution_policy":True,
+                    "native_panel_access":provider.config.get("native_panel_access",False)})
         return Response({"configured":True,"provider_id":provider.pk,
-            "package_count":len(offers),"commercial_payment_enabled":False},headers={"Cache-Control":"private, no-store"})
+            "package_count":len(offers),"native_panel_access":provider.config.get("native_panel_access",False),
+            "commercial_payment_enabled":False},headers={"Cache-Control":"private, no-store"})
     except (IntegrationConnection.DoesNotExist,Provider.DoesNotExist,Provider.MultipleObjectsReturned,
             InventoryError,DatabaseError):
         raise VaultUnavailable() from None
