@@ -134,6 +134,35 @@ class ServiceViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
         return Response({"state":"pending_dns","record":public_challenge(payload)},
             headers={"Cache-Control":"private, no-store"})
 
+    @action(detail=True, methods=['post'], url_path='hosting-domain-check')
+    def hosting_domain_check(self, request, pk=None):
+        from accounts.security_throttle import _spend
+        from rest_framework.exceptions import Throttled,NotFound,ValidationError
+        from provisioning.models import ProvisioningTask
+        from provisioning.automatic_dispatch import enabled,advance
+        if (not enabled() or request.user.role!="client" or not request.user.is_active
+                or not request.user.email_verified_at):
+            raise NotFound()
+        service=self.get_object()
+        if service.client_id!=request.user.pk or service.service_type!="hosting":
+            raise NotFound()
+        if request.data!={}:
+            raise ValidationError("No additional fields are accepted.")
+        if service.status=="active":
+            return Response({"state":"active"},headers={"Cache-Control":"private, no-store"})
+        if service.status!="pending":
+            raise NotFound()
+        wait=_spend("hosting:domain_check",str(request.user.pk),3,300)
+        if wait:
+            raise Throttled(wait=wait)
+        task=ProvisioningTask.objects.filter(service=service,action="provision",
+            metadata__authority="verified_paid_order",status__in=["queued","pending_confirmation"]).first()
+        if not task:
+            raise NotFound()
+        result=advance(task.pk)
+        return Response({"state":"active" if result=="completed" else result},
+            headers={"Cache-Control":"private, no-store"})
+
     @action(detail=True, methods=['get'])
     def usage(self, request, pk=None):
         """Get service usage history"""
