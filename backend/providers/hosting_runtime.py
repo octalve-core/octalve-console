@@ -18,6 +18,16 @@ from providers.pinned_egress import public_ip
 from rest_framework.exceptions import ValidationError
 
 POLICY="hosting_execution_policy_v1"
+RESOURCE_CAPABILITIES=frozenset(("mailbox_read","mailbox_create","subdomain_read"))
+
+
+def validate_resource_capabilities(value):
+    if (not isinstance(value,list) or len(value)>len(RESOURCE_CAPABILITIES)
+            or any(not isinstance(x,str) or x not in RESOURCE_CAPABILITIES for x in value)
+            or len(set(value))!=len(value) or ("mailbox_create" in value and "mailbox_read" not in value)):
+        raise VaultUnavailable()
+    return sorted(value)
+
 
 
 def qualified_vault():
@@ -42,6 +52,8 @@ def policy_payload(provider,row,shared_ip):
         if type(native) is not bool:
             raise VaultUnavailable()
         payload["native_panel_access"]=native
+    if "resource_capabilities" in provider.config:
+        payload["resource_capabilities"]=validate_resource_capabilities(provider.config["resource_capabilities"])
     return payload
 
 
