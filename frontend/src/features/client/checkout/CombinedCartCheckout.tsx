@@ -8,6 +8,7 @@ import {CommerceCheckoutFrame,CommercePanel,primary,secondary,OrderConfirmation,
 
 import type {CartLine,CartView,GatewayCode,GatewayOption} from "@/components/shared-commerce/types";
 import {authApi, type AccountProfile} from "@/lib/api/endpoints";
+import {liveRegistrationReadiness} from "./LiveDomainRegistration";
 import {formatPlanAmount} from "../data/client-order-data";
 import {TestLifecyclePanel} from "@/components/modules/TestLifecyclePanel";
 import {PendingInvoiceReferences} from "./PendingInvoiceReferences";
@@ -80,6 +81,7 @@ export function CombinedCartCheckout({invoice}: {invoice?:number}) {
         domain_name:item.domain ?? "", quantity:1,
       }] : []);
       if (!selections.length) throw Error("Add a product to your cart first.");
+      if(domains.length===1&&services.length===0){const live=await liveRegistrationReadiness(domains[0]);if(live.available){if(active)router.replace("/client/order/checkout?product=domain&domain="+encodeURIComponent(domains[0]));return;}}
       const fingerprint = JSON.stringify([profile.email, selections]);
       let cached; try{cached=JSON.parse(sessionStorage.getItem("octalve-combined-cart-review") ?? "null");}catch{cached=null;}
       const key = cached?.fingerprint === fingerprint && typeof cached.id === "string" ? cached.id : crypto.randomUUID();

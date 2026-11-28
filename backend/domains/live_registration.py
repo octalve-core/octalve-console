@@ -313,10 +313,38 @@ def run_due():
         Domain.objects.filter(pk=row.pk,status="pending").update(updated_at=timezone.now())
     return result
 
-@api_view(["POST"])
+def checkout_readiness(user,name):
+    """Local configuration check, not an availability or price promise."""
+    if not enabled() or user.role!="client" or not user.is_active or not user.email_verified_at:
+        return {"available":False}
+    try:
+        name=require_domain(name)
+        if name.count(".")!=1:
+            return {"available":False}
+        existing=Domain.objects.filter(domain_name__iexact=name,client_id=user.pk,registrar="cloudflare-registrar-live",status="pending").first()
+        if existing and existing.order_item_id:
+            invoice=Invoice.objects.filter(order_id=existing.order_item.order_id,client_id=user.pk).first()
+            if invoice:
+                return {"available":True,"invoice_public_id":str(invoice.public_id)}
+        gateway=PaymentGateway.objects.filter(code="paystack",status="active",test_mode=False).first()
+        price=TLDPricing.objects.get(tld="."+name.rsplit(".",1)[1],status="active")
+        route=price.metadata.get("published_registrar")
+        cost=price.metadata.get("published_registrar_cost_v1")
+        if (not gateway or not resolve_live_key(gateway) or not isinstance(route,dict) or not isinstance(cost,dict)
+            or route.get("revision")!=cost.get("revision") or price.register_price<=0):
+            return {"available":False}
+        load(route)
+        return {"available":True}
+    except (CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,TLDPricing.DoesNotExist,
+        IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):
+        return {"available":False}
+
+@api_view(["GET","POST"])
 @permission_classes([IsAuthenticated])
 @throttle_classes([DomainPurchaseThrottle])
 def registration_checkout(request):
+    if request.method=="GET":
+        return Response(checkout_readiness(request.user,request.query_params.get("domain","")),headers=HEADERS)
     data=request.data
     try:
         if isinstance(data,dict) and set(data)=={"domain"}:
