@@ -48,14 +48,14 @@ def save_policy(value,actor):
         entity_name="Hosting lifecycle",details=seal(value,POLICY))
     return {"revision":record.pk,**value}
 
-def _hold(service):
+def _hold(service, *, allow_cancellation=False):
     return bool(service.metadata.get("lifecycle_protection") or service.metadata.get("security_hold")
         or service.metadata.get("abuse_hold") or service.metadata.get("dispute_hold")
         or service.metadata.get("native_resource_mutation_v1",{}).get("state")=="dispatched_uncertain"
-        or ServiceActionLog.objects.filter(service=service,action="cancel",details__state="pending_review").exists())
+        or (not allow_cancellation and (service.metadata.get("hosting_cancellation_v1") or ServiceActionLog.objects.filter(service=service,action="cancel",details__state="pending_review").exists())))
 
-def _authority(service,operation):
-    if service.service_type!="hosting" or not service.client.is_active or _hold(service):
+def _authority(service,operation,*,allow_cancellation=False):
+    if service.service_type!="hosting" or not service.client.is_active or _hold(service,allow_cancellation=allow_cancellation):
         raise RenewalRefused("Protected or unavailable hosting service.")
     proof=VerifiedHostingBinding.objects.filter(service=service,revoked_at__isnull=True,
         provider_id_snapshot=service.provider_id,confirmation_source="provider_api_readback").first()

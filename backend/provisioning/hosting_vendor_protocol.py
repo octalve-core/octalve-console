@@ -265,3 +265,13 @@ class PinnedHostingProtocol:
                 fields["reason"]=marker
             self._request("GET","/json-api/"+command,fields)
         # Acknowledgement alone never authorizes a local status change.
+
+
+    def terminate_account(self,*,dispatch_authorized=False):
+        """Permanent deletion only after separate server-side retention authority."""
+        if dispatch_authorized is not True or not getattr(settings,"CLOUD_HOSTING_TERMINATION_ENABLED",False):
+            raise VendorProtocolRefused("Permanent account removal is disabled.")
+        if self._da:
+            self._request("POST","/CMD_API_SELECT_USERS",{"confirmed":"Confirm","delete":"yes","select0":self.plan.username})
+        else:
+            self._request("GET","/json-api/removeacct",{"api.version":"1","user":self.plan.username,"keepdns":"1"})
