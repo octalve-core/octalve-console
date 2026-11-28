@@ -105,14 +105,14 @@ def _budget(subject, *, write=False):
 
 
 def list_resources(subject,service_id,resource):
-    operation={"email":"mailbox_read","subdomains":"subdomain_read"}.get(resource)
+    operation={"email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read"}.get(resource)
     if not operation:
         raise ResourceRefused("Resource unavailable.")
     _budget(subject)
     a=authority(subject,service_id,operation)
     verify_existing_account(a.service,a.provider)
     a=_current(a,operation)
-    rows=a.protocol.mailboxes() if resource=="email" else a.protocol.subdomains()
+    rows={"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases}[resource]()
     fresh=_current(a,operation)
     return {"resource":resource,"domain":a.service.domain_name,"items":rows,
             "pending_operation":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain",
