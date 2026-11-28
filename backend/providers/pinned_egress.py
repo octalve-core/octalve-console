@@ -101,7 +101,7 @@ def validate_readback_contract(path,port,params,headers):
                        any(ord(c)<32 for c in params["package"])):
             raise SupplierEgressDenied()
         return
-    if path=="/CMD_API_SHOW_USER_CONFIG" and port in (2222,443):
+    if path in ("/CMD_API_SHOW_USER_CONFIG","/CMD_API_SHOW_USER_USAGE") and port in (2222,443):
         if (not re.fullmatch(r"Basic [A-Za-z0-9+/]+={0,2}",auth) or
             set(params)!={"user"} or not isinstance(params["user"],str) or
             not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,31}",params["user"])):
@@ -117,6 +117,16 @@ def validate_readback_contract(path,port,params,headers):
             set(params)!={"api.version","user"} or params.get("api.version")!="1" or
             not isinstance(params.get("user"),str) or
             not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,31}",params["user"])):
+            raise SupplierEgressDenied()
+        return
+    if path=="/json-api/uapi_cpanel" and port in (2087,443):
+        # This is NOT a generic UAPI proxy: only the fixed read-only stats call.
+        if (not re.fullmatch(r"whm [A-Za-z0-9_.-]{1,80}:[^\r\n]{12,4096}",auth)
+                or set(params)!={"api.version","cpanel.user","cpanel.module","cpanel.function","display"}
+                or params["api.version"]!="1" or params["cpanel.module"]!="StatsBar"
+                or params["cpanel.function"]!="get_stats" or params["display"]!="bandwidthusage|diskusage"
+                or not isinstance(params["cpanel.user"],str)
+                or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,31}",params["cpanel.user"])):
             raise SupplierEgressDenied()
         return
     raise SupplierEgressDenied()
