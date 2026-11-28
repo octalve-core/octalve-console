@@ -138,8 +138,8 @@ export function OPanelServiceOverview(){
         {current&&<div key={serviceId} className="space-y-4">
           <div className="grid min-w-0 gap-3 md:grid-cols-2">
             <Panel elevation="flat" className="space-y-3">
-              <h2 className="text-sm font-semibold text-console-ink">Hosting package</h2>
-              <div><p className="break-words text-lg font-semibold text-console-ink">{current.label}</p><p className="mt-1 text-xs text-console-muted">Web hosting · {current.domain_name||"Domain not connected"}</p></div>
+              <h2 className="text-sm font-medium text-console-ink">Hosting package</h2>
+              <div><p className="break-words text-lg font-medium text-console-ink">{current.label}</p><p className="mt-1 text-xs text-console-muted">Web hosting · {current.domain_name||"Domain not connected"}</p></div>
               <div className="grid gap-2">
                 {canPanel?<button type="button" onClick={()=>void openNative()} disabled={nativeBusy} className={primary}>{nativeBusy?"Opening…":"Open control panel"}<ExternalLink className="h-4 w-4"/></button>:
                  launch?<a href={launch} rel="noreferrer" className={primary}>Open OPanel<ExternalLink className="h-4 w-4"/></a>:<p className="text-xs text-console-muted">Control panel access is awaiting supplier verification.</p>}
@@ -147,7 +147,7 @@ export function OPanelServiceOverview(){
               </div>
             </Panel>
             <Panel elevation="flat" className="space-y-3">
-              <h2 className="text-sm font-semibold text-console-ink">Resource usage</h2>
+              <h2 className="text-sm font-medium text-console-ink">Resource usage</h2>
               {usage?<><div className="grid grid-cols-2 gap-2">
                 {[{label:"Disk",used:usage.disk_used_mb,limit:usage.disk_limit_mb,unlimited:usage.disk_unlimited},{label:"Bandwidth",used:usage.bandwidth_used_mb,limit:usage.bandwidth_limit_mb,unlimited:usage.bandwidth_unlimited}].map(item=><div key={item.label} className="flex min-w-0 flex-col items-center gap-1 text-center">
                   {item.unlimited?<span className="flex h-20 items-center text-lg font-medium text-console-ink">∞</span>:item.limit>0?<ServiceUsageRing label={item.label} used={item.used} limit={item.limit} compact/>:<span className="flex h-11 items-center text-xs text-console-muted">—</span>}
@@ -159,7 +159,7 @@ export function OPanelServiceOverview(){
           </div>
           {nativeError&&<p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{nativeError}</p>}
           <Panel elevation="flat">
-            <h2 className="text-sm font-semibold text-console-ink">Quick shortcuts</h2>
+            <h2 className="text-sm font-medium text-console-ink">Quick shortcuts</h2>
             <div className="mt-3 grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-6">
               {tools.map(item=>{
                 const native="native" in item?item.native as ResourceTab:null;
@@ -178,15 +178,15 @@ export function OPanelServiceOverview(){
               {canPanel&&<button type="button" onClick={()=>void openNative()} disabled={nativeBusy} className={outline}>Advanced management<ExternalLink className="h-4 w-4"/></button>}
               <button type="button" onClick={()=>setSelected(null)} className={outline}>Close tools</button>
             </div><NativeHostingResources key={serviceId+":"+selected} serviceId={serviceId} domain={current.domain_name} capabilities={current.capabilities} initialTab={selected}/></>:<Panel elevation="flat">
-              <h2 className="text-sm font-semibold text-console-ink">Quick create email account</h2>
+              <h2 className="text-sm font-medium text-console-ink">Quick create email account</h2>
               {emailAllowed&&current.domain_name?<><p className="mt-1 text-xs text-console-muted">Create a mailbox on your assigned hosting server.</p>
                 {quick?<><NativeHostingResources key={serviceId+":quick"} serviceId={serviceId} domain={current.domain_name} capabilities={current.capabilities} initialTab="email" quickOnly/><button type="button" onClick={()=>setQuick(false)} className="mt-2 text-xs font-medium text-console-primary">Close quick create</button></>:<button type="button" className={primary+" mt-3 w-full"} onClick={()=>setQuick(true)}>+ Create email account</button>}</>:canPanel?<button type="button" className={outline+" mt-3 w-full"} disabled={nativeBusy} onClick={()=>void openNative()}>Create email in control panel<ExternalLink className="h-4 w-4"/></button>:<p className="mt-2 text-xs text-console-muted">Available after your hosting account and permissions are verified.</p>}
             </Panel>}
           </div>
           <Panel elevation="flat">
-            <h2 className="text-sm font-semibold text-console-ink">Billing overview</h2>
+            <h2 className="text-sm font-medium text-console-ink">Billing overview</h2>
             <dl className="mt-3 grid grid-cols-2 gap-4 text-sm">
-              <div><dt className="text-xs text-console-muted">Service amount</dt><dd className="mt-1 font-semibold">{money(current.billing?.amount,current.billing?.currency)}</dd></div>
+              <div><dt className="text-xs text-console-muted">Service amount</dt><dd className="mt-1 font-medium">{money(current.billing?.amount,current.billing?.currency)}</dd></div>
               <div><dt className="text-xs text-console-muted">Billing cycle</dt><dd className="mt-1 font-medium">{cycles[current.billing?.cycle]||current.billing?.cycle||"Unavailable"}</dd></div>
               <div><dt className="text-xs text-console-muted">Registration date</dt><dd className="mt-1">{dateLabel(current.billing?.created_at)}</dd></div>
               <div><dt className="text-xs text-console-muted">Next due date</dt><dd className="mt-1">{dateLabel(current.next_due_date)}</dd></div>
