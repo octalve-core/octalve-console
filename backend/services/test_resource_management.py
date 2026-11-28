@@ -91,8 +91,27 @@ class ProtocolTests(SimpleTestCase):
                  {"main_domain":"other.test","sub_domains":[]})),self.assertRaises(ResourceRefused):
             protocol.subdomains()
 
+    def test_transport_rejects_unknown_commands_and_cross_account_before_connecting(self):
+        da=self.adapter("directadmin")
+        whm=self.adapter("cpanel-whm")
+        with patch("services.resource_protocol.approved_origin") as origin:
+            for protocol,method,path,fields in (
+                (da,"GET","/CMD_API_POP",{"action":"delete","domain":"example.test","user":"sales"}),
+                (da,"GET","/CMD_API_SUBDOMAINS",{"domain":"other.test"}),
+                (whm,"POST","/json-api/uapi_cpanel",{"api.version":"1","cpanel.user":"victim","cpanel.module":"Email","cpanel.function":"add_pop","email":"sales","domain":"example.test","password":"synthetic","quota":"500"}),
+                (whm,"GET","/json-api/uapi_cpanel",{"api.version":"1","cpanel.user":"checkhost","cpanel.module":"Fileman","cpanel.function":"delete_file"})):
+                with self.assertRaises(ResourceRefused):
+                    protocol._request(method,path,fields)
+            origin.assert_not_called()
+
+    def test_duplicate_supplier_json_fields_refused(self):
+        protocol=self.adapter("directadmin")
+        with patch.object(protocol,"_request",return_value=SupplierReadResponse(200,b'{"info":{"quota":"500"},"info":{"quota":"1000"}}')):
+            with self.assertRaises(ResourceRefused):
+                protocol.mailboxes()
+
     def test_invalid_names_and_capability_dependency(self):
-        for name in ("root","postmaster","../x","x@other.test","x..y","a."):
+        for name in ("root","cpanel","postmaster","../x","x@other.test","x..y","a."):
             with self.assertRaises(ResourceRefused):
                 mailbox_name(name)
         self.assertEqual(validate_resource_capabilities(["mailbox_read","mailbox_create"]),["mailbox_create","mailbox_read"])
