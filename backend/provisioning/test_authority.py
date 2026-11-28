@@ -27,7 +27,7 @@ class PaymentAuthorityContractTests(SimpleTestCase):
     def test_unverified_or_underpaid_payments_cannot_qualify(self):
         for field, value in [
             ('webhook_verified',False), ('status','pending'), ('amount',Decimal('19000')),
-            ('currency','USD'), ('invoice_id',9),
+            ('currency','USD'), ('invoice_id',9), ('amount',Decimal('21000')),
         ]:
             inv, tx = self.records()
             setattr(tx,field,value)
@@ -35,6 +35,11 @@ class PaymentAuthorityContractTests(SimpleTestCase):
                 self.assertFalse(evaluate_payment_to_provisioning(inv,tx).approved)
                 with self.assertRaises(SettlementNotVerified):
                     require_verified_settlement(inv,tx)
+
+    def test_overpaid_invoice_cannot_authorize_provisioning(self):
+        inv, tx = self.records()
+        inv.amount_paid = Decimal('20001')
+        self.assertFalse(evaluate_payment_to_provisioning(inv,tx).approved)
 
     def test_invoice_paid_flag_alone_cannot_qualify(self):
         inv,tx=self.records()
