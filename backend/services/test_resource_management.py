@@ -166,6 +166,31 @@ class ProtocolTests(SimpleTestCase):
                 cp.save_autoresponder("sales","Away\nBcc: bad","Back soon")
             send.assert_not_called()
 
+    def test_secure_mail_settings_account_identity_and_no_external_host(self):
+        cp=self.adapter("cpanel-whm")
+        row={"account":"sales@example.test","domain":"example.test","inbox_username":"sales@example.test","smtp_username":"sales@example.test","inbox_service":"imap","inbox_host":"supplier.example.test","smtp_host":"supplier.example.test","inbox_port":993,"smtp_port":465}
+        with patch.object(cp,"_request",return_value=whm("Email","get_client_settings",row)):
+            self.assertEqual(cp.mail_client_settings("sales")["imap_port"],993)
+        for change in ({"smtp_host":"other.test"},{"account":"victim@example.test"},{"smtp_port":25}):
+            with patch.object(cp,"_request",return_value=whm("Email","get_client_settings",{**row,**change})),self.assertRaises(ResourceRefused):
+                cp.mail_client_settings("sales")
+
+    def test_webmail_session_rejects_wrong_origin_port_mailbox_and_service(self):
+        from services.native_panel import parse_session,NativePanelRefused
+        address="sales@example.test"
+        origin="https://supplier.example.test:2087"
+        token="/cpsess1234567890"
+        session=address+":abcdef1234567890"
+        from urllib.parse import urlencode
+        url="https://supplier.example.test:2096"+token+"/login?"+urlencode({"session":session})
+        data={"expires":int(timezone.now().timestamp())+60,"service":"webmaild","url":url,"session":session,"cp_security_token":token}
+        def response(d):
+            return reply({"metadata":{"command":"create_user_session","result":1},"data":d})
+        self.assertEqual(parse_session(response(data),origin,"cpanel-whm",address,service="webmaild"),url)
+        for change in ({"url":url.replace("2096","2083")},{"url":url.replace("supplier.example.test","other.test")},{"service":"cpaneld"},{"session":"other@example.test:abc"}):
+            with self.assertRaises(NativePanelRefused):
+                parse_session(response({**data,**change}),origin,"cpanel-whm",address,service="webmaild")
+
     def test_forwarder_transport_disallows_unowned_source_and_pipe(self):
         cp=self.adapter("cpanel-whm")
         base={"api.version":"1","cpanel.user":"checkhost","cpanel.module":"Email","cpanel.function":"add_forwarder","domain":"example.test","email":"sales@example.test","fwdopt":"fwd","fwdemail":"person@external.test"}

@@ -7,7 +7,7 @@ import base64
 import json
 import re
 from django.views.decorators.debug import sensitive_variables
-from urllib.parse import parse_qs, urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import certifi
 import urllib3
@@ -285,6 +285,7 @@ class ResourceProtocol:
                          ("GET","Email","list_auto_responders"):{"domain"},
                          ("POST","Email","delete_auto_responder"):{"email"},
                          ("GET","Email","get_auto_responder"):{"email","temp_charset"},
+                         ("GET","Email","get_client_settings"):{"account"},
                          ("POST","Email","add_auto_responder"):{"email","domain","from","subject","body","charset","interval","is_html","start","stop"},
                          ("POST","SubDomain","addsubdomain"):{"domain","rootdomain","dir","disallowdot"},
                          ("GET","Mysql","list_databases"):set(),
@@ -312,6 +313,9 @@ class ResourceProtocol:
                                and forwarding_destination(destination)
                                and destination.split("@")[1]!=self.domain
                                and (op[2]!="add_forwarder" or fields["fwdopt"]=="fwd"))
+                if valid and op==("GET","Email","get_client_settings"):
+                    local,sep,domain=fields["account"].partition("@")
+                    valid=bool(sep and domain==self.domain and mailbox_name(local) and local!=self.account.lower())
                 if valid and op==("GET","Email","get_auto_responder"):
                     local,sep,domain=fields["email"].partition("@")
                     valid=bool(sep and domain==self.domain and mailbox_name(local) and local!=self.account.lower()
@@ -1004,3 +1008,20 @@ class ResourceProtocol:
             self._whm("POST","Email","add_auto_responder",{"email":local,"domain":self.domain,
                 "from":local+"@"+self.domain,"subject":subject,"body":body,"charset":"UTF-8",
                 "interval":"48","is_html":"0","start":"0","stop":"0"})
+
+    def mail_client_settings(self,local):
+        mailbox_name(local)
+        if self.adapter!="cpanel-whm" or local==self.account.lower():
+            raise ResourceRefused("Supplier client settings unavailable.")
+        address=local+"@"+self.domain
+        data=self._whm("GET","Email","get_client_settings",{"account":address})
+        if not isinstance(data,dict) or any(data.get(k)!=address for k in ("account","inbox_username","smtp_username")) or data.get("domain")!=self.domain:
+            raise ResourceRefused("Unexpected mailbox configuration.")
+        # Refuse arbitrary or uncertified hosts. Only the pinned supplier
+        # hostname may be offered by this first supported contract.
+        host=urlsplit(self.origin).hostname
+        if (data.get("inbox_service")!="imap" or data.get("inbox_host")!=host
+                or data.get("smtp_host")!=host or str(data.get("inbox_port"))!="993"
+                or str(data.get("smtp_port"))!="465"):
+            raise ResourceRefused("Secure mail configuration unavailable.")
+        return {"address":address,"imap_host":host,"imap_port":993,"smtp_host":host,"smtp_port":465,"transport":"implicit_tls","source":"supplier_configuration"}

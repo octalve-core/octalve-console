@@ -5,12 +5,14 @@ import {api} from "@/lib/api/client";
 type ResourceTab="email"|"subdomains"|"databases"|"credentials"|"db_users"|"forwarders"|"autoresponders";
 type Mailbox={address:string;quota_mb?:number|null;unlimited?:boolean;destination?:string|null;managed?:boolean};
 type Inventory={resource:string;domain:string;items:Array<Mailbox|string>;verified_at:string;pending_operation:boolean;pending_password_verification?:boolean;databases?:string[];mailboxes?:string[]};
+type MailSettings={address:string;imap_host:string;imap_port:number;smtp_host:string;smtp_port:number;transport:string};
 type Result={state:"confirmed"|"pending_verification";operation_id?:string;address?:string;password_status?:string};
 export function NativeHostingResources({serviceId,domain,capabilities}:{serviceId:string;domain:string;capabilities:Record<string,boolean>}){
  const [tab,setTab]=useState<ResourceTab>("email");
  const [data,setData]=useState<Inventory|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [pending,setPending]=useState(false);
+ const [mailSettings,setMailSettings]=useState<MailSettings|null>(null);
  const [passwordRecovery,setPasswordRecovery]=useState(false);
  const [action,setAction]=useState<"mailbox_delete"|"mailbox_quota"|"mailbox_password"|"subdomain_create"|"subdomain_delete"|"database_create"|"database_delete"|"hosting_password"|"database_user_create"|"database_user_delete"|"database_grants"|"forwarder_create"|"forwarder_delete"|"autoresponder_delete"|"autoresponder_create"|"autoresponder_edit"|null>(null);
  const sequence=useRef(0);
@@ -18,7 +20,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
  const activeAction=action&&capabilities[action]&&((selected==="email"&&action.startsWith("mailbox"))||(selected==="subdomains"&&action.startsWith("subdomain"))||(selected==="databases"&&(action==="database_create"||action==="database_delete"))||(selected==="db_users"&&(action==="database_user_create"||action==="database_user_delete"||action==="database_grants"))||(selected==="credentials"&&action==="hosting_password")||(selected==="forwarders"&&action.startsWith("forwarder_"))||(selected==="autoresponders"&&action.startsWith("autoresponder_")))?action:null;
  const base="/services/opanel/"+encodeURIComponent(serviceId);
  async function load(resource:ResourceTab=selected){
-  const request=++sequence.current;setBusy(true);setError("");setData(null);
+  const request=++sequence.current;setBusy(true);setError("");setData(null);setMailSettings(null);
   try{
    const result=await api.get<Inventory>(base+"/resources/"+resource+"/");
    if(request!==sequence.current)return;
@@ -37,6 +39,27 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   return ()=>{sequence.current++};
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[serviceId,domain,selected,capabilities.email,capabilities.subdomains,capabilities.databases,capabilities.credentials,capabilities.db_users,capabilities.forwarders,capabilities.autoresponders]);
+ async function mailboxAccess(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();if(busy||selected!=="email")return;
+  const form=event.currentTarget,fields=new FormData(form);
+  const local=String(fields.get("mailbox")||"");
+  const operation=(event.nativeEvent as SubmitEvent).submitter?.getAttribute("value");
+  const confirmation=String(fields.get("confirmation")||"");
+  form.reset();setMailSettings(null);setBusy(true);setError("");
+  try{
+   if(operation==="settings"&&capabilities.mail_client_settings){
+    const result=await api.get<MailSettings>(base+"/mailboxes/"+encodeURIComponent(local)+"/settings/");
+    if(result.address!==local+"@"+domain||result.transport!=="implicit_tls")throw Error("Unexpected settings");
+    setMailSettings(result);
+   }else if(operation==="webmail"&&capabilities.webmail_launch){
+    const result=await api.post<{url:string}>(base+"/mailboxes/"+encodeURIComponent(local)+"/webmail/",{confirm_password:confirmation});
+    const target=new URL(result.url);
+    if(target.protocol!=="https:"||target.port!=="2096"||target.username||target.password)throw Error("Unexpected destination");
+    window.location.assign(target.href);
+   }
+  }catch{setError("Could not verify mailbox access or secure connection settings. Please contact support.")}
+  finally{setBusy(false)}
+ }
  async function create(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(busy||pending||!capabilities.mailbox_create||selected!=="email")return;
   const form=event.currentTarget,fields=new FormData(form);
@@ -118,6 +141,13 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
    {selected==="autoresponders"&&<p className="mt-2 text-xs text-slate-500">Configured autoresponder addresses only. Delivery, schedule and message settings are not verified by this inventory.</p>}
    <p className="mt-2 text-xs text-slate-500">Verified at {new Date(data.verified_at).toLocaleString()}</p>
   </div>}
+  {selected==="email"&&data?.resource==="email"&&(capabilities.mail_client_settings||capabilities.webmail_launch)&&<form onSubmit={mailboxAccess} className="mt-5 space-y-3 border-t border-slate-100 pt-5">
+   <h3 className="text-sm font-medium">Mailbox access and connection settings</h3>
+   <label className="block text-sm">Mailbox<select name="mailbox" required defaultValue="" className="mt-1 w-full rounded-lg border border-slate-200 p-2"><option value="" disabled>Choose mailbox</option>{data.items.map(item=>typeof item==="string"?null:<option key={item.address} value={item.address.split("@")[0]}>{item.address}</option>)}</select></label>
+   {capabilities.webmail_launch&&<label className="block text-sm">Current Console password (required for webmail)<input type="password" name="confirmation" autoComplete="current-password" maxLength={1024} className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>}
+   <div className="flex flex-wrap gap-2">{capabilities.mail_client_settings&&<button disabled={busy} value="settings" className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm">View secure settings</button>}{capabilities.webmail_launch&&<button disabled={busy} value="webmail" className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm">Open webmail</button>}</div>
+   {mailSettings&&<dl className="space-y-2 break-all rounded-lg border border-slate-200 p-3 text-sm"><dt>Username</dt><dd>{mailSettings.address}</dd><dt>IMAP (TLS)</dt><dd>{mailSettings.imap_host}:{mailSettings.imap_port}</dd><dt>SMTP (TLS)</dt><dd>{mailSettings.smtp_host}:{mailSettings.smtp_port}</dd><dt>Password</dt><dd>Your mailbox password. Never your Console password.</dd></dl>}
+  </form>}
   {selected==="email"&&capabilities.mailbox_create&&<form onSubmit={create} autoComplete="off" className="mt-5 space-y-3 border-t border-slate-100 pt-5">
    <h3 className="text-sm font-medium">Create email account</h3>
    <p className="text-xs text-slate-500">Create a real mailbox on your assigned hosting server, not a transactional email sender.</p>

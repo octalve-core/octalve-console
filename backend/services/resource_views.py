@@ -154,3 +154,36 @@ class ResourceReconcileView(APIView):
             return Response(result,status=200 if result["state"]=="confirmed" else 202,headers=HEADERS)
         except (ResourceRefused,ReadbackRejected,VaultUnavailable,SupplierEgressDenied,DatabaseError):
             return _unavailable()
+
+class MailboxSettingsView(APIView):
+    permission_classes=[IsAuthenticated]
+
+    def get(self,request,service_id,local):
+        _owner(request,service_id)
+        if request.query_params:
+            return Response({"detail":"Unsupported resource request."},status=400,headers=HEADERS)
+        try:
+            return Response(resources.mailbox_connection_settings(request.user.pk,service_id,local),headers=HEADERS)
+        except (ResourceRefused,ReadbackRejected,VaultUnavailable,SupplierEgressDenied,DatabaseError):
+            return _unavailable()
+
+
+class MailboxWebmailView(APIView):
+    permission_classes=[IsAuthenticated]
+    parser_classes=[JSONParser]
+
+    @sensitive_variables("data","confirmation")
+    def post(self,request,service_id,local):
+        _owner(request,service_id)
+        data=request.data
+        if not isinstance(data,dict) or set(data)!={"confirm_password"}:
+            return Response({"detail":"Invalid confirmation."},status=400,headers=HEADERS)
+        confirmation=data["confirm_password"]
+        if _spend("hosting:resource_stepup",str(request.user.pk),5,900):
+            return Response({"detail":"Too many confirmation attempts."},status=429,headers=HEADERS)
+        if not isinstance(confirmation,str) or not 1<=len(confirmation)<=1024 or not request.user.check_password(confirmation):
+            return Response({"detail":"Current Console password could not be confirmed."},status=403,headers=HEADERS)
+        try:
+            return Response(resources.launch_webmail(request.user.pk,service_id,local),headers=HEADERS)
+        except (ResourceRefused,ReadbackRejected,VaultUnavailable,SupplierEgressDenied,DatabaseError):
+            return _unavailable()

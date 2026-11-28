@@ -525,3 +525,43 @@ def reconcile_resource(subject,service_id,*,password=None):
         return {"state":"pending_verification","operation_id":pending["id"]}
     _finish(a,pending["id"],"confirmed",operation)
     return {"state":"confirmed","operation_id":pending["id"],"address":pending["address"],**({"password_status":"unverified"} if operation=="database_user_create" or (operation=="database_create" and pending.get("initial_user")) else {})}
+
+def mailbox_connection_settings(subject,service_id,local):
+    mailbox_name(local)
+    _budget(subject)
+    a=authority(subject,service_id,"mail_client_settings")
+    if a.protocol.adapter!="cpanel-whm":
+        raise ResourceRefused("Supplier client settings unavailable.")
+    verify_existing_account(a.service,a.provider)
+    a=_current(a,"mail_client_settings")
+    if local+"@"+a.protocol.domain not in [x["address"] for x in a.protocol.mailboxes()]:
+        raise ResourceRefused("Mailbox not independently identified.")
+    result=a.protocol.mail_client_settings(local)
+    _current(a,"mail_client_settings")
+    return result
+
+
+@sensitive_variables("url","key","response")
+def launch_webmail(subject,service_id,local):
+    from .native_panel import _session_request,parse_session,NativePanelRefused
+    mailbox_name(local)
+    _budget(subject,write=True)
+    a=authority(subject,service_id,"webmail_launch")
+    if a.protocol.adapter!="cpanel-whm":
+        raise ResourceRefused("Supplier webmail unavailable.")
+    verify_existing_account(a.service,a.provider)
+    a=_current(a,"webmail_launch")
+    address=local+"@"+a.protocol.domain
+    if address not in [x["address"] for x in a.protocol.mailboxes()] or local==a.protocol.account.lower():
+        raise ResourceRefused("Mailbox not independently identified.")
+    a=_current(a,"webmail_launch")
+    row,key,_=load_hosting_connection(a.provider)
+    if row.pk!=a.row.pk or row.current_version!=a.row.current_version:
+        raise ResourceRefused("Hosting authority changed.")
+    try:
+        response=_session_request(row,a.provider,a.protocol.account,key,webmail_address=address)
+        url=parse_session(response,a.protocol.origin,a.protocol.adapter,address,service="webmaild")
+    except NativePanelRefused:
+        raise ResourceRefused("Supplier webmail unavailable.") from None
+    _current(a,"webmail_launch")
+    return {"url":url}

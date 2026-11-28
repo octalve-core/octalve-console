@@ -62,6 +62,8 @@ def opanel_overview(service):
         "ssl": False,
         "backups": False,
         "email": "mailbox_read" in resource_caps,
+        "mail_client_settings": "mail_client_settings" in resource_caps and not resource_management.database_initial_user_required(service),
+        "webmail_launch": "webmail_launch" in resource_caps and not resource_management.database_initial_user_required(service),
         "mailbox_create": "mailbox_create" in resource_caps,
         "mailbox_delete": "mailbox_delete" in resource_caps,
         "mailbox_quota": "mailbox_quota" in resource_caps,
