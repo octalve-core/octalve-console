@@ -169,7 +169,7 @@ def connections(request):
             environment=data["environment"],public_settings=public,
             state="draft",current_version=1,created_by=request.user)
         IntegrationCredentialVersion.objects.create(connection=row,version=1,
-            key_id=settings.CLOUD_PROVIDER_VAULT_KEY_ID,ciphertext=seal(adapter,row.pk,1,secrets))
+            key_id=settings.CLOUD_PROVIDER_VAULT_KEY_ID,ciphertext=seal(adapter,row.pk,1,secrets,public_settings=row.public_settings,environment=row.environment))
         append_event(row,request.user,"draft_created",1)
     return Response(safe_connection(row),status=status.HTTP_201_CREATED,
                     headers={"Cache-Control":"no-store"})
@@ -203,7 +203,8 @@ def rotate_connection(request, connection_id):
         next_version=row.current_version+1
         if next_version>65535:
             raise ValidationError({"detail":"Maximum credential versions reached."})
-        encrypted=seal(row.adapter_key,row.pk,next_version,secrets)
+        encrypted=seal(row.adapter_key,row.pk,next_version,secrets,
+            public_settings=row.public_settings,environment=row.environment)
         old=IntegrationCredentialVersion.objects.select_for_update().get(connection=row,version=row.current_version)
         old.revoked_at=timezone.now()
         old.save(update_fields=["revoked_at"])
