@@ -32,7 +32,7 @@ def domain_name(value):
 def mailbox_name(value):
     if (not isinstance(value, str) or not LOCAL.fullmatch(value)
             or ".." in value or value.endswith(".")
-            or value in {"root", "admin", "postmaster", "abuse", "mailer-daemon", "webmaster"}):
+            or value in {"root", "admin", "cpanel", "postmaster", "abuse", "mailer-daemon", "webmaster"}):
         raise ResourceRefused("Invalid or reserved mailbox name.")
     return value
 
@@ -125,7 +125,39 @@ class ResourceProtocol:
         self._auth = ("Basic " + base64.b64encode((owner+"|"+self.account+":"+key).encode()).decode()
                       if self.adapter == "directadmin" else "whm "+owner+":"+key)
 
+    def _check_request(self, method, path, fields, reseller):
+        """Deny undeclared operations even if a future caller misuses transport."""
+        if not isinstance(fields, dict) or any(not isinstance(v,str) for v in fields.values()):
+            raise ResourceRefused("Invalid supplier request.")
+        if self.adapter == "directadmin":
+            if reseller:
+                valid = (method == "GET" and path in ("/CMD_API_SHOW_USER_CONFIG", "/CMD_API_SHOW_USER_USAGE") and fields == {"user": self.account})
+            elif path == "/CMD_API_POP":
+                valid = ((method == "GET" and fields == {"action":"full_list","domain":self.domain,"json":"yes"}) or
+                         (method == "POST" and set(fields)=={"action","domain","user","passwd","passwd2","quota"} and fields["action"]=="create" and fields["domain"]==self.domain and fields["passwd"]==fields["passwd2"]))
+            else:
+                valid = method=="GET" and path=="/CMD_API_SUBDOMAINS" and fields=={"domain":self.domain}
+        else:
+            common={"api.version","cpanel.user","cpanel.module","cpanel.function"}
+            valid=False
+            if not reseller and path=="/json-api/uapi_cpanel" and fields.get("api.version")=="1" and fields.get("cpanel.user")==self.account:
+                op=(method,fields.get("cpanel.module"),fields.get("cpanel.function"))
+                allowed={("GET","Email","list_pops_with_disk"):{"domain","no_validate"},
+                         ("GET","DomainInfo","list_domains"):set(),
+                         ("POST","Email","add_pop"):{"email","domain","password","quota"},
+                         ("GET","StatsBar","get_stats"):{"display"}}
+                valid=op in allowed and set(fields)==common|allowed[op]
+                if "domain" in fields:
+                    valid=valid and fields["domain"]==self.domain
+                if "no_validate" in fields:
+                    valid=valid and fields["no_validate"]=="0"
+                if "display" in fields:
+                    valid=valid and fields["display"]=="emailaccounts|diskusage"
+        if not valid:
+            raise ResourceRefused("Supplier operation not allowed.")
+
     def _request(self, method, path, fields, *, reseller=False):
+        self._check_request(method,path,fields,reseller)
         # Private transport; callers below compile fixed operations. POST
         # carries secrets only in the body, never URL/query/logs.
         host, port, ip, checked = approved_origin(self.origin+path, bound_origin=self.binding)
