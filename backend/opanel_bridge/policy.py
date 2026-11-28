@@ -52,8 +52,8 @@ def account_digest(service):
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
-def eligible(subject_id, service_id):
-    """Return (service, binding) only with independently recorded provider proof."""
+def _bound_entitlement(subject_id, service_id, *, permit_stale=False):
+    """Internal candidate lookup; stale results never authorize panel access."""
     from services.models import Service
     try:
         service = Service.objects.select_related("client").get(pk=service_id, client_id=subject_id)
@@ -97,10 +97,37 @@ def eligible(subject_id, service_id):
         or proof.confirmed_at is None
         or proof.confirmed_at < service.activated_at
         or proof.confirmed_at > now
-        or (now - proof.confirmed_at).total_seconds() > 900
+        or (not permit_stale and (now - proof.confirmed_at).total_seconds() > 900)
         or proof.provider_id_snapshot != service.provider_id
         or not account_digest(service)
         or proof.account_digest != account_digest(service)
     ):
         return None
     return service, proof
+
+
+def eligible(subject_id, service_id):
+    """Return an entitlement only with a fresh, independent provider proof."""
+    return _bound_entitlement(subject_id, service_id)
+
+
+def refresh_candidate(subject_id, service_id):
+    """Only refresh an existing, unrevoked vault-bound proof for its owner.
+
+    A stale proof is never itself authority to issue or redeem a session.
+    Missing, revoked, transferred or otherwise inconsistent bindings require
+    separate recovery; this path cannot recreate those entitlements.
+    """
+    from providers.models import Provider
+    if not getattr(settings, "OPANEL_READBACK_ENABLED", False):
+        return None
+    found = _bound_entitlement(subject_id, service_id, permit_stale=True)
+    if not found:
+        return None
+    service, proof = found
+    if (timezone.now() - proof.confirmed_at).total_seconds() <= 900:
+        return None
+    if not Provider.objects.filter(pk=service.provider_id,
+            config__has_key="hosting_vault_connection_id").exists():
+        return None
+    return found
