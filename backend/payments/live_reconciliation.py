@@ -32,7 +32,8 @@ def consume(event_id):
         return "held"
     intent=PaymentIntent.objects.select_related("invoice","gateway").filter(pk=payload["intent_id"],reference=payload.get("reference"),gateway=event.gateway).first()
     if (not intent or is_pilot_invoice(intent.invoice) or not resolve_live_key(event.gateway)
-            or payload.get("binding")!=event.gateway.config):
+            or payload.get("binding")!=event.gateway.config
+            or intent.metadata.get("payment_mode")!="live" or intent.metadata.get("gateway_binding")!=event.gateway.config):
         return "held"
     try:
         settle_verified_intent(intent.pk,signed_event_id=event.pk)

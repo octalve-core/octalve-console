@@ -28,6 +28,7 @@ def _signed_event(event_id,intent,remote_id):
     if (not event or not isinstance(event.payload,dict) or event.payload.get("mode")!="live"
             or event.payload.get("intent_id")!=intent.pk or event.payload.get("reference")!=intent.reference
             or event.payload.get("remote_id")!=remote_id or event.payload.get("binding")!=intent.gateway.config
+            or intent.metadata.get("payment_mode")!="live" or intent.metadata.get("gateway_binding")!=intent.gateway.config
             or intent.gateway.test_mode or intent.gateway.code!="paystack"):
         raise SettlementRefused("Signed event does not match independent verification.")
     return event
@@ -36,7 +37,8 @@ def _mark_event(event):
     if event and not event.is_processed:
         event.is_processed=True
         event.error_message=""
-        event.save(update_fields=["is_processed","error_message"])
+        event.processed_at=timezone.now()
+        event.save(update_fields=["is_processed","error_message","processed_at"])
 
 def settle_verified_intent(intent_id, *, getter=None, signed_event_id=None):
     if not getattr(settings, "CLOUD_SETTLEMENT_COMMIT_ENABLED", False):

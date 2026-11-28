@@ -18,7 +18,7 @@ class LiveReconciliationTests(TestCase):
         order=Order.objects.create(client=user,status="pending_payment",currency="NGN",subtotal=100,total=100)
         self.invoice=Invoice.objects.create(client=user,order=order,currency="NGN",subtotal=100,total=100,due_date=timezone.now()+timedelta(days=7))
         gateway=PaymentGateway.objects.create(code="paystack",name="Synthetic",status="active",test_mode=False,config={"provider_vault_connection_id":"fixture","provider_vault_version":1})
-        self.intent=PaymentIntent.objects.create(client=user,invoice=self.invoice,gateway=gateway,status="pending",amount=100,currency="NGN",reference="LIVE_FIXTURE_01",expires_at=timezone.now()+timedelta(minutes=10))
+        self.intent=PaymentIntent.objects.create(client=user,invoice=self.invoice,gateway=gateway,status="pending",amount=100,currency="NGN",reference="LIVE_FIXTURE_01",expires_at=timezone.now()+timedelta(minutes=10),metadata={"payment_mode":"live","gateway_binding":gateway.config})
         self.event=WebhookEvent.objects.create(gateway=gateway,event_id="live-fixture-1",event_type="charge.success",is_verified=True,is_processed=False,
             payload={"mode":"live","binding":gateway.config,"intent_id":self.intent.pk,"reference":self.intent.reference,"remote_id":"12345"})
     def test_exact_readback_and_idempotent_ledger(self):

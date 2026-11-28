@@ -66,7 +66,8 @@ def accept_signed_event(gateway_code, raw_body, headers):
     live = gateway_code=="paystack" and not gateway.test_mode
     if live and getattr(settings,"CLOUD_LIVE_PAYSTACK_RECONCILIATION_ENABLED",False):
         from .live_binding import resolve_live_key
-        if body.get("domain")!="live" or not resolve_live_key(gateway):
+        if (body.get("domain")!="live" or not resolve_live_key(gateway)
+                or intent.metadata.get("payment_mode")!="live" or intent.metadata.get("gateway_binding")!=gateway.config):
             raise WebhookRejected("Live notification authority is unavailable.")
     fingerprint = hashlib.sha256(
         f"{gateway.code}|{event}|{reference}|{remote_id}".encode("utf-8")).hexdigest()
