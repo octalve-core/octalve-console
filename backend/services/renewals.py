@@ -260,15 +260,15 @@ def run_due(limit=10):
     out={"enabled":enabled(),"issued":0,"applied":0,"held":0}
     if not out["enabled"]:
         return out
-    p=policy()
-    if not p or not p["enabled"]:
-        return out
     limit=min(max(int(limit),1),20)
     for pk in Invoice.objects.filter(status="paid",order__source="renewal",order__status="paid",metadata__has_key=KEY).order_by("pk").values_list("pk",flat=True)[:limit]:
         try:
             out["applied"]+=int(apply(pk))
-        except (RenewalRefused,DatabaseError,ValueError,KeyError,TypeError):
+        except (RenewalRefused,DatabaseError,ValueError,KeyError,TypeError,InvalidOperation):
             out["held"]+=1
+    p=policy()
+    if not p or not p["enabled"]:
+        return out
     # Scan only terms without a current invoice; the service lock is the actual fence.
     from django.db.models import Exists,OuterRef
     current=InvoiceItem.objects.filter(service_id=OuterRef("pk"),period_start=OuterRef("next_due_date"),invoice__metadata__type="renewal")
@@ -277,6 +277,6 @@ def run_due(limit=10):
         try:
             _,created=issue(pk)
             out["issued"]+=int(created)
-        except (RenewalRefused,DatabaseError,ValueError,KeyError,TypeError):
+        except (RenewalRefused,DatabaseError,ValueError,KeyError,TypeError,InvalidOperation):
             out["held"]+=1
     return out
