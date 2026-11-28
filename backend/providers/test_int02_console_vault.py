@@ -227,6 +227,12 @@ class SecureConsoleCredentialTests(TestCase):
    with self.assertRaises(VaultUnavailable):
     decrypt()
   IntegrationConnection.objects.filter(pk=connection.pk).update(public_settings=public,environment="live")
+  with patch("providers.connection_views.connection_database_qualified",return_value=True),patch(
+      "providers.connection_views.check_mutation",return_value=None):
+   denied=self.c.post("/api/providers/connections/"+saved.data["id"]+"/rotate/",
+       {"secrets":{"api_token":"new-fixture-token-012345"},"confirm_password":PASSWORD,"totp_code":"123456"},format="json")
+  self.assertEqual(denied.status_code,503)
+  self.assertEqual(IntegrationCredentialVersion.objects.filter(connection=connection).count(),1)
   # The fixture is a test connection; environment cannot be edited in the database.
   if self.payload["environment"]=="test":
    with self.assertRaises(VaultUnavailable):
