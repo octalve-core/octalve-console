@@ -29,6 +29,14 @@ from .models import ConsoleMailOutbox
 from .console_policy import read_policy
 from .mail_dispatch import DeliveryResult, deliver_queued_once, quarantine_expired_attempts
 from .brevo_transport import verify_sender, send_message, SenderRefused
+from . import resend_transport
+
+def _transport(adapter):
+    if adapter=="brevo":
+        return verify_sender,send_message
+    if adapter=="resend":
+        return resend_transport.verify_sender,resend_transport.send_message
+    raise SenderRefused("Unsupported sender.")
 
 ACTION = "mail_sender_policy_v1"
 ADAPTER = "brevo"
@@ -70,7 +78,7 @@ def _approved_address(address):
 
 
 def _key(row):
-    if (row.adapter_key!=ADAPTER or row.environment!="live" or row.state!="draft"
+    if (row.adapter_key not in ("brevo","resend") or row.environment!="live" or row.state!="draft"
             or not qualified_vault()):
         raise VaultUnavailable()
     try:
@@ -99,7 +107,7 @@ def configure(row_id,sender,actor):
     if (not isinstance(name,str) or not 2<=len(name)<=100
             or any(ord(c)<32 or ord(c)==127 for c in name)):
         raise SenderRefused("Invalid sender name.")
-    verify_sender(domain,sender,key)
+    _transport(row.adapter_key)[0](domain,sender,key)
     with transaction.atomic():
         current=IntegrationConnection.objects.select_for_update().get(pk=row.pk)
         if _identity(current)!=identity or _key(current)!=key or _mail_settings()!=mail:
@@ -110,11 +118,11 @@ def configure(row_id,sender,actor):
         payload={**_identity(current),"sender":sender,"sender_name":name,"reply_to":reply}
         active,keys=audit_keyring()
         AuditLog.objects.create(actor=actor,action=ACTION,entity_type="IntegrationConnection",
-            entity_id=str(current.pk),entity_name=ADAPTER,
+            entity_id=str(current.pk),entity_name=row.adapter_key,
             details={"payload":payload,"key_id":active,"mac":_digest(payload,keys[active])})
         AuditLog.objects.create(actor=actor,action="provider_connection_test",
-            entity_type="IntegrationConnection",entity_id=str(current.pk),entity_name=ADAPTER,
-            details={"adapter":ADAPTER,"credential_version":current.current_version,
+            entity_type="IntegrationConnection",entity_id=str(current.pk),entity_name=row.adapter_key,
+            details={"adapter":row.adapter_key,"credential_version":current.current_version,
                      "verified":True,"read_only":True,"execution_enabled":False,
                      "checked_at":timezone.now().isoformat()})
     return {"configured":True,"delivery_enabled":enabled()}
@@ -123,7 +131,7 @@ def configure(row_id,sender,actor):
 def approved_policy(row):
     """Validate a current signed approval; unsigned UI evidence never authorizes mail."""
     record=AuditLog.objects.filter(action=ACTION,entity_type="IntegrationConnection",
-        entity_id=str(row.pk),entity_name=ADAPTER).order_by("-pk").first()
+        entity_id=str(row.pk),entity_name=row.adapter_key).order_by("-pk").first()
     if record is None:
         raise SenderRefused("No sender approval.")
     try:
@@ -133,7 +141,7 @@ def approved_policy(row):
         if (not hmac.compare_digest(grant["mac"],_digest(payload,keys[grant["key_id"]]))
                 or any(payload.get(k)!=v for k,v in _identity(row).items())
                 or set(payload)!=set(_identity(row))|{"sender","sender_name","reply_to"}
-                or row.state!="draft" or row.environment!="live" or row.adapter_key!=ADAPTER):
+                or row.state!="draft" or row.environment!="live" or row.adapter_key not in ("brevo","resend")):
             raise SenderRefused("Sender approval is no longer current.")
         _approved_address(payload["sender"])
         _approved_address(payload["reply_to"])
@@ -198,6 +206,7 @@ class BrevoSender:
     certified=True
 
     def __init__(self,row,policy):
+        self.name=row.adapter_key
         self.row_id=row.pk
         self.policy=policy
 
@@ -216,7 +225,7 @@ class BrevoSender:
             if (not current_message(stored) or any(getattr(stored,k)!=message[k]
                     for k in ("recipient","subject","body_text","body_html"))):
                 raise SenderRefused("Notice authority changed.")
-            verify_sender(row.public_settings["sending_domain"],policy["sender"],key)
+            _transport(row.adapter_key)[0](row.public_settings["sending_domain"],policy["sender"],key)
             latest=IntegrationConnection.objects.get(pk=self.row_id)
             if _identity(latest)!=_identity(row) or approved_policy(latest)!=policy or _key(latest)!=key:
                 raise SenderRefused("Sender changed during verification.")
@@ -228,17 +237,17 @@ class BrevoSender:
                 SenderRefused,VaultUnavailable,DatabaseError,KeyError):
             # No POST happened. The outbox may safely record refusal.
             return DeliveryResult("refused",error_code="sender_or_notice_not_authorized")
-        return send_message(key=key,sender=policy["sender"],sender_name=policy["sender_name"],
+        return _transport(row.adapter_key)[1](key=key,sender=policy["sender"],sender_name=policy["sender_name"],
                             reply_to=policy["reply_to"],**message)
 
 
-def configured_sender():
+def configured_sender(adapter=ADAPTER):
     """No arbitrary connection selection: ambiguity holds rather than guessing."""
     mail=_mail_settings()
-    if ADAPTER not in (mail["primary_sender"],mail["fallback_sender"]):
+    if adapter not in ("brevo","resend") or adapter not in (mail["primary_sender"],mail["fallback_sender"]):
         return None
     candidates=[]
-    for row in IntegrationConnection.objects.filter(adapter_key=ADAPTER,
+    for row in IntegrationConnection.objects.filter(adapter_key=adapter,
             environment="live",state="draft").order_by("pk")[:51]:
         try:
             candidates.append((row,approved_policy(row)))
@@ -246,7 +255,7 @@ def configured_sender():
             continue
         if len(candidates)>1:
             return None
-    if IntegrationConnection.objects.filter(adapter_key=ADAPTER,environment="live",
+    if IntegrationConnection.objects.filter(adapter_key=adapter,environment="live",
             state="draft").count()>50 or len(candidates)!=1:
         return None
     return BrevoSender(*candidates[0])
@@ -258,16 +267,20 @@ def run_due_mail(limit=2):
     if not result["enabled"]:
         return result
     result["quarantined"]=quarantine_expired_attempts(limit=20)
-    sender=configured_sender()
+    mail=_mail_settings()
+    sender=configured_sender(mail["primary_sender"])
+    # Fallback is only attempted after a verified primary definitively refuses.
     if sender is None:
         return result
+    fallback=configured_sender(mail["fallback_sender"])
+    senders=[sender]+([fallback] if fallback and fallback.name!=sender.name else [])
     now=timezone.now()
     ids=list(ConsoleMailOutbox.objects.filter(status="queued",audience="transactional",
         template__key__in=KEYS,template__is_active=True,created_at__gte=now-timedelta(days=7))
         .filter(Q(next_attempt_at__isnull=True)|Q(next_attempt_at__lte=now))
         .order_by("created_at","pk").values_list("pk",flat=True)[:min(max(limit,1),2)])
     for pk in ids:
-        if deliver_queued_once(pk,senders=[sender]):
+        if deliver_queued_once(pk,senders=senders):
             result["accepted"]+=1
         else:
             result["held"]+=1

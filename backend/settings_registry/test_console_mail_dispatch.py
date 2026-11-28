@@ -156,3 +156,23 @@ class BrevoTransportTests(TestCase):
    result=api.get(path+"?recipient=invalid",HTTP_AUTHORIZATION="Bearer synthetic-worker-test-only-0123456789abcdef")
    self.assertEqual(result.status_code,200)
    run.assert_called_once_with(2)
+
+
+class ResendTransportTests(TestCase):
+ def test_domain_must_be_exact_and_verified(self):
+  from unittest.mock import Mock
+  from .resend_transport import verify_domain,SenderRefused
+  call=Mock(return_value=(200,{"data":[{"name":"example.test","status":"verified"}],"has_more":False}))
+  self.assertTrue(verify_domain("example.test","synthetic",request=call))
+  with self.assertRaises(SenderRefused):
+   verify_domain("different.test","synthetic",request=call)
+ def test_acceptance_refusal_and_uncertainty(self):
+  from unittest.mock import Mock
+  from .resend_transport import send_message
+  args=dict(key="fixture",sender="mail@example.test",sender_name="Octalve",reply_to="support@example.test",
+   recipient="customer@example.test",subject="Receipt",body_text="Hello",body_html="<p>Hello</p>",idempotency_key="invoice:1:payment_confirmed")
+  call=Mock(return_value=(200,{"id":"12345678-1234-4234-8234-123456789abc"}))
+  self.assertEqual(send_message(**args,request=call).outcome,"accepted")
+  self.assertEqual(len(call.call_args.kwargs["event"]),64)
+  for status,expected in ((403,"refused"),(409,"unknown"),(500,"unknown"),(200,"unknown")):
+   self.assertEqual(send_message(**args,request=Mock(return_value=(status,{}))).outcome,expected)

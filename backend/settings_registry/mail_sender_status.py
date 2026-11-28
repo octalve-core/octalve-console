@@ -26,10 +26,11 @@ class MailSenderReadiness(APIView):
   values={entry["key"]:entry["value"] for entry in read_policy("mail")["fields"]}
   from .mail_runtime import configured_sender, enabled
   try:
-   approved=configured_sender()
+   approved=configured_sender(values["primary_sender"])
+   fallback=configured_sender(values["fallback_sender"])
    outbound=bool(approved and enabled())
   except (OperationalError,ProgrammingError):
-   approved=None;outbound=False
+   approved=None;fallback=None;outbound=False
   rows=[]
   for key,guide in SENDER_GUIDES.items():
    # Draft records cannot send. Production credential writes are deliberately
@@ -40,7 +41,7 @@ class MailSenderReadiness(APIView):
     drafts=0
    rows.append({"key":key,"label":guide["label"],
                 "guide":guide["guide"],"draft_connections":drafts,
-                "live_verified":bool(approved and key=="brevo"),"sending_enabled":bool(outbound and key=="brevo"),
+                "live_verified":bool((approved and approved.name==key) or (fallback and fallback.name==key)),"sending_enabled":bool(outbound and ((approved and approved.name==key) or (fallback and fallback.name==key))),
                 "free_daily_quota":guide["daily_free_quota"],
                 "registered":key in SCHEMAS})
   return Response({"primary":values["primary_sender"],"fallback":values["fallback_sender"],
