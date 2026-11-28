@@ -1,3 +1,4 @@
+import {HostingDomainProof} from "./HostingDomainProof";
 import {CalendarDays,ExternalLink,Globe2,PackageCheck,Server,ShieldCheck} from "lucide-react";
 import {Panel} from "@/components/design-system/Panel";
 import {ActionLink} from "@/components/design-system/ActionLink";
@@ -44,6 +45,7 @@ export function ClientEssentialDetail({record,resource,actions}:{
     </div>;})}
    </dl>
   </Panel>
+  {resource==="services"&&["pending","provisioning"].includes(record.status)?<HostingDomainProof serviceId={record.publicId??record.id}/>:null}
   <div className="grid min-w-0 gap-5 lg:grid-cols-3">
    <Panel className="lg:col-span-2">
     <h3 className="text-lg font-medium text-console-ink">Activity timeline</h3>
