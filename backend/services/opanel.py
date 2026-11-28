@@ -41,7 +41,7 @@ def opanel_overview(service):
         "files": False,
         "subdomains": "subdomain_read" in resource_caps,
         "dns": False,
-        "databases": False,
+        "databases": "database_read" in resource_caps,
         "ssl": False,
         "backups": False,
         "email": "mailbox_read" in resource_caps,
