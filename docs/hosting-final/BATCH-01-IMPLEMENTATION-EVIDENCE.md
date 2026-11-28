@@ -37,16 +37,26 @@ Additional official references:
 
 Synthetic fixtures are not real supplier compatibility evidence. DirectAdmin full_list JSON shape/empty inventory and quota representation must be checked against the supported server versions. WHM UAPI bridge documentation describes GET; password-bearing mutations deliberately use POST form bodies to avoid query-string credentials. Confirm supported bridge POST behavior before enabling; do not fall back to a credential-bearing GET. Exact UAPI response shapes, access control and quotas must be tested against supported versions. Current policy selection is an administrator authorization, not automatic supplier capability certification. Changing signed policy changes the account binding digest; requalification must be handled before enabling on existing accounts.
 
+## Continuation: database lifecycle, cPanel subdomains, hosting credentials and forwarding
+
+- Both adapters now implement database creation/deletion, user inventory/create/remove and explicit restricted database privilege profiles. DirectAdmin creation requires an initial user and password, while cPanel users are created separately. Account prefixes, existing user collision checks, capacity, scope, and independent existence/grant readback are enforced. New database-user password authentication is not independently verified; password reset and scoped advanced-manager access remain outstanding.
+- cPanel subdomain creation uses the UAPI operation and removal uses narrowly scoped legacy API2 because the supplier documents no UAPI equivalent. The fixed document-root policy and independent inventory/root confirmation must be verified on supported supplier versions.
+- Hosting account password reset uses exact reseller account scope and independent authentication. DirectAdmin uses its verification command; cPanel uses the pinned host's fixed TLS port 2083 endpoint with the customer credential. No credential-bearing URLs, plaintext password retention or blind mutation retry.
+- Forwarding allows a single external email destination for an existing primary-domain mailbox. Special forwarding targets, multiple destinations and local chains are not modified. DirectAdmin uses its legacy API, cPanel uses UAPI mutations with explicit API2 inventory field orientation. Vendor version/empty-response qualification remains mandatory. New synthetic tests cover exact readback and cross-account denial.
+- Both CI workflows passed on c192ce5a (46137704537, 46137704536). Forwarder revision c575c052 is a newer revision; do not reuse earlier green checks as its qualification.
+
+References: https://docs.directadmin.com/changelog/version-1.22.3.html ; https://support.cpanel.net/hc/en-us/articles/360061940414-How-to-add-an-email-forwarder-in-the-command-line-using-UAPI ; https://support.cpanel.net/hc/en-us/articles/14086688144023-How-to-delete-an-email-forwarder-with-the-API ; https://api.docs.cpanel.net/cpanel-api-2/cpanel-api-2-modules-email/cpanel-api-2-functions-email-listforwards .
+
 ## Outstanding release blockers
 
 | Scope | Remaining |
 |---|---|
-| Email | Forwarding/autoresponder, webmail, verified IMAP/SMTP; newest delete/quota/password contracts and recovery need CI and vendor qualification |
+| Email | Autoresponders, secure webmail and supplier-confirmed IMAP/SMTP settings; single external mailbox forwarding now coded, requires latest CI and supplier qualification |
 | DNS | Authoritative inventory and CRUD, record validation, signed domain authority and new explicit write consent; existing Cloudflare DNS binding is read-only and must not be silently escalated |
-| Subdomains | WHM create/remove, document-root policy and independent DNS/TLS readiness; DirectAdmin mutations coded but not released |
-| Databases | Database/user mutations, user inventory, grants, scoped manager; database inventory coded but not released |
+| Subdomains | Both adapters coded; qualify actual vendor versions, document-root behavior and independent DNS/TLS readiness |
+| Databases | Database/user CRUD and restricted grants coded; user password reset, scoped advanced manager and supplier qualification remain |
 | Files | Safe directory/file operations, transfer limits, traversal protections and scoped advanced manager |
-| Password/SSO | Hosting password setup/reset and new cross-adapter acceptance; no credentials exposed |
+| Password/SSO | Hosting password reset and independent authentication coded; actual supported-version acceptance and credential connection details remain |
 | Usage/readiness | Supplier count contract validation, SSL, backups and honest readiness; capacity and scheduling qualification |
 | UI | All outstanding operation forms, integrated responsive browser and accessibility qualification |
 | Supplier controls | Actual capability readback/acceptance and safe revocation/requalification, controlled operator recovery of unresolved mutations |
