@@ -18,7 +18,7 @@ from providers.models import Provider
 from services.models import Service
 from opanel_bridge.models import VerifiedHostingBinding
 from opanel_bridge.policy import account_digest
-from opanel_bridge.readback import verify_existing_account, ReadbackRejected, unique_account
+from opanel_bridge.readback import verify_existing_account, ReadbackRejected, unique_account, ReadbackResult
 from provisioning.authority import require_verified_settlement, SettlementNotVerified
 from provisioning.fulfillment import _validate_item, FulfillmentRefused, planned_hosting_username
 from provisioning.models import ProvisioningTask
@@ -47,7 +47,7 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
     reservation = task.metadata.get("remote_create") if isinstance(task.metadata, dict) else None
     reserved = (task.status == "pending_confirmation"
                 and isinstance(reservation, dict)
-                and reservation.get("state") == "reserved_no_network"
+                and reservation.get("state") in ("reserved_no_network","dispatched_uncertain")
                 and isinstance(reservation.get("attempt_id"), str)
                 and len(reservation["attempt_id"]) == 32
                 and reservation.get("username") == account
@@ -64,9 +64,26 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
     ):
         raise ReconciliationRefused("Task is not a pending, uniquely staged hosting account.")
     try:
-        result = verify_existing_account(task.service, task.provider,
-                                         getter=getter, pending_account=account)
-    except ReadbackRejected as exc:
+        if task.provider.config.get("hosting_vault_connection_id"):
+            # New vault-backed suppliers never use legacy credential readback.
+            from .account_creation_plan import plan_account_creation
+            from .hosting_vendor_protocol import PinnedHostingProtocol
+            from providers.hosting_runtime import load_hosting_connection
+            from .create_attempt import _identity_digest
+            plan=plan_account_creation(task.pk,allow_reserved=True)
+            row,key,policy=load_hosting_connection(task.provider)
+            if (not reserved or reservation.get("state")!="dispatched_uncertain"
+                    or reservation.get("digest")!=_identity_digest(plan)
+                    or reservation.get("supplier_policy")!=task.provider.config.get("hosting_execution_policy_v1")):
+                raise ReadbackRejected("No authorized dispatch to reconcile.")
+            protocol=PinnedHostingProtocol(plan,row.public_settings["server_url"],task.provider.username,key,
+                bound_origin=(row.public_settings["server_url"],row.public_settings["server_ip"]))
+            protocol.readback()
+            result=ReadbackResult(True,task.provider.adapter_type,task.service_id,task.provider_id,timezone.now())
+        else:
+            result = verify_existing_account(task.service, task.provider,
+                                             getter=getter, pending_account=account)
+    except (ReadbackRejected, ValueError) as exc:
         raise ReconciliationRefused("Provider has not independently confirmed the hosting account.") from exc
     if not apply:
         return result
@@ -112,6 +129,13 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
         ):
             raise ReconciliationRefused("Hosting, ownership or vendor authority changed during readback.")
 
+        if provider.config.get("hosting_vault_connection_id"):
+            from providers.hosting_runtime import load_hosting_connection
+            from providers.connection_models import IntegrationConnection
+            locked_connection=IntegrationConnection.objects.select_for_update().get(pk=provider.config["hosting_vault_connection_id"])
+            load_hosting_connection(provider)
+            if locked_connection.current_version!=provider.config.get("hosting_vault_version"):
+                raise ReconciliationRefused("Supplier credential changed during verification.")
         # Timestamp of genuine vendor check is also activation time. The
         # customer receives the purchased period starting NOW, not queue time.
         service.status = "active"
