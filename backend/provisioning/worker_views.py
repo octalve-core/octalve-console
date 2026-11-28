@@ -17,4 +17,5 @@ class HostingStagingCronView(APIView):
             return Response({"detail":"Unauthorized."},status=401)
         if not enabled():
             return Response({"detail":"Hosting staging disabled."},status=503)
-        return Response(run_due_staging(),headers={"Cache-Control":"no-store"})
+        from .automatic_dispatch import run_due_dispatch
+        return Response({**run_due_staging(),"dispatch":run_due_dispatch(1)},headers={"Cache-Control":"no-store"})

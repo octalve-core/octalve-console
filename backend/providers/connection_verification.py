@@ -153,21 +153,32 @@ def verify_connection(request,connection_id):
             proof=verify_sandbox(row.public_settings["reseller_id"],secrets["api_key"],row.environment)
         elif row.adapter_key=="brevo":
             proof=brevo_readback(secrets["api_key"])
-        else:
+        elif row.adapter_key=="paystack":
             proof=paystack_readback(secrets["secret_key"],row.environment)
+        else:
+            raise ProviderReadbackFailed()
     except (InventoryError,IntegrationConnection.DoesNotExist,ResellerClubUnavailable,CloudflareINT01Denied,ProviderReadbackFailed,WebRiskUnavailable,PublicGoogleUnavailable,VaultUnavailable,
             IntegrationCredentialVersion.DoesNotExist,KeyError,DatabaseError):
         return Response({"verified":False,"detail":"Credential readback failed or could not be certified."},
             status=503,headers={"Cache-Control":"private, no-store"})
     try:
-        AuditLog.objects.create(actor=request.user,action="provider_connection_test",
-            entity_type="IntegrationConnection",entity_id=str(row.pk),
-            entity_name=row.adapter_key,details={
-                "adapter":row.adapter_key,"credential_version":row.current_version,
-                "verified":True,"read_only":True,"execution_enabled":False,
-                "checked_at":timezone.now().isoformat()})
-    except DatabaseError:
-        return Response({"verified":False,"detail":"Supplier readback succeeded but its audit receipt failed."},
+        with transaction.atomic():
+            current=IntegrationConnection.objects.select_for_update().get(pk=row.pk)
+            if (current.state!="draft" or current.current_version!=row.current_version
+                    or current.adapter_key!=row.adapter_key or current.environment!=row.environment
+                    or current.public_settings!=row.public_settings or current.updated_at!=row.updated_at
+                    or not IntegrationCredentialVersion.objects.filter(pk=version.pk,
+                        connection=current,version=current.current_version,revoked_at__isnull=True).exists()):
+                raise VaultUnavailable()
+            verify_chain(current)
+            AuditLog.objects.create(actor=request.user,action="provider_connection_test",
+                entity_type="IntegrationConnection",entity_id=str(row.pk),
+                entity_name=row.adapter_key,details={
+                    "adapter":row.adapter_key,"credential_version":row.current_version,
+                    "verified":True,"read_only":True,"execution_enabled":False,
+                    "checked_at":timezone.now().isoformat()})
+    except (DatabaseError,VaultUnavailable,IntegrationConnection.DoesNotExist):
+        return Response({"verified":False,"detail":"Supplier connection changed or its audit receipt failed."},
             status=503,headers={"Cache-Control":"private, no-store"})
     return Response({"verified":True,"adapter_key":row.adapter_key,
         "credential_version":row.current_version,"execution_enabled":False,

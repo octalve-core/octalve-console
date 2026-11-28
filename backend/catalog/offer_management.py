@@ -161,6 +161,16 @@ def check_supplier_offer(package, offer, product_type):
     provider = package.provider
     if provider.status != 'active' or provider.health_status != 'healthy':
         raise serializers.ValidationError('Supplier must be active and connection-tested healthy.')
+    if provider.config.get('hosting_vault_connection_id'):
+        from providers.hosting_runtime import load_hosting_connection
+        from providers.connection_vault import VaultUnavailable
+        try:
+            row,_,_=load_hosting_connection(provider)
+        except VaultUnavailable:
+            raise serializers.ValidationError('Current supplier execution policy is unavailable.') from None
+        if (package.raw_data.get('connection')!=str(row.pk) or
+                package.raw_data.get('credential_version')!=row.current_version):
+            raise serializers.ValidationError('Supplier inventory requires current credential approval.')
     if not package.is_active or package.raw_data.get('origin') != 'adapter_verified' or package.raw_data.get('available') is False:
         raise serializers.ValidationError('Supplier package must be imported and individually approved.')
     model = provider.config.get('fulfillment_model')

@@ -563,3 +563,81 @@ class PaidHostingFunnelTests(TestCase):
             self.assertEqual(api.post(url,{"order_id":self.order.pk},format="json").status_code,405)
             self.assertEqual(api.get(url,HTTP_AUTHORIZATION="Bearer synthetic-secret-for-regression-only-123").status_code,200)
         self.assertFalse(ProvisioningTask.objects.exists())
+
+
+    @override_settings(CLOUD_PROVISIONING_WORKER_ENABLED=True,
+        CLOUD_CREATE_ATTEMPT_RESERVATION_ENABLED=True,OPANEL_READBACK_ENABLED=True,
+        CLOUD_HOSTING_VENDOR_CREATE_ENABLED=True,CLOUD_HOSTING_CONFIGURED_EGRESS_ENABLED=True,
+        CLOUD_SUPPLIER_PINNED_READBACK_ENABLED=True)
+    def test_vault_dispatch_never_repeats_an_uncertain_create(self):
+        from django.db import connection
+        from cryptography.fernet import Fernet
+        from providers.connection_models import IntegrationConnection,IntegrationCredentialVersion
+        from providers.connection_audit import append_event
+        from providers.connection_vault import seal
+        from providers.hosting_runtime import sign_policy,POLICY,load_hosting_connection
+        from providers.models import ProviderPackage
+        from provisioning.automatic_dispatch import advance
+        from provisioning.domain_authority import issue_challenge
+        from provisioning.hosting_vendor_protocol import VendorProtocolRefused
+        if connection.vendor!="postgresql":
+            self.skipTest("Production dispatch requires PostgreSQL advisory lock.")
+        actor=get_user_model().objects.create_superuser(username="hosting-approver",
+            email="approver@example.test",password="fixture-only")
+        with override_settings(DEBUG=False,CLOUD_PROVIDER_VAULT_KEY=Fernet.generate_key().decode(),
+            CLOUD_PROVIDER_VAULT_KEY_ID="host-test",CLOUD_PROVIDER_AUDIT_KEY=Fernet.generate_key().decode(),
+            CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED=True,CLOUD_PROVIDER_CUSTODY_VERIFIED=True),patch(
+                "providers.hosting_runtime.connection_database_qualified",return_value=True):
+            row=IntegrationConnection.objects.create(adapter_key="cpanel-whm",label="Synthetic hosting",
+                environment="live",public_settings={"server_url":self.provider.base_url,
+                    "username":self.provider.username,"server_ip":"8.8.8.8"})
+            IntegrationCredentialVersion.objects.create(connection=row,version=1,key_id="host-test",
+                ciphertext=seal(row.adapter_key,row.pk,1,{"api_token":"fixture-token-only-012345"},
+                    public_settings=row.public_settings,environment="live"))
+            append_event(row,actor,"draft_created",1)
+            self.provider.config={"hosting_account_owner":self.provider.username,
+                "hosting_vault_connection_id":str(row.pk),"hosting_vault_version":1,
+                "fulfillment_model":"owned_server"}
+            self.provider.config[POLICY]=sign_policy(self.provider,row,None)
+            self.provider.save(update_fields=["config"])
+            ProviderPackage.objects.create(provider=self.provider,provider_package_id="verified_starter",
+                name="Starter",specs={"quota":"1024"},is_active=True,
+                raw_data={"connection":str(row.pk),"credential_version":1,"available":True})
+            settle_verified_intent(self.intent.pk,getter=self.getter)
+            service,task=stage_paid_order(self.order.pk)[0]
+            issue_challenge(task.pk,self.order.client_id)
+            with patch("provisioning.automatic_dispatch.verified_domain",return_value=False),patch(
+                "provisioning.automatic_dispatch.PinnedHostingProtocol") as factory:
+                self.assertEqual(advance(task.pk),"awaiting_domain_proof")
+                factory.assert_not_called()
+            with patch("provisioning.automatic_dispatch.verified_domain",return_value=True),patch(
+                "provisioning.automatic_dispatch.PinnedHostingProtocol") as factory,patch(
+                "provisioning.hosting_vendor_protocol.PinnedHostingProtocol") as readback:
+                factory.return_value.create.side_effect=VendorProtocolRefused()
+                readback.return_value.readback.side_effect=VendorProtocolRefused()
+                self.assertEqual(advance(task.pk),"held")
+                task.refresh_from_db()
+                self.assertEqual(task.metadata["remote_create"]["state"],"dispatched_uncertain")
+                self.assertEqual(advance(task.pk),"held")
+                factory.return_value.create.assert_called_once()
+                readback.return_value.readback.side_effect=None
+                self.assertEqual(advance(task.pk),"completed")
+                factory.return_value.create.assert_called_once()
+                self.assertEqual(advance(task.pk),"completed")
+            service.refresh_from_db()
+            self.assertEqual(service.status,"active")
+            self.assertEqual(VerifiedHostingBinding.objects.count(),1)
+            self.assertTrue(eligible(self.order.client_id,service.pk))
+            # A credential revocation invalidates native access immediately.
+            IntegrationCredentialVersion.objects.filter(connection=row).update(revoked_at=timezone.now())
+            self.assertIsNone(eligible(self.order.client_id,service.pk))
+
+    @override_settings(CLOUD_PROVIDER_AUDIT_KEY="",
+        CLOUD_HOSTING_VENDOR_CREATE_ENABLED=False)
+    def test_disabled_dispatch_does_not_read_dns_or_provider(self):
+        from provisioning.automatic_dispatch import advance
+        with patch("provisioning.automatic_dispatch.verified_domain") as dns,patch(
+            "provisioning.automatic_dispatch.PinnedHostingProtocol") as provider:
+            self.assertEqual(advance(1),"disabled")
+            dns.assert_not_called()
+            provider.assert_not_called()

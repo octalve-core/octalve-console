@@ -127,6 +127,8 @@ def safe_connection(row,receipts=None):
         "state":row.state,"credential_configured":row.state=="draft",
         "credential_version":row.current_version,
         "supports_verification":row.adapter_key in READBACK_ADAPTERS,
+        "hosting_policy_available": bool(row.adapter_key in ("directadmin","cpanel-whm")
+            and row.environment=="live" and getattr(settings,"CLOUD_HOSTING_VENDOR_CREATE_ENABLED",False)),
         **safe_verification_status(row,receipts or {}),
         "created_at":row.created_at.isoformat(),
         "updated_at":row.updated_at.isoformat(),
@@ -217,6 +219,7 @@ def rotate_connection(request, connection_id):
         row.current_version=next_version
         row.save(update_fields=["current_version","updated_at"])
         append_event(row,request.user,"credential_rotated",next_version)
+        _disarm_hosting_supplier(row)
     return Response(safe_connection(row),headers={"Cache-Control":"no-store"})
 
 @api_view(["POST"])
@@ -237,4 +240,15 @@ def revoke_connection(request, connection_id):
         row.state="revoked"
         row.save(update_fields=["state","updated_at"])
         append_event(row,request.user,"credential_revoked",row.current_version)
+        _disarm_hosting_supplier(row)
     return Response(safe_connection(row),headers={"Cache-Control":"no-store"})
+
+
+def _disarm_hosting_supplier(row):
+    # Rotation/revocation stops new sales and dispatch until current inventory
+    # and the new credential generation have been approved. No service deletion.
+    if row.adapter_key in ("directadmin","cpanel-whm"):
+        from .models import Provider,ProviderPackage
+        suppliers=Provider.objects.filter(config__hosting_vault_connection_id=str(row.pk))
+        ProviderPackage.objects.filter(provider__in=suppliers).update(is_active=False)
+        suppliers.update(status="inactive")

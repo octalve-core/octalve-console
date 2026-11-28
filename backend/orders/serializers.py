@@ -179,6 +179,17 @@ class CreateOrderSerializer(serializers.Serializer):
                     ).first())
                     if not mapping or not inventory:
                         raise serializers.ValidationError('Hosting supplier is not currently available.')
+                    if inventory.provider.config.get('hosting_vault_connection_id'):
+                        from providers.hosting_runtime import load_hosting_connection
+                        from providers.connection_vault import VaultUnavailable
+                        try:
+                            row,_,_=load_hosting_connection(inventory.provider)
+                        except VaultUnavailable:
+                            raise serializers.ValidationError('Hosting supplier execution is not currently available.') from None
+                        if (inventory.raw_data.get('connection')!=str(row.pk) or
+                                inventory.raw_data.get('credential_version')!=row.current_version or
+                                inventory.raw_data.get('available') is not True):
+                            raise serializers.ValidationError('Hosting supplier inventory changed. Refresh your plan.')
                     if inventory.provider.config.get('fulfillment_model') == 'partner_reseller':
                         wholesale = inventory.pricing
                         if wholesale.get('currency') != plan.currency:
