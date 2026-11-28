@@ -8,6 +8,7 @@ import {DashboardPage} from "@/components/layout/DashboardPage";
 import {api} from "@/lib/api/client";
 import {useAutoSync} from "@/lib/hooks/useAutoSync";
 import {HostingReadiness,type ReadinessContract} from "../components/HostingReadiness";
+import {NativeHostingResources} from "../components/NativeHostingResources";
 
 type Overview={
   service_id:number;label:string;domain_name:string|null;service_type:string;
@@ -123,6 +124,7 @@ export function OPanelServiceOverview(){
             </div>:null}
           </section>
           <HostingReadiness readiness={data.readiness}/>
+          {data.domain_name&&String(data.service_id)===serviceId&&<NativeHostingResources key={serviceId} serviceId={serviceId} domain={data.domain_name} capabilities={data.capabilities}/> }
           <section className="grid gap-5 lg:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="flex items-center gap-2 text-lg font-medium text-slate-950">
@@ -146,11 +148,11 @@ export function OPanelServiceOverview(){
           </section>
           <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
             <h2 className="text-lg font-medium text-slate-950">Hosting tools</h2>
-            <p className="mt-2 text-sm text-slate-600">Tools appear in OPanel after the relevant server capability is verified.</p>
+            <p className="mt-2 text-sm text-slate-600">Native tools appear here only after the relevant supplier capability is authorized.</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {tools.map(([key,label])=><div key={key} className="rounded-xl border border-slate-200 p-4">
                 <p className="text-sm font-medium text-slate-900">{label}</p>
-                <p className="mt-2 text-xs text-slate-500">{data.capabilities[key]?"Available in OPanel":"Coming after server verification"}</p>
+                <p className="mt-2 text-xs text-slate-500">{data.capabilities[key]?"Available above":"Unavailable until qualified"}</p>
               </div>)}
             </div>
           </section>
