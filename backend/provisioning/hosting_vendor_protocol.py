@@ -195,3 +195,73 @@ class PinnedHostingProtocol:
         else:
             reply=self._request("GET","/json-api/accountsummary",{"api.version":"1","user":self.plan.username})
         return verify_created_account(self.plan,reply)
+
+
+    def lifecycle_state(self):
+        """Independent identity + explicit suspension state, never infer absence."""
+        p=self.plan
+        if self._da:
+            response=self._request("GET","/CMD_API_SHOW_USER_CONFIG",{"user":p.username})
+            row=_fields(response.text)
+            expected={"username":p.username,"creator":p.reseller_owner,"domain":p.domain,
+                      "package":p.package,"usertype":"user"}
+            if response.status_code!=200 or row.get("error","0")!="0" or any(row.get(k)!=v for k,v in expected.items()):
+                raise VendorProtocolRefused("Lifecycle account identity not confirmed.")
+            if row.get("suspended")=="no" and row.get("account")=="ON":
+                return {"state":"active","reason":""}
+            if row.get("suspended")!="yes" or row.get("account")!="OFF":
+                raise VendorProtocolRefused("Ambiguous suspension state.")
+            response=self._request("GET","/CMD_SHOW_USER",{"json":"yes","user":p.username,"bytes":"yes"})
+            if response.status_code!=200:
+                raise VendorProtocolRefused("Suspension reason unavailable.")
+            try:
+                body=response.json()
+                # Documented JSON table: find exactly one suspended_reason row.
+                def walk(value,depth=0):
+                    if depth>5 or not isinstance(value,(dict,list)):
+                        return []
+                    if isinstance(value,dict) and value.get("setting")=="suspended_reason":
+                        return [value]
+                    return [item for child in (value.values() if isinstance(value,dict) else value)
+                            for item in walk(child,depth+1)]
+                rows=walk(body)
+                reason=rows[0]["extra"]["details"] if len(rows)==1 else None
+                if not isinstance(reason,str) or len(reason)>200:
+                    raise ValueError()
+            except (ValueError,KeyError,TypeError,AttributeError):
+                raise VendorProtocolRefused("Suspension reason unavailable.") from None
+            return {"state":"suspended","reason":reason}
+        response=self._request("GET","/json-api/accountsummary",{"api.version":"1","user":p.username})
+        rows=_whm(response,"accountsummary").get("data",{}).get("acct")
+        if response.status_code!=200 or not isinstance(rows,list) or len(rows)!=1 or not isinstance(rows[0],dict):
+            raise VendorProtocolRefused("Lifecycle account identity not confirmed.")
+        row=rows[0]
+        expected={"user":p.username,"owner":p.reseller_owner,"domain":p.domain,"plan":p.package}
+        if any(row.get(k)!=v for k,v in expected.items()):
+            raise VendorProtocolRefused("Lifecycle account identity not confirmed.")
+        state=str(row.get("suspended")).lower()
+        if state in ("0","false"):
+            return {"state":"active","reason":""}
+        if state not in ("1","true") or not isinstance(row.get("suspendreason"),str):
+            raise VendorProtocolRefused("Suspension reason unavailable.")
+        return {"state":"suspended","reason":row["suspendreason"]}
+
+    def lifecycle_write(self,operation,marker,*,dispatch_authorized=False):
+        """Fixed explicit desired-state operation; never use a toggle."""
+        if dispatch_authorized is not True or not getattr(settings,"CLOUD_HOSTING_LIFECYCLE_ENABLED",False):
+            raise VendorProtocolRefused("Lifecycle writes are disabled.")
+        if operation not in ("suspend","restore") or not isinstance(marker,str) or not re.fullmatch(r"octalve-nonpayment-[a-f0-9]{32}",marker):
+            raise VendorProtocolRefused("Invalid lifecycle operation.")
+        if self._da:
+            fields={"select0":self.plan.username,"location":"CMD_RESELLER_SHOW",
+                    ("dosuspend" if operation=="suspend" else "dounsuspend"):"yes"}
+            if operation=="suspend":
+                fields["details"]=marker
+            self._request("POST","/CMD_API_SELECT_USERS",fields)
+        else:
+            command="suspendacct" if operation=="suspend" else "unsuspendacct"
+            fields={"api.version":"1","user":self.plan.username}
+            if operation=="suspend":
+                fields["reason"]=marker
+            self._request("GET","/json-api/"+command,fields)
+        # Acknowledgement alone never authorizes a local status change.
