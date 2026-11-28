@@ -167,8 +167,20 @@ def reconcile_verified_hosting(task_id, *, getter=None, apply=False):
         }
         fresh.save(update_fields=["status", "completed_at", "result_data", "updated_at"])
         if getattr(settings, "CLOUD_HOSTING_READY_QUEUE_ENABLED", False):
-            from notifications.hosting_ready import queue_hosting_ready
-            queue_hosting_ready(service)
+            # Preserve the historical hosting notice for audit/readback, but
+            # use the canonical Console outbox for eventual delivery. A notice
+            # configuration failure must never roll back a proven activation.
+            from notifications.hosting_ready import queue_hosting_ready, HostingNoticeRefused
+            from settings_registry.mail_authority import queue_verified_hosting_notice
+            from django.db import DatabaseError
+            try:
+                with transaction.atomic():
+                    queue_hosting_ready(service)
+            except (HostingNoticeRefused, DatabaseError):
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Hosting notice audit record unavailable", extra={"service_id": service.pk})
+            queue_verified_hosting_notice(service)
         # For multi-item orders, only close the order after EVERY item is
         # activated by its own independent account verification.
         if not Service.objects.filter(order=order).exclude(status="active").exists():
