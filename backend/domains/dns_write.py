@@ -146,7 +146,7 @@ def access(request,domain):
             state=value["state"]
             if state=="approved":
                 writer_for(binding,value)
-        except (Refused,VaultUnavailable,KeyError,ValueError):
+        except (Refused,VaultUnavailable,KeyError,ValueError,TypeError):
             state="not_authorized"
     return Response({"state":state,"domain":domain.domain_name,"pending":domain.metadata.get(FENCE,{}).get("state")=="uncertain"},headers=NO_CACHE)
 
@@ -181,9 +181,9 @@ def authorize(request,domain,action):
             raise Refused()
         value={**value,"state":"approved","write_connection":str(row.pk),"write_version":row.current_version}
         writer_for(binding,value)
+        check_mutation(request.user,data["confirm_password"],data["totp_code"])
         connector=_conn(row,row.current_version)
         snapshot(domain,binding,connector)
-        check_mutation(request.user,data["confirm_password"],data["totp_code"])
         with transaction.atomic():
             current,locked=lock_current(domain,binding)
             if policy(current,locked).get("nonce")!=value["nonce"] or policy(current,locked).get("state")!="consented":
@@ -247,7 +247,7 @@ def normalize(record,zone):
             raise Refused()
     elif kind=="TXT":
         # No ownership/challenge or structured escape mutation.
-        if name==zone or any(x in value for x in ('"',"\\\\")) or len(value)>255:
+        if name==zone or any(x in value for x in ('"',"\\")) or len(value)>255:
             raise Refused()
     elif kind=="CAA":
         if not re.fullmatch(r'(?:0|128) (?:issue|issuewild|iodef) "[A-Za-z0-9.:/@;=_ -]{1,200}"',value):
@@ -267,7 +267,12 @@ def normalize(record,zone):
 def comparable(row,zone):
     if row.get("proxied") is True:
         raise Refused()
-    return normalize({k:row.get(k) for k in ("name","type","value","ttl","priority")},zone)
+    record={k:row.get(k) for k in ("name","type","value","ttl","priority")}
+    if record["type"]!="MX":
+        record["priority"]=None
+    if record["type"]=="TXT" and isinstance(record["value"],str) and record["value"].startswith('"') and record["value"].endswith('"'):
+        record["value"]=record["value"][1:-1]
+    return normalize(record,zone)
 
 @sensitive_variables("token","headers","response")
 def send(token,zone,operation,record_id,record):
@@ -283,6 +288,14 @@ def send(token,zone,operation,record_id,record):
             body["proxied"]=False
         if record["type"]=="MX":
             body["priority"]=record["priority"]
+        elif record["type"]=="CAA":
+            flags,tag,content=record["value"].split(" ",2)
+            body.pop("content")
+            body["data"]={"flags":int(flags),"tag":tag,"value":content[1:-1]}
+        elif record["type"]=="SRV":
+            priority,weight,port,target=record["value"].split(" ")
+            body.pop("content")
+            body["data"]={"priority":int(priority),"weight":int(weight),"port":int(port),"target":target}
     session=requests.Session()
     session.trust_env=False
     try:
@@ -417,5 +430,5 @@ def dispatch(request,domain,action):
         if action in ("mutate","reconcile"):
             return mutate(request,domain,reconcile=action=="reconcile")
         raise Refused()
-    except (Refused,CloudflareINT01Denied,VaultUnavailable,DelegationUnavailable,DatabaseError,ValueError,TypeError,KeyError):
+    except (Refused,CloudflareINT01Denied,VaultUnavailable,DelegationUnavailable,DatabaseError,ValueError,TypeError,KeyError,AttributeError):
         return Response({"detail":"DNS write authority or operation could not be confirmed."},status=409,headers=NO_CACHE)

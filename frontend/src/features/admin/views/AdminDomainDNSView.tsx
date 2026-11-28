@@ -8,6 +8,7 @@ import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {Panel} from "@/components/design-system/Panel";
 import {DNSAuthorityCheck} from "@/components/domain/DNSAuthorityCheck";
+import {DNSWriteControls} from "@/components/domain/DNSWriteControls";
 import {api} from "@/lib/api/client";
 import type {LiveDomainDNS} from "@/lib/api/endpoints";
 import {CloudRecordDirectory,type CloudRecord} from "@/components/data/CloudRecordDirectory";
@@ -162,11 +163,11 @@ export function AdminDomainDNSView(){
           </form>
         </Panel>:null}
         {domain&&access&&state==="connected"?<>
+          <DNSWriteControls key={id} domainId={id} domainName={domain.domain_name} live={live} admin connections={connections.map(c=>({id:c.id,label:c.label}))}/>
           <Panel>
             <h2 className="text-base font-medium">Read-only access approved</h2>
             <p className="mt-2 text-sm text-console-muted">
-              The domain owner may view the provider's current records. DNS changes,
-              nameserver changes and purchases remain disabled.
+              The domain owner may view the provider's current records. DNS changes need independent write authorization; nameserver changes and purchases remain disabled.
             </p>
             {liveError?<p role="alert" className="mt-3 text-sm text-rose-700">
               Cloudflare records are temporarily unavailable. No stored records are displayed
