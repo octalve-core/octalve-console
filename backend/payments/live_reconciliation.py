@@ -86,6 +86,9 @@ def run_due(limit=5):
     domain_result=run_domain()
     if domain_result in ("processed","held"):
         result[domain_result]+=1
+    from domains.resellerclub_renewals import run_due as run_renewal
+    renewal=run_renewal()
+    if renewal in ("processed","held"): result[renewal]+=1
     return result
 
 class LiveReconciliationCronView(APIView):

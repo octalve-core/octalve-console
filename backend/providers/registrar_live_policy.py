@@ -80,7 +80,7 @@ def configure(request,connection_id):
     headers={"Cache-Control":"private, no-store"}
     if request.method=="GET":
         return Response({"available":ready(),"registration_enabled":bool(ready() and approved(row)),
-            "supported_tlds":[".com",".net"],"manual_renewal":False,"custom_nameservers":False,
+            "supported_tlds":[".com",".net"],"manual_renewal":bool(row.adapter_key=="resellerclub" and ready() and approved(row)),"custom_nameservers":bool(row.adapter_key=="resellerclub" and ready() and approved(row)),
             "contact_updates":False,"transfer_execution":False},headers=headers)
     data=request.data
     fields={"confirm_password","totp_code","registration","dedicated_account"}
