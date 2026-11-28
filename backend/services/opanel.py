@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Service, ServiceUsage
+from domains.models import Domain
 from opanel_bridge.policy import enabled, eligible, refresh_candidate
 from . import native_panel, resource_management
 
@@ -75,8 +76,12 @@ def opanel_overview(service):
         "panel_recheck": bool(not verified and enabled() and refresh_candidate(service.client_id, service.pk)),
     }
     now_due = service.next_due_date
+    domain_id = Domain.objects.filter(client_id=service.client_id,domain_name=service.domain_name,is_active=True).values_list('pk',flat=True).first() if service.domain_name else None
     return {
         "service_id": service.pk,
+        "domain_id": domain_id,
+        "billing": {"amount":str(service.amount),"currency":service.currency,"cycle":service.billing_cycle,
+                    "created_at":service.created_at.isoformat(),"auto_renew":service.auto_renew},
         "label": service.label,
         "domain_name": service.domain_name,
         "service_type": service.service_type,

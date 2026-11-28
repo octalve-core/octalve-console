@@ -198,6 +198,7 @@ def _session_request(row, provider, account, key, *, webmail_address=None):
         pool.close()
 
 
+@sensitive_variables('key','current_key','final_key','response','url')
 def launch(subject_id, service_id):
     """Only a currently entitled owner can request a one-time customer session."""
     candidate = eligible(subject_id, service_id) or refresh_candidate(subject_id, service_id)
@@ -239,6 +240,12 @@ def launch(subject_id, service_id):
                 or final[0].provider_identifier != service.provider_identifier
                 or final[0].provider_package_id != service.provider_package_id
                 or final[0].domain_name != service.domain_name):
+            raise NativePanelRefused("Hosting authority changed.")
+        final_provider=Provider.objects.get(pk=final[0].provider_id)
+        final_row,final_key=_policy(final_provider)
+        if (final_provider.pk!=current_provider.pk or final_provider.config!=current_provider.config
+                or final_row.pk!=current_row.pk or final_row.current_version!=current_row.current_version
+                or final_key!=current_key or final_row.public_settings!=current_row.public_settings):
             raise NativePanelRefused("Hosting authority changed.")
         return url
     except (Provider.DoesNotExist, VaultUnavailable, SupplierEgressDenied,

@@ -2,13 +2,13 @@
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import {api} from "@/lib/api/client";
 
-type ResourceTab="email"|"subdomains"|"databases"|"credentials"|"db_users"|"forwarders"|"autoresponders";
+export type ResourceTab="email"|"subdomains"|"databases"|"credentials"|"db_users"|"forwarders"|"autoresponders";
 type Mailbox={address:string;quota_mb?:number|null;unlimited?:boolean;destination?:string|null;managed?:boolean};
 type Inventory={resource:string;domain:string;items:Array<Mailbox|string>;verified_at:string;pending_operation:boolean;pending_password_verification?:boolean;databases?:string[];mailboxes?:string[]};
 type MailSettings={address:string;imap_host:string;imap_port:number;smtp_host:string;smtp_port:number;transport:string};
 type Result={state:"confirmed"|"pending_verification";operation_id?:string;address?:string;password_status?:string};
-export function NativeHostingResources({serviceId,domain,capabilities}:{serviceId:string;domain:string;capabilities:Record<string,boolean>}){
- const [tab,setTab]=useState<ResourceTab>("email");
+export function NativeHostingResources({serviceId,domain,capabilities,initialTab="email",quickOnly=false}:{serviceId:string;domain:string;capabilities:Record<string,boolean>;initialTab?:ResourceTab;quickOnly?:boolean}){
+ const [tab,setTab]=useState<ResourceTab>(initialTab);
  const [data,setData]=useState<Inventory|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [pending,setPending]=useState(false);
@@ -30,9 +30,9 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   finally{if(request===sequence.current)setBusy(false)}
  }
  useEffect(()=>{
-  setPending(false);setNotice("");setError("");setData(null);setTab("email");setAction(null);setPasswordRecovery(false);
+  setPending(false);setNotice("");setError("");setData(null);setTab(initialTab);setAction(null);setPasswordRecovery(false);
   return ()=>{sequence.current++};
- },[serviceId,domain]);
+ },[serviceId,domain,initialTab]);
  useEffect(()=>{
   if(capabilities[selected])void load(selected);
   // Do not poll supplier resources on background dashboard refresh.
@@ -55,7 +55,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
     const result=await api.post<{url:string}>(base+"/mailboxes/"+encodeURIComponent(local)+"/webmail/",{confirm_password:confirmation});
     const target=new URL(result.url);
     if(target.protocol!=="https:"||target.port!=="2096"||target.username||target.password)throw Error("Unexpected destination");
-    window.location.assign(target.href);
+    const anchor=document.createElement("a");anchor.href=target.href;anchor.rel="noreferrer noopener";anchor.referrerPolicy="no-referrer";anchor.click();
    }
   }catch{setError("Could not verify mailbox access or secure connection settings. Please contact support.")}
   finally{setBusy(false)}
@@ -117,8 +117,8 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
   finally{setBusy(false)}
  }
  if(!capabilities.email&&!capabilities.subdomains&&!capabilities.databases&&!capabilities.credentials&&!capabilities.db_users&&!capabilities.forwarders&&!capabilities.autoresponders)return null;
- return <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="Native hosting resources">
-  <div className="flex flex-wrap items-center justify-between gap-3">
+ return <section className={quickOnly?"mt-2":"rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"} aria-label="Native hosting resources">
+  {!quickOnly&&<><div className="flex flex-wrap items-center justify-between gap-3">
    <h2 className="text-lg font-medium text-slate-950">Hosting resources</h2>
    <button type="button" disabled={busy} onClick={()=>{setNotice("");void load()}} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">Refresh</button>
   </div>
@@ -131,17 +131,18 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
    {capabilities.db_users&&<button type="button" aria-pressed={selected==="db_users"} disabled={busy} onClick={()=>{setTab("db_users");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="db_users"?"bg-[#0064E0] text-white":"border border-slate-200")}>Database users</button>}
    {capabilities.credentials&&<button type="button" aria-pressed={selected==="credentials"} disabled={busy} onClick={()=>{setTab("credentials");setAction(null);setNotice("")}} className={"min-h-10 rounded-lg px-3 text-sm "+(selected==="credentials"?"bg-[#0064E0] text-white":"border border-slate-200")}>Hosting password</button>}
   </div>
+  </>}
   {busy&&<p role="status" className="mt-4 text-sm text-slate-500">Checking supplier resources…</p>}
   {error&&<p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
   {notice&&<p role="status" className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{notice}</p>}
-  {data&&data.resource===selected&&<div className="mt-4">
+  {!quickOnly&&data&&data.resource===selected&&<div className="mt-4">
    {selected==="credentials"?<p className="text-sm text-slate-600">Set or reset your hosting control-panel password. This is separate from your Octalve Console password.</p>:data.items.length===0?<p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-500">No resources returned by the supplier.</p>:<ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
     {data.items.map(item=>typeof item==="string"?<li key={item} className="break-all p-3 text-sm">{item}</li>:<li key={item.address+":"+String(item.destination??"")} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><span className="break-all font-medium">{item.address}</span><span className="text-slate-500">{selected==="forwarders"?(item.managed?item.destination:"Unmanaged route"):item.unlimited?"Unlimited":item.quota_mb===null?"Unknown":item.quota_mb+" MB"}</span></li>)}
    </ul>}
    {selected==="autoresponders"&&<p className="mt-2 text-xs text-slate-500">Configured autoresponder addresses only. Delivery, schedule and message settings are not verified by this inventory.</p>}
    <p className="mt-2 text-xs text-slate-500">Verified at {new Date(data.verified_at).toLocaleString()}</p>
   </div>}
-  {selected==="email"&&data?.resource==="email"&&(capabilities.mail_client_settings||capabilities.webmail_launch)&&<form onSubmit={mailboxAccess} className="mt-5 space-y-3 border-t border-slate-100 pt-5">
+  {!quickOnly&&selected==="email"&&data?.resource==="email"&&(capabilities.mail_client_settings||capabilities.webmail_launch)&&<form onSubmit={mailboxAccess} className="mt-5 space-y-3 border-t border-slate-100 pt-5">
    <h3 className="text-sm font-medium">Mailbox access and connection settings</h3>
    <label className="block text-sm">Mailbox<select name="mailbox" required defaultValue="" className="mt-1 w-full rounded-lg border border-slate-200 p-2"><option value="" disabled>Choose mailbox</option>{data.items.map(item=>typeof item==="string"?null:<option key={item.address} value={item.address.split("@")[0]}>{item.address}</option>)}</select></label>
    {capabilities.webmail_launch&&<label className="block text-sm">Current Console password (required for webmail)<input type="password" name="confirmation" autoComplete="current-password" maxLength={1024} className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>}
@@ -149,7 +150,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
    {mailSettings&&<dl className="space-y-2 break-all rounded-lg border border-slate-200 p-3 text-sm"><dt>Username</dt><dd>{mailSettings.address}</dd><dt>IMAP (TLS)</dt><dd>{mailSettings.imap_host}:{mailSettings.imap_port}</dd><dt>SMTP (TLS)</dt><dd>{mailSettings.smtp_host}:{mailSettings.smtp_port}</dd><dt>Password</dt><dd>Your mailbox password. Never your Console password.</dd></dl>}
   </form>}
   {selected==="email"&&capabilities.mailbox_create&&<form onSubmit={create} autoComplete="off" className="mt-5 space-y-3 border-t border-slate-100 pt-5">
-   <h3 className="text-sm font-medium">Create email account</h3>
+   {!quickOnly&&<h3 className="text-sm font-medium">Create email account</h3>}
    <p className="text-xs text-slate-500">Create a real mailbox on your assigned hosting server, not a transactional email sender.</p>
    <label className="block text-sm">Mailbox name<div className="mt-1 flex flex-wrap items-center gap-2"><input name="local" required maxLength={64} pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}" placeholder="sales" className="min-w-0 flex-1 rounded-lg border border-slate-200 p-2"/><span className="break-all text-slate-500">@{domain}</span></div></label>
    <label className="block text-sm">Storage quota (MB)<input name="quota" required type="number" min={1} max={1000000} step={1} defaultValue={500} className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>
@@ -157,7 +158,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
    <label className="block text-sm">Confirm current Console password<input name="confirmation" required type="password" maxLength={1024} autoComplete="current-password" className="mt-1 w-full rounded-lg border border-slate-200 p-2"/></label>
    <div className="flex flex-wrap gap-2"><button disabled={busy||pending||!data} className="min-h-11 rounded-lg bg-[#0064E0] px-4 text-sm font-medium text-white disabled:opacity-50">Create mailbox</button></div>
   </form>}
-  {data&&data.resource===selected&&<div className="mt-5 border-t border-slate-100 pt-5">
+  {!quickOnly&&data&&data.resource===selected&&<div className="mt-5 border-t border-slate-100 pt-5">
    <div className="flex flex-wrap gap-2">
     {([["mailbox_quota","Change quota"],["mailbox_password","Change password"],["mailbox_delete","Delete mailbox"],["subdomain_create","Create subdomain"],["subdomain_delete","Remove subdomain"],["database_create","Create database"],["database_delete","Delete database"],["hosting_password","Set or reset hosting password"],["database_user_create","Create database user"],["database_user_delete","Remove database user"],["database_grants","Set database privileges"],["forwarder_create","Create forwarder"],["forwarder_delete","Remove forwarder"],["autoresponder_delete","Remove autoresponder"],["autoresponder_create","Create autoresponder"],["autoresponder_edit","Replace plain-text reply"]] as const).filter(([key])=>capabilities[key]&&(selected==="email"?key.startsWith("mailbox"):selected==="subdomains"?key.startsWith("subdomain"):selected==="databases"?(key==="database_create"||key==="database_delete"):selected==="db_users"?(key==="database_user_create"||key==="database_user_delete"||key==="database_grants"):selected==="forwarders"?key.startsWith("forwarder_"):selected==="autoresponders"?key.startsWith("autoresponder_"):selected==="credentials"&&key==="hosting_password")).map(([key,label])=><button type="button" key={key} disabled={busy||pending} aria-pressed={activeAction===key} onClick={()=>{setAction(key);setNotice("");setError("")}} className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm font-medium disabled:opacity-50">{label}</button>)}
    </div>
