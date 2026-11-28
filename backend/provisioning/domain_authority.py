@@ -79,7 +79,7 @@ def verified_domain(task):
                 if len(buf)>32768:
                     return False
             body=json.loads(bytes(buf))
-        if not isinstance(body,dict) or body.get("Status")!=0 or body.get("TC") is True:
+        if not isinstance(body,dict) or type(body.get("Status")) is not int or body.get("Status")!=0 or body.get("TC") is True:
             return False
         answers=body.get("Answer")
         if not isinstance(answers,list) or len(answers)>100:
