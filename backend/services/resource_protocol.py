@@ -72,6 +72,7 @@ def strong_password(value):
     return value
 
 
+@sensitive_variables("subject","body")
 def reply_text(subject, body):
     if (not isinstance(subject,str) or not 1<=len(subject)<=150
             or not isinstance(body,str) or not 1<=len(body)<=4000
@@ -237,6 +238,10 @@ class ResourceProtocol:
                     valid=(set(fields)=={"action","name","user","passwd","passwd2"}
                            and self._db_identity(fields["name"]) and database_suffix(fields["user"])
                            and strong_password(fields["passwd"]) and fields["passwd"]==fields["passwd2"])
+                if method=="POST" and fields.get("action")=="modify":
+                    valid=(set(fields)=={"action","name","user","passwd","passwd2"}
+                           and self._db_identity(fields["name"]) and self._db_identity(fields["user"])
+                           and strong_password(fields["passwd"]) and fields["passwd"]==fields["passwd2"])
                 if method=="POST" and fields.get("action")=="delete":
                     valid=(set(fields)=={"action","name","select0"} and self._db_identity(fields["name"])
                            and self._db_identity(fields["select0"]))
@@ -294,6 +299,7 @@ class ResourceProtocol:
                          ("GET","Mysql","list_users"):set(),
                          ("POST","Mysql","create_user"):{"name","password"},
                          ("POST","Mysql","delete_user"):{"name"},
+                         ("POST","Mysql","set_password"):{"user","password"},
                          ("GET","Mysql","get_privileges_on_database"):{"database","user"},
                          ("POST","Mysql","set_privileges_on_database"):{"database","user","privileges"},
                          ("POST","Email","add_forwarder"):{"domain","email","fwdopt","fwdemail"},
@@ -835,6 +841,28 @@ class ResourceProtocol:
                 raise ResourceRefused("Assign database privileges separately.")
             self._whm("POST","Mysql","create_user",{"name":user,"password":password})
 
+    @sensitive_variables("password","data")
+    def dispatch_database_user_password(self,user,password,database=None):
+        """Fixed vendor contract only. ACK is not authentication proof.
+
+        Deliberately not routed to customers until an independent database
+        authentication verifier and durable reconciliation are qualified.
+        """
+        user=self._db_identity(user)
+        strong_password(password)
+        if self.adapter=="directadmin":
+            database=self._db_identity(database)
+            if database not in self.databases() or user not in self.database_users(database):
+                raise ResourceRefused("Database membership not independently confirmed.")
+            self._da_ack("/CMD_API_DB_USER",{"action":"modify","name":database,
+                         "user":user,"passwd":password,"passwd2":password})
+        else:
+            if database is not None or user not in self.all_database_users():
+                raise ResourceRefused("Database user not independently confirmed.")
+            data=self._whm("POST","Mysql","set_password",{"user":user,"password":password})
+            if not isinstance(data,dict) or data.get("failures")!=[]:
+                raise ResourceRefused("Database password acknowledgement unavailable.")
+
     def delete_database_user(self,user,database=None):
         user=self._db_identity(user)
         if self.adapter=="directadmin":
@@ -971,6 +999,7 @@ class ResourceProtocol:
         else:
             self._whm("POST","Email","delete_auto_responder",{"email":local+"@"+self.domain})
 
+    @sensitive_variables("fields","data")
     def autoresponder_content(self,local):
         mailbox_name(local)
         if local==self.account.lower():
@@ -991,6 +1020,7 @@ class ResourceProtocol:
             raise ResourceRefused("Autoresponder settings not independently confirmed.")
         return reply_text(data.get("subject"),data.get("body"))
 
+    @sensitive_variables("subject","body")
     def save_autoresponder(self,local,subject,body,*,edit=False):
         mailbox_name(local)
         reply_text(subject,body)

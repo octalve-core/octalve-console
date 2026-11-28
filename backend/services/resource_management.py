@@ -255,6 +255,7 @@ def _same_password(pending,password):
     return hmac.compare_digest(current["mac"],receipt.get("mac",""))
 
 
+@sensitive_variables("subject","body")
 def _reply_digest(subject,body):
     return hashlib.sha256(json.dumps(["native-reply-v1",subject,body],ensure_ascii=False,separators=(",",":")).encode("utf-8")).hexdigest()
 
@@ -262,7 +263,7 @@ def _reply_digest(subject,body):
 OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password","database_user_create","database_user_delete","database_grants","forwarder_create","forwarder_delete","autoresponder_delete","autoresponder_create","autoresponder_edit"}
 
 
-@sensitive_variables("password")
+@sensitive_variables("password","subject","body")
 def _observed(protocol, pending, password=None):
     operation=pending["operation"]
     target=pending["address"]

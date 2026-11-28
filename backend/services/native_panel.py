@@ -4,6 +4,7 @@ No generic proxy, passwords in browser, root access or persistent session URLs.
 The MFA-approved supplier policy must explicitly authorize this operation.
 """
 import base64
+import json
 from django.views.decorators.debug import sensitive_variables
 import re
 import secrets
@@ -64,6 +65,7 @@ def _fields(body):
     return {key: values[0] for key, values in parsed.items()}
 
 
+@sensitive_variables("value","session","security_token","fields")
 def _safe_url(value, origin, *, directadmin, account, session=None, security_token=None, service='cpaneld'):
     if (not isinstance(value, str) or not 1 <= len(value) <= 2500
             or any(ord(ch) < 33 or ord(ch) > 126 for ch in value)
@@ -92,7 +94,7 @@ def _safe_url(value, origin, *, directadmin, account, session=None, security_tok
                     or any(len(v) != 1 for v in fields.values())
                     or not isinstance(session, str) or len(session) > 1000
                     or not session.startswith(account+":")
-                    or not re.fullmatch(r"[A-Za-z0-9_@:, .-]+", session)):
+                    or not re.fullmatch(r"[A-Za-z0-9_@:, .-]+" if service=="webmaild" else r"[A-Za-z0-9_:, .-]+", session)):
                 raise ValueError()
             # Ignore vendor-provided optional navigation and locale parameters;
             # only the validated session is forwarded to the customer.
@@ -102,7 +104,7 @@ def _safe_url(value, origin, *, directadmin, account, session=None, security_tok
     return value
 
 
-@sensitive_variables('response')
+@sensitive_variables('response','body','data','fields','urls')
 def parse_session(response, origin, adapter, account, *, service='cpaneld'):
     if response.status_code != 200 or len(response.content) > 65536:
         raise NativePanelRefused("Supplier session could not be confirmed.")
@@ -116,7 +118,14 @@ def parse_session(response, origin, adapter, account, *, service='cpaneld'):
     if adapter != "cpanel-whm":
         raise NativePanelRefused("Unsupported native panel.")
     try:
-        body = response.json()
+        def unique_pairs(pairs):
+            result={}
+            for key,value in pairs:
+                if key in result:
+                    raise ValueError("Duplicate session field.")
+                result[key]=value
+            return result
+        body = json.loads(response.content,object_pairs_hook=unique_pairs)
         meta, data = body["metadata"], body["data"]
         expiry = int(data["expires"])
         now = int(timezone.now().timestamp())

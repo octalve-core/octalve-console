@@ -294,6 +294,30 @@ class ProtocolTests(SimpleTestCase):
         with self.assertRaises(ResourceRefused):
             whm_adapter.set_database_grants("checkhost_site","checkhost_app","ALL PRIVILEGES")
 
+    def test_database_password_dispatch_is_scoped_and_ack_is_not_proof(self):
+        password="SyntheticDatabasePassword!"
+        da=self.adapter("directadmin")
+        with patch.object(da,"databases",return_value=["checkhost_site"]),patch.object(
+                da,"database_users",return_value=["checkhost_app"]),patch.object(
+                da,"_request",return_value=SupplierReadResponse(200,b"error=0")) as send:
+            self.assertIsNone(da.dispatch_database_user_password("checkhost_app",password,"checkhost_site"))
+            self.assertEqual(send.call_args.args[2],{"action":"modify","name":"checkhost_site",
+                            "user":"checkhost_app","passwd":password,"passwd2":password})
+            with self.assertRaises(ResourceRefused):
+                da.dispatch_database_user_password("checkhost_other",password,"checkhost_site")
+            self.assertEqual(send.call_count,1)
+        with self.assertRaises(ResourceRefused):
+            da._check_request("POST","/CMD_API_DB_USER",{"action":"modify","name":"victim_site",
+                              "user":"checkhost_app","passwd":password,"passwd2":password},False)
+        cp=self.adapter("cpanel-whm")
+        with patch.object(cp,"all_database_users",return_value=["checkhost_app"]),patch.object(
+                cp,"_request",return_value=whm("Mysql","set_password",{"failures":[]})) as send:
+            self.assertIsNone(cp.dispatch_database_user_password("checkhost_app",password))
+            self.assertEqual(send.call_args.args[2]["user"],"checkhost_app")
+            send.return_value=whm("Mysql","set_password",{"failures":["server"]})
+            with self.assertRaises(ResourceRefused):
+                cp.dispatch_database_user_password("checkhost_app",password)
+
     def test_invalid_names_and_capability_dependency(self):
         for name in ("root","cpanel","postmaster","../x","x@other.test","x..y","a."):
             with self.assertRaises(ResourceRefused):

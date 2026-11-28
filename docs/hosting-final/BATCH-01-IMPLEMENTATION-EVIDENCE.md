@@ -81,3 +81,9 @@ Both suppliers have bounded plain-text create operations with fixed 48-hour inte
 ## Secure email access continuation
 
 Added cPanel mailbox-specific secure client settings via Email::get_client_settings, restricted to the exact pinned supplier hostname and implicit TLS ports 993/465, plus WHM mailbox-scoped webmaild session launch with Console password confirmation, no-cache response, short supplier expiry validation and exact origin/port/session identity. Other mail host layouts fail closed. DirectAdmin's Roundcube flow is IP-bound and form-based; it remains outstanding, as does DA mail configuration readback. No supplier traffic was sent. References: https://api.docs.cpanel.net/openapi/cpanel/operation/get_client_settings/ ; https://api.docs.cpanel.net/guides/guide-to-api-authentication/guide-to-api-authentication-single-sign-on ; https://docs.directadmin.com/other-hosting-services/webmail/ .
+
+### Database password protocol and secret-handling hardening
+
+- Fixed DA `CMD_API_DB_USER action=modify` and cPanel `Mysql::set_password` dispatch contracts, exact account prefix and membership checks, explicit cPanel empty failure list requirement, no generic command proxy. Contract tests use synthetic responses only. No customer route/capability: independent MySQL authentication proof, durable reconciliation and supplier acceptance remain missing. ACK is not a verified reset.
+- Redact autoresponder content from debug locals; reject duplicate WHM session JSON fields; restrict webmail-specific session syntax to that service.
+- Official references: https://docs.directadmin.com/changelog/version-1.25.1.html ; https://api.docs.cpanel.net/cpanel-api-2/cpanel-api-2-modules-mysqlfe/cpanel-api-2-functions-mysqlfe-changedbuserpassword .
