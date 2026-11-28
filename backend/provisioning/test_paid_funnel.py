@@ -522,3 +522,44 @@ class PaidHostingFunnelTests(TestCase):
         self.assertEqual(run_due_staging()["held"],1)
         self.assertEqual(run_due_staging()["held"],0)
         self.assertFalse(Service.objects.exists())
+
+
+    def test_legacy_invoice_save_cannot_provision_even_when_catalog_cycle_exists(self):
+        from catalog.models import ProductCategory,Product,Plan,PlanBillingCycle
+        category=ProductCategory.objects.create(name="Negative test hosting")
+        product=Product.objects.create(category=category,name="Negative hosting",product_type="shared_hosting")
+        plan=Plan.objects.create(product=product,name="Negative plan",currency="NGN")
+        cycle=PlanBillingCycle.objects.create(plan=plan,cycle_key="1mo",months=1,price=Decimal("2500"))
+        OrderItem.objects.filter(pk=self.item.pk).update(billing_cycle_id=cycle.pk)
+        self.invoice.status="paid"
+        self.invoice.save(update_fields=["status"])
+        self.assertFalse(Service.objects.exists())
+        self.assertFalse(ProvisioningTask.objects.exists())
+
+    def test_legacy_admin_cannot_modify_authoritative_financial_and_hosting_records(self):
+        from django.contrib import admin
+        from django.test import RequestFactory
+        from providers.models import ProviderPackage
+        request=RequestFactory().post("/admin/")
+        request.user=get_user_model().objects.create_superuser(
+            username="negative-admin",email="negative-admin@example.test",password="fixture-only")
+        for model in (Invoice,Service,ProvisioningTask,ProviderPackage):
+            with self.subTest(model=model.__name__):
+                panel=admin.site._registry[model]
+                self.assertFalse(panel.has_add_permission(request))
+                self.assertFalse(panel.has_change_permission(request))
+                self.assertFalse(panel.has_delete_permission(request))
+
+    @override_settings(CLOUD_HOSTING_AUTO_STAGE_ENABLED=True)
+    def test_cron_rejects_missing_wrong_secret_and_never_accepts_browser_ids(self):
+        from rest_framework.test import APIClient
+        api=APIClient()
+        url="/api/provisioning/hosting-staging/cron/"
+        with patch.dict("os.environ",{"CRON_SECRET":"synthetic-secret-for-regression-only-123"}):
+            self.assertEqual(api.get(url).status_code,401)
+            self.assertEqual(api.get(url,HTTP_AUTHORIZATION="Bearer incorrect").status_code,401)
+            api.force_authenticate(self.order.client)
+            self.assertEqual(api.get(url+"?order_id="+str(self.order.pk)).status_code,401)
+            self.assertEqual(api.post(url,{"order_id":self.order.pk},format="json").status_code,405)
+            self.assertEqual(api.get(url,HTTP_AUTHORIZATION="Bearer synthetic-secret-for-regression-only-123").status_code,200)
+        self.assertFalse(ProvisioningTask.objects.exists())
