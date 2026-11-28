@@ -218,3 +218,38 @@ class CommercialSchedulerTests(TestCase):
         finish("mail",token,{"accepted":1,"secret":"must-not-store"})
         self.assertEqual(next(x for x in status() if x["lane"]=="mail")["metrics"],{"accepted":1})
         self.assertTrue(claim("mail"))
+
+    def test_portable_command_drains_productive_work_but_stops_when_idle(self):
+        from django.core.management import call_command
+        from io import StringIO
+        from unittest.mock import call
+        with patch("services.management.commands.run_commercial_lane.execute",
+                   side_effect=[{"state":"completed","accepted":1},{"state":"completed","accepted":0}]) as run:
+            output=StringIO()
+            call_command("run_commercial_lane","mail",stdout=output)
+            self.assertEqual(run.call_args_list,[call("mail"),call("mail")])
+            self.assertIn('"accepted": 0',output.getvalue())
+
+    def test_portable_command_bounded_and_reports_held(self):
+        from django.core.management import call_command,CommandError
+        from io import StringIO
+        with patch("services.management.commands.run_commercial_lane.execute",
+                   return_value={"state":"completed","processed":1}) as run:
+            call_command("run_commercial_lane","payments",stdout=StringIO())
+            self.assertEqual(run.call_count,8)
+        with patch("services.management.commands.run_commercial_lane.execute",
+                   return_value={"state":"held"}) as run:
+            with self.assertRaises(CommandError):
+                call_command("run_commercial_lane","payments",stdout=StringIO())
+            run.assert_called_once_with("payments")
+
+    @override_settings(CLOUD_COMMERCIAL_SCHEDULER_ENABLED=True)
+    def test_wakeup_only_after_commit_and_valid_lane(self):
+        from django.db import connection
+        from services.commercial_scheduler import wake
+        if connection.vendor!="postgresql":
+            self.skipTest("PostgreSQL notification transport.")
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            wake("mail")
+            wake("invalid")
+        self.assertEqual(len(callbacks),1)
