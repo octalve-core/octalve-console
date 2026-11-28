@@ -79,21 +79,24 @@ def planned_hosting_username(order_item_id):
     return "oc" + digits
 
 
-def stage_paid_order(order_id):
+def stage_paid_order(order_id, *, item_id=None):
     """Internal server-only staging under order locks; reruns are idempotent."""
     if not getattr(settings, "CLOUD_FULFILLMENT_STAGING_ENABLED", False):
         raise FulfillmentRefused("Hosting fulfillment staging is disabled.")
     with transaction.atomic():
+        if type(order_id) is not int or order_id < 1 or (item_id is not None and (type(item_id) is not int or item_id < 1)):
+            raise FulfillmentRefused("Invalid order or item identifier.")
+        # Match the settlement worker's invoice -> order lock ordering.
+        invoice = Invoice.objects.select_for_update().filter(order_id=order_id).first()
         try:
             order = Order.objects.select_for_update().get(pk=order_id)
-        except (Order.DoesNotExist, TypeError, ValueError):
+        except Order.DoesNotExist:
             raise FulfillmentRefused("Order not found.") from None
-        invoice = Invoice.objects.select_for_update().filter(order=order).first()
         if not invoice:
             raise FulfillmentRefused("Order is missing invoice.")
         if Invoice.objects.filter(order=order).exclude(pk=invoice.pk).exists():
             raise FulfillmentRefused("Multiple invoices require a manual reconciliation.")
-        if invoice.client_id != order.client_id or order.status != "paid":
+        if invoice.client_id != order.client_id or order.status != "paid" or invoice.total != order.total:
             raise FulfillmentRefused("Order ownership or settlement status is invalid.")
         payments = Transaction.objects.filter(invoice=invoice, status="successful")
         if payments.count() != 1:
@@ -103,9 +106,12 @@ def stage_paid_order(order_id):
             require_verified_settlement(invoice, payment)
         except SettlementNotVerified as exc:
             raise FulfillmentRefused(str(exc)) from None
-        items = list(OrderItem.objects.select_for_update().filter(order=order).order_by("pk"))
+        rows = OrderItem.objects.select_for_update().filter(order=order,item_type="hosting")
+        if item_id is not None:
+            rows=rows.filter(pk=item_id)
+        items = list(rows.order_by("pk"))
         if not items:
-            raise FulfillmentRefused("Paid order contains no items.")
+            raise FulfillmentRefused("Paid order contains no eligible hosting item.")
         results = []
         for item in items:
             provider, package, domain = _validate_item(item, invoice)
@@ -116,7 +122,7 @@ def stage_paid_order(order_id):
             if service:
                 if (service.client_id != order.client_id or service.order_id != order.pk
                         or service.invoice_id != invoice.pk or service.provider_id != provider.pk
-                        or service.status not in ("pending", "provisioning")
+                        or service.status not in ("pending", "provisioning", "active")
                         or service.domain_name != domain
                         or service.provider_package_id != package):
                     raise FulfillmentRefused("Existing service conflicts with the published order.")
@@ -145,7 +151,11 @@ def stage_paid_order(order_id):
                         or task.payload.get("expected_account") != planned_account
                         or task.metadata.get("settlement_transaction_id") != payment.pk):
                     raise FulfillmentRefused("Conflicting fulfillment idempotency key.")
+                if service.status == "active" and task.status != "completed":
+                    raise FulfillmentRefused("Active hosting has no completed supplier task.")
             else:
+                if service.status == "active":
+                    raise FulfillmentRefused("Active hosting is missing its original supplier task.")
                 task = ProvisioningTask.objects.create(
                     service=service, order=order, order_item=item,
                     provider=provider, adapter_type=provider.adapter_type,
