@@ -192,10 +192,22 @@ class ResourceProtocol:
         else:
             common={"api.version","cpanel.user","cpanel.module","cpanel.function"}
             valid=False
+            if not reseller and path=="/json-api/cpanel":
+                base={"cpanel_jsonapi_user":self.account,"cpanel_jsonapi_apiversion":"2","cpanel_jsonapi_module":"SubDomain"}
+                func=fields.get("cpanel_jsonapi_func")
+                if func=="listsubdomains":
+                    valid=method=="GET" and fields=={**base,"cpanel_jsonapi_func":func}
+                elif func=="delsubdomain":
+                    target=fields.get("domain","")
+                    suffix="."+self.domain
+                    valid=(method=="POST" and target.endswith(suffix)
+                           and fields=={**base,"cpanel_jsonapi_func":func,"domain":target}
+                           and subdomain_label(target[:-len(suffix)]))
             if not reseller and path=="/json-api/uapi_cpanel" and fields.get("api.version")=="1" and fields.get("cpanel.user")==self.account:
                 op=(method,fields.get("cpanel.module"),fields.get("cpanel.function"))
                 allowed={("GET","Email","list_pops_with_disk"):{"domain","no_validate"},
                          ("GET","DomainInfo","list_domains"):set(),
+                         ("POST","SubDomain","addsubdomain"):{"domain","rootdomain","dir","disallowdot"},
                          ("GET","Mysql","list_databases"):set(),
                          ("POST","Mysql","create_database"):{"name"},
                          ("POST","Mysql","delete_database"):{"name"},
@@ -208,12 +220,15 @@ class ResourceProtocol:
                 valid=op in allowed and set(fields)==common|allowed[op]
                 if valid and fields.get("cpanel.module")=="Mysql" and "name" in fields:
                     self._db_identity(fields["name"])
-                if "domain" in fields:
+                if op==("POST","SubDomain","addsubdomain") and valid:
+                    label=subdomain_label(fields["domain"])
+                    valid=fields["rootdomain"]==self.domain and fields["dir"]=="/public_html/"+label and fields["disallowdot"]=="1"
+                elif "domain" in fields:
                     valid=valid and fields["domain"]==self.domain
                 if "no_validate" in fields:
                     valid=valid and fields["no_validate"]=="0"
                 if "display" in fields:
-                    valid=valid and fields["display"] in ("emailaccounts|diskusage","sqldatabases")
+                    valid=valid and fields["display"] in ("emailaccounts|diskusage","sqldatabases","subdomains")
         if valid and method=="POST":
             target=fields.get("user",fields.get("email")) if path!="/CMD_API_DATABASES" and fields.get("cpanel.module")!="Mysql" else None
             if target is not None:
@@ -415,23 +430,74 @@ class ResourceProtocol:
         if _form(self._request("POST",path,fields)).get("error")!=["0"]:
             raise ResourceRefused("Supplier acknowledgement uncertain.")
 
+    def _subdomain_api2(self, method, func, fields):
+        # cPanel documents no UAPI equivalent for removal. Restrict the
+        # legacy bridge to these two operations; never accept a generic call.
+        response=self._request(method,"/json-api/cpanel",{
+            "cpanel_jsonapi_user":self.account,"cpanel_jsonapi_apiversion":"2",
+            "cpanel_jsonapi_module":"SubDomain","cpanel_jsonapi_func":func,**fields})
+        try:
+            if response.status_code!=200:
+                raise ValueError()
+            result=_unique_json(response)["cpanelresult"]
+            rows=result["data"]
+            if (str(result["apiversion"])!="2" or result["func"]!=func
+                    or result["module"]!="SubDomain" or str(result["event"]["result"])!="1"
+                    or result.get("error") or not isinstance(rows,list) or len(rows)>2000
+                    or any(not isinstance(row,dict) or ("result" in row and str(row["result"])!="1") for row in rows)):
+                raise ValueError()
+            return rows
+        except (ValueError,KeyError,TypeError,AttributeError):
+            raise ResourceRefused("Subdomain operation not confirmed.") from None
+
     def create_subdomain(self, label):
         subdomain_label(label)
-        if self.adapter!="directadmin":
-            raise ResourceRefused("Subdomain mutation is not yet qualified for this supplier.")
         domain_name(label+"."+self.domain)
-        self._da_ack("/CMD_API_SUBDOMAINS",{"domain":self.domain,"action":"create","subdomain":label})
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_SUBDOMAINS",{"domain":self.domain,"action":"create","subdomain":label})
+        else:
+            self._whm("POST","SubDomain","addsubdomain",{"domain":label,"rootdomain":self.domain,
+                       "dir":"/public_html/"+label,"disallowdot":"1"})
+
+    def subdomain_created(self, target):
+        if target not in self.subdomains():
+            return False
+        if self.adapter=="directadmin":
+            return True
+        suffix="."+self.domain
+        if not target.endswith(suffix):
+            return False
+        label=subdomain_label(target[:-len(suffix)])
+        rows=self._subdomain_api2("GET","listsubdomains",{})
+        matches=[row for row in rows if row.get("domain")==target]
+        return (len(matches)==1 and matches[0].get("rootdomain")==self.domain
+                and matches[0].get("subdomain")==label
+                and matches[0].get("basedir")=="public_html/"+label)
 
     def delete_subdomain(self, label):
         subdomain_label(label)
-        if self.adapter!="directadmin":
-            raise ResourceRefused("Subdomain mutation is not yet qualified for this supplier.")
         # Removing hosting configuration must not remove website files.
-        self._da_ack("/CMD_API_SUBDOMAINS",{"domain":self.domain,"action":"delete","select0":label,"contents":"no"})
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_SUBDOMAINS",{"domain":self.domain,"action":"delete","select0":label,"contents":"no"})
+        else:
+            target=label+"."+self.domain
+            # Avoid removing addon-domain backing subdomains or custom roots.
+            if not self.subdomain_created(target):
+                raise ResourceRefused("Subdomain document root not confirmed.")
+            rows=self._subdomain_api2("POST","delsubdomain",{"domain":target})
+            if len(rows)!=1 or str(rows[0].get("result"))!="1":
+                raise ResourceRefused("Subdomain removal not acknowledged.")
 
     def subdomain_capacity(self):
-        if self.adapter!="directadmin":
-            raise ResourceRefused("Subdomain capacity is not yet qualified for this supplier.")
+        if self.adapter=="cpanel-whm":
+            rows=self._whm("GET","StatsBar","get_stats",{"display":"subdomains"})
+            if not isinstance(rows,list) or len(rows)!=1 or not isinstance(rows[0],dict) or rows[0].get("id")!="subdomains":
+                raise ResourceRefused("Invalid subdomain capacity.")
+            item=rows[0]
+            maximum=_count(item.get("_max"),unlimited=True)
+            if maximum==0 and item.get("zeroisunlimited") in (1,"1"):
+                maximum=None
+            return _count(item.get("_count")),maximum
         cfg=_form(self._request("GET","/CMD_API_SHOW_USER_CONFIG",{"user":self.account},reseller=True))
         used=_form(self._request("GET","/CMD_API_SHOW_USER_USAGE",{"user":self.account},reseller=True))
         if cfg.get("username")!=[self.account] or cfg.get("domain")!=[self.domain]:

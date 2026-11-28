@@ -128,9 +128,17 @@ class ProtocolTests(SimpleTestCase):
             whm_adapter.change_mailbox_quota("sales",500)
             self.assertEqual(send.call_args_list[0].args[2]["cpanel.user"],"checkhost")
             self.assertEqual(send.call_args.args[2]["quota"],"500")
-        with patch.object(whm_adapter,"_request") as send,self.assertRaises(ResourceRefused):
+        with patch.object(whm_adapter,"_request",return_value=whm("SubDomain","addsubdomain",None)) as send:
             whm_adapter.create_subdomain("shop")
-        send.assert_not_called()
+            self.assertEqual(send.call_args.args[2]["rootdomain"],"example.test")
+            self.assertEqual(send.call_args.args[2]["dir"],"/public_html/shop")
+        with patch.object(whm_adapter,"subdomain_created",return_value=True),patch.object(
+                whm_adapter,"_subdomain_api2",return_value=[{"result":1}]) as send:
+            whm_adapter.delete_subdomain("shop")
+            send.assert_called_once_with("POST","delsubdomain",{"domain":"shop.example.test"})
+        with patch.object(whm_adapter,"subdomains",return_value=["shop.example.test"]),patch.object(
+                whm_adapter,"_subdomain_api2",return_value=[{"domain":"shop.example.test","rootdomain":"example.test","subdomain":"shop","basedir":"public_html/other"}]):
+            self.assertFalse(whm_adapter.subdomain_created("shop.example.test"))
 
     def test_database_inventory_checks_exact_account_prefix(self):
         da=self.adapter("directadmin")
@@ -287,8 +295,7 @@ class ResourceAuthorityTests(TestCase):
             self.assertEqual(response.status_code,200,response.data)
             send.assert_not_called()
 
-    def test_subdomain_mutations_disabled_for_unqualified_supplier(self):
-        self.policy["resource_capabilities"].append("subdomain_create")
+    def test_subdomain_mutations_disabled_without_signed_capability(self):
         with patch.object(ResourceProtocol,"create_subdomain") as send:
             response=self.api.post(self.base+"/resource-actions/subdomain_create/",{"local":"shop","confirm_password":"SyntheticConsolePassword"},format="json")
             self.assertEqual(response.status_code,409,response.data)

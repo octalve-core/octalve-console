@@ -41,8 +41,6 @@ def configure_execution(request,connection_id):
             raise ValidationError("Native resource release is not enabled.")
     try:
         row=IntegrationConnection.objects.get(pk=connection_id,state="draft",environment="live")
-        if row.adapter_key=="cpanel-whm" and "resource_capabilities" in data and any(x in capabilities for x in ("subdomain_create","subdomain_delete")):
-            raise ValidationError("Native subdomain mutations have not yet been qualified for this supplier.")
         if row.adapter_key not in ADAPTERS:
             raise ValidationError("Unsupported hosting supplier.")
         if row.adapter_key=="directadmin":

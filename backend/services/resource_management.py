@@ -277,8 +277,7 @@ def _observed(protocol, pending, password=None):
             return False
         initial=pending.get("initial_user")
         return initial is None or initial in protocol.database_users(target)
-    rows=protocol.subdomains()
-    return (target in rows) if operation=="subdomain_create" else (target not in rows)
+    return protocol.subdomain_created(target) if operation=="subdomain_create" else target not in protocol.subdomains()
 
 
 @sensitive_variables("password")
@@ -295,8 +294,6 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
     a=authority(subject,service_id,operation)
     if mailbox and local==a.service.provider_identifier.lower():
         raise ResourceRefused("Reserved account name.")
-    if not mailbox and not database and a.protocol.adapter!="directadmin":
-        raise ResourceRefused("Supplier subdomain mutation not qualified.")
     target=(a.protocol.database_name(local) if operation=="database_create" else a.protocol._db_identity(local)) if database else local+("@" if mailbox else ".")+a.service.domain_name
     if operation.endswith("_delete") and confirm_target!=target:
         raise ResourceRefused("Confirm the exact resource being removed.")
