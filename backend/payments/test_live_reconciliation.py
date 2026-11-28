@@ -195,3 +195,14 @@ class LiveReconciliationTests(TestCase):
         self.assertEqual(original.metadata["financial_exception_closure_v1"]["dispute_liability_minor"],5000)
         self.assertTrue(original.metadata["financial_exception_review_required"])
         self.assertFalse(Transaction.objects.filter(transaction_type="refund").exists())
+
+    def test_dispute_inventory_uses_documented_list_contract(self):
+        from .refund_authority import remote_disputes
+        from types import SimpleNamespace
+        original=SimpleNamespace(provider_reference="12345")
+        row={"id":99,"domain":"live","transaction":{"id":12345}}
+        with patch("payments.refund_authority._read",return_value=[row]) as read:
+            self.assertEqual(remote_disputes(original,"fixture"),[row])
+            read.assert_called_once_with("dispute","fixture",{"transaction":"12345","perPage":50,"page":1})
+        with patch("payments.refund_authority._read",return_value=[]):
+            self.assertEqual(remote_disputes(original,"fixture"),[])

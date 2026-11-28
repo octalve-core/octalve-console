@@ -77,7 +77,7 @@ def record_processed(original,proof,*,event_id=None):
     return row
 
 def remote_disputes(original,key):
-    rows=_read("dispute/transaction/"+numeric_id(original.provider_reference),key)
+    rows=_read("dispute",key,{"transaction":numeric_id(original.provider_reference),"perPage":50,"page":1})
     if not isinstance(rows,list) or len(rows)>=50:
         raise ExceptionRefused("Dispute inventory unavailable.")
     if any(not isinstance(x,dict) or x.get("domain")!="live" or remote_transaction(x.get("transaction"))!=original.provider_reference for x in rows):
