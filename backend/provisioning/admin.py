@@ -28,22 +28,14 @@ class ProvisioningTaskAdmin(admin.ModelAdmin):
         return '-'
     service_link.short_description = 'Service'
     
-    actions = ['retry_tasks', 'cancel_tasks']
-    
-    def retry_tasks(self, request, queryset):
-        for task in queryset.filter(status__in=['failed', 'retrying']):
-            task.status = 'queued'
-            task.scheduled_at = timezone.now()
-            task.save()
-        self.message_user(request, f"{queryset.count()} tasks queued for retry")
-    retry_tasks.short_description = "Retry selected tasks"
-    
-    def cancel_tasks(self, request, queryset):
-        for task in queryset.filter(status__in=['queued', 'retrying']):
-            task.status = 'cancelled'
-            task.save()
-        self.message_user(request, f"{queryset.count()} tasks cancelled")
-    cancel_tasks.short_description = "Cancel selected tasks"
+    actions = None
+    inlines = []
+    def has_add_permission(self,request):
+        return False
+    def has_change_permission(self,request,obj=None):
+        return False
+    def has_delete_permission(self,request,obj=None):
+        return False
 
 
 @admin.register(ProvisioningQueue)
