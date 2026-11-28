@@ -185,7 +185,7 @@ def business_snapshot(request):
             ).count(),
             "payment_months": month_rows,
             "accepted_dispute_liability":money(liability_total),
-            "open_financial_reviews":payment_receipts.filter(metadata__financial_exception_review_required=True).exclude(metadata__financial_exception_closure_v1__closed_at__isnull=False).count(),
+            "open_financial_reviews":payment_receipts.filter(metadata__financial_exception_review_required=True).filter(Q(metadata__financial_exception_closure_v1__closed_at__isnull=True)|Q(metadata__financial_exception_closure_v1__reopened=True)).count(),
         },
         "customers": {
             "registered_total": users.count(),

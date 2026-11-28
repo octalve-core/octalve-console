@@ -341,26 +341,29 @@ def run_due():
         return None
     row=Domain.objects.filter(status="pending",registrar__in=("cloudflare-registrar-live","resellerclub"),order_item__order__status="paid",
         metadata__live_domain_registration_v1__state__in=("queued","uncertain")).order_by("updated_at","pk").first()
-    if not row:
-        confirmed=Domain.objects.filter(registrar__in=("cloudflare-registrar-live","resellerclub"),management_kind="registrar",
-            metadata__live_domain_registration_v1__state="confirmed").filter(
-                Q(metadata__live_domain_registration_v1__reconcile_after__isnull=True)|
-                Q(metadata__live_domain_registration_v1__reconcile_after__lte=timezone.now().isoformat())
-            ).order_by("updated_at","pk").first()
-        if not confirmed:
-            return None
-        result=reconcile_confirmed(confirmed.pk)
-        if result=="held":
-            with transaction.atomic():
-                locked=Domain.objects.select_for_update().get(pk=confirmed.pk)
-                if locked.metadata.get(KEY)==confirmed.metadata.get(KEY):
-                    locked.metadata={**locked.metadata,KEY:{**locked.metadata[KEY],
-                        "reconcile_after":(timezone.now()+timedelta(hours=1)).isoformat()}}
-                    locked.save(update_fields=["metadata","updated_at"])
-        return result
+    if not row:return None
     result=transition(row.pk)
     if result=="held":
         Domain.objects.filter(pk=row.pk,status="pending").update(updated_at=timezone.now())
+    return result
+
+def run_due_confirmed():
+    if not enabled():return None
+    confirmed=Domain.objects.filter(registrar__in=("cloudflare-registrar-live","resellerclub"),management_kind="registrar",
+        metadata__live_domain_registration_v1__state="confirmed").filter(
+            Q(metadata__live_domain_registration_v1__reconcile_after__isnull=True)|
+            Q(metadata__live_domain_registration_v1__reconcile_after__lte=timezone.now().isoformat())
+        ).order_by("updated_at","pk").first()
+    if not confirmed:
+        return None
+    result=reconcile_confirmed(confirmed.pk)
+    if result=="held":
+        with transaction.atomic():
+            locked=Domain.objects.select_for_update().get(pk=confirmed.pk)
+            if locked.metadata.get(KEY)==confirmed.metadata.get(KEY):
+                locked.metadata={**locked.metadata,KEY:{**locked.metadata[KEY],
+                    "reconcile_after":(timezone.now()+timedelta(hours=1)).isoformat()}}
+                locked.save(update_fields=["metadata","updated_at"])
     return result
 
 def checkout_readiness(user,name):

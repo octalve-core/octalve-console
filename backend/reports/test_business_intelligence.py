@@ -23,7 +23,7 @@ class BusinessSnapshotTests(TestCase):
         cls.admin = users.objects.create_user(
             email="biz02-admin@example.invalid", username="biz02_admin",
             password="test-only", role="admin", is_staff=True)
-        cls.client = users.objects.create_user(
+        cls.customer = users.objects.create_user(
             email="biz02-client@example.invalid", username="biz02_client",
             password="test-only", role="client")
         cls.staff = users.objects.create_user(
@@ -35,32 +35,32 @@ class BusinessSnapshotTests(TestCase):
         now = timezone.now()
         future = now + timedelta(days=15)
         cls.invoice = Invoice.objects.create(
-            client=cls.client, invoice_number="INV-BIZ02-001", status="paid",
+            client=cls.customer, invoice_number="INV-BIZ02-001", status="paid",
             currency="NGN", due_date=future, total=Decimal("9999.00"),
             amount_paid=Decimal("9999.00"), paid_at=now)
         Transaction.objects.create(
-            client=cls.client, invoice=cls.invoice, reference="biz02-real-verified",
+            client=cls.customer, invoice=cls.invoice, reference="biz02-real-verified",
             currency="NGN", amount=Decimal("120.00"),
             net_amount=Decimal("116.00"), status="successful",
             webhook_verified=True, transaction_type="payment", paid_at=now)
         Transaction.objects.create(
-            client=cls.client, invoice=cls.invoice, reference="biz02-unverified",
+            client=cls.customer, invoice=cls.invoice, reference="biz02-unverified",
             currency="NGN", amount=Decimal("900.00"),
             net_amount=Decimal("890.00"), status="successful",
             webhook_verified=False, transaction_type="payment", paid_at=now)
         Transaction.objects.create(
-            client=cls.client, invoice=cls.invoice, reference="biz02-other-currency",
+            client=cls.customer, invoice=cls.invoice, reference="biz02-other-currency",
             currency="USD", amount=Decimal("50.00"),
             net_amount=Decimal("48.00"), status="successful",
             webhook_verified=True, transaction_type="payment", paid_at=now)
         for index in range(2):
             Transaction.objects.create(
-                client=cls.client, invoice=cls.invoice,
+                client=cls.customer, invoice=cls.invoice,
                 reference=f"biz02-failed-{index}", currency="NGN",
                 amount=Decimal("12.00"), net_amount=Decimal("12.00"),
                 status="failed", transaction_type="payment")
         Service.objects.create(
-            client=cls.client, product_id=1, plan_id=1,
+            client=cls.customer, product_id=1, plan_id=1,
             label="Active due service", status="active",
             billing_cycle="1mo", amount=Decimal("50.00"),
             next_due_date=now + timedelta(days=5))
@@ -72,7 +72,7 @@ class BusinessSnapshotTests(TestCase):
         return api
 
     def test_permissions_anonymous_client_staff_spoof_denied(self):
-        for user in (None, self.client, self.staff, self.spoof):
+        for user in (None, self.customer, self.staff, self.spoof):
             with self.subTest(user=user):
                 response = self.api(user).get("/api/reports/business-intelligence/")
                 self.assertIn(response.status_code, (401, 403), response.data)
@@ -117,11 +117,11 @@ class BusinessSnapshotTests(TestCase):
 
     def test_independently_confirmed_refund_reduces_net_not_gross(self):
         original=Transaction.objects.get(reference="biz02-real-verified")
-        Transaction.objects.create(client=self.client,invoice=self.invoice,reference="verified-reversal",
+        Transaction.objects.create(client=self.customer,invoice=self.invoice,reference="verified-reversal",
             currency="NGN",amount=Decimal("20"),net_amount=Decimal("-20"),status="successful",
             transaction_type="refund",paid_at=timezone.now(),webhook_verified=False,
             metadata={"provider_api_verified":True,"provider_refund_id":"123","original_payment_id":original.pk})
-        Transaction.objects.create(client=self.client,invoice=self.invoice,reference="unverified-reversal",
+        Transaction.objects.create(client=self.customer,invoice=self.invoice,reference="unverified-reversal",
             currency="NGN",amount=Decimal("90"),net_amount=Decimal("-90"),status="successful",
             transaction_type="refund",paid_at=timezone.now())
         result=self.api(self.admin).get("/api/reports/business-intelligence/")
