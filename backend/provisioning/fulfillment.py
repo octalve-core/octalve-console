@@ -94,6 +94,8 @@ def stage_paid_order(order_id, *, item_id=None):
             raise FulfillmentRefused("Order not found.") from None
         if not invoice:
             raise FulfillmentRefused("Order is missing invoice.")
+        if order.source=="renewal" or "hosting_renewal_v1" in order.metadata:
+            raise FulfillmentRefused("Renewal never creates a replacement hosting account.")
         if Invoice.objects.filter(order=order).exclude(pk=invoice.pk).exists():
             raise FulfillmentRefused("Multiple invoices require a manual reconciliation.")
         if invoice.client_id != order.client_id or order.status != "paid" or invoice.total != order.total:
