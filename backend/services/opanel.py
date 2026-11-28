@@ -28,6 +28,10 @@ def opanel_overview(service):
         "disk_unlimited": latest.raw_data.get("disk_unlimited") is True if isinstance(latest.raw_data, dict) else False,
         "bandwidth_unlimited": latest.raw_data.get("bandwidth_unlimited") is True if isinstance(latest.raw_data, dict) else False,
         "recorded_at": latest.recorded_at.isoformat(),
+        "resource_counts": {kind: latest.raw_data.get("resource_counts",{}).get(kind)
+                            for kind in ("email","database","subdomains")}
+                           if isinstance(latest.raw_data,dict) and isinstance(latest.raw_data.get("resource_counts"),dict)
+                           and latest.raw_data.get("source")=="verified_supplier_usage_v1" else {},
     }
     # No writable adapter, DNS, TLS or live HTTP evidence exists at this
     # boundary. Statuses stay unverified regardless of service.status.
