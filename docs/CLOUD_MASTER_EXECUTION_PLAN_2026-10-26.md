@@ -1,4 +1,6 @@
 # OCTALVE CLOUD — MASTER EXECUTION PLAN: CUSTOMER PURCHASE TO LIVE WEBSITE TO PRODUCTION
+
+> **Priority update — 28 November 2026:** [HOST-FINAL two-batch execution authority](hosting-final/README.md) supersedes this historical hosting task order and status snapshot. Existing safety and release controls remain in force. Do not use the historical PR or schema status as current evidence.
 **Version:** 1.0 | **Audited:** 26 October 2026 (Africa/Lagos) | **Classification:** canonical Review execution plan, NOT deployment approval
 **Primary owner:** Octalve Cloud | **Implementing repositories:** [Console](https://github.com/octalve-core/octalve-console), [OPanel](https://github.com/octalve-core/octalve-opanel)
 **Linked executable checklists:** [Acceptance matrix](CLOUD_MASTER_ACCEPTANCE_MATRIX_2026-10-26.md) · [Release operations](CLOUD_PRODUCTION_RELEASE_RUNBOOK_2026-10-26.md)

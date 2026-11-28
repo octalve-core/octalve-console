@@ -13,6 +13,8 @@ import {CloudRecordDirectory,type CloudRecord} from "@/components/data/CloudReco
 import {ErrorState} from "@/components/feedback/ErrorState";
 import {LoadingState} from "@/components/feedback/LoadingState";
 import {clientApi,type DomainRenewalStatus,type LiveDomainDNS} from "@/lib/api/endpoints";
+import {DNSAuthorityCheck} from "@/components/domain/DNSAuthorityCheck";
+import {DNSWriteControls} from "@/components/domain/DNSWriteControls";
 import {useAutoSync} from "@/lib/hooks/useAutoSync";
 import {normalizeDomain,displayDomainDate,type ClientDomainSnapshot} from "../utils/domain-contract";
 
@@ -195,11 +197,12 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
             </Panel>
           </WorkspaceGrid>:null}
           {mode==="dns"?<div className="space-y-4">
+            {domain&&<DNSAuthorityCheck key={id} domainId={id} domainName={domain.name}/>}
             <Panel>
               <h3 className="text-base font-medium text-console-ink">Live DNS records</h3>
               <p className="mt-2 text-sm leading-6 text-console-muted">
                 DNS details are retrieved directly from your approved provider. This page is
-                read-only: no record or nameserver can be changed here.
+                read-only by default. Changes require separate write authorization; nameserver changes remain disabled.
               </p>
               {dnsError?<p role="alert" className="mt-3 text-sm text-rose-700">
                 Live DNS access could not be verified. No stored records are shown as current.
@@ -253,6 +256,7 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
                 </button>}
               </div>:null}
             </Panel>
+            {domain&&liveDns?.state==="connected"&&!dnsError&&<DNSWriteControls key={id} domainId={id} domainName={domain.name} live={liveDns}/>}
             {liveDns?.state==="connected"&&!dnsError?<CloudRecordDirectory
               label="Live DNS records" records={dns}
               emptyMessage="No DNS records found."

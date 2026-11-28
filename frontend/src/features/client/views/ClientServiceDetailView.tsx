@@ -137,12 +137,12 @@ export function ClientServiceDetailView(){
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               {hosting?<ActionLink href={`/client/services/${encodeURIComponent(id)}/hosting-status`}>
-                Check hosting readiness
+                Manage hosting
               </ActionLink>:null}
               <ActionLink href="/client/support/new" variant="outline">Contact support</ActionLink>
               <ActionLink href="/client/invoices" variant="outline">My invoices</ActionLink>
             </div>
-            <ServiceCancellationRequest serviceId={id} serviceStatus={data.status}/>
+            <div id="cancellation" className="scroll-mt-24"><ServiceCancellationRequest serviceId={id} serviceStatus={data.status}/></div>
           </Panel>
         </div>:null}
       </div>

@@ -71,6 +71,21 @@ class DomainViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
         from .external_dns_claims import verify_claim
         return verify_claim(request)
 
+    @action(detail=True, methods=['get'], url_path='dns-authority')
+    def dns_authority(self, request, pk=None):
+        from .dns_authority import check
+        return check(request,self.get_object())
+
+    @action(detail=True, methods=['get'], url_path='dns-write-access')
+    def dns_write_access(self, request, pk=None):
+        from .dns_write import dispatch
+        return dispatch(request,self.get_object(),"access")
+
+    @action(detail=True, methods=['post'], url_path='dns-write/(?P<operation>consent|approve|revoke|mutate|reconcile)')
+    def dns_write(self, request, pk=None, operation=None):
+        from .dns_write import dispatch
+        return dispatch(request,self.get_object(),operation)
+
     @action(detail=True, methods=['get'], url_path='dns-access')
     def dns_access(self, request, pk=None):
         from . import dns_readonly
