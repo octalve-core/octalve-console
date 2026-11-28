@@ -3,7 +3,7 @@ import {useEffect,useRef,useState,type FormEvent} from "react";
 import {api} from "@/lib/api/client";
 
 type Mailbox={address:string;quota_mb:number|null;unlimited:boolean};
-type Inventory={resource:string;domain:string;items:Array<Mailbox|string>;verified_at:string};
+type Inventory={resource:string;domain:string;items:Array<Mailbox|string>;verified_at:string;pending_operation:boolean};
 type Result={state:"confirmed"|"pending_verification";operation_id:string;address?:string;password_status?:string};
 export function NativeHostingResources({serviceId,domain,capabilities}:{serviceId:string;domain:string;capabilities:Record<string,boolean>}){
  const [tab,setTab]=useState<"email"|"subdomains">("email");
@@ -19,7 +19,7 @@ export function NativeHostingResources({serviceId,domain,capabilities}:{serviceI
    const result=await api.get<Inventory>(base+"/resources/"+resource+"/");
    if(request!==sequence.current)return;
    if(result.resource!==resource||result.domain!==domain||!Array.isArray(result.items))throw Error("Unexpected resource inventory");
-   setData(result);
+   setData(result);setPending(result.pending_operation===true);
   }catch{if(request===sequence.current)setError("Could not confirm the supplier inventory. Please retry or contact support.")}
   finally{if(request===sequence.current)setBusy(false)}
  }
