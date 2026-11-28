@@ -49,5 +49,5 @@ export function SavedConnectionActions({connection,onVerified}:{
    {working?"Verifying…":hosting?"Verify and import packages":"Verify access"}</button>
   {message?<p role={failed?"alert":"status"} className={"text-xs leading-5 "+(failed?"text-rose-700":"text-emerald-700")}>
    {failed?<AlertTriangle aria-hidden="true" className="mr-1 inline h-4 w-4"/>:null}{message}</p>:null}
- </form>{hosting&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
+ </form>{hosting&&connection.hosting_policy_available===true&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
 }
