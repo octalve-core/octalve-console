@@ -50,6 +50,8 @@ def evaluate_payment_to_provisioning(invoice, transaction):
     if transaction.paid_at is None:
         return decline('Payment has no settled timestamp.')
     metadata = transaction.metadata if isinstance(transaction.metadata, dict) else {}
+    if metadata.get('financial_exception_review_required') is True:
+        return decline('Verified payment exception requires financial review.')
     source = metadata.get('verification_source')
     if source == 'signed_webhook_and_api_verification':
         if not transaction.webhook_verified:

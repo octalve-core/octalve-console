@@ -141,6 +141,11 @@ def verify_connection(request,connection_id):
             connector=CloudflareINT01(row.public_settings["account_id"],
                 FixedCloudflareTransport(secrets["api_token"]))
             proof=connector.sandbox_readback()
+        elif row.adapter_key=="cloudflare-registrar-live":
+            if row.environment!="live":
+                raise ProviderReadbackFailed()
+            connector=CloudflareINT01(row.public_settings["account_id"],FixedCloudflareTransport(secrets["api_token"]))
+            proof=connector.live_domain_check("example.com")
         elif row.adapter_key=="google-gemini":
             proof = verify_gemini(secrets["api_key"])
         elif row.adapter_key=="google-pagespeed":

@@ -21,6 +21,9 @@ def enabled():
 def consume(event_id):
     if not enabled():
         return "disabled"
+    from .financial_exceptions import EVENTS,consume as consume_exception
+    if WebhookEvent.objects.filter(pk=event_id,event_type__in=EVENTS).exists():
+        return consume_exception(event_id)
     event=WebhookEvent.objects.select_related("gateway").filter(pk=event_id,is_verified=True,
         event_type="charge.success",gateway__code="paystack",gateway__test_mode=False,gateway__status="active").first()
     if not event:
@@ -52,7 +55,8 @@ def run_due(limit=5):
     result={"enabled":enabled(),"processed":0,"held":0}
     if not result["enabled"]:
         return result
-    ids=list(WebhookEvent.objects.filter(is_verified=True,is_processed=False,event_type="charge.success",
+    from .financial_exceptions import EVENTS
+    ids=list(WebhookEvent.objects.filter(is_verified=True,is_processed=False,event_type__in=["charge.success",*EVENTS],
         gateway__code="paystack",gateway__test_mode=False,gateway__status="active",payload__mode="live")
         .order_by(F("error_message").asc(nulls_first=True),"pk").values_list("pk",flat=True)[:min(max(int(limit),1),10)])
     for pk in ids:

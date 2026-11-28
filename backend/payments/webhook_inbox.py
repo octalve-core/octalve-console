@@ -42,6 +42,12 @@ def accept_signed_event(gateway_code, raw_body, headers):
     if not isinstance(packet, dict) or not isinstance(packet.get("data"), dict):
         raise WebhookRejected("Webhook payload is invalid.")
     event = packet.get("event")
+    from .financial_exceptions import EVENTS,record_signed,ExceptionRefused
+    if gateway_code=="paystack" and event in EVENTS and not gateway.test_mode:
+        try:
+            return record_signed(gateway,event,packet["data"])
+        except ExceptionRefused:
+            raise WebhookRejected("Financial notification not accepted.") from None
     if event not in (("charge.success",) if gateway_code == "paystack"
                      else ("charge.completed",)):
         return None, False

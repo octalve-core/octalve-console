@@ -1,0 +1,7 @@
+# FINAL-PAYMENT + FINAL-DOMAIN coordinated batch
+
+First increment: signed Paystack refund/dispute inbox, fixed-origin independent case readback, exact original transaction matching, redacted audit and admin review endpoint, new fulfillment review hold. No original ledger reversal, refund submission or dispute resolution yet. Cloudflare live availability credential verification now shares standard Integration Store MFA verification; the existing published TLD route is still read-only. Full paid domain execution, transfer/EPP, renewal, nameserver and contact workflow are outstanding. Do not advertise this increment as a completed registrar or financial lifecycle.
+
+Vendor references: https://paystack.com/docs/api/refund/ ; https://paystack.com/docs/api/dispute/ ; https://paystack.com/docs/payments/webhooks/ ; https://developers.cloudflare.com/registrar/registrar-api/ ; https://developers.cloudflare.com/api/resources/registrar/ ; https://manage.resellerclub.com/kb/answer/750 .
+
+Use existing credential vault, no new secret settings. Cloudflare registrar API supports only specific operations/TLDs and account-owned zones; ResellerClub uses customer/contact IDs and separate supplier contracts. Never assume arbitrary nameservers or transfer-out EPP support. Do not perform real refunds, charges or registrations in synthetic acceptance. Remaining financial work must account for partial/full refunds, cumulative caps, late successes, dispute resolution, administrative MFA and ledger impact without compromising existing hosting renewal authority. 

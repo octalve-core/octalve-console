@@ -44,3 +44,33 @@ class LiveReconciliationTests(TestCase):
             self.assertEqual(consume(self.event.pk),"held")
             read.assert_not_called()
         self.assertFalse(Transaction.objects.exists())
+
+    def test_financial_exception_readback_is_separate_from_settlement(self):
+        from .financial_exceptions import consume as consume_exception
+        proof=ConfirmedGatewayPayment("paystack",self.intent.reference,"NGN",Decimal("100"),"12345")
+        with patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.live_binding.resolve_live_key",return_value="fixture"),patch("payments.settlement.verify_gateway_intent",return_value=proof):
+            self.assertEqual(consume(self.event.pk),"processed")
+        refund=WebhookEvent.objects.create(gateway=self.intent.gateway,event_id="refund-fixture",event_type="refund.processed",is_verified=True,
+            payload={"mode":"live","binding":self.intent.gateway.config,"case_id":"99","transaction_id":"12345"})
+        data={"id":99,"transaction":12345,"domain":"live","status":"processed","amount":5000,"currency":"NGN"}
+        with patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"),patch("payments.financial_exceptions.fetch_case",return_value=data) as read:
+            self.assertEqual(consume_exception(refund.pk),"processed")
+            self.assertEqual(consume_exception(refund.pk),"processed")
+            read.assert_called_once()
+        original=Transaction.objects.get(invoice=self.invoice)
+        self.assertTrue(original.metadata["financial_exception_review_required"])
+        self.assertEqual(original.amount,Decimal("100"))
+        self.assertEqual(original.status,"successful")
+        from provisioning.authority import evaluate_payment_to_provisioning
+        self.invoice.refresh_from_db()
+        self.assertFalse(evaluate_payment_to_provisioning(self.invoice,original).approved)
+
+    def test_financial_exception_rejects_wrong_remote_identity(self):
+        from .financial_exceptions import consume as consume_exception
+        event=WebhookEvent.objects.create(gateway=self.intent.gateway,event_id="dispute-fixture",event_type="charge.dispute.create",is_verified=True,
+            payload={"mode":"live","binding":self.intent.gateway.config,"case_id":"99","transaction_id":"12345"})
+        data={"id":99,"transaction":{"id":99999},"domain":"live","status":"pending","refund_amount":None,"currency":None}
+        with patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"),patch("payments.financial_exceptions.fetch_case",return_value=data):
+            self.assertEqual(consume_exception(event.pk),"held")
+        event.refresh_from_db()
+        self.assertFalse(event.is_processed)
