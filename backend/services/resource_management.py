@@ -25,7 +25,7 @@ from providers.hosting_runtime import load_hosting_connection
 from providers.models import Provider
 from providers.pinned_egress import SupplierEgressDenied
 from .models import Service
-from .resource_protocol import ResourceProtocol, ResourceRefused, mailbox_name, subdomain_label, database_suffix, strong_password
+from .resource_protocol import DB_PROFILES,  ResourceProtocol, ResourceRefused, mailbox_name, subdomain_label, database_suffix, strong_password
 
 FENCE = "native_resource_mutation_v1"
 
@@ -109,14 +109,14 @@ def _budget(subject, *, write=False):
 
 
 def list_resources(subject,service_id,resource):
-    operation={"email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read","credentials":"hosting_password"}.get(resource)
+    operation={"email":"mailbox_read","subdomains":"subdomain_read","databases":"database_read","credentials":"hosting_password","db_users":"database_user_read"}.get(resource)
     if not operation:
         raise ResourceRefused("Resource unavailable.")
     _budget(subject)
     a=authority(subject,service_id,operation)
     verify_existing_account(a.service,a.provider)
     a=_current(a,operation)
-    rows={"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[]}[resource]()
+    rows={"email":a.protocol.mailboxes,"subdomains":a.protocol.subdomains,"databases":a.protocol.databases,"credentials":lambda:[],"db_users":a.protocol.all_database_users}[resource]()
     fresh=_current(a,operation)
     return {"resource":resource,"domain":a.service.domain_name,"items":rows,
             "pending_operation":fresh.service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain",
@@ -252,7 +252,7 @@ def _same_password(pending,password):
     return hmac.compare_digest(current["mac"],receipt.get("mac",""))
 
 
-OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password"}
+OBSERVABLE_MUTATIONS = {"mailbox_delete","mailbox_quota","subdomain_create","subdomain_delete","mailbox_password","database_create","database_delete","hosting_password","database_user_create","database_user_delete","database_grants"}
 
 
 @sensitive_variables("password")
@@ -271,6 +271,12 @@ def _observed(protocol, pending, password=None):
                     and matching[0]["unlimited"]==pending["unlimited"]
                     and _same_password(pending,password) and protocol.verify_mailbox_password(target.split("@")[0],password))
         return len(matching)==1 and matching[0]["quota_mb"]==pending["quota_mb"] and not matching[0]["unlimited"]
+    if operation in ("database_user_create","database_user_delete","database_grants"):
+        db=pending.get("database")
+        if operation=="database_grants":
+            return protocol.database_grants(db,target)==sorted(DB_PROFILES[pending["profile"]])
+        rows=protocol.database_users(db) if db is not None else protocol.all_database_users()
+        return (target in rows) if operation=="database_user_create" else (target not in rows)
     if operation.startswith("database_"):
         rows=protocol.databases()
         if operation=="database_delete":
@@ -283,7 +289,7 @@ def _observed(protocol, pending, password=None):
 
 
 @sensitive_variables("password")
-def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_target=None,password=None,initial_user=None):
+def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_target=None,password=None,initial_user=None,database_name=None,profile=None):
     if operation not in OBSERVABLE_MUTATIONS:
         raise ResourceRefused("Unknown resource operation.")
     mailbox=operation.startswith("mailbox_")
@@ -295,14 +301,14 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
         strong_password(password)
     elif not database:
         (mailbox_name if mailbox else subdomain_label)(local)
-    elif operation=="database_create":
+    elif operation in ("database_create","database_user_create"):
         database_suffix(local)
     _budget(subject,write=True)
     a=authority(subject,service_id,operation)
     if mailbox and local==a.service.provider_identifier.lower():
         raise ResourceRefused("Reserved account name.")
-    target=a.protocol.account if hosting else (a.protocol.database_name(local) if operation=="database_create" else a.protocol._db_identity(local)) if database else local+("@" if mailbox else ".")+a.service.domain_name
-    if operation.endswith("_delete") and confirm_target!=target:
+    target=a.protocol.account if hosting else (a.protocol.database_name(local) if operation in ("database_create","database_user_create") else a.protocol._db_identity(local)) if database else local+("@" if mailbox else ".")+a.service.domain_name
+    if operation.endswith("_delete") and confirm_target!=(target+" @ "+database_name if operation=="database_user_delete" and isinstance(database_name,str) else target):
         raise ResourceRefused("Confirm the exact resource being removed.")
     if operation=="mailbox_quota" and (type(quota) is not int or not 1<=quota<=1000000):
         raise ResourceRefused("Invalid mailbox quota.")
@@ -326,6 +332,32 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
                 raise ResourceRefused("Storage quota exceeds hosting limit.")
             if matches[0]["quota_mb"]==quota and not matches[0]["unlimited"]:
                 return {"state":"confirmed","address":target,"unchanged":True}
+    elif operation in ("database_user_create","database_user_delete","database_grants"):
+        if database_name is not None:
+            a.protocol._db_identity(database_name)
+            if database_name not in a.protocol.databases():
+                raise ResourceRefused("Database not independently identified.")
+        if operation=="database_grants":
+            if database_name is None or not isinstance(profile,str) or profile not in DB_PROFILES:
+                raise ResourceRefused("Provide an owned database and supported privilege profile.")
+            if target not in a.protocol.all_database_users():
+                raise ResourceRefused("Database user not independently identified.")
+            if a.protocol.adapter=="directadmin" and target not in a.protocol.database_users(database_name):
+                raise ResourceRefused("Create a DirectAdmin database user on this database first.")
+        else:
+            if (database_name is None)==(a.protocol.adapter=="directadmin"):
+                raise ResourceRefused("Unexpected database user scope.")
+            if operation=="database_user_create":
+                strong_password(password)
+                if a.protocol.user_exists(target):
+                    raise ResourceRefused("Database user already exists.")
+                # Bound user count independent of provider package database limit.
+                if len(a.protocol.all_database_users())>=100:
+                    raise ResourceRefused("Database user limit reached.")
+            else:
+                members=a.protocol.database_users(database_name) if database_name else a.protocol.all_database_users()
+                if target not in members:
+                    raise ResourceRefused("Database user not independently identified.")
     elif database:
         rows=a.protocol.databases()
         if operation=="database_create":
@@ -335,6 +367,8 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
             if a.protocol.adapter=="directadmin":
                 database_suffix(initial_user)
                 strong_password(password)
+                if a.protocol.user_exists(a.protocol.database_name(initial_user)):
+                    raise ResourceRefused("Initial database user already exists.")
             elif initial_user is not None or password is not None:
                 raise ResourceRefused("Create cPanel database users separately.")
         elif target not in rows:
@@ -352,6 +386,10 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
              "state":"dispatched_uncertain","created_at":timezone.now().isoformat()}
     if operation=="database_create" and initial_user is not None:
         pending["initial_user"]=a.protocol.database_name(initial_user)
+    if operation in ("database_user_create","database_user_delete","database_grants"):
+        pending["database"]=database_name
+        if operation=="database_grants":
+            pending["profile"]=profile
     if hosting:
         pending["password_receipt"]=_password_receipt(event,password)
     if operation=="mailbox_quota":
@@ -383,6 +421,12 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
             a.protocol.create_database(local,initial_user=initial_user,password=password)
         elif operation=="database_delete":
             a.protocol.delete_database(target)
+        elif operation=="database_user_create":
+            a.protocol.create_database_user(local,password,database_name)
+        elif operation=="database_user_delete":
+            a.protocol.delete_database_user(target,database_name)
+        elif operation=="database_grants":
+            a.protocol.set_database_grants(database_name,target,profile)
         elif operation=="subdomain_create":
             a.protocol.create_subdomain(local)
         else:
@@ -390,7 +434,7 @@ def mutate_resource(subject,service_id,*,operation,local,quota=None,confirm_targ
         if not _observed(a.protocol,pending,password):
             raise ResourceRefused("Supplier outcome not confirmed.")
         _finish(a,event,"confirmed",operation)
-        return {"state":"confirmed","operation_id":event,"address":target,**({"password_status":"unverified"} if operation=="database_create" and initial_user is not None else {})}
+        return {"state":"confirmed","operation_id":event,"address":target,**({"password_status":"unverified"} if operation=="database_user_create" or (operation=="database_create" and initial_user is not None) else {})}
     except (ResourceRefused,ReadbackRejected,SupplierEgressDenied,VaultUnavailable,DatabaseError,
             Service.DoesNotExist,IntegrationConnection.DoesNotExist,Provider.DoesNotExist):
         return {"state":"pending_verification","operation_id":event}
@@ -419,4 +463,4 @@ def reconcile_resource(subject,service_id,*,password=None):
     if not _observed(a.protocol,pending,password):
         return {"state":"pending_verification","operation_id":pending["id"]}
     _finish(a,pending["id"],"confirmed",operation)
-    return {"state":"confirmed","operation_id":pending["id"],"address":pending["address"],**({"password_status":"unverified"} if operation=="database_create" and pending.get("initial_user") else {})}
+    return {"state":"confirmed","operation_id":pending["id"],"address":pending["address"],**({"password_status":"unverified"} if operation=="database_user_create" or (operation=="database_create" and pending.get("initial_user")) else {})}

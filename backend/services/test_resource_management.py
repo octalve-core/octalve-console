@@ -162,6 +162,26 @@ class ProtocolTests(SimpleTestCase):
         with self.assertRaises(ResourceRefused):
             da._check_request("POST","/CMD_API_USER_PASSWD",{"username":"victim","passwd":secret,"passwd2":secret},True)
 
+    def test_database_mutations_and_privileges_scoped_to_account(self):
+        da=self.adapter("directadmin")
+        with patch.object(da,"_request",return_value=SupplierReadResponse(200,b"error=0")) as send:
+            da.create_database("site",initial_user="app",password="SyntheticDatabasePassword!")
+            self.assertEqual(send.call_args.args[2]["name"],"site")
+            da.create_database_user("app","SyntheticDatabasePassword!","checkhost_site")
+            self.assertEqual(send.call_args.args[2]["name"],"checkhost_site")
+            da.set_database_grants("checkhost_site","checkhost_app","read_only")
+            self.assertEqual(send.call_args.args[2]["grant"],"N")
+            self.assertEqual(send.call_args.args[2]["select"],"Y")
+            self.assertEqual(send.call_args.args[2]["delete"],"N")
+        with self.assertRaises(ResourceRefused):
+            da.set_database_grants("victim_site","checkhost_app","read_only")
+        whm_adapter=self.adapter("cpanel-whm")
+        with patch.object(whm_adapter,"_request",return_value=whm("Mysql","set_privileges_on_database",None)) as send:
+            whm_adapter.set_database_grants("checkhost_site","checkhost_app","read_write")
+            self.assertEqual(send.call_args.args[2]["privileges"],"SELECT,INSERT,UPDATE,DELETE")
+        with self.assertRaises(ResourceRefused):
+            whm_adapter.set_database_grants("checkhost_site","checkhost_app","ALL PRIVILEGES")
+
     def test_invalid_names_and_capability_dependency(self):
         for name in ("root","cpanel","postmaster","../x","x@other.test","x..y","a."):
             with self.assertRaises(ResourceRefused):

@@ -18,6 +18,10 @@ LOCAL = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}\Z")
 LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\Z")
 
 
+DB_GRANTS={"select":"SELECT","insert":"INSERT","update":"UPDATE","delete":"DELETE","create":"CREATE","drop":"DROP","alter":"ALTER","index":"INDEX","reference":"REFERENCES","tmp_table":"CREATE TEMPORARY TABLES","lock_table":"LOCK TABLES","grant":"GRANT OPTION"}
+DB_PROFILES={"read_only":("SELECT",),"read_write":("SELECT","INSERT","UPDATE","DELETE"),"application":tuple(v for k,v in DB_GRANTS.items() if k!="grant")}
+
+
 class ResourceRefused(ValueError):
     """Redacted supplier failure."""
 
@@ -184,7 +188,24 @@ class ResourceProtocol:
                      and strong_password(fields["passwd"]) and fields["passwd"]==fields["passwd2"]) or
                     (set(fields)=={"action","select0"} and fields["action"]=="delete" and self._db_identity(fields["select0"]))))
             elif path=="/CMD_API_DB_USER":
-                valid=method=="GET" and set(fields)=={"name"} and self._db_identity(fields["name"])
+                valid=(method=="GET" and (fields=={"action":"all_users"} or
+                    (set(fields)=={"name"} and self._db_identity(fields["name"]))))
+                if method=="POST" and fields.get("action")=="create":
+                    valid=(set(fields)=={"action","name","user","passwd","passwd2"}
+                           and self._db_identity(fields["name"]) and database_suffix(fields["user"])
+                           and strong_password(fields["passwd"]) and fields["passwd"]==fields["passwd2"])
+                if method=="POST" and fields.get("action")=="delete":
+                    valid=(set(fields)=={"action","name","select0"} and self._db_identity(fields["name"])
+                           and self._db_identity(fields["select0"]))
+            elif path=="/CMD_API_DB_USER_PRIVS":
+                if method=="GET":
+                    valid=(set(fields)=={"DOMAIN","name","user"} and fields["DOMAIN"]==self.domain
+                           and self._db_identity(fields["name"]) and self._db_identity(fields["user"]))
+                elif method=="POST":
+                    valid=(set(fields)=={"action","domain","name","user"}|set(DB_GRANTS)
+                           and fields["action"]=="save" and fields["domain"]==self.domain
+                           and self._db_identity(fields["name"]) and self._db_identity(fields["user"])
+                           and fields["grant"]=="N" and all(fields[k] in ("Y","N") for k in DB_GRANTS))
             elif path=="/CMD_API_EMAIL_AUTH":
                 valid=method=="POST" and set(fields)=={"email","passwd"} and fields["email"].endswith("@"+self.domain)
                 if valid:
@@ -220,6 +241,11 @@ class ResourceProtocol:
                          ("GET","Mysql","list_databases"):set(),
                          ("POST","Mysql","create_database"):{"name"},
                          ("POST","Mysql","delete_database"):{"name"},
+                         ("GET","Mysql","list_users"):set(),
+                         ("POST","Mysql","create_user"):{"name","password"},
+                         ("POST","Mysql","delete_user"):{"name"},
+                         ("GET","Mysql","get_privileges_on_database"):{"database","user"},
+                         ("POST","Mysql","set_privileges_on_database"):{"database","user","privileges"},
                          ("POST","Email","add_pop"):{"email","domain","password","quota"},
                          ("POST","Email","delete_pop"):{"email","domain"},
                          ("POST","Email","edit_pop_quota"):{"email","domain","quota"},
@@ -227,8 +253,14 @@ class ResourceProtocol:
                          ("POST","Email","verify_password"):{"email","password"},
                          ("GET","StatsBar","get_stats"):{"display"}}
                 valid=op in allowed and set(fields)==common|allowed[op]
-                if valid and fields.get("cpanel.module")=="Mysql" and "name" in fields:
-                    self._db_identity(fields["name"])
+                if valid and fields.get("cpanel.module")=="Mysql":
+                    for key in ("name","database","user"):
+                        if key in fields:
+                            self._db_identity(fields[key])
+                    if "password" in fields:
+                        strong_password(fields["password"])
+                    if "privileges" in fields:
+                        valid=fields["privileges"] in {",".join(v) for v in DB_PROFILES.values()}
                 if op==("POST","SubDomain","addsubdomain") and valid:
                     label=subdomain_label(fields["domain"])
                     valid=fields["rootdomain"]==self.domain and fields["dir"]=="/public_html/"+label and fields["disallowdot"]=="1"
@@ -239,7 +271,7 @@ class ResourceProtocol:
                 if "display" in fields:
                     valid=valid and fields["display"] in ("emailaccounts|diskusage","sqldatabases","subdomains")
         if valid and method=="POST":
-            target=fields.get("user",fields.get("email")) if path not in ("/CMD_API_DATABASES","/CMD_API_VERIFY_PASSWORD","/json-api/passwd") and fields.get("cpanel.module")!="Mysql" else None
+            target=fields.get("user",fields.get("email")) if path not in ("/CMD_API_DATABASES","/CMD_API_VERIFY_PASSWORD","/json-api/passwd","/CMD_API_DB_USER","/CMD_API_DB_USER_PRIVS") and fields.get("cpanel.module")!="Mysql" else None
             if target is not None:
                 if (path=="/CMD_API_EMAIL_AUTH" or fields.get("cpanel.function") in ("passwd_pop","verify_password")) and "@" not in target:
                     raise ResourceRefused("Full mailbox identity is required.")
@@ -601,7 +633,7 @@ class ResourceProtocol:
             if len(matches)!=1:
                 raise ResourceRefused("Database not independently identified.")
             names=_list_names(matches[0].get("users"))
-        return sorted(self._db_identity(x) for x in names)
+        return sorted(self._db_identity(x) for x in names if x!=self.account)
 
     @sensitive_variables("password")
     def create_database(self, local, *, initial_user=None, password=None):
@@ -681,3 +713,85 @@ class ResourceProtocol:
             return False
         finally:
             pool.close()
+
+
+    def all_database_users(self):
+        if self.adapter=="directadmin":
+            response=self._request("GET","/CMD_API_DB_USER",{"action":"all_users"})
+            # DA documents a URL-encoded map (full name -> local suffix).
+            # Empty body is accepted only on HTTP 200 for this exact inventory,
+            # and database memberships are also checked before creation.
+            if response.status_code==200 and response.content==b"":
+                return []
+            fields=_form(response)
+            names=[]
+            for name,values in fields.items():
+                if name=="error" and values==["0"]:
+                    continue
+                self._db_identity(name)
+                if values!=[name[len(self.account)+1:]]:
+                    raise ResourceRefused("Unexpected database-user identity.")
+                names.append(name)
+            return sorted(_list_names(names))
+        rows=self._whm("GET","Mysql","list_users",{})
+        if not isinstance(rows,list) or len(rows)>2000 or any(not isinstance(row,dict) for row in rows):
+            raise ResourceRefused("Invalid database-user inventory.")
+        return sorted(self._db_identity(name) for name in _list_names([row.get("user") for row in rows]) if name!=self.account)
+
+    def user_exists(self,user):
+        user=self._db_identity(user)
+        if user in self.all_database_users():
+            return True
+        if self.adapter=="directadmin":
+            # Avoid reusing an existing user and resetting its password.
+            databases=self.databases()
+            if len(databases)>25:
+                raise ResourceRefused("Database membership inventory exceeds bounded inspection.")
+            return any(user in self.database_users(db) for db in databases)
+        return False
+
+    @sensitive_variables("password")
+    def create_database_user(self,local,password,database=None):
+        user=self.database_name(local)
+        strong_password(password)
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_DB_USER",{"action":"create","name":self._db_identity(database),
+                       "user":local,"passwd":password,"passwd2":password})
+        else:
+            if database is not None:
+                raise ResourceRefused("Assign database privileges separately.")
+            self._whm("POST","Mysql","create_user",{"name":user,"password":password})
+
+    def delete_database_user(self,user,database=None):
+        user=self._db_identity(user)
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_DB_USER",{"action":"delete","name":self._db_identity(database),"select0":user})
+        else:
+            if database is not None:
+                raise ResourceRefused("Unexpected database for account-wide deletion.")
+            self._whm("POST","Mysql","delete_user",{"name":user})
+
+    def database_grants(self,database,user):
+        database,user=self._db_identity(database),self._db_identity(user)
+        if self.adapter=="directadmin":
+            fields=_form(self._request("GET","/CMD_API_DB_USER_PRIVS",{
+                "DOMAIN":self.domain,"name":database,"user":user}))
+            if set(fields)-{"error"}!=set(DB_GRANTS) or any(fields[k] not in (["Y"],["N"]) for k in DB_GRANTS):
+                raise ResourceRefused("Unrecognized database privilege inventory.")
+            return sorted(DB_GRANTS[k] for k in DB_GRANTS if fields[k]==["Y"])
+        grants=_list_names(self._whm("GET","Mysql","get_privileges_on_database",{"database":database,"user":user}))
+        # Preserve unknown existing grants in readback; they never become a
+        # permitted write profile or a successful match.
+        return sorted(grants)
+
+    def set_database_grants(self,database,user,profile):
+        database,user=self._db_identity(database),self._db_identity(user)
+        if profile not in DB_PROFILES:
+            raise ResourceRefused("Unsupported database privilege profile.")
+        grants=DB_PROFILES[profile]
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_DB_USER_PRIVS",{"action":"save","domain":self.domain,
+                "name":database,"user":user,**{k:"Y" if v in grants else "N" for k,v in DB_GRANTS.items()}})
+        else:
+            self._whm("POST","Mysql","set_privileges_on_database",{"database":database,"user":user,
+                      "privileges":",".join(grants)})
