@@ -1,0 +1,7 @@
+# HOST-FINAL-02 — Commercial lifecycle execution
+
+Owner authorized implementation on 28 November 2026. Baseline main 37e2be08d5928393ad78274354ab1a742c289ede, PR #182 merged; API dpl_3KNo7dAGAzcEdGnpMKkh2aqa93pJ and Console dpl_39dkfvWAMPBzUe1QFm3tqSZdjqvf production READY, public HTTP 200. PR #180 is the single coordinated Batch 2 branch, reconciled against this baseline. The full approved scope and safety gates are in [README](README.md), Batch 2.
+
+Implement live signed Paystack inbox and exact independent settlement; paid-item fulfillment; calendar-term renewal invoices and one-time extension; verified Brevo and Resend transactional delivery with safe fallback; reminders and verified lifecycle transitions; bounded authenticated workers and admin policies. No live charges, supplier changes, unapproved business policy, permanent termination, secret copying, or automatic card debits. Keep all new execution gates default off until qualified. Use official vendor docs, full CI and real production smoke evidence. Real-provider acceptance remains separate.
+
+Initial changes: merge current main into PR #180 preserving the original mail branch; connect the Brevo MFA sender policy to saved Integration Store connections; schedule its bounded worker daily without changing Vercel plan; correct the two escaped hosting dashboard validation expressions. Daily schedule is only recovery infrastructure, not sufficient for commercial latency. Remaining lifecycle implementation and release gates remain open.
