@@ -48,6 +48,7 @@ def opanel_overview(service):
         "mailbox_create": "mailbox_create" in resource_caps,
         "mailbox_delete": "mailbox_delete" in resource_caps,
         "mailbox_quota": "mailbox_quota" in resource_caps,
+        "mailbox_password": "mailbox_password" in resource_caps,
         "subdomain_create": "subdomain_create" in resource_caps,
         "subdomain_delete": "subdomain_delete" in resource_caps,
         "panel_sso": panel_allowed,
