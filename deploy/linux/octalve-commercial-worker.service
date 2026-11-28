@@ -1,0 +1,22 @@
+[Unit]
+Description=Octalve Cloud commercial queue and recovery worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=octalve
+Group=octalve
+WorkingDirectory=/srv/octalve/backend
+EnvironmentFile=/etc/octalve/backend.env
+ExecStart=/srv/octalve/.venv/bin/python /srv/octalve/backend/scripts/commercial_worker.py
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=20
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

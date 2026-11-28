@@ -21,6 +21,26 @@ from settings_registry.models import Setting,SettingGroup
 PREFIX="commercial_worker_v1_"
 LANES=("payments","staging","provisioning","mail","renewals","lifecycle","cancellation")
 LEASE=timedelta(minutes=6)
+# The Linux runner kills each child after 240 seconds. HTTP runtimes may
+# allow up to 1800 seconds; keep their recovery lease beyond that bound.
+HTTP_LEASE=timedelta(minutes=35)
+INTERVALS={"payments":300,"staging":300,"provisioning":300,"mail":300,
+           "renewals":3600,"lifecycle":1800,"cancellation":3600}
+CHANNEL="octalve_commercial_wakeup"
+
+def wake(lane):
+    """Best-effort signal only; persisted business records remain the queue."""
+    if lane not in LANES or not enabled() or connection.vendor!="postgresql":
+        return
+    def send():
+        try:
+            with transaction.atomic(), connection.cursor() as cursor:
+                cursor.execute("SELECT pg_notify(%s,%s)",[CHANNEL,lane])
+        except DatabaseError:
+            # Periodic recovery is authoritative even if a signal is lost.
+            pass
+    transaction.on_commit(send,robust=True)
+
 
 def enabled():
     return bool(getattr(settings,"CLOUD_COMMERCIAL_SCHEDULER_ENABLED",False))
@@ -35,13 +55,15 @@ def _state(row):
     return {}
 
 @transaction.atomic
-def claim(lane):
+def claim(lane, *, http=False):
     if not enabled() or lane not in LANES or connection.vendor!="postgresql":
         return None
     # Transaction-scoped lock works with transaction-pooling connections.
     number=int.from_bytes(sha256((PREFIX+lane).encode()).digest()[:8],"big",signed=True)
     with connection.cursor() as cursor:
-        cursor.execute("SELECT pg_advisory_xact_lock(%s)",[number])
+        cursor.execute("SELECT pg_try_advisory_xact_lock(%s)",[number])
+        if not cursor.fetchone()[0]:
+            return None
     group,_=SettingGroup.objects.get_or_create(key="cron",defaults={"name":"Scheduled operations"})
     row,_=Setting.objects.select_for_update().get_or_create(group=group,key=PREFIX+lane,defaults={
         "name":"Internal worker state","data_type":"json","is_public":False,"is_deprecated":True,"value":"{}"})
@@ -52,7 +74,7 @@ def claim(lane):
         if not until or timezone.is_naive(until) or until>now:
             return None
     token=uuid.uuid4().hex
-    state.update(lease=token,lease_until=(now+LEASE).isoformat(),started_at=now.isoformat())
+    state.update(lease=token,lease_until=(now+(HTTP_LEASE if http else LEASE)).isoformat(),started_at=now.isoformat())
     row.value=json.dumps(state)
     row.save(update_fields=["value","updated_at"])
     return token
@@ -101,10 +123,27 @@ def status():
         except (TypeError,ValueError):
             completed=None
         age=(now-completed).total_seconds() if completed and not timezone.is_naive(completed) else None
-        maximum=1800 if lane in ("renewals","lifecycle","cancellation") else 300
+        maximum=2*INTERVALS[lane]+300
         result.append({"lane":lane,"healthy":bool(enabled() and age is not None and 0<=age<=maximum and not state.get("failed")),
             "completed_at":state.get("completed_at"),"metrics":state.get("metrics",{})})
     return result
+
+def execute(lane, *, http=False):
+    """Same authorization-preserving lane runner for HTTP and Linux."""
+    if lane not in LANES:
+        raise ValueError("Unknown worker lane.")
+    if not enabled():
+        return {"enabled":False}
+    token=claim(lane,http=http)
+    if not token:
+        return {"enabled":True,"state":"held"}
+    try:
+        result=run_lane(lane)
+    except Exception:
+        finish(lane,token,{},failed=True)
+        return {"enabled":True,"state":"failed"}
+    finish(lane,token,result)
+    return {"enabled":True,"state":"completed",**result}
 
 class CommercialWorkerView(APIView):
     authentication_classes=[]
@@ -118,15 +157,7 @@ class CommercialWorkerView(APIView):
         if not enabled():
             return Response({"enabled":False},headers={"Cache-Control":"no-store"})
         try:
-            token=claim(lane)
-            if not token:
-                return Response({"enabled":True,"state":"held"},headers={"Cache-Control":"no-store"})
-            try:
-                result=run_lane(lane)
-            except Exception:
-                finish(lane,token,{},failed=True)
-                return Response({"enabled":True,"state":"failed"},status=503,headers={"Cache-Control":"no-store"})
-            finish(lane,token,result)
-            return Response({"enabled":True,"state":"completed",**result},headers={"Cache-Control":"no-store"})
+            result=execute(lane,http=True)
+            return Response(result,status=503 if result.get("state")=="failed" else 200,headers={"Cache-Control":"no-store"})
         except DatabaseError:
             return Response({"enabled":True,"state":"held"},status=503,headers={"Cache-Control":"no-store"})

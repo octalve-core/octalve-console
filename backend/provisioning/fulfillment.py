@@ -171,4 +171,6 @@ def stage_paid_order(order_id, *, item_id=None):
                               "requires_vendor_confirmation": True},
                 )
             results.append((service, task))
+        from services.commercial_scheduler import wake
+        wake("provisioning")
         return results

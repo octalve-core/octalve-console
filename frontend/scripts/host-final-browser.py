@@ -65,7 +65,7 @@ with sync_playwright() as pw:
             page=client.new_page()
             login(page,"client","/client/services")
             expect(page.get_by_role("heading",name="My services",exact=False).first).to_be_visible(timeout=30000)
-            expect(page.get_by_text("fixture-own.example.test",exact=False).first).to_be_visible(timeout=30000)
+            expect(page.get_by_text("fixture-own.example.test",exact=False).filter(visible=True).first).to_be_visible(timeout=30000)
             expect(page.get_by_text("fixture-other.example.test",exact=False)).to_have_count(0)
             for route in ("renewal-policy","lifecycle-policy","cancellation-policy"):
                 assert browser_get(page,"/api/cloud/services/"+route+"/")["status"]==403

@@ -135,6 +135,19 @@ class RenewalLifecycleDatabaseTests(TestCase):
         self.service.refresh_from_db()
         self.assertEqual(self.service.next_due_date,end_of_term(start,1,start.day))
         self.assertEqual(Service.objects.count(),1)
+        with patch("services.renewals.apply") as apply:
+            renewals.run_due(1)
+            apply.assert_not_called()
+
+    def test_held_renewal_receives_retry_delay(self):
+        invoice,_=renewals.issue(self.service.pk)
+        self.settle(invoice)
+        with patch("services.renewals.apply",side_effect=RenewalRefused("fixture")) as apply:
+            self.assertEqual(renewals.run_due(1)["held"],1)
+            self.assertEqual(renewals.run_due(1)["held"],0)
+            apply.assert_called_once_with(invoice.pk)
+        invoice.refresh_from_db()
+        self.assertIn("hosting_renewal_retry_at",invoice.metadata)
 
     def test_nonpayment_suspend_and_restore_requires_exact_remote_marker(self):
         self.service.next_due_date=dj_time.now()-timedelta(days=4)

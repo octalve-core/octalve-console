@@ -249,13 +249,16 @@ def apply(invoice_id):
     service.amount=invoice.total
     service.metadata={**service.metadata,"renewal_calendar_anchor":p["anchor"]}
     service.save(update_fields=["next_due_date","amount","metadata","updated_at"])
-    invoice.metadata={**invoice.metadata,"renewal_applied":True}
+    invoice.metadata={k:v for k,v in invoice.metadata.items() if k!="hosting_renewal_retry_at"}
+    invoice.metadata["renewal_applied"]=True
     invoice.save(update_fields=["metadata","updated_at"])
     order.status="provisioned"
     order.provisioned_at=timezone.now()
     order.save(update_fields=["status","provisioned_at","updated_at"])
     AuditLog.objects.create(actor=None,action="hosting_renewal_applied",entity_type="Service",entity_id=str(service.pk),
         entity_name="Verified hosting renewal",details={"invoice_id":invoice.pk,"end":p["end"]})
+    from services.commercial_scheduler import wake
+    wake("lifecycle")
     return True
 
 def reminder_context(invoice, *, now=None, issuance=False):
@@ -314,11 +317,27 @@ def run_due(limit=10):
     if not out["enabled"]:
         return out
     limit=min(max(int(limit),1),20)
-    for pk in Invoice.objects.filter(status="paid",order__source="renewal",order__status="paid",metadata__has_key=KEY).order_by("pk").values_list("pk",flat=True)[:limit]:
+    from django.db.models import Q
+    now=timezone.now()
+    pending=Invoice.objects.filter(status="paid",order__source="renewal",order__status="paid",metadata__has_key=KEY)
+    # Successful application atomically advances the order to provisioned.
+    # Held records receive a retry delay so a blocked older invoice cannot
+    # monopolize each bounded recovery batch.
+    pending=pending.filter(Q(metadata__hosting_renewal_retry_at__isnull=True) |
+                           Q(metadata__hosting_renewal_retry_at__lte=now.isoformat()))
+    for pk in pending.order_by("pk").values_list("pk",flat=True)[:limit]:
         try:
             out["applied"]+=int(apply(pk))
         except (RenewalRefused,DatabaseError,ValueError,KeyError,TypeError,InvalidOperation):
             out["held"]+=1
+            try:
+                with transaction.atomic():
+                    row=Invoice.objects.select_for_update().filter(pk=pk,status="paid",order__status="paid").first()
+                    if row:
+                        row.metadata={**row.metadata,"hosting_renewal_retry_at":(now+timedelta(minutes=15)).isoformat()}
+                        row.save(update_fields=["metadata","updated_at"])
+            except DatabaseError:
+                pass
     p=policy()
     if not p or not p["enabled"]:
         return out
