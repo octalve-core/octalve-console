@@ -83,3 +83,52 @@ class MailboxReconcileView(APIView):
             return Response(result,status=200 if result["state"]=="confirmed" else 202,headers=HEADERS)
         except (ResourceRefused,ReadbackRejected,VaultUnavailable,SupplierEgressDenied,DatabaseError):
             return _unavailable()
+
+
+class ResourceMutationView(APIView):
+    permission_classes=[IsAuthenticated]
+    parser_classes=[JSONParser]
+
+    @sensitive_variables("data","confirmation")
+    def post(self,request,service_id,operation):
+        _owner(request,service_id)
+        data=request.data
+        shapes={
+            "mailbox_delete":{"local","confirm_target","confirm_password"},
+            "mailbox_quota":{"local","quota_mb","confirm_password"},
+            "subdomain_create":{"local","confirm_password"},
+            "subdomain_delete":{"local","confirm_target","confirm_password"},
+        }
+        if operation not in shapes or not isinstance(data,dict) or set(data)!=shapes[operation]:
+            return Response({"detail":"Invalid resource operation fields."},status=400,headers=HEADERS)
+        confirmation=data["confirm_password"]
+        try:
+            if _spend("hosting:resource_stepup",str(request.user.pk),5,900):
+                return Response({"detail":"Too many confirmation attempts."},status=429,headers=HEADERS)
+            if (not isinstance(confirmation,str) or not 1<=len(confirmation)<=1024
+                    or not request.user.check_password(confirmation)):
+                return Response({"detail":"Current Console password could not be confirmed."},status=403,headers=HEADERS)
+            result=resources.mutate_resource(request.user.pk,service_id,operation=operation,local=data["local"],
+                quota=data.get("quota_mb"),confirm_target=data.get("confirm_target"))
+            return Response(result,status=200 if result["state"]=="confirmed" else 202,headers=HEADERS)
+        except (ResourceRefused,ReadbackRejected,VaultUnavailable,SupplierEgressDenied,DatabaseError):
+            return _unavailable()
+
+
+class ResourceReconcileView(APIView):
+    permission_classes=[IsAuthenticated]
+    parser_classes=[JSONParser]
+
+    def post(self,request,service_id):
+        service=_owner(request,service_id)
+        if request.data!={}:
+            return Response({"detail":"No additional fields are accepted."},status=400,headers=HEADERS)
+        try:
+            pending=service.metadata.get(resources.FENCE,{})
+            if pending.get("operation")=="mailbox_create":
+                result=resources.reconcile_mailbox(request.user.pk,service_id)
+            else:
+                result=resources.reconcile_resource(request.user.pk,service_id)
+            return Response(result,status=200 if result["state"]=="confirmed" else 202,headers=HEADERS)
+        except (ResourceRefused,ReadbackRejected,VaultUnavailable,SupplierEgressDenied,DatabaseError):
+            return _unavailable()
