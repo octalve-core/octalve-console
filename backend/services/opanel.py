@@ -25,6 +25,8 @@ def opanel_overview(service):
         "disk_limit_mb": latest.disk_limit_mb,
         "bandwidth_used_mb": latest.bandwidth_used_mb,
         "bandwidth_limit_mb": latest.bandwidth_limit_mb,
+        "disk_unlimited": latest.raw_data.get("disk_unlimited") is True if isinstance(latest.raw_data, dict) else False,
+        "bandwidth_unlimited": latest.raw_data.get("bandwidth_unlimited") is True if isinstance(latest.raw_data, dict) else False,
         "recorded_at": latest.recorded_at.isoformat(),
     }
     # No writable adapter, DNS, TLS or live HTTP evidence exists at this
