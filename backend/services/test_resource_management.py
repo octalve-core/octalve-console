@@ -132,6 +132,16 @@ class ProtocolTests(SimpleTestCase):
             whm_adapter.create_subdomain("shop")
         send.assert_not_called()
 
+    def test_database_inventory_checks_exact_account_prefix(self):
+        da=self.adapter("directadmin")
+        with patch.object(da,"_request",return_value=SupplierReadResponse(200,b"list%5B%5D=checkhost_site")):
+            self.assertEqual(da.databases(),["checkhost_site"])
+        whm_adapter=self.adapter("cpanel-whm")
+        with patch.object(whm_adapter,"_request",return_value=whm("Mysql","list_databases",[{"database":"checkhost_site","users":["private"]}])):
+            self.assertEqual(whm_adapter.databases(),["checkhost_site"])
+        with patch.object(whm_adapter,"_request",return_value=whm("Mysql","list_databases",[{"database":"other_site"}])),self.assertRaises(ResourceRefused):
+            whm_adapter.databases()
+
     def test_invalid_names_and_capability_dependency(self):
         for name in ("root","cpanel","postmaster","../x","x@other.test","x..y","a."):
             with self.assertRaises(ResourceRefused):
