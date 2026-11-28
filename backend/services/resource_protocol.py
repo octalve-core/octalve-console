@@ -39,6 +39,12 @@ def mailbox_name(value):
     return value
 
 
+def subdomain_label(value):
+    if not isinstance(value,str) or not LABEL.fullmatch(value) or value in {"www","mail","webmail","cpanel","whm","ftp","autodiscover","autoconfig","ns1","ns2","localhost"}:
+        raise ResourceRefused("Invalid or reserved subdomain.")
+    return value
+
+
 def _form(response, *, empty=False):
     if response.status_code != 200 or len(response.content) > 200000:
         raise ResourceRefused("Supplier response unavailable.")
@@ -149,9 +155,15 @@ class ResourceProtocol:
                 valid = (method == "GET" and path in ("/CMD_API_SHOW_USER_CONFIG", "/CMD_API_SHOW_USER_USAGE") and fields == {"user": self.account})
             elif path == "/CMD_API_POP":
                 valid = ((method == "GET" and fields == {"action":"full_list","domain":self.domain,"json":"yes"}) or
-                         (method == "POST" and set(fields)=={"action","domain","user","passwd","passwd2","quota"} and fields["action"]=="create" and fields["domain"]==self.domain and fields["passwd"]==fields["passwd2"]))
+                         (method == "POST" and set(fields)=={"action","domain","user","passwd","passwd2","quota"} and fields["action"]=="create" and fields["domain"]==self.domain and fields["passwd"]==fields["passwd2"]) or
+                         (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="delete" and set(fields)=={"action","domain","user"}) or
+                         (method == "POST" and fields.get("domain")==self.domain and fields.get("action")=="modify" and set(fields)=={"action","domain","user","quota"}))
             else:
-                valid = method=="GET" and path=="/CMD_API_SUBDOMAINS" and fields=={"domain":self.domain}
+                valid = path=="/CMD_API_SUBDOMAINS" and (
+                    (method=="GET" and fields=={"domain":self.domain}) or
+                    (method=="POST" and fields.get("domain")==self.domain and (
+                        (fields.get("action")=="create" and set(fields)=={"domain","action","subdomain"}) or
+                        (fields.get("action")=="delete" and set(fields)=={"domain","action","select0","contents"} and fields["contents"]=="no"))))
         else:
             common={"api.version","cpanel.user","cpanel.module","cpanel.function"}
             valid=False
@@ -160,6 +172,8 @@ class ResourceProtocol:
                 allowed={("GET","Email","list_pops_with_disk"):{"domain","no_validate"},
                          ("GET","DomainInfo","list_domains"):set(),
                          ("POST","Email","add_pop"):{"email","domain","password","quota"},
+                         ("POST","Email","delete_pop"):{"email","domain"},
+                         ("POST","Email","edit_pop_quota"):{"email","domain","quota"},
                          ("GET","StatsBar","get_stats"):{"display"}}
                 valid=op in allowed and set(fields)==common|allowed[op]
                 if "domain" in fields:
@@ -168,6 +182,14 @@ class ResourceProtocol:
                     valid=valid and fields["no_validate"]=="0"
                 if "display" in fields:
                     valid=valid and fields["display"]=="emailaccounts|diskusage"
+        if valid and method=="POST":
+            target=fields.get("user",fields.get("email"))
+            if target is not None:
+                mailbox_name(target)
+                if target==self.account.lower():
+                    raise ResourceRefused("Reserved account name.")
+            if path=="/CMD_API_SUBDOMAINS":
+                subdomain_label(fields.get("subdomain",fields.get("select0")))
         if not valid:
             raise ResourceRefused("Supplier operation not allowed.")
 
@@ -328,3 +350,53 @@ class ResourceProtocol:
             else:
                 raise ResourceRefused("Account storage units unconfirmed.")
         return count,limit,disk
+
+
+    def delete_mailbox(self, local):
+        mailbox_name(local)
+        if local==self.account.lower():
+            raise ResourceRefused("Reserved account name.")
+        if self.adapter=="directadmin":
+            self._da_ack("/CMD_API_POP",{"action":"delete","domain":self.domain,"user":local})
+        else:
+            self._whm("POST","Email","delete_pop",{"email":local,"domain":self.domain})
+
+    def change_mailbox_quota(self, local, quota):
+        mailbox_name(local)
+        if local==self.account.lower() or type(quota) is not int or not 1<=quota<=1000000:
+            raise ResourceRefused("Invalid mailbox quota.")
+        if self.adapter=="directadmin":
+            # Modify uses bytes or explicit units, unlike create (MB).
+            self._da_ack("/CMD_API_POP",{"action":"modify","domain":self.domain,
+                                       "user":local,"quota":str(quota)+"MB"})
+        else:
+            self._whm("POST","Email","edit_pop_quota",{"email":local,"domain":self.domain,"quota":str(quota)})
+
+    def _da_ack(self,path,fields):
+        if _form(self._request("POST",path,fields)).get("error")!=["0"]:
+            raise ResourceRefused("Supplier acknowledgement uncertain.")
+
+    def create_subdomain(self, label):
+        subdomain_label(label)
+        if self.adapter!="directadmin":
+            raise ResourceRefused("Subdomain mutation is not yet qualified for this supplier.")
+        domain_name(label+"."+self.domain)
+        self._da_ack("/CMD_API_SUBDOMAINS",{"domain":self.domain,"action":"create","subdomain":label})
+
+    def delete_subdomain(self, label):
+        subdomain_label(label)
+        if self.adapter!="directadmin":
+            raise ResourceRefused("Subdomain mutation is not yet qualified for this supplier.")
+        # Removing hosting configuration must not remove website files.
+        self._da_ack("/CMD_API_SUBDOMAINS",{"domain":self.domain,"action":"delete","select0":label,"contents":"no"})
+
+    def subdomain_capacity(self):
+        if self.adapter!="directadmin":
+            raise ResourceRefused("Subdomain capacity is not yet qualified for this supplier.")
+        cfg=_form(self._request("GET","/CMD_API_SHOW_USER_CONFIG",{"user":self.account},reseller=True))
+        used=_form(self._request("GET","/CMD_API_SHOW_USER_USAGE",{"user":self.account},reseller=True))
+        if cfg.get("username")!=[self.account] or cfg.get("domain")!=[self.domain]:
+            raise ResourceRefused("Unexpected hosting account.")
+        if any(len(v)!=1 for v in cfg.values()) or any(len(v)!=1 for v in used.values()):
+            raise ResourceRefused("Ambiguous account usage.")
+        return _count(used.get("nsubdomains",[None])[0]),_count(cfg.get("nsubdomains",[None])[0],unlimited=True)
