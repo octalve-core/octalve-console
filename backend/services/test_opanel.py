@@ -126,3 +126,66 @@ class OPanelIsolationTests(TestCase):
         self.api.force_authenticate(self.owner)
         result=self.api.get(f'/api/services/opanel/{self.service.pk}/overview/')
         self.assertEqual(result.status_code,404)
+
+
+class NativePanelProtocolTests(TestCase):
+    def whm_response(self, **changes):
+        import json
+        from providers.pinned_egress import SupplierReadResponse
+        session = "checkhost:session123:create_user_session,abc"
+        from urllib.parse import urlencode
+        data = {
+            "service": "cpaneld",
+            "session": session,
+            "cp_security_token": "/cpsess1234567890",
+            "expires": int(timezone.now().timestamp()) + 120,
+            "url": "https://supplier.example.test:2083/cpsess1234567890/login?" + urlencode({"session": session}),
+        }
+        data.update(changes)
+        return SupplierReadResponse(200, json.dumps({
+            "metadata": {"command": "create_user_session", "result": 1}, "data": data,
+        }).encode())
+
+    def test_whm_accepts_only_customer_session_on_pinned_origin(self):
+        from services.native_panel import parse_session, NativePanelRefused
+        origin = "https://supplier.example.test:2087"
+        self.assertTrue(parse_session(self.whm_response(), origin, "cpanel-whm", "checkhost").startswith("https://supplier.example.test:2083/"))
+        for changes in (
+            {"url": "https://evil.example.test:2083/cpsess1234567890/login?session=wrong"},
+            {"service": "whostmgrd"}, {"session": "root:session123"},
+            {"expires": int(timezone.now().timestamp()) - 1},
+        ):
+            with self.subTest(changes=changes), self.assertRaises(NativePanelRefused):
+                parse_session(self.whm_response(**changes), origin, "cpanel-whm", "checkhost")
+
+    def test_directadmin_rejects_redirect_and_non_session_path(self):
+        from urllib.parse import urlencode
+        from providers.pinned_egress import SupplierReadResponse
+        from services.native_panel import parse_session, NativePanelRefused
+        origin = "https://supplier.example.test:2222"
+        valid = origin + "/api/login/url?key=" + "x" * 40
+        def reply(url):
+            return SupplierReadResponse(200, urlencode({"error": "0", "details": url}).encode())
+        self.assertEqual(parse_session(reply(valid), origin, "directadmin", "checkhost"), valid)
+        for url in (valid.replace("supplier.example.test", "evil.example.test"),
+                    valid.replace("https:", "http:"), valid + "&next=evil",
+                    valid.replace("/api/login/url", "/CMD_ADMIN_SETTINGS")):
+            with self.subTest(url=url), self.assertRaises(NativePanelRefused):
+                parse_session(reply(url), origin, "directadmin", "checkhost")
+
+    def test_native_launch_cannot_use_unverified_or_unowned_service(self):
+        from unittest.mock import patch
+        from services.native_panel import launch, NativePanelRefused
+        with patch("services.native_panel.eligible", return_value=None), patch(
+                "services.native_panel.refresh_candidate", return_value=None), patch(
+                "services.native_panel._session_request") as sender:
+            with self.assertRaises(NativePanelRefused):
+                launch(1, 2)
+            sender.assert_not_called()
+
+    def test_native_policy_must_explicitly_allow(self):
+        from unittest.mock import patch
+        from services.native_panel import _policy, NativePanelRefused
+        with patch("services.native_panel.load_hosting_connection", return_value=(None, "test-token", {})):
+            with self.assertRaises(NativePanelRefused):
+                _policy(None)
