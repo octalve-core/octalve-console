@@ -13,7 +13,7 @@ class Command(BaseCommand):
     def handle(self,*args,**options):
         deadline=monotonic()+90
         progress_keys=("processed","staged","completed","accepted","issued","applied",
-                       "reminders","suspended","restored","cancelled","terminated")
+                       "reminders","suspended","restored","cancelled","terminated","recorded","expired")
         for _ in range(8):
             result=execute(options["lane"])
             self.stdout.write(json.dumps(result,sort_keys=True))

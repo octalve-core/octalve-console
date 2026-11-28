@@ -315,12 +315,23 @@ def configured_sender(adapter=ADAPTER):
     return BrevoSender(*candidates[0])
 
 
+def expire_stale_queue(limit=20):
+    """Expose expired unsent notices for review; never send obsolete content."""
+    now=timezone.now()
+    ids=list(ConsoleMailOutbox.objects.filter(status="queued",audience="transactional",
+        template__key__in=KEYS,created_at__lt=now-timedelta(days=7))
+        .order_by("created_at","pk").values_list("pk",flat=True)[:min(max(int(limit),1),20)])
+    return ConsoleMailOutbox.objects.filter(pk__in=ids,status="queued",
+        created_at__lt=now-timedelta(days=7)).update(status="needs_review",
+        last_error_code="notice_expired_unsent",next_attempt_at=None)
+
 def run_due_mail(limit=2):
     """Bounded queue worker; no browser-selected recipient or message."""
     result={"enabled":enabled(),"accepted":0,"held":0,"quarantined":0}
     if not result["enabled"]:
         return result
     result["quarantined"]=quarantine_expired_attempts(limit=20)
+    result["expired"]=expire_stale_queue()
     mail=_mail_settings()
     sender=configured_sender(mail["primary_sender"])
     # Fallback is only attempted after a verified primary definitively refuses.

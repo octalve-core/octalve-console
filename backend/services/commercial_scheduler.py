@@ -19,13 +19,13 @@ from rest_framework.response import Response
 from settings_registry.models import Setting,SettingGroup
 
 PREFIX="commercial_worker_v1_"
-LANES=("payments","staging","provisioning","mail","renewals","lifecycle","cancellation")
+LANES=("payments","staging","provisioning","mail","renewals","lifecycle","cancellation","usage")
 LEASE=timedelta(minutes=6)
 # The Linux runner kills each child after 240 seconds. HTTP runtimes may
 # allow up to 1800 seconds; keep their recovery lease beyond that bound.
 HTTP_LEASE=timedelta(minutes=35)
 INTERVALS={"payments":300,"staging":300,"provisioning":300,"mail":300,
-           "renewals":3600,"lifecycle":1800,"cancellation":3600}
+           "renewals":3600,"lifecycle":1800,"cancellation":3600,"usage":1800}
 CHANNEL="octalve_commercial_wakeup"
 
 def wake(lane):
@@ -70,7 +70,10 @@ def claim(lane, *, http=False):
     state=_state(row)
     now=timezone.now()
     if state.get("lease"):
-        until=parse_datetime(state.get("lease_until",""))
+        try:
+            until=parse_datetime(state.get("lease_until",""))
+        except (TypeError,ValueError):
+            return None
         if not until or timezone.is_naive(until) or until>now:
             return None
     token=uuid.uuid4().hex
@@ -87,7 +90,7 @@ def finish(lane,token,result,failed=False):
         return
     # Only aggregate counters; never save arbitrary supplier payloads.
     metrics={k:v for k,v in result.items() if k in ("enabled","processed","staged","completed","held","accepted","quarantined",
-             "reconciled","issued","applied","reminders","suspended","restored","cancelled","terminated")
+             "reconciled","issued","applied","reminders","suspended","restored","cancelled","terminated","recorded","expired")
              and (type(v) is bool or type(v) is int and 0<=v<=10000)}
     state.update(lease="",lease_until="",completed_at=timezone.now().isoformat(),failed=bool(failed),metrics=metrics)
     row.value=json.dumps(state)
@@ -108,9 +111,11 @@ def run_lane(lane):
         from services.hosting_lifecycle import run_due
     elif lane=="cancellation":
         from services.hosting_cancellation import run_due
+    elif lane=="usage":
+        from services.usage_sync import run_due_usage as run_due
     else:
         raise ValueError("Unknown worker lane.")
-    return run_due(1 if lane in ("provisioning","mail","lifecycle","cancellation") else 5)
+    return run_due(2 if lane=="usage" else 1 if lane in ("provisioning","mail","lifecycle","cancellation") else 5)
 
 def status():
     now=timezone.now()
@@ -124,7 +129,7 @@ def status():
             completed=None
         age=(now-completed).total_seconds() if completed and not timezone.is_naive(completed) else None
         maximum=2*INTERVALS[lane]+300
-        result.append({"lane":lane,"healthy":bool(enabled() and age is not None and 0<=age<=maximum and not state.get("failed")),
+        result.append({"lane":lane,"healthy":bool(enabled() and age is not None and 0<=age<=maximum and not state.get("failed") and state.get("metrics",{}).get("enabled") is not False),
             "completed_at":state.get("completed_at"),"metrics":state.get("metrics",{})})
     return result
 

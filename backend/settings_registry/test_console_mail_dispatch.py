@@ -210,3 +210,25 @@ class SuppressionDispatchTests(MailDispatchTests):
   self.msg.refresh_from_db()
   self.assertEqual(self.msg.status,"suppressed")
   self.assertEqual(fallback.calls,0)
+
+class StaleTransactionalQueueTests(TestCase):
+    def test_expired_queue_requires_review_without_sending(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from settings_registry.models import EmailTemplate,ConsoleMailOutbox
+        from settings_registry.mail_runtime import expire_stale_queue,KEYS
+        template=EmailTemplate.objects.filter(key__in=KEYS).first()
+        self.assertIsNotNone(template)
+        def message(key):
+            return ConsoleMailOutbox.objects.create(idempotency_key=key,template=template,
+                recipient="fixture@example.test",subject="Fixture",body_text="Fixture",
+                body_html="<p>Fixture</p>",audience="transactional")
+        old=message("fixture:old-notice")
+        fresh=message("fixture:new-notice")
+        ConsoleMailOutbox.objects.filter(pk=old.pk).update(created_at=timezone.now()-timedelta(days=8))
+        self.assertEqual(expire_stale_queue(),1)
+        old.refresh_from_db();fresh.refresh_from_db()
+        self.assertEqual(old.status,"needs_review")
+        self.assertEqual(old.last_error_code,"notice_expired_unsent")
+        self.assertEqual(fresh.status,"queued")
+        self.assertEqual(expire_stale_queue(),0)
