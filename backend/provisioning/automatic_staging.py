@@ -59,9 +59,9 @@ def _hold(item_id):
 
 def run_due_staging(limit=10, *, order_id=None):
     result={"enabled":bool(enabled()),"staged":0,"held":0}
-    for item_id,order_id in due_items(limit,order_id=order_id):
+    for item_id,selected_order_id in due_items(limit,order_id=order_id):
         try:
-            stage_paid_order(order_id,item_id=item_id)
+            stage_paid_order(selected_order_id,item_id=item_id)
         except FulfillmentRefused:
             try:
                 _hold(item_id)
