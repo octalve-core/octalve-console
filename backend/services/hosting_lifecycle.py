@@ -122,6 +122,7 @@ def _reserve(service_id,invoice_id,operation,p,expected,marker):
     if service.metadata.get(FENCE,{}).get("state")=="dispatched_uncertain":
         raise RenewalRefused("Prior lifecycle outcome uncertain.")
     current,protocol=_snapshot(service,invoice,operation,p)
+
     if current!=expected:
         raise RenewalRefused("Lifecycle authority changed.")
     entry=seal({**current,"marker":marker},FENCE)
@@ -220,8 +221,11 @@ def run_due(limit=2):
             out[("suspended" if entry["operation"]=="suspend" else "restored") if state=="confirmed" else "held"]+=1
         except (RenewalRefused,KeyError,TypeError):
             out["held"]+=1
+    from django.db.models import Exists,OuterRef
+    from billing.models import InvoiceItem
+    eligible_items=InvoiceItem.objects.filter(invoice_id=OuterRef("pk"),service_id__in=Service.objects.filter(status="active",auto_renew=True).values("pk"))
     for invoice in Invoice.objects.filter(status="unpaid",order__source="renewal",metadata__has_key=RENEWAL_KEY,
-            due_date__lte=timezone.now()-timedelta(days=p["grace_days"])).order_by("due_date","pk")[:limit]:
+            due_date__lte=timezone.now()-timedelta(days=p["grace_days"])).annotate(eligible_service=Exists(eligible_items)).filter(eligible_service=True).order_by("due_date","pk")[:limit]:
         pk=invoice.metadata.get("service_id")
         if pk and pk not in seen:
             state=advance(pk,invoice.pk,"suspend")

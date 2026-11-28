@@ -278,6 +278,13 @@ def run_due(limit=2):
     if not result["enabled"]:
         return result
     from django.db.models import Q
+    # Notice repair is bounded and does not compete with actual due transitions.
+    for service in Service.objects.filter(metadata__hosting_cancellation_v1__state="retained").order_by("-cancelled_at")[:limit]:
+        try:
+            entry,_=_entry(service)
+            _notice(service,entry,"terminate")
+        except (RenewalRefused,KeyError,TypeError):
+            pass
     due=Service.objects.filter(Q(metadata__hosting_cancellation_v1__state="scheduled",next_due_date__lte=timezone.now()) | Q(metadata__hosting_cancellation_v1__state__in=("suspend_uncertain","termination_approved","terminate_uncertain")))
     for pk in due.order_by("updated_at","pk").values_list("pk",flat=True)[:min(max(int(limit),1),4)]:
         state=advance(pk)
