@@ -60,7 +60,7 @@ export function OPanelServiceOverview(){
     }finally{setLoading(false);}
   },serviceId);
 
-  const launch=data?.capabilities.panel_sso?panelUrl(data.service_id):null;
+  const launch=data&&(data.capabilities.panel_sso||data.capabilities.panel_recheck)?panelUrl(data.service_id):null;
   const due=data?.next_due_date?new Date(data.next_due_date):null;
   const dueLabel=due&&!Number.isNaN(due.valueOf())
     ?new Intl.DateTimeFormat("en-NG",{day:"numeric",month:"short",year:"numeric"}).format(due):"Unavailable";
@@ -96,7 +96,7 @@ export function OPanelServiceOverview(){
             </div>
             {launch?<a href={launch} rel="noreferrer"
               className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0064E0] px-5 py-3 text-sm font-medium text-white hover:bg-[#0052B8]">
-              Manage hosting in OPanel <ExternalLink className="h-4 w-4"/>
+              {data.capabilities.panel_sso?"Manage hosting in OPanel":"Recheck and open OPanel"} <ExternalLink className="h-4 w-4"/>
             </a>:<p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">
               OPanel will become available after your hosting account and secure access have been verified. No additional account purchase is needed.
             </p>}
