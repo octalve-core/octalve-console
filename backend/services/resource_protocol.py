@@ -120,10 +120,12 @@ class ResourceProtocol:
             raise ResourceRefused("Unsupported supplier.")
         self.origin = row.public_settings["server_url"]
         self.binding = (self.origin, row.public_settings["server_ip"])
+        self._reseller_auth = ("Basic " + base64.b64encode((owner+":"+key).encode()).decode()
+                               if self.adapter=="directadmin" else "whm "+owner+":"+key)
         self._auth = ("Basic " + base64.b64encode((owner+"|"+self.account+":"+key).encode()).decode()
                       if self.adapter == "directadmin" else "whm "+owner+":"+key)
 
-    def _request(self, method, path, fields):
+    def _request(self, method, path, fields, *, reseller=False):
         # Private transport; callers below compile fixed operations. POST
         # carries secrets only in the body, never URL/query/logs.
         host, port, ip, checked = approved_origin(self.origin+path, bound_origin=self.binding)
@@ -132,7 +134,7 @@ class ResourceProtocol:
         pool = urllib3.HTTPSConnectionPool(host=ip, port=port, server_hostname=host,
             assert_hostname=host, cert_reqs="CERT_REQUIRED", ca_certs=certifi.where(),
             timeout=urllib3.Timeout(connect=3, read=6), retries=False, maxsize=1, block=True)
-        headers = {"Authorization":self._auth,"Accept":"application/json",
+        headers = {"Authorization":self._reseller_auth if reseller else self._auth,"Accept":"application/json",
                    "Host":host if port==443 else f"{host}:{port}"}
         try:
             if method=="POST":
@@ -168,20 +170,23 @@ class ResourceProtocol:
     def mailboxes(self):
         """Return only actual virtual mailboxes on the assigned domain."""
         if self.adapter=="directadmin":
-            # JSON mode provides an explicit object for the empty inventory.
+            # Force documented JSON mode so an empty object is distinct from
+            # an empty transport reply. Server-version shape still needs acceptance.
             response=self._request("GET","/CMD_API_POP",{
-                "action":"full_list","domain":self.domain})
-            fields=_form(response)
+                "action":"full_list","domain":self.domain,"json":"yes"})
+            if response.status_code!=200 or len(response.content)>200000:
+                raise ResourceRefused("Supplier response unavailable.")
+            try:
+                fields=response.json()
+            except (ValueError,TypeError):
+                raise ResourceRefused("Invalid mailbox inventory.") from None
+            if not isinstance(fields,dict) or len(fields)>2000:
+                raise ResourceRefused("Invalid mailbox inventory.")
             rows=[]
-            for local, values in fields.items():
-                if local=="error":
-                    continue
-                if len(values)!=1 or not LOCAL.fullmatch(local):
-                    raise ResourceRefused("Invalid mailbox inventory.")
-                details=parse_qs(values[0],keep_blank_values=True,strict_parsing=True,max_num_fields=20)
-                if any(len(v)!=1 for v in details.values()) or "quota" not in details:
+            for local, details in fields.items():
+                if not LOCAL.fullmatch(local) or not isinstance(details,dict) or "quota" not in details:
                     raise ResourceRefused("Invalid mailbox quota.")
-                quota=_count(details["quota"][0])
+                quota=_count(details["quota"])
                 rows.append({"address":local+"@"+self.domain,
                              "quota_mb":quota if quota else None,
                              "unlimited":quota==0})
@@ -239,3 +244,37 @@ class ResourceProtocol:
         else:
             self._whm("POST","Email","add_pop",{
                 "email":local,"domain":self.domain,"password":password,"quota":str(quota)})
+
+
+    def mailbox_capacity(self):
+        """Read live account-wide counts, not just the primary-domain list."""
+        if self.adapter=="directadmin":
+            cfg=_form(self._request("GET","/CMD_API_SHOW_USER_CONFIG",{"user":self.account},reseller=True))
+            used=_form(self._request("GET","/CMD_API_SHOW_USER_USAGE",{"user":self.account},reseller=True))
+            if cfg.get("username")!=[self.account] or cfg.get("domain")!=[self.domain]:
+                raise ResourceRefused("Unexpected hosting account.")
+            if any(len(v)!=1 for v in cfg.values()) or any(len(v)!=1 for v in used.values()):
+                raise ResourceRefused("Ambiguous account usage.")
+            count=_count(used.get("nemails",[None])[0])
+            limit=_count(cfg.get("nemails",[None])[0],unlimited=True)
+            disk=_count(cfg.get("quota",[None])[0],unlimited=True)
+        else:
+            stats=self._whm("GET","StatsBar","get_stats",{"display":"emailaccounts|diskusage"})
+            if not isinstance(stats,list) or len(stats)!=2 or not all(isinstance(x,dict) for x in stats):
+                raise ResourceRefused("Invalid account capacity.")
+            entries={x.get("id"):x for x in stats}
+            if set(entries)!={"emailaccounts","diskusage"}:
+                raise ResourceRefused("Invalid account capacity.")
+            mail=entries["emailaccounts"]
+            count=_count(mail.get("_count"))
+            limit=_count(mail.get("_max"),unlimited=True)
+            # Accept explicit normalized MB only; unknown units are not
+            # treated as an unlimited storage allowance.
+            diskrow=entries["diskusage"]
+            if diskrow.get("_max")=="unlimited":
+                disk=None
+            elif diskrow.get("units")=="MB":
+                disk=_count(diskrow.get("_max"))
+            else:
+                raise ResourceRefused("Account storage units unconfirmed.")
+        return count,limit,disk
