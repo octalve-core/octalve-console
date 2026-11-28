@@ -256,8 +256,59 @@ def apply(invoice_id):
         entity_name="Verified hosting renewal",details={"invoice_id":invoice.pk,"end":p["end"]})
     return True
 
+def reminder_context(invoice, *, now=None):
+    """Only current signed unpaid renewal terms within the approved window."""
+    now=now or timezone.now()
+    p=policy()
+    if not enabled() or not p or not p["enabled"]:
+        return None
+    try:
+        grant=invoice.metadata[KEY]
+        term=unseal(grant,KEY)
+        service=Service.objects.select_related("client").get(pk=term["service"])
+        if (invoice.status!="unpaid" or invoice.amount_paid!=0 or invoice.amount_due!=invoice.total
+                or invoice.total<=0 or invoice.client_id!=service.client_id
+                or invoice.order_id!=term["order"] or invoice.pk!=term["invoice"]
+                or invoice.order.source!="renewal" or invoice.order.status!="pending_payment"
+                or invoice.order.metadata.get(KEY)!=grant or invoice.order.client_id!=service.client_id
+                or service.status!="active" or not service.auto_renew or not service.client.is_active
+                or term["owner"]!=service.client_id or term["start"]!=service.next_due_date.isoformat()
+                or invoice.due_date!=service.next_due_date or invoice.currency!=term["currency"]
+                or invoice.total!=Decimal(term["total"])
+                or not now<=invoice.due_date<=now+timedelta(days=p["reminder_days"])):
+            return None
+        _original(service)
+        return {"invoice.number":str(invoice.invoice_number),
+                "invoice.due_date":timezone.localtime(invoice.due_date).strftime("%d %b %Y"),
+                "service.label":service.label,"service.renewal_date":timezone.localtime(service.next_due_date).strftime("%d %b %Y"),
+                "order.number":str(invoice.order.order_number)}
+    except (RenewalRefused,Service.DoesNotExist,KeyError,ValueError,TypeError,InvalidOperation):
+        return None
+
+def queue_due_reminders(limit=10):
+    from settings_registry.mail_authority import _transactional_event
+    from settings_registry.models import ConsoleMailOutbox
+    from django.db.models import Exists,OuterRef,CharField,Value
+    from django.db.models.functions import Concat,Cast
+    p=policy()
+    if not enabled() or not p or not p["enabled"]:
+        return 0
+    now=timezone.now()
+    existing=ConsoleMailOutbox.objects.filter(idempotency_key=Concat(Value("invoice:"),Cast(OuterRef("pk"),CharField()),Value(":renewal_reminder")))
+    ids=list(Invoice.objects.filter(status="unpaid",order__source="renewal",metadata__has_key=KEY,
+        due_date__gte=now,due_date__lte=now+timedelta(days=p["reminder_days"]))
+        .annotate(notified=Exists(existing)).filter(notified=False).order_by("due_date","pk").values_list("pk",flat=True)[:min(max(int(limit),1),20)])
+    count=0
+    for pk in ids:
+        with transaction.atomic():
+            invoice=Invoice.objects.select_for_update().get(pk=pk)
+            context=reminder_context(invoice,now=now)
+            if context:
+                count+=int(_transactional_event(f"invoice:{pk}:renewal_reminder","invoice_due",invoice.client,context))
+    return count
+
 def run_due(limit=10):
-    out={"enabled":enabled(),"issued":0,"applied":0,"held":0}
+    out={"enabled":enabled(),"issued":0,"applied":0,"held":0,"reminders":0}
     if not out["enabled"]:
         return out
     limit=min(max(int(limit),1),20)
@@ -279,4 +330,5 @@ def run_due(limit=10):
             out["issued"]+=int(created)
         except (RenewalRefused,DatabaseError,ValueError,KeyError,TypeError,InvalidOperation):
             out["held"]+=1
+    out["reminders"]=queue_due_reminders(limit)
     return out

@@ -8,7 +8,7 @@ export function HostingRenewalPolicy(){
  const [confirmation,setConfirmation]=useState({confirm_password:"",totp_code:""});
  useEffect(()=>{api.get<{available:boolean;policy:Policy|null}>("/services/renewal-policy/").then(result=>{setAvailable(result.available);if(result.policy){const {enabled,invoice_lead_days,reminder_days,tax_mode,tax_rate}=result.policy;setPolicy({enabled,invoice_lead_days,reminder_days,tax_mode,tax_rate})}setStatus(result.available?"Review and approve the renewal terms.":"Renewal authority is not enabled.")}).catch(()=>setStatus("Renewal policy unavailable."))},[]);
  return <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3 xl:col-span-2">
- <h2 className="font-semibold">Hosting renewal policy</h2><p className="text-sm text-slate-600">Invoices and reminders use approved calendar terms. Automatic card debits are not enabled.</p>
+ <h2 className="font-medium">Hosting renewal policy</h2><p className="text-sm text-slate-600">Invoices and reminders use approved calendar terms. Automatic card debits are not enabled.</p>
  <form className="space-y-3" onSubmit={async e=>{e.preventDefault();setBusy(true);try{await api.post("/services/renewal-policy/",{policy,...confirmation});setStatus("Policy approved.")}catch{setStatus("Approval failed. Review settings and authentication.")}finally{setConfirmation({confirm_password:"",totp_code:""});setBusy(false)}}}>
  <fieldset disabled={!available||busy} className="grid gap-3 sm:grid-cols-2">
  <label className="flex gap-2 items-center"><input type="checkbox" checked={policy.enabled} onChange={e=>setPolicy({...policy,enabled:e.target.checked})}/>Enable renewal invoicing</label>

@@ -161,6 +161,9 @@ def settle_verified_intent(intent_id, *, getter=None, signed_event_id=None):
         # The committed financial ledger, not the browser or supplier, is the
         # durable source of hosting work. Failure leaves the payment intact.
         from provisioning.automatic_staging import enabled, stage_order_after_payment
-        if enabled():
+        if order.source=="renewal":
+            from services.renewals import apply
+            db_transaction.on_commit(lambda invoice_id=invoice.pk: apply(invoice_id),robust=True)
+        elif enabled():
             db_transaction.on_commit(lambda order_id=order.pk: stage_order_after_payment(order_id))
         return saved, True

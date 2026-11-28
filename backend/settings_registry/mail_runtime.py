@@ -32,7 +32,7 @@ from .brevo_transport import verify_sender, send_message, SenderRefused
 
 ACTION = "mail_sender_policy_v1"
 ADAPTER = "brevo"
-KEYS = ("payment_confirmed", "hosting_ready")
+KEYS = ("payment_confirmed", "hosting_ready", "invoice_due")
 ID_PATTERN = re.compile(r"(?:invoice:([1-9][0-9]{0,18}):payment_confirmed|hosting_ready:v1:([1-9][0-9]{0,18}))\Z")
 
 
@@ -149,6 +149,13 @@ def current_message(message):
     if (message.audience!="transactional" or not message.template.is_active
             or message.template.key not in KEYS):
         return False
+    renewal=re.fullmatch(r"invoice:([1-9][0-9]{0,18}):renewal_reminder",message.idempotency_key)
+    if renewal:
+        invoice=Invoice.objects.select_related("client","order").filter(pk=int(renewal[1]),metadata__has_key="hosting_renewal_v1").first()
+        if not invoice or not invoice.client.is_active or invoice.client.email!=message.recipient:
+            return False
+        from services.renewals import reminder_context
+        return message.template.key=="invoice_due" and reminder_context(invoice) is not None
     match=ID_PATTERN.fullmatch(message.idempotency_key)
     if not match:
         return False
