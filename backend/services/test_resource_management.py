@@ -110,6 +110,28 @@ class ProtocolTests(SimpleTestCase):
             with self.assertRaises(ResourceRefused):
                 protocol.mailboxes()
 
+    def test_mutation_protocols_use_fixed_scoped_commands(self):
+        da=self.adapter("directadmin")
+        with patch.object(da,"_request",return_value=SupplierReadResponse(200,b"error=0&text=ok")) as send:
+            da.change_mailbox_quota("sales",500)
+            self.assertEqual(send.call_args.args[2]["quota"],"500MB")
+            da.delete_mailbox("sales")
+            self.assertEqual(send.call_args.args[2],{"action":"delete","domain":"example.test","user":"sales"})
+            da.create_subdomain("shop")
+            self.assertEqual(send.call_args.args[2]["subdomain"],"shop")
+            da.delete_subdomain("shop")
+            self.assertEqual(send.call_args.args[2]["contents"],"no")
+        whm_adapter=self.adapter("cpanel-whm")
+        with patch.object(whm_adapter,"_request",side_effect=[
+                whm("Email","delete_pop",None),whm("Email","edit_pop_quota",None)]) as send:
+            whm_adapter.delete_mailbox("sales")
+            whm_adapter.change_mailbox_quota("sales",500)
+            self.assertEqual(send.call_args_list[0].args[2]["cpanel.user"],"checkhost")
+            self.assertEqual(send.call_args.args[2]["quota"],"500")
+        with patch.object(whm_adapter,"_request") as send,self.assertRaises(ResourceRefused):
+            whm_adapter.create_subdomain("shop")
+        send.assert_not_called()
+
     def test_invalid_names_and_capability_dependency(self):
         for name in ("root","cpanel","postmaster","../x","x@other.test","x..y","a."):
             with self.assertRaises(ResourceRefused):
@@ -218,4 +240,46 @@ class ResourceAuthorityTests(TestCase):
             self.assertEqual(result.status_code,409,result.data)
             result=self.api.post(self.base+"/mailboxes/create/",dict(self.payload(),confirm_password="incorrect"),format="json")
             self.assertEqual(result.status_code,403,result.data)
+            send.assert_not_called()
+
+
+    def test_delete_requires_exact_confirmation_and_supplier_absence(self):
+        self.policy["resource_capabilities"].append("mailbox_delete")
+        path=self.base+"/resource-actions/mailbox_delete/"
+        data={"local":"sales","confirm_target":"other@example.test","confirm_password":"SyntheticConsolePassword"}
+        row={"address":"sales@example.test","quota_mb":500,"unlimited":False}
+        with patch.object(ResourceProtocol,"mailboxes",side_effect=[[row],[]]),patch.object(ResourceProtocol,"delete_mailbox") as send:
+            response=self.api.post(path,data,format="json")
+            self.assertEqual(response.status_code,409,response.data)
+            send.assert_not_called()
+            data["confirm_target"]="sales@example.test"
+            response=self.api.post(path,data,format="json")
+            self.assertEqual(response.status_code,200,response.data)
+            send.assert_called_once_with("sales")
+        self.service.refresh_from_db()
+        self.assertEqual(self.service.metadata[management.FENCE]["state"],"confirmed")
+
+    def test_quota_timeout_is_readback_only_and_no_duplicate_write(self):
+        self.policy["resource_capabilities"].append("mailbox_quota")
+        path=self.base+"/resource-actions/mailbox_quota/"
+        data={"local":"sales","quota_mb":700,"confirm_password":"SyntheticConsolePassword"}
+        before={"address":"sales@example.test","quota_mb":500,"unlimited":False}
+        after={"address":"sales@example.test","quota_mb":700,"unlimited":False}
+        with patch.object(ResourceProtocol,"mailboxes",return_value=[before]),patch.object(ResourceProtocol,"mailbox_capacity",return_value=(1,5,5000)),patch.object(ResourceProtocol,"change_mailbox_quota",side_effect=ResourceRefused("uncertain")) as send:
+            self.assertEqual(self.api.post(path,data,format="json").status_code,202)
+            self.assertEqual(self.api.post(path,data,format="json").status_code,409)
+            send.assert_called_once()
+        self.service.refresh_from_db()
+        self.service.metadata[management.FENCE]["created_at"]=(timezone.now()-timedelta(minutes=3)).isoformat()
+        self.service.save(update_fields=["metadata"])
+        with patch.object(ResourceProtocol,"mailboxes",return_value=[after]),patch.object(ResourceProtocol,"change_mailbox_quota") as send:
+            response=self.api.post(self.base+"/resource-actions/reconcile/",{},format="json")
+            self.assertEqual(response.status_code,200,response.data)
+            send.assert_not_called()
+
+    def test_subdomain_mutations_disabled_for_unqualified_supplier(self):
+        self.policy["resource_capabilities"].append("subdomain_create")
+        with patch.object(ResourceProtocol,"create_subdomain") as send:
+            response=self.api.post(self.base+"/resource-actions/subdomain_create/",{"local":"shop","confirm_password":"SyntheticConsolePassword"},format="json")
+            self.assertEqual(response.status_code,409,response.data)
             send.assert_not_called()
