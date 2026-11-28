@@ -1,7 +1,7 @@
 export type Category={id:number;name:string;slug?:string};
 export type Product={id:number;name:string;slug?:string;product_type:string;category:number;status:string;is_public?:boolean;description?:string};
-export type Provider={id:number;name:string;status:string;health_status:string;adapter_type:string;config?:{fulfillment_model?:string}};
-export type Package={id:number;provider:number;provider_name:string;name:string;provider_package_id:string;specs:Record<string,string>;pricing?:{currency?:string;cycles?:Record<string,string>};is_active:boolean};
+export type Provider={id:number;name:string;status:string;health_status:string;adapter_type:string;config?:{fulfillment_model?:string;vault_managed_inventory?:boolean}};
+export type Package={id:number;provider:number;provider_name:string;name:string;provider_package_id:string;specs:Record<string,string>;pricing?:{currency?:string;cycles?:Record<string,string>};is_active:boolean;available?:boolean};
 export type Feature={label:string;value:string;is_highlighted:boolean};
 export type Cycle={cycle_key:string;price:string;setup_fee:string;regular_price:string;is_default:boolean};
 export type Plan={id:number;product:number;name:string;slug?:string;description:string;currency:string;is_popular:boolean;features:Feature[];billing_cycles:(Cycle&{is_active:boolean})[]};
