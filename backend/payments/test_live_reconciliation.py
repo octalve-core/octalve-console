@@ -44,3 +44,103 @@ class LiveReconciliationTests(TestCase):
             self.assertEqual(consume(self.event.pk),"held")
             read.assert_not_called()
         self.assertFalse(Transaction.objects.exists())
+
+    def test_financial_exception_readback_is_separate_from_settlement(self):
+        from .financial_exceptions import consume as consume_exception
+        proof=ConfirmedGatewayPayment("paystack",self.intent.reference,"NGN",Decimal("100"),"12345")
+        with patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.live_binding.resolve_live_key",return_value="fixture"),patch("payments.settlement.verify_gateway_intent",return_value=proof):
+            self.assertEqual(consume(self.event.pk),"processed")
+        refund=WebhookEvent.objects.create(gateway=self.intent.gateway,event_id="refund-fixture",event_type="refund.processed",is_verified=True,
+            payload={"mode":"live","binding":self.intent.gateway.config,"case_id":"99","transaction_id":"12345"})
+        data={"id":99,"transaction":12345,"domain":"live","status":"processed","amount":5000,"currency":"NGN"}
+        with patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"),patch("payments.financial_exceptions.fetch_case",return_value=data) as read:
+            self.assertEqual(consume_exception(refund.pk),"processed")
+            self.assertEqual(consume_exception(refund.pk),"processed")
+            read.assert_called_once()
+        original=Transaction.objects.get(invoice=self.invoice)
+        self.assertTrue(original.metadata["financial_exception_review_required"])
+        self.assertEqual(original.amount,Decimal("100"))
+        self.assertEqual(original.status,"successful")
+        from provisioning.authority import evaluate_payment_to_provisioning
+        self.invoice.refresh_from_db()
+        self.assertFalse(evaluate_payment_to_provisioning(self.invoice,original).approved)
+
+    def test_financial_exception_rejects_wrong_remote_identity(self):
+        from .financial_exceptions import consume as consume_exception
+        event=WebhookEvent.objects.create(gateway=self.intent.gateway,event_id="dispute-fixture",event_type="charge.dispute.create",is_verified=True,
+            payload={"mode":"live","binding":self.intent.gateway.config,"case_id":"99","transaction_id":"12345"})
+        data={"id":99,"transaction":{"id":99999},"domain":"live","status":"pending","refund_amount":None,"currency":None}
+        with patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"),patch("payments.financial_exceptions.fetch_case",return_value=data):
+            self.assertEqual(consume_exception(event.pk),"held")
+        event.refresh_from_db()
+        self.assertFalse(event.is_processed)
+
+    def test_signed_case_replay_after_readback_does_not_change_evidence(self):
+        from .financial_exceptions import record_signed
+        body={"domain":"live","id":99,"transaction":{"id":12345}}
+        with patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"):
+            event,created=record_signed(self.intent.gateway,"charge.dispute.create",body)
+            self.assertTrue(created)
+            event.payload={**event.payload,"verified_case":{"state":"pending"}}
+            event.is_processed=True
+            event.save(update_fields=["payload","is_processed"])
+            replay,created=record_signed(self.intent.gateway,"charge.dispute.create",body)
+            self.assertFalse(created)
+            self.assertEqual(replay.pk,event.pk)
+            self.assertTrue(replay.is_processed)
+
+    def test_documented_refund_webhook_without_numeric_id_is_preserved(self):
+        from .financial_exceptions import record_signed
+        body={"domain":"live","transaction_reference":self.intent.reference,"refund_reference":None,
+            "amount":"5000","currency":"NGN","customer":{"email":"must-not-store@example.test"}}
+        with patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"):
+            event,created=record_signed(self.intent.gateway,"refund.pending",body)
+        self.assertTrue(created)
+        self.assertEqual(event.payload["reference"],self.intent.reference)
+        self.assertEqual(event.payload["amount_minor"],5000)
+        self.assertNotIn("customer",event.payload)
+
+    def test_refund_reference_reconciliation_uses_unique_provider_case(self):
+        from .financial_exceptions import record_signed,consume as consume_exception
+        proof=ConfirmedGatewayPayment("paystack",self.intent.reference,"NGN",Decimal("100"),"12345")
+        with patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.live_binding.resolve_live_key",return_value="fixture"),patch("payments.settlement.verify_gateway_intent",return_value=proof):
+            self.assertEqual(consume(self.event.pk),"processed")
+        body={"domain":"live","transaction_reference":self.intent.reference,"amount":"5000","currency":"NGN"}
+        data={"id":99,"transaction":12345,"domain":"live","status":"processed","amount":5000,"currency":"NGN"}
+        with patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"):
+            event,_=record_signed(self.intent.gateway,"refund.processed",body)
+            with patch("payments.financial_exceptions.fetch_refund_candidates",return_value=[data,{**data,"id":100}]),patch("payments.financial_exceptions.fetch_case") as read:
+                self.assertEqual(consume_exception(event.pk),"held")
+                read.assert_not_called()
+            with patch("payments.financial_exceptions.fetch_refund_candidates",return_value=[data]),patch("payments.financial_exceptions.fetch_case",return_value=data) as read:
+                self.assertEqual(consume_exception(event.pk),"processed")
+                read.assert_called_once_with("refund","99","fixture")
+        event.refresh_from_db()
+        self.assertEqual(event.payload["verified_case"]["case_id"],"99")
+
+
+    def test_late_payment_is_verified_without_settlement_and_not_retried(self):
+        from audit.models import AuditLog
+        from .live_reconciliation import attempt,run_due
+        self.intent.expires_at=timezone.now()-timedelta(minutes=1)
+        self.intent.save(update_fields=["expires_at"])
+        data={"id":12345,"reference":self.intent.reference,"domain":"live","status":"success","amount":10000,"currency":"NGN"}
+        with patch("payments.live_reconciliation.resolve_live_key",return_value="fixture"),patch("payments.financial_exceptions.resolve_live_key",return_value="fixture"),patch("payments.financial_exceptions._read",return_value=data) as read:
+            self.assertEqual(attempt(self.event.pk),"held")
+            self.assertEqual(run_due()["processed"],0)
+            self.assertEqual(run_due()["held"],0)
+            read.assert_called_once()
+        self.event.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertTrue(self.event.payload["late_payment_review"])
+        self.assertFalse(self.event.is_processed)
+        self.assertEqual(self.invoice.status,"unpaid")
+        self.assertFalse(Transaction.objects.exists())
+        self.assertEqual(AuditLog.objects.filter(action="late_payment_verified").count(),1)
+
+
+    def test_regular_pending_events_without_late_marker_are_still_polled(self):
+        from .live_reconciliation import run_due
+        with patch("payments.live_reconciliation.attempt",return_value="held") as attempt:
+            self.assertEqual(run_due()["held"],1)
+            attempt.assert_called_once_with(self.event.pk)

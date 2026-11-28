@@ -4,6 +4,7 @@ from django.urls import path, include
 from .vault_binding import admin_paystack_test_binding
 from .live_binding import admin_live_binding
 from .live_reconciliation import LiveReconciliationCronView
+from .exception_views import financial_exception_review
 from .test_lifecycle_views import TestLifecycleCronView, TestLifecycleAdminView
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -16,6 +17,7 @@ router.register(r'gateways', PaymentGatewayViewSet, basename='payment-gateway')
 router.register(r'transactions', TransactionViewSet, basename='transaction')
 
 urlpatterns = [
+    path("admin/financial-exceptions/",financial_exception_review,name="financial-exception-review"),
     path('test-lifecycle/cron/', TestLifecycleCronView.as_view(), name='test-lifecycle-cron'),
     path('admin/test-lifecycle/', TestLifecycleAdminView.as_view(), name='test-lifecycle-admin'),
     path("admin/paystack-test-binding/", admin_paystack_test_binding, name="paystack-test-binding"),

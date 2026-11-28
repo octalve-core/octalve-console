@@ -250,6 +250,11 @@ class WebhookView(APIView):
                 else:
                     result = attempt_event(event.pk)
                 if result == "held":
+                    # Verified late funds remain on manual review, not on a
+                    # gateway retry loop. The original event remains unresolved.
+                    from .models import WebhookEvent
+                    if WebhookEvent.objects.filter(pk=event.pk,payload__late_payment_review=True).exists():
+                        return Response({"accepted": True, "processing": "review"}, status=200)
                     return Response({"accepted": True, "processing": "pending"}, status=503)
             except (ValidationError, DatabaseError, CheckoutRefused, PaymentReadbackRejected):
                 return Response({"accepted": True, "processing": "pending"}, status=503)

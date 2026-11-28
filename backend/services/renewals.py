@@ -108,6 +108,8 @@ def _original(service, *, allow_suspended=False):
                     transaction_type="payment",gateway__test_mode=False,metadata__provider_api_verified=True,
                     amount=original.total,currency=original.currency).exists()):
         raise RenewalRefused("Original paid hosting authority is unavailable.")
+    if Transaction.objects.filter(invoice=original,metadata__financial_exception_review_required=True).exists():
+        raise RenewalRefused("Original payment requires financial review.")
     proof=VerifiedHostingBinding.objects.filter(service=service,revoked_at__isnull=True,
         confirmation_source="provider_api_readback",provider_id_snapshot=service.provider_id).first()
     digest=account_digest(service)

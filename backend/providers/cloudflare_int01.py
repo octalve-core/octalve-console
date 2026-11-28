@@ -130,8 +130,12 @@ class FixedCloudflareTransport:
             raise CloudflareINT01Denied()
         # Network operations are defined solely in the adapter below; reject
         # generic paths and arbitrary request bodies even if called directly.
-        if not re.fullmatch(r"/zones(?:/[a-f0-9]{32})?(?:/dns_records\?page=(?:[1-9]|10)&per_page=100)?|/accounts/[a-f0-9]{32}/registrar-sandbox/(?:domain-check|extensions/(?:com|net)|registrations(?:/[a-z0-9.-]+(?:/registration-status)?)?)|/accounts/[a-f0-9]{32}/registrar/domain-check",path):
+        if not re.fullmatch(r"/zones(?:/[a-f0-9]{32})?(?:/dns_records\?page=(?:[1-9]|10)&per_page=100)?|/accounts/[a-f0-9]{32}/registrar-sandbox/(?:domain-check|extensions/(?:com|net)|registrations(?:/[a-z0-9.-]+(?:/registration-status)?)?)|/accounts/[a-f0-9]{32}/registrar/(?:domain-check|registrations/[a-z0-9.-]+)",path):
             raise CloudflareINT01Denied()
+        if "/registrar/registrations/" in path:
+            if method!="GET":
+                raise CloudflareINT01Denied()
+            require_domain(path.rsplit("/",1)[1])
         is_register=path.endswith("/registrations")
         is_check=path.endswith("/domain-check")
         if method=="POST" and not (is_register or is_check):
@@ -201,6 +205,15 @@ class CloudflareINT01:
         data=self.transport("POST",f"/accounts/{self.account_id}/registrar/domain-check",
                             {"domains":[domain]})
         return _check_domain(data,domain)
+
+    def live_registration_readback(self,domain):
+        """Read a registration in this exact account; never infer customer ownership."""
+        domain=require_domain(domain)
+        result=_registration(self.transport("GET",f"/accounts/{self.account_id}/registrar/registrations/{domain}"),domain)
+        state=result.pop("sandbox_status")
+        if state=="active" and not ("registered_at" in result and "expires_at" in result):
+            raise CloudflareINT01Denied()
+        return {**result,"status":state,"environment":"live","read_only":True}
 
     def dns_readback(self,zone_id):
         """Exact zone ownership and complete bounded pages; never DNS writes.

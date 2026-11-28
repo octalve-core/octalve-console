@@ -14,7 +14,7 @@ export function SavedConnectionActions({connection,onVerified}:{
 }){
  const [working,setWorking]=useState(false),[message,setMessage]=useState(""),[failed,setFailed]=useState(false);
  const hosting=["directadmin","cpanel-whm"].includes(connection.adapter_key);
- const supported=connection.supports_verification??["cloudflare-dns","cloudflare-registrar","brevo","paystack"].includes(connection.adapter_key);
+ const supported=connection.supports_verification??["cloudflare-dns","cloudflare-registrar","cloudflare-registrar-live","brevo","paystack"].includes(connection.adapter_key);
  async function check(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(working||!supported||connection.state!=="draft")return;
   const form=e.currentTarget,fields=new FormData(form);
@@ -51,5 +51,28 @@ export function SavedConnectionActions({connection,onVerified}:{
    {working?"Verifying…":hosting?"Verify and import packages":"Verify access"}</button>
   {message?<p role={failed?"alert":"status"} className={"text-xs leading-5 "+(failed?"text-rose-700":"text-emerald-700")}>
    {failed?<AlertTriangle aria-hidden="true" className="mr-1 inline h-4 w-4"/>:null}{message}</p>:null}
- </form>{connection.adapter_key==="paystack"&&connection.environment==="live"&&connection.verification_status==="verified"?<PaystackLiveBinding connection={connection} onSaved={onVerified}/>:null}{["brevo","resend"].includes(connection.adapter_key)&&connection.environment==="live"&&connection.verification_status==="verified"?<MailSenderPolicy connection={connection} onSaved={onVerified}/>:null}{hosting&&connection.hosting_policy_available===true&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
+ </form>{connection.adapter_key==="cloudflare-registrar-live"&&connection.environment==="live"&&connection.verification_status==="verified"?<RegistrarRegistrationReview connection={connection}/>:null}{connection.adapter_key==="paystack"&&connection.environment==="live"&&connection.verification_status==="verified"?<PaystackLiveBinding connection={connection} onSaved={onVerified}/>:null}{["brevo","resend"].includes(connection.adapter_key)&&connection.environment==="live"&&connection.verification_status==="verified"?<MailSenderPolicy connection={connection} onSaved={onVerified}/>:null}{hosting&&connection.hosting_policy_available===true&&connection.environment==="live"&&connection.verification_status==="verified"?<HostingSupplierPolicy connection={connection} onSaved={onVerified}/>:null}</>;
+}
+
+function RegistrarRegistrationReview({connection}:{connection:DraftConnection}){
+ const [result,setResult]=useState<{domain_name:string;status:string;registered_at?:string;expires_at?:string}|null>(null),[working,setWorking]=useState(false),[error,setError]=useState(false);
+ async function read(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();if(working)return;const form=event.currentTarget,fields=new FormData(form);
+  const input={domain:String(fields.get("domain")||"").toLowerCase().trim(),confirm_password:String(fields.get("password")||""),totp_code:String(fields.get("totp")||"")};
+  form.reset();setWorking(true);setError(false);setResult(null);
+  try{const response=await api.post<{verified:boolean;registration:{domain_name:string;status:string;registered_at?:string;expires_at?:string};execution_enabled:boolean}>("/providers/connections/"+encodeURIComponent(connection.id)+"/registrar-registration-status/",input);
+    if(!response.verified||response.execution_enabled||response.registration.domain_name!==input.domain)throw Error("Unverified response");setResult(response.registration);
+  }catch{setError(true)}finally{setWorking(false)}
+ }
+ const field="mt-1 min-h-11 w-full rounded-lg border border-console-line px-3 text-sm";
+ return <form onSubmit={read} className="mt-3 space-y-2 rounded-lg border border-console-line bg-white p-3">
+  <h4 className="text-sm font-medium">Registrar registration review</h4>
+  <p className="text-xs text-console-muted">Check an exact .com or .net registration in this account. Does not create a domain or establish customer ownership.</p>
+  <label className="block text-xs">Domain name<input name="domain" required maxLength={253} placeholder="example.com" className={field}/></label>
+  <label className="block text-xs">Current password<input name="password" type="password" required autoComplete="current-password" className={field}/></label>
+  <label className="block text-xs">Fresh authenticator code<input name="totp" required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" className={field}/></label>
+  <button type="submit" disabled={working} className="min-h-11 rounded-lg border border-console-line px-3 text-xs">{working?"Checking…":"Read registration status"}</button>
+  {error?<p role="alert" className="text-xs text-rose-700">Registration could not be verified.</p>:null}
+  {result?<div role="status" className="break-words text-xs"><p>{result.domain_name} · {result.status.replaceAll("_"," ")}</p>{result.expires_at?<p>Registrar expiry: {new Date(result.expires_at).toLocaleDateString("en-GB")}</p>:null}</div>:null}
+ </form>
 }

@@ -3,7 +3,7 @@ import os
 import secrets
 from django.conf import settings
 from django.db import DatabaseError
-from django.db.models import F
+from django.db.models import F,Q
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -21,6 +21,9 @@ def enabled():
 def consume(event_id):
     if not enabled():
         return "disabled"
+    from .financial_exceptions import EVENTS,consume as consume_exception
+    if WebhookEvent.objects.filter(pk=event_id,event_type__in=EVENTS).exists():
+        return consume_exception(event_id)
     event=WebhookEvent.objects.select_related("gateway").filter(pk=event_id,is_verified=True,
         event_type="charge.success",gateway__code="paystack",gateway__test_mode=False,gateway__status="active").first()
     if not event:
@@ -35,6 +38,9 @@ def consume(event_id):
             or payload.get("binding")!=event.gateway.config
             or intent.metadata.get("payment_mode")!="live" or intent.metadata.get("gateway_binding")!=event.gateway.config):
         return "held"
+    if intent.status!="completed" and (intent.is_expired() or intent.status in ("expired","failed")):
+        from .financial_exceptions import verify_late_payment
+        return verify_late_payment(event,intent)
     try:
         settle_verified_intent(intent.pk,signed_event_id=event.pk)
         return "processed" if WebhookEvent.objects.filter(pk=event.pk,is_processed=True).exists() else "held"
@@ -52,9 +58,10 @@ def run_due(limit=5):
     result={"enabled":enabled(),"processed":0,"held":0}
     if not result["enabled"]:
         return result
-    ids=list(WebhookEvent.objects.filter(is_verified=True,is_processed=False,event_type="charge.success",
+    from .financial_exceptions import EVENTS
+    ids=list(WebhookEvent.objects.filter(is_verified=True,is_processed=False,event_type__in=["charge.success",*EVENTS],
         gateway__code="paystack",gateway__test_mode=False,gateway__status="active",payload__mode="live")
-        .order_by(F("error_message").asc(nulls_first=True),"pk").values_list("pk",flat=True)[:min(max(int(limit),1),10)])
+        .filter(Q(payload__late_payment_review__isnull=True)|Q(payload__late_payment_review=False)).order_by(F("error_message").asc(nulls_first=True),"pk").values_list("pk",flat=True)[:min(max(int(limit),1),10)])
     for pk in ids:
         outcome=attempt(pk)
         if outcome in ("processed","held"):

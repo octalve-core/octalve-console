@@ -130,3 +130,49 @@ def live_registrar_quote(request, connection_id):
         "checked_at": checked.isoformat(),
         "expires_at": (checked + timedelta(minutes=5)).isoformat(),
     }, headers={"Cache-Control": "private, no-store"})
+
+
+@api_view(["POST"])
+@permission_classes([InternalSupplierAuthority])
+@throttle_classes([VaultMutationThrottle])
+def live_registration_status(request,connection_id):
+    """Admin-only independent registrar resource evidence; no ownership grant."""
+    assert_admin(request.user)
+    if not isinstance(request.data,dict) or set(request.data)!={"domain","confirm_password","totp_code"}:
+        raise ValidationError("Use the reviewed registration status fields.")
+    if not (getattr(settings,"CLOUD_REGISTRAR_LIVE_QUOTE_READBACK_ENABLED",False)
+            and getattr(settings,"CLOUD_PROVIDER_CUSTODY_VERIFIED",False)
+            and getattr(settings,"CLOUD_PROVIDER_PRODUCTION_VAULT_APPROVED",False)
+            and not settings.DEBUG and connection_database_qualified()):
+        raise VaultUnavailable()
+    try:
+        domain=require_domain(request.data["domain"])
+    except CloudflareINT01Denied:
+        raise ValidationError("Enter a supported lowercase .com or .net name.") from None
+    check_mutation(request.user,request.data["confirm_password"],request.data["totp_code"])
+    headers={"Cache-Control":"private, no-store"}
+    try:
+        row=IntegrationConnection.objects.get(pk=connection_id,adapter_key="cloudflare-registrar-live",
+            environment="live",state="draft")
+        verify_chain(row)
+        version=IntegrationCredentialVersion.objects.get(connection=row,version=row.current_version,revoked_at__isnull=True)
+        connector=CloudflareINT01(row.public_settings["account_id"],FixedCloudflareTransport(unseal_version(version)["api_token"]))
+        proof=connector.live_registration_readback(domain)
+        from django.db import transaction
+        with transaction.atomic():
+            current=IntegrationConnection.objects.select_for_update().get(pk=row.pk)
+            if (current.state!="draft" or current.environment!="live" or current.adapter_key!=row.adapter_key
+                or current.current_version!=row.current_version or current.public_settings!=row.public_settings
+                or current.updated_at!=row.updated_at or not IntegrationCredentialVersion.objects.filter(
+                    pk=version.pk,revoked_at__isnull=True).exists()):
+                raise VaultUnavailable()
+            verify_chain(current)
+            AuditLog.objects.create(actor=request.user,action="provider_connection_test",
+                entity_type="IntegrationConnection",entity_id=str(row.pk),entity_name="Cloudflare live registration readback",
+                details={"operation":"registrar.registration-readback","domain":domain,"credential_version":row.current_version,
+                         "read_only":True,"execution_enabled":False,"status":proof["status"]})
+    except (CloudflareINT01Denied,VaultUnavailable,IntegrationCredentialVersion.DoesNotExist,
+            IntegrationConnection.DoesNotExist,DatabaseError,KeyError,ValueError):
+        return Response({"verified":False,"detail":"Registration readback could not be confirmed."},status=503,headers=headers)
+    return Response({"verified":True,"registration":proof,"customer_ownership_verified":False,
+                     "execution_enabled":False},headers=headers)

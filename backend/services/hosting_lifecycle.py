@@ -125,7 +125,7 @@ def _invoice(service,invoice,operation,p):
             raise RenewalRefused("Verified renewal does not authorize restoration.")
         payments=list(Transaction.objects.filter(invoice=invoice,status="successful",transaction_type="payment",
             gateway__status="active",gateway__test_mode=False,client_id=service.client_id,currency=invoice.currency,amount=invoice.total)[:2])
-        if len(payments)!=1 or payments[0].metadata.get("provider_api_verified") is not True or payments[0].metadata.get("verified_remote_id")!=payments[0].provider_reference:
+        if len(payments)!=1 or payments[0].metadata.get("financial_exception_review_required") is True or payments[0].metadata.get("provider_api_verified") is not True or payments[0].metadata.get("verified_remote_id")!=payments[0].provider_reference:
             raise RenewalRefused("Independent payment evidence unavailable.")
     return term
 
