@@ -222,7 +222,7 @@ class ResellerClub:
         result={"domain_name":domain,"order_id":rid,"customer_id":cid,"contact_id":contactid,
             "registered_at":created.isoformat(),"expires_at":expires.isoformat(),"status":state,
             "registrant_verification":raa or "unknown","nameservers":ns,
-            "auto_renew":row.get("isAutoRenew"),"premium":row.get("isPremium"),"registrant_email":row.get("registrantEmail")}
+            "auto_renew":row.get("isAutoRenew"),"premium":row.get("isPremium"),"registrant_email":row.get("registrantEmail") or (row.get("registrantContact") or {}).get("email")}
         if include_secret:
             result["auth_code"]=secret_code(row.get("domainSecret"))
         return result

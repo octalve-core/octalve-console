@@ -252,7 +252,10 @@ def transition(domain_id):
 def reconcile_confirmed(domain_id):
     """Refresh expiry/status only from the same paid supplier resource."""
     try:
-        domain=Domain.objects.get(pk=domain_id,registrar="cloudflare-registrar-live",management_kind="registrar")
+        domain=Domain.objects.get(pk=domain_id,registrar__in=("cloudflare-registrar-live","resellerclub"),management_kind="registrar")
+        if domain.registrar=="resellerclub":
+            from .resellerclub_lifecycle import reconcile
+            return reconcile(domain)
         entry=domain.metadata[KEY]
         grant=signing.loads(entry["grant"],salt=SALT)
         if (entry.get("state")!="confirmed" or domain.provider_domain_id!=domain.domain_name
@@ -303,7 +306,7 @@ def run_due():
     row=Domain.objects.filter(status="pending",registrar__in=("cloudflare-registrar-live","resellerclub"),order_item__order__status="paid",
         metadata__live_domain_registration_v1__state__in=("queued","uncertain")).order_by("updated_at","pk").first()
     if not row:
-        confirmed=Domain.objects.filter(registrar="cloudflare-registrar-live",management_kind="registrar",
+        confirmed=Domain.objects.filter(registrar__in=("cloudflare-registrar-live","resellerclub"),management_kind="registrar",
             metadata__live_domain_registration_v1__state="confirmed").filter(
                 Q(metadata__live_domain_registration_v1__reconcile_after__isnull=True)|
                 Q(metadata__live_domain_registration_v1__reconcile_after__lte=timezone.now().isoformat())

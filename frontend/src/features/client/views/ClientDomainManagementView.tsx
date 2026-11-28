@@ -14,6 +14,7 @@ import {ErrorState} from "@/components/feedback/ErrorState";
 import {LoadingState} from "@/components/feedback/LoadingState";
 import {clientApi,type DomainRenewalStatus,type LiveDomainDNS} from "@/lib/api/endpoints";
 import {DNSAuthorityCheck} from "@/components/domain/DNSAuthorityCheck";
+import {ResellerClubControls} from "../components/ResellerClubControls";
 import {DNSWriteControls} from "@/components/domain/DNSWriteControls";
 import {useAutoSync} from "@/lib/hooks/useAutoSync";
 import {normalizeDomain,displayDomainDate,type ClientDomainSnapshot} from "../utils/domain-contract";
@@ -170,7 +171,8 @@ export function ClientDomainManagementView({mode}: {mode:DomainManagementMode}){
                   ${mode===item.mode?"bg-console-primary text-white":"bg-slate-100 text-console-ink hover:bg-slate-200"}`}>
                 {item.label}</Link>)}
             </div>
-            {mode==="overview"?<WorkspaceGrid variant="domainFacts" as="dl" className="mt-5">
+            {domain.registrar==="resellerclub"&&mode!=="dns"?<ResellerClubControls domainId={id} mode={mode}/>:null}
+          {mode==="overview"?<WorkspaceGrid variant="domainFacts" as="dl" className="mt-5">
               {info.map(([label,value])=><div key={label} className="rounded-xl bg-slate-50 p-4">
                 <dt className="text-xs text-console-muted">{label}</dt>
                 <dd className="mt-2 break-words text-sm font-medium text-console-ink">{value}</dd>
