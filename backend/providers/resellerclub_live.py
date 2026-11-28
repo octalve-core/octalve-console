@@ -10,7 +10,8 @@ from datetime import datetime,timezone as utc
 from decimal import Decimal,InvalidOperation
 import requests
 from django.views.decorators.debug import sensitive_variables
-from .cloudflare_int01 import require_domain,CloudflareINT01Denied
+from .registrar_names import require_standard_domain as require_domain
+from .cloudflare_int01 import CloudflareINT01Denied
 from .resellerclub_sandbox import ResellerClubUnavailable
 
 ORIGINS={"test":"https://api.sandbox.resellerclub.com/v2","live":"https://api.resellerclub.com/v2"}
@@ -244,8 +245,49 @@ class ResellerClub:
             raise ResellerClubUnavailable()
         return ident(result.get("eaqId"))
 
-    def change_nameservers(self,order,ns):
-        result=self._call("PUT","/domains/"+ident(order)+"/nameservers",body={"ns":nameservers(ns)})
+    def locks(self,order):
+        data=self._call("GET","/domains/"+ident(order)+"/locks")
+        if any(type(data.get(k)) is not bool for k in ("resellerLock","transferLock","customerLock")):
+            raise ResellerClubUnavailable()
+        return {k:data[k] for k in ("resellerLock","transferLock","customerLock")}
+
+    def email_otp(self,order,action):
+        if action not in ("modify-ns","modify-auth-code","modify-theft-protection"):
+            raise ResellerClubUnavailable()
+        return self._call("POST","/domains/"+ident(order)+"/domain-protection/"+action+"/email-otp").get("success") is True
+
+    @sensitive_variables("otp")
+    def otp_fields(self,otp,*,uppercase=False):
+        if otp is None:
+            return {}
+        if not isinstance(otp,str) or not re.fullmatch(r"[0-9]{4,10}",otp):
+            raise ResellerClubUnavailable()
+        return {"otp":otp,"twoFactorType":"EMAIL" if uppercase else "email"}
+
+    @sensitive_variables("otp")
+    def change_nameservers(self,order,ns,otp=None):
+        result=self._call("PUT","/domains/"+ident(order)+"/nameservers",body={"ns":nameservers(ns),**self.otp_fields(otp)})
+        if ident(result.get("entityId"))!=ident(order):
+            raise ResellerClubUnavailable()
+        return ident(result.get("eaqId"))
+
+    @sensitive_variables("otp")
+    def change_transfer_lock(self,order,enabled,otp=None):
+        if type(enabled) is not bool:
+            raise ResellerClubUnavailable()
+        result=self._call("PUT","/domains/"+ident(order)+"/theft-protection",
+            body={"enabled":enabled,**self.otp_fields(otp,uppercase=True)})
+        if ident(result.get("entityId"))!=ident(order):
+            raise ResellerClubUnavailable()
+        return ident(result.get("eaqId"))
+
+    @sensitive_variables("code","otp")
+    def change_auth_code(self,order,code,otp=None):
+        code=secret_code(code)
+        if not re.search(r"[A-Za-z]",code) or not re.search(r"[0-9]",code) or not re.search(r"[^A-Za-z0-9]",code):
+            raise ResellerClubUnavailable()
+        result=self._call("PUT","/domains/"+ident(order)+"/auth-code",
+            body={"authCode":code,**self.otp_fields(otp)})
         if ident(result.get("entityId"))!=ident(order):
             raise ResellerClubUnavailable()
         return ident(result.get("eaqId"))

@@ -33,7 +33,8 @@ from provisioning.authority import require_verified_settlement,SettlementNotVeri
 from providers.registrar_live_policy import ready,load,policy
 from providers.resellerclub_live import ResellerClub,ResellerClubUnavailable
 from providers.registrar_live_transport import request as registrar_request
-from providers.cloudflare_int01 import CloudflareINT01,FixedCloudflareTransport,CloudflareINT01Denied,require_domain
+from providers.cloudflare_int01 import CloudflareINT01,FixedCloudflareTransport,CloudflareINT01Denied
+from providers.registrar_names import require_standard_domain as require_domain
 from providers.connection_models import IntegrationConnection,IntegrationCredentialVersion
 from providers.connection_vault import VaultUnavailable
 from .models import Domain,TLDPricing
@@ -66,6 +67,9 @@ def cost_snapshot(price,domain):
         or route.get("revision")!=cost.get("revision") or price.register_price<=0):
         raise RegistrationRefused("Republish verified registrar pricing.")
     row,secret,adapter=connector(route)
+    require_domain(domain,row.adapter_key)
+    if price.is_premium or price.local_presence_required or price.requires_id_protection or price.requires_dnssec:
+        raise RegistrationRefused("Registry-specific requirements are not qualified.")
     proof=adapter.live_domain_check(domain)
     if (proof.get("name")!=domain or proof.get("registrable") is not True or proof.get("currency")!=cost["currency"]
         or Decimal(proof["registration_cost"])>Decimal(cost["registration_cost"])
@@ -78,7 +82,7 @@ def quote(user,name,operation="register"):
         raise RegistrationRefused("Verified customer and live checkout required.")
     name=require_domain(name)
     if name.count(".")!=1:
-        raise RegistrationRefused("Only registrable .com/.net names are supported.")
+        raise RegistrationRefused("Only reviewed standard generic domain extensions are supported.")
     gateway=PaymentGateway.objects.filter(code="paystack",status="active",test_mode=False).first()
     if not gateway or not resolve_live_key(gateway):
         raise RegistrationRefused("Live payment gateway unavailable.")
@@ -139,6 +143,8 @@ def accept(user,token,contact,auth_code=None):
         or str(price.transfer_price if operation=="transfer" else price.register_price)!=grant["retail"]):
         raise RegistrationRefused("Price changed. Request a new quote.")
     row,_=load(grant["route"])
+    require_domain(name,row.adapter_key)
+    if price.is_premium or price.local_presence_required or price.requires_id_protection or price.requires_dnssec: raise RegistrationRefused()
     if operation=="transfer" and row.adapter_key!="resellerclub": raise RegistrationRefused()
     if row.adapter_key=="resellerclub" and not policy(row):
         raise RegistrationRefused("Registrar authority unavailable.")
@@ -377,7 +383,9 @@ def checkout_readiness(user,name):
         if (not gateway or not resolve_live_key(gateway) or not isinstance(route,dict) or not isinstance(cost,dict)
             or route.get("revision")!=cost.get("revision") or price.register_price<=0):
             return {"available":False}
-        load(route)
+        row,_=load(route)
+        require_domain(name,row.adapter_key)
+        if price.is_premium or price.local_presence_required or price.requires_id_protection or price.requires_dnssec: return {"available":False}
         return {"available":True}
     except (ResellerClubUnavailable,CloudflareINT01Denied,VaultUnavailable,DatabaseError,KeyError,TypeError,ValueError,TLDPricing.DoesNotExist,
         IntegrationConnection.DoesNotExist,IntegrationCredentialVersion.DoesNotExist):

@@ -19,6 +19,7 @@ from .connection_vault import VaultUnavailable,unseal_version
 from .hosting_runtime import qualified_vault
 from .cloudflare_int01 import CloudflareINT01,FixedCloudflareTransport,CloudflareINT01Denied
 from .resellerclub_live import ResellerClub,nameservers,ResellerClubUnavailable
+from .registrar_names import STANDARD_TLDS
 
 ACTION="registrar_live_registration_policy_v1"
 
@@ -80,7 +81,7 @@ def configure(request,connection_id):
     headers={"Cache-Control":"private, no-store"}
     if request.method=="GET":
         return Response({"available":ready(),"registration_enabled":bool(ready() and approved(row)),
-            "supported_tlds":[".com",".net"],"manual_renewal":bool(row.adapter_key=="resellerclub" and ready() and approved(row)),"custom_nameservers":bool(row.adapter_key=="resellerclub" and ready() and approved(row)),
+            "supported_tlds":["."+t for t in STANDARD_TLDS] if row.adapter_key=="resellerclub" else [".com",".net"],"manual_renewal":bool(row.adapter_key=="resellerclub" and ready() and approved(row)),"custom_nameservers":bool(row.adapter_key=="resellerclub" and ready() and approved(row)),
             "contact_updates":False,"transfer_execution":bool(row.adapter_key=="resellerclub" and ready() and approved(row))},headers=headers)
     data=request.data
     fields={"confirm_password","totp_code","registration","dedicated_account"}

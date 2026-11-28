@@ -92,7 +92,7 @@ function RegistrarExecutionPolicy({connection}:{connection:DraftConnection}){
  const field="mt-1 min-h-11 w-full rounded-lg border border-console-line px-3 text-sm";
  return <form onSubmit={save} className="mt-3 space-y-2 rounded-lg border border-console-line bg-white p-3">
  <h4 className="text-sm font-medium">Live registration authority</h4>
- <p className="text-xs text-console-muted">One-year standard .com and .net orders only. Supplier billing and customer contact accuracy must be qualified. Enabling this allows independently paid orders to purchase real domains.</p>
+ <p className="text-xs text-console-muted">One-year reviewed standard generic domains (Cloudflare: .com/.net; ResellerClub: expanded generic extensions). Supplier billing and customer contact accuracy must be qualified. Enabling this allows independently paid orders to purchase real domains.</p>
  <label className="block text-xs">Registration policy<select name="operation" required className={field}><option value="disable">Disabled</option><option value="enable">Enable paid registration</option></select></label>
  {connection.adapter_key==="resellerclub"?<label className="block text-xs">Initial nameservers (comma-separated, at least two)<input name="nameservers" required placeholder="ns1.example.com, ns2.example.com" className={field}/></label>:null}
  <label className="flex gap-2 text-xs"><input name="dedicated" type="checkbox" required/>This is a dedicated registrar account controlled by Octalve; no competing out-of-band registration requests.</label>
