@@ -81,7 +81,8 @@ class VerifiedAccountReadbackTests(TestCase):
         self.provider.base_url = origin
         self.provider.save()
         self.service.provider_package_id = "basic"
-        self.service.save(update_fields=["provider_package_id"])
+        self.service.activated_at = timezone.now() - timedelta(minutes=30)
+        self.service.save(update_fields=["provider_package_id", "activated_at"])
         if directadmin:
             self.getter.return_value = vendor_response(DA_REPLY + "&package=basic")
         else:
