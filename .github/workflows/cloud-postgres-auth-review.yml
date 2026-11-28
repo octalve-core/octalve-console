@@ -214,7 +214,7 @@ jobs:
         run: python manage.py test accounts.tests accounts.test_privileged_mfa accounts.test_passkey_management accounts.test_passkey_recovery_readiness accounts.test_resource_identity --verbosity=2
       - name: BIZ-01 order and pending-invoice regression on disposable PostgreSQL
         working-directory: backend
-        run: python manage.py test orders.tests orders.test_shopping_cart billing.tests domains.test_pilot domains.test_launch_readiness payments.test_checkout_webhooks payments.test_sandbox_lifecycle payments.test_readback provisioning.test_paid_funnel provisioning.test_hosting_vendor_protocol providers.test_hosting_configured_egress opanel_bridge.test_readback services.test_usage_sync services.test_resource_management --verbosity=2
+        run: python manage.py test orders.tests orders.test_shopping_cart billing.tests domains.test_pilot domains.test_dns_authority domains.test_launch_readiness payments.test_checkout_webhooks payments.test_sandbox_lifecycle payments.test_readback provisioning.test_paid_funnel provisioning.test_hosting_vendor_protocol providers.test_hosting_configured_egress opanel_bridge.test_readback services.test_usage_sync services.test_resource_management --verbosity=2
       - name: Batch 13.2 verified points race and margin guards on disposable PostgreSQL
         working-directory: backend
         run: python manage.py test rewards.test_financial_qualification --verbosity=2

@@ -71,6 +71,11 @@ class DomainViewSet(ResourceIdentityLookupMixin, viewsets.ModelViewSet):
         from .external_dns_claims import verify_claim
         return verify_claim(request)
 
+    @action(detail=True, methods=['get'], url_path='dns-authority')
+    def dns_authority(self, request, pk=None):
+        from .dns_authority import check
+        return check(request,self.get_object())
+
     @action(detail=True, methods=['get'], url_path='dns-access')
     def dns_access(self, request, pk=None):
         from . import dns_readonly

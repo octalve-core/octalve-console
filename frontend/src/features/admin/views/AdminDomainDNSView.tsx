@@ -7,6 +7,7 @@ import {ArrowLeft,ShieldCheck,Globe2} from "lucide-react";
 import {DashboardShell} from "@/components/layout/DashboardShell";
 import {DashboardPage} from "@/components/layout/DashboardPage";
 import {Panel} from "@/components/design-system/Panel";
+import {DNSAuthorityCheck} from "@/components/domain/DNSAuthorityCheck";
 import {api} from "@/lib/api/client";
 import type {LiveDomainDNS} from "@/lib/api/endpoints";
 import {CloudRecordDirectory,type CloudRecord} from "@/components/data/CloudRecordDirectory";
@@ -94,6 +95,7 @@ export function AdminDomainDNSView(){
         </Link>
         {loading?<Panel><p className="text-sm text-console-muted">Checking domain access…</p></Panel>:null}
         {message?<Panel><p role={failure?"alert":"status"} className="text-sm text-console-ink">{message}</p></Panel>:null}
+        {domain&&<DNSAuthorityCheck key={id} domainId={id} domainName={domain.domain_name}/>}
         {domain&&access?<Panel>
           <div className="flex items-center gap-3">
             <Globe2 className="h-5 w-5 text-console-primary" aria-hidden="true"/>
