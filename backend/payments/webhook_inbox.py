@@ -61,6 +61,13 @@ def accept_signed_event(gateway_code, raw_body, headers):
         return None, False
     if not gateway_can_read(gateway, intent.invoice):
         raise WebhookRejected("Payment provider is unavailable for this invoice.")
+    # Live evidence is explicitly mode- and vault-binding-scoped. Preserve
+    # historical test evidence shape and fingerprint.
+    live = gateway_code=="paystack" and not gateway.test_mode
+    if live and getattr(settings,"CLOUD_LIVE_PAYSTACK_RECONCILIATION_ENABLED",False):
+        from .live_binding import resolve_live_key
+        if body.get("domain")!="live" or not resolve_live_key(gateway):
+            raise WebhookRejected("Live notification authority is unavailable.")
     fingerprint = hashlib.sha256(
         f"{gateway.code}|{event}|{reference}|{remote_id}".encode("utf-8")).hexdigest()
     # Only minimal non-sensitive evidence is persisted. No raw payload/card,
@@ -72,7 +79,7 @@ def accept_signed_event(gateway_code, raw_body, headers):
             event_id="cloud_" + fingerprint,
             defaults={"gateway": gateway, "event_type": event,
                       "payload": {"intent_id": intent.pk, "reference": reference,
-                                  "remote_id": str(remote_id)},
+                                  "remote_id": str(remote_id), **({"mode":"live","binding":gateway.config} if live and getattr(settings,"CLOUD_LIVE_PAYSTACK_RECONCILIATION_ENABLED",False) else {})},
                       "headers": {}, "is_verified": True, "is_processed": False})
         if saved.gateway_id != gateway.pk or not saved.is_verified:
             raise WebhookRejected("Conflicting webhook event identity.")
